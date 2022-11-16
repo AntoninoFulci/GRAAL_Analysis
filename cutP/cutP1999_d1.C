@@ -1,7 +1,3 @@
-
-//========= Macro generated from object: CUTG/Graph
-//========= by ROOT version6.22/08
- 
 TCutG *myProtonCentrCut_1999_d1(){
    
    TCutG *cutg = new TCutG("CUTG",39);
