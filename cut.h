@@ -5,6 +5,7 @@
 
 #include "TCutG.h"
 #include "cutP/cutP1998_uv.C"
+#include "cutP/cutP1999_d1.C"
 #include "cutP/cutP1999_d2.C"
 #include "cutP/cutP1999_uv.C"
 #include "cutP/cutP1999_vis.C"
@@ -30,6 +31,7 @@ TCutG *myProtonCentrCut(string cartella){
   // cout<<"Il nome della cartella del cut è: "<<cartella<<endl;
   map<string, TCutG*> ProtonCut;
   ProtonCut["1998_uv"] = myProtonCentrCut_1998_uv();
+  ProtonCut["1999_d1"] = myProtonCentrCut_1999_d1();
   ProtonCut["1999_d2"] = myProtonCentrCut_1999_d2();
   ProtonCut["1999_uv"] = myProtonCentrCut_1999_uv();
   ProtonCut["1999_vis"] = myProtonCentrCut_1999_vis();
