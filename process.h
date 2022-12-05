@@ -7,6 +7,7 @@
 
 void Analysis::process(TTree *alb, string root_file, string cartella){
 
+  
   //Funzione di inizializzazione dell'albero passato
   Analysis::Init(alb);
 
@@ -44,9 +45,9 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
   TLorentzVector beam;
 
   tree->Branch("beam",    "TLorentzVector", &beam);
-  tree->Branch("idrun",   &idrun, "idrun/I");
-  tree->Branch("idevt",   &idevt, "idevt/I");
-  tree->Branch("ipol",    &ipol,  "ipol/I");
+  tree->Branch("idrun",   &idrun, "idrun/I");   // numero del run
+  tree->Branch("idevt",   &idevt, "idevt/I");   // numero dati dell'evento 
+  tree->Branch("ipol",    &ipol,  "ipol/I");    // polarizzazione del fascio: 0 verticale, 1 orizzontale, 2 bremsstrahlung 
   tree->Branch("cphoton", &cphoton);
   // tree->Branch("cproton", &cproton);
   tree->Branch("proton",  &proton);
@@ -111,6 +112,8 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
         }
       }
     }
+    
+     
     //ciclo su tutte le traccie delle particelle in avanti
     for(int i =0; i< Nparf; i++) {
       //cout<<i<<"  "<<Nparf<<"----"<< int(Index_trf[Nparf])<<endl;
@@ -148,7 +151,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
 
         // if(index==6||index==7){//particelle cariche, quelle per le quali tutti i rivelatori sensibili ai carichi hanno sparato
 
-        ddxtof_fow->Fill(Tof_trf[i],De_trf[i]);
+        
 
         if(ProtonForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei protoni in avanti
           if(index==5) {
@@ -190,7 +193,8 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
     //cout<<contapro<<endl;
     tree->Fill(); //e qui stampare il tree in modo che fotografa il vettore di photon!!
   }
-
+ 
+ 
   dati->Write();
   dati->Close();
 
