@@ -1,0 +1,44 @@
+TCutG *myProtonForwCut_2002_uv1(){ 
+   // cout<<"Il taglio 2002_uv1 è stato caricato"<<endl;
+
+   TCutG *cutg = new TCutG("CUTG",34);
+   cutg->SetVarX("Tof_trf[0]");
+   cutg->SetVarY("De_trf[0]");
+   cutg->SetTitle("Graph");
+   cutg->SetFillStyle(1000);
+   cutg->SetPoint(0,12.1054,11.0062);
+   cutg->SetPoint(1,14.7928,14.7183);
+   cutg->SetPoint(2,16.7835,19.5492);
+   cutg->SetPoint(3,18.5893,23.6681);
+   cutg->SetPoint(4,20.9212,29.4143);
+   cutg->SetPoint(5,23.2815,36.686);
+   cutg->SetPoint(6,25.6277,46.1442);
+   cutg->SetPoint(7,26.7225,54.3821);
+   cutg->SetPoint(8,27.5899,62.2132);
+   cutg->SetPoint(9,28.5568,64.4506);
+   cutg->SetPoint(10,30.0102,63.2494);
+   cutg->SetPoint(11,31.4006,53.3651);
+   cutg->SetPoint(12,32.8023,46.5364);
+   cutg->SetPoint(13,33.8889,42.6864);
+   cutg->SetPoint(14,35.8654,36.686);
+   cutg->SetPoint(15,38.5954,28.6006);
+   cutg->SetPoint(16,40.6287,22.8036);
+   cutg->SetPoint(17,44.2404,17.3626);
+   cutg->SetPoint(18,46.6007,13.447);
+   cutg->SetPoint(19,44.8945,12.1249);
+   cutg->SetPoint(20,40.9984,15.5319);
+   cutg->SetPoint(21,38.0978,21.99);
+   cutg->SetPoint(22,33.8889,32.1602);
+   cutg->SetPoint(23,30.9883,41.3134);
+   cutg->SetPoint(24,29.5216,48.3614);
+   cutg->SetPoint(25,28.9283,48.8416);
+   cutg->SetPoint(26,28.4146,48.5342);
+   cutg->SetPoint(27,26.879,39.8896);
+   cutg->SetPoint(28,24.6466,30.2279);
+   cutg->SetPoint(29,19.7837,18.8881);
+   cutg->SetPoint(30,15.4184,11.7181);
+   cutg->SetPoint(31,12.2902,8.00597);
+   cutg->SetPoint(32,11.821,10.4977);
+   cutg->SetPoint(33,12.1054,11.0062);
+   return cutg;
+}
