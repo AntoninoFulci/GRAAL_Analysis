@@ -6,11 +6,11 @@ Utilizzo:
   3) istanziare la classe "Analysis o"
   4) utilizzare la funzione ProcessAll ("o.ProcessAll()")
 
-########################################################################################################
-Codice Analisi GRAAL v1.05
+########################################################################################
+Codice Analisi GRAAL v1.06
 - sistemazione tagli dei protoni in avanti.
 - aggiunta del taglio degli eventi di tipo deuterio da un fit sugli eventi Tof vs dE_dx. IL taglio è differenziato in base al nome della cartella di lavoro.
-################################################################################
+########################################################################################
 Codice Analisi GRAAL v1.05
 Changelog:
 - adesso il codice sceglie il giusto taglio in base alla cartella scelta
