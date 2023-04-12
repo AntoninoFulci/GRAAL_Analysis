@@ -8,7 +8,7 @@ Utilizzo:
 
 ########################################################################################
 Codice Analisi GRAAL v1.06
-- sistemazione dei tagli dei protoni in avanti.
+- aggiunta tagli dei protoni in avanti, differenziati in base al nome della cartella di lavoro.
 - aggiunta tagli eventi di tipo deuterio, differenziati in base al nome della cartella di lavoro.
 
 ########################################################################################
