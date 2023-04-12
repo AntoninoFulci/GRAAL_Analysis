@@ -9,7 +9,7 @@ Utilizzo:
 ################################################################################
 Codice Analisi GRAAL v1.05
 - sistemazione tagli dei protoni in avanti.
--aggiunta del taglio degli eventi di tipo deuterio da un fit sugli eventi Tof vs dE_dx. IL taglio è differenziato in base al nome della cartella di lavoro.
+- aggiunta del taglio degli eventi di tipo deuterio da un fit sugli eventi Tof vs dE_dx. IL taglio è differenziato in base al nome della cartella di lavoro.
 ################################################################################
 Codice Analisi GRAAL v1.05
 Changelog:
