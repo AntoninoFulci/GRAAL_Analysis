@@ -23,13 +23,10 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
   TCutG *PionCentrCut     = myPionCentrCut();
   TCutG *ProtonForwCut    = myProtonForwCut(cartella);
   TCutG *PionForwCut      = myPionForwCut();
+  TF1 *FitForwDeu = CutDeuForw(cartella);
   
-  string str;  // domando se ci sono o no i deuteroni a seconda del nome della cartella
-  double *ParDeuFit;   // mi prendo i parametri del fit del taglio dei deuteroni
-  double *RangeDeuFit;  // Range del fit del taglio dei deuteroni
+  TF1 *f = CutDeuForw(cartella);
   
-  tie(str, ParDeuFit, RangeDeuFit) = FitCutForwDeu(cartella);
-
   TH2D *protondxE         = new TH2D("protondxE","protondxE",100,0,1.2,100,0,20);
   TH2D *protondxEsoloPro  = new TH2D("protondxEsoloPro","protondxEsoloPro",100,0,1.2,100,0,20);
   TH2D *protondxEsoloPio  = new TH2D("protondxEsoloPio","protondxEsoloPio",100,0,1.2,100,0,20);
@@ -171,15 +168,11 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
           }
         
         
-        if(str == "deuteroni si"){
+              
                
-                 TF1 *CutDeuFit = new TF1("CutDeuFit","[0]*pow(x,2)+[1]*x+[2]");
-                 CutDeuFit->SetParameters(ParDeuFit);
-                 CutDeuFit->SetRange(RangeDeuFit[0],RangeDeuFit[1]);   
-                     
-                   if((Tof_trf[i]>RangeDeuFit[0] && Tof_trf[i]<RangeDeuFit[1]) && (CutDeuFit->Eval(Tof_trf[i])<De_trf[i])){
+                   if(FitForwDeu->Eval(Tof_trf[i])<De_trf[i]){
                   
-                       double beta     = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
+                       double beta = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
 
          		   if((1-beta*beta)>0) {
 			     TLorentzVector CandidatefDeuteron;
@@ -192,8 +185,9 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
                            }
               
                       }
-                 }
-
+                 
+        
+     
         if(ProtonForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei protoni in avanti
 
           double beta     = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
@@ -209,6 +203,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
           }
 
         }
+        
         if(PionForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei pioni in avanti
           pair<double,double> tempangle;
           tempangle.first=Theta_trf[i];
