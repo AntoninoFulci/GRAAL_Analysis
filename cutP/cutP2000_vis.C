@@ -1,4 +1,4 @@
-TCutG *myProtonCentrCut_2000_vis(){ 
+TCutG *myProtonForwCut_2000_vis(){ 
   //  cout<<"Il taglio 2000_vis è stato caricato"<<endl;
 
    

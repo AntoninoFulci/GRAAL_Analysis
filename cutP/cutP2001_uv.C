@@ -1,4 +1,4 @@
-TCutG *myProtonCentrCut_2001_uv(){ 
+TCutG *myProtonForwCut_2001_uv(){ 
    // cout<<"Il taglio 2001_uv è stato caricato"<<endl;
    
    TCutG *cutg = new TCutG("CUTG",52);

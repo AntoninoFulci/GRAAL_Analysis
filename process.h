@@ -14,15 +14,19 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
   //Inizio algoritmo
   double RMP    = 0.9382720813;
   double RMN    = 0.9395654133;
+  double RMD = 1.877;
   double CLIGHT = 29979245800.; //! cm/sec
   double DIST_WALL;
   double percent = 10.0;
 
-  TCutG *ProtonCentrCut   = myProtonCentrCut(cartella);
+  TCutG *ProtonCentrCut   = myProtonCentrCut();
   TCutG *PionCentrCut     = myPionCentrCut();
-  TCutG *ProtonForwCut    = myProtonForwCut();
+  TCutG *ProtonForwCut    = myProtonForwCut(cartella);
   TCutG *PionForwCut      = myPionForwCut();
-
+  TF1 *FitForwDeu = CutDeuForw(cartella);
+  
+  TF1 *f = CutDeuForw(cartella);
+  
   TH2D *protondxE         = new TH2D("protondxE","protondxE",100,0,1.2,100,0,20);
   TH2D *protondxEsoloPro  = new TH2D("protondxEsoloPro","protondxEsoloPro",100,0,1.2,100,0,20);
   TH2D *protondxEsoloPio  = new TH2D("protondxEsoloPio","protondxEsoloPio",100,0,1.2,100,0,20);
@@ -41,6 +45,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
   vector<pair<double,double> > fphotonangles;
   // vector<TLorentzVector> fproton;
   vector<TLorentzVector> fneutron;
+  vector<TLorentzVector> fDeuteron;
   
   TLorentzVector beam;
 
@@ -55,6 +60,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
   tree->Branch("fneutron",&fneutron);
   tree->Branch("pionangles",    &pionangles);
   tree->Branch("fphotonangles", &fphotonangles);
+  tree->Branch("fDeuteron",&fDeuteron);
 
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
@@ -72,6 +78,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
     fneutron.clear();
     pionangles.clear();
     fphotonangles.clear();
+    fDeuteron.clear();
 
 
     // if (Cut(ientry) < 0) continue;
@@ -151,9 +158,6 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
 
         // if(index==6||index==7){//particelle cariche, quelle per le quali tutti i rivelatori sensibili ai carichi hanno sparato
 
-        
-
-        if(ProtonForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei protoni in avanti
           if(index==5) {
                   DIST_WALL = 335.; //in cm
           }
@@ -162,6 +166,29 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
                   //the distance for tof is the OW
                   DIST_WALL = 301.53;
           }
+        
+        
+              
+               
+                   if(FitForwDeu->Eval(Tof_trf[i])<De_trf[i]){
+                  
+                       double beta = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
+
+         		   if((1-beta*beta)>0) {
+			     TLorentzVector CandidatefDeuteron;
+			     double gamma = 1./sqrt(1-beta*beta);
+			     double ENE_FDEUTERON = gamma* RMD; //energia totale
+			     double Pfdeu = sqrt(ENE_FDEUTERON*ENE_FDEUTERON-RMD*RMD);
+			     CandidatefDeuteron.SetPxPyPzE(Pfdeu*sin(Theta_trf[i]/180.*M_PI)*cos(Phi_trf[i]/180.*M_PI), Pfdeu*sin(Theta_trf[i]/180.*M_PI)*sin(Phi_trf[i]/180.*M_PI), 			Pfdeu*cos(Theta_trf[i]/180.*M_PI),ENE_FDEUTERON);
+			    fDeuteron.push_back(CandidatefDeuteron); 
+                  
+                           }
+              
+                      }
+                 
+        
+     
+        if(ProtonForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei protoni in avanti
 
           double beta     = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
 
@@ -176,6 +203,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
           }
 
         }
+        
         if(PionForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei pioni in avanti
           pair<double,double> tempangle;
           tempangle.first=Theta_trf[i];

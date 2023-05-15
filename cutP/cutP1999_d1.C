@@ -1,4 +1,4 @@
-TCutG *myProtonCentrCut_1999_d1(){
+TCutG *myProtonForwCut_1999_d1(){
    
    TCutG *cutg = new TCutG("CUTG",39);
    cutg->SetVarX("Tof_trf[0]");

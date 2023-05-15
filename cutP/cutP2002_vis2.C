@@ -1,4 +1,4 @@
-TCutG *myProtonCentrCut_2002_vis2(){ 
+TCutG *myProtonForwCut_2002_vis2(){ 
    // cout<<"Il taglio 2002_vis2 è stato caricato"<<endl;
 
    
