@@ -118,10 +118,10 @@ void Analysis::CreateFolder(string f_path, bool debug = 0){
 void Analysis::Setter(){
 
   cout<<"Setto l'enviroment per analizzare i dati..."<<endl;
-  // gErrorIgnoreLevel = 6001;
-  // gSystem->RedirectOutput("/dev/null");
+  gErrorIgnoreLevel = 6001;
+  gSystem->RedirectOutput("/dev/null");
   gROOT->ProcessLine(".L Loader.C+");
-  // gSystem->RedirectOutput(0,0);
+  gSystem->RedirectOutput(0,0);
 
 }
 
