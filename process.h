@@ -169,7 +169,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
         
         
               
-               
+                if(cartella!="2005_d1"){  // non ci sono deuteroni in avanti nei dati contenuti in questa cartella
                    if(FitForwDeu->Eval(Tof_trf[i])<De_trf[i]){
                   
                        double beta = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
@@ -185,9 +185,9 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
                            }
               
                       }
-                 
+		 }
         
-     
+     if(cartella!="2005_d1"){  // non ci sono protoni in avanti nei dati contenuti in questa cartella
         if(ProtonForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei protoni in avanti
 
           double beta     = DIST_WALL/(Tof_trf[i]*CLIGHT*1.E-09);
@@ -203,6 +203,7 @@ void Analysis::process(TTree *alb, string root_file, string cartella){
           }
 
         }
+      }	     
         
         if(PionForwCut->IsInside(Tof_trf[i], De_trf[i])) { //regno dei pioni in avanti
           pair<double,double> tempangle;
