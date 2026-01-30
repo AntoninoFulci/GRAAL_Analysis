@@ -1,0 +1,1 @@
+Codice analisi graal aggiornato al 14 Nov 2025 come mandato da Antonio Riggio.

@@ -1,0 +1,144 @@
+/*
+if(fneutron.size()==1 && proton.size()==0 && fDeuteron.size()==0){
+  TLorentzVector *n=fneutron.data();
+  if(cutg2->IsInside(beam.E(),n[0].Theta()*TMath::RadToDeg())){
+   scrivimi<<beam.E()<<endl;
+   tree->Fill();
+  }
+}
+*/
+/*
+// taglio che seleziona gli eventi di fotoproduzione di etaprimo su protone libero sotto la soglia o nell'interavallo 1.433-1.447(cambiare la condizione dell'if)
+if(fneutron.size()==1 && proton->size()==0 && fDeuteron.size()==0){
+ //TLorentzVector *p=proton.data();
+ if(Eg_tag_strip[0]>=1.433 && Eg_tag_strip[0]<=1.447){
+    tree->Fill();
+ }
+}
+*/
+
+/*
+// taglio Eg vs Theta protone che seleziona gli eventi di fotoproduzione di etaprimo su protone libero sopra la soglia
+ if(proton.size()==1 && fneutron.size()==0 && fDeuteron.size()==0){
+  TLorentzVector *p=proton.data();
+  if(cutg3->IsInside(beam.E(),p[0].Theta()*TMath::RadToDeg())){
+    tree->Fill();
+  }
+ }
+*/
+
+/*
+//taglio Eg vs Theta del neutrone che seleziona gli eventi di etaprimo su neutrone legato nel deuterio sotto la soglia
+if(fneutron.size()==1 && proton.size()==0 && fDeuteron.size()==0){
+  TLorentzVector *n=fneutron.data();
+  if(cutg2->IsInside(beam.E(),n[0].Theta()*TMath::RadToDeg())){
+     tree->Fill();
+  }
+}
+*/
+
+/*
+  if(cutg->IsInside(beam.E(),p[0].Theta()*TMath::RadToDeg())){
+    tree->Fill();
+  }
+*/
+
+// taglio che seleziona soltanto gli eventi con un protone e 4 fotoni centrali
+/*
+if(proton.size()==1 && cphoton.size()==4){
+ TLorentzVector *p=proton.data();
+ tree->Fill();
+}
+*/
+
+/*
+if(fneutron.size()==1 && cphoton.size()>=2){
+  scrivimi<<beam.E()<<endl;
+  tree->Fill();
+}
+*/
+
+/*
+ // taglio Eg vs Theta neutrone per filtrare gli eventi del canale di fotoproduzione di etaprimo su neutrone legato nel deuterio(per ridurre il peso delle rootople)
+if(fneutron.size()==1){
+  TLorentzVector *n=fneutron.data();
+  if(cutg2->IsInside(beam.E(),n[0].Theta()*TMath::RadToDeg())){
+    tree->Fill();
+  }
+}
+*/
+
+ /*
+// taglio che seleziona soltanto gli eventi con un deutone come unica particella carica emessa in avanti(la rootopla in output verrà analizzato per investigare i canali di fotoproduzione coherent di Omega su deuterio e rho su deuterio)
+if(fDeuteron.size()==1 && proton.size()==0 && fneutron.size()==0){
+  tree->Fill();
+}
+*/
+
+/*
+ // selezione dei soli eventi con un deutone in avanti nello stato finale  e 2 fotoni centrali(la rootopla in output servirà ad investigare il canale di fotoproduzione coherente di eta su deuterio)
+if(fDeuteron.size()==1 && proton.size()==0 && fneutron.size()==0 && cphoton.size()==2){
+  tree->Fill();
+}
+*/
+
+/*
+// selezione dei soli eventi con un deutone i avanti nello stato finale e 4 fotoni centrali(la rootopla in output verrà analizzata per investigare i canali di fotoproduzione di eta e pi0 su deuterio e doppio pi0 su deuterio)
+if(fDeuteron.size()==1 && proton.size()==0 && fneutron.size()==0 && cphoton.size()==4){
+  tree->Fill();
+}
+*/
+
+/*
+// taglio che seleziona soltanto gli eventi con un protone in avanti e 4 fotoni centrali con la  sostituzione della massa del protone rivelato con quella del deuterio
+if(proton.size()==1 && fneutron.size()==0 && cphoton.size()==4 && fDeuteron.size()==0){
+  tree->Fill();
+}
+*/
+
+/*
+// selezioniamo soltanto gli eventi con una particella carica in avanti e 4 particelle neutre centrali
+if(fch==1 && cphoton.size()==4 && fneutron.size()==0 && fphotonangles.size()==0 && pionangles.size()==0){
+  tree->Fill();
+}
+*/
+
+/*
+//if(cphoton.size()==4 && pionangles.size()==0 && fneutron.size()==0 && ((fch+ccharged.size())==1)){
+  //tree->Fill();
+//}
+*/
+
+/*
+// selezione eventi di con 4 fotoni centrali e un protone e un neutrone in avanti(reazione di break-up du deuterio con produzione di 2 pioni neutri)
+if(cphoton.size()==4 && fneutron.size()==1 && proton.size()==1){
+  tree->Fill();
+}
+*/
+
+/*
+if(cphoton.size()==4 && fDeuteron.size()==1){
+   tree->Fill();
+}
+*/
+/*
+if(proton.size()==1){
+  tree->Fill();
+}
+*/
+/*
+if(fDeuteron.size()==1){
+  tree->Fill();
+}
+*/
+/*
+if(fneutron.size()==1 && proton.size()==0){
+ TLorentzVector *n = fneutron.data();
+ if(Eg_tag_strip[0]>=1.446){
+  if(CutEgThN->IsInside(Eg_tag_strip[0],n[0].Theta()*TMath::RadToDeg())){
+   tree->Fill();
+   scrivimi<<beam.E()<<endl;
+  }
+ }
+}
+*/
