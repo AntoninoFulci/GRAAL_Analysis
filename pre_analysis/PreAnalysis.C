@@ -30,6 +30,8 @@ void PreAnalysis::Loop(std::string output_file) {
    double RMD = 1.877;
    double CLIGHT = 29979245800.; //! cm/sec
    double DIST_WALL;
+   int Polarization;
+   int RunNumber;
 
    // Create output file and tree
    TFile *dati = new TFile(output_file.c_str(), "RECREATE");
@@ -54,6 +56,13 @@ void PreAnalysis::Loop(std::string output_file) {
    vector<double> deuterons_theta;
    vector<double> deuterons_phi;
 
+   // charged (Forward)
+   vector<double> fcharged_theta;
+   vector<double> fcharged_phi;
+   vector<double> fcharged_beta;
+   vector<double> fcharged_tof;
+   vector<double> fcharded_de;
+   
 
    // Output branches
    output_tree->Branch("beam",    "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >", &beam);
@@ -69,7 +78,14 @@ void PreAnalysis::Loop(std::string output_file) {
    output_tree->Branch("pions_phi",   "vector<double>", &pions_phi);
    output_tree->Branch("deuterons_theta", "vector<double>", &deuterons_theta);
    output_tree->Branch("deuterons_phi",   "vector<double>", &deuterons_phi);
+   output_tree->Branch("fcharged_theta",   "vector<double>", &fcharged_theta);
+   output_tree->Branch("fcharged_phi",   "vector<double>", &fcharged_phi);
+   output_tree->Branch("fcharged_beta",   "vector<double>", &fcharged_beta);
+   output_tree->Branch("fcharged_tof",   "vector<double>", &fcharged_tof);
+   output_tree->Branch("fcharded_de",   "vector<double>", &fcharded_de);
 
+   output_tree->Branch("Polarization", &Polarization, "Polarization/I");
+   output_tree->Branch("RunNumber", &RunNumber, "RunNumber/I");
    // Check to see if we have a chain
    if (fChain == nullptr) {
       std::cerr << "PreAnalysis::Loop - fChain is null, nothing to do." << std::endl;
@@ -99,8 +115,13 @@ void PreAnalysis::Loop(std::string output_file) {
       pions_phi.clear();   // Clear new vectors
       deuterons_theta.clear(); // Clear new vectors
       deuterons_phi.clear();   // Clear new vectors
-      
+      fcharged_theta.clear();
+      fcharged_phi.clear();
+      fcharged_beta.clear();
+
       beam.SetPxPyPzE(0., 0., Eg_tag_strip[0], Eg_tag_strip[0]);
+      Polarization = int(Ipol);
+      RunNumber    = Idrun;
 
       // Central Tracks Loop
       for (int i = 0; i < Nass_3; ++i) {
@@ -216,13 +237,18 @@ void PreAnalysis::Loop(std::string output_file) {
                DIST_WALL = 301.53;
             }
 
-            if ( Idrun > 4577 && Idrun < 4606) { // 2005_d1 run range
-               
+            if (!( Idrun > 4577 && Idrun < 4606)) { // 2005_d1 run range
+                  double beta    = DIST_WALL / (Tof_trf[i] * CLIGHT * 1.E-09);
+                  fcharged_theta.push_back(Theta_trf_rad);
+                  fcharged_phi.push_back(Phi_trf_rad);
+                  fcharged_beta.push_back(beta);
+                  fcharged_tof.push_back(Tof_trf[i]);
+                  fcharded_de.push_back(De_trf[i]);
+
                // Proton Forward Region
                TCutG *ProtonFwdCut = GetCut("Proton", "Fwd", Idrun, false);
                if (ProtonFwdCut != nullptr && ProtonFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
 
-                  double beta    = DIST_WALL / (Tof_trf[i] * CLIGHT * 1.E-09);
                   if ((1 - beta * beta) > 0) {
                      ROOT::Math::PxPyPzEVector CandidatefProton;
                      double gamma        = 1. / sqrt(1 - beta * beta);
@@ -251,7 +277,6 @@ void PreAnalysis::Loop(std::string output_file) {
                // Deuteron Forward Region
                TCutG *DeuteronCut = GetCut("Deuteron", "Fwd", Idrun, false);
                if (DeuteronCut  != nullptr && DeuteronCut ->IsInside(Tof_trf[i], De_trf[i])) {
-                  double beta = DIST_WALL / (Tof_trf[i] * CLIGHT * 1.E-09);
                   
                   // Deuteron Angle Candidate (Forward)
                   deuterons_theta.push_back(Theta_trf[i]); // PUSH THETA
@@ -301,7 +326,7 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
 
    // Branches to enable (Verified complete list)
    std::vector<std::string> branches{"Eg_tag_strip",
-      "Idrun", "Nass_3", "Thet_centr_track", "Phi_centr_track", "Itipo_track", "Eclusc_track", 
+      "Idrun","Ipol", "Nass_3", "Thet_centr_track", "Phi_centr_track", "Itipo_track", "Eclusc_track", 
       "Dedx_track", 
       "Nparf",      
       "Theta_trf", "Phi_trf", 
@@ -320,6 +345,8 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
 
 void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
                 const std::string &base_out = "/data/graal/pre_analisi") {
+//void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data_runme",
+//                const std::string &base_out = "/data/graal/pre_analisi") {
    // One output ROOT file per subdirectory:
    // /data/graal/pre_analisi/pre_analisi_<run_name>.root
 
@@ -331,6 +358,7 @@ void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
    PrintCutMap();
 
    TSystemDirectory baseDir("graal_data", base_in.c_str());
+//   TSystemDirectory baseDir("graal_data_runme", base_in.c_str());
    TList *entries = baseDir.GetListOfFiles();
    if (!entries) {
       std::cerr << "AnalyzeAll: cannot list directory: " << base_in << std::endl;
