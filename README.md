@@ -1,10 +1,9 @@
 # GRAAL Analysis
 
-This repository contains analysis code for the GRAAL (Gamma Ray Astronomy at ALPS) experiment, focusing on gamma-ray physics and nuclear reactions.
+This repository contains analysis code for the GRAAL experiment.
 
 ## Overview
-
-GRAAL was a nuclear physics experiment studying gamma-ray production in light nuclei. This codebase provides tools for processing raw detector data, performing particle identification, and reconstructing physics events using the ROOT framework.
+This codebase provides tools for processing raw data, performing particle identification, and reconstructing physics events using the ROOT framework.
 
 ## Repository Structure
 
