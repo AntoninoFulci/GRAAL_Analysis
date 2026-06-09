@@ -422,9 +422,6 @@ void PreAnalysis::EnableOnly(TChain *tree, const std::vector<std::string>& branc
     for (const auto& branchName : branchNames) {
         tree->SetBranchStatus(branchName.c_str(), 1);
     }
-
-   //  tree->SetBranchStatus("*", 1);
-
 }
 
 PreAnalysis::~PreAnalysis()

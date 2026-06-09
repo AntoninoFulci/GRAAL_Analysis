@@ -94,15 +94,12 @@ void PreAnalysis::Loop(std::string output_file) {
    }
 
    Long64_t nentries = fChain->GetEntriesFast();
-   Long64_t nbytes   = 0;
-   Long64_t nb       = 0;
-   
+
    for (Long64_t jentry = 0; jentry < nentries; ++jentry) {
 
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
-      nb = fChain->GetEntry(jentry);
-      nbytes += nb;
+      fChain->GetEntry(jentry);
 
       // Clear all vectors at the start of the event
       gammas.clear();
@@ -118,6 +115,8 @@ void PreAnalysis::Loop(std::string output_file) {
       fcharged_theta.clear();
       fcharged_phi.clear();
       fcharged_beta.clear();
+      fcharged_tof.clear();
+      fcharded_de.clear();
 
       beam.SetPxPyPzE(0., 0., Eg_tag_strip[0], Eg_tag_strip[0]);
       Polarization = int(Ipol);
@@ -168,25 +167,6 @@ void PreAnalysis::Loop(std::string output_file) {
                   pions_theta.push_back(Thet_centr_track[i]); // PUSH THETA
                   pions_phi.push_back(Phi_centr_track[i]);     // PUSH PHI                 
                } 
-               else {
-                  // generic charged candidate (store as charged but not as proton)
-                  // Note: This logic seems to calculate a proton 4-vector and then discard it.
-                  // If you intended to save this as a generic charged particle, you'll need
-                  // another vector for it. Keeping original logic here (calculation only).
-                  double Etotpro = Eclusc_track[i] + RMP;
-                  double Ppro_sq = Etotpro * Etotpro - RMP * RMP;
-                  if (Ppro_sq >= 0) {
-                      ROOT::Math::PxPyPzEVector CandidateProton;
-                      double Ppro = sqrt(Ppro_sq);
-                      CandidateProton.SetPxPyPzE(
-                         Ppro * sin(Theta_centr_track_rad) * cos(Phi_centr_track_rad),
-                         Ppro * sin(Theta_centr_track_rad) * sin(Phi_centr_track_rad),
-                         Ppro * cos(Theta_centr_track_rad),
-                         Etotpro);
-                      // If you want to save this:
-                      // generic_charged.push_back(CandidateProton);
-                  }
-               }
             }
          }
       }
@@ -314,11 +294,6 @@ void PreAnalysis::Loop(std::string output_file) {
 // Convenience wrapper to run the analysis from ROOT
 void PreAnalysis(string input = "", string output = "pre_analisi.root") {
 
-   // BuildCutMap("./graal_data/", "./cuts");
-   // PrintCutMap();
-
-   // string files = "/Users/tonyf/Work/GRAAL/Analisi/graal_data/*/*.root";
-
    if (input == "") {
       std::cerr << "!!! PreAnalysis: No input files specified." << std::endl;
       return;
@@ -345,8 +320,6 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
 
 void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
                 const std::string &base_out = "/data/graal/pre_analisi") {
-//void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data_runme",
-//                const std::string &base_out = "/data/graal/pre_analisi") {
    // One output ROOT file per subdirectory:
    // /data/graal/pre_analisi/pre_analisi_<run_name>.root
 
@@ -358,7 +331,6 @@ void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
    PrintCutMap();
 
    TSystemDirectory baseDir("graal_data", base_in.c_str());
-//   TSystemDirectory baseDir("graal_data_runme", base_in.c_str());
    TList *entries = baseDir.GetListOfFiles();
    if (!entries) {
       std::cerr << "AnalyzeAll: cannot list directory: " << base_in << std::endl;

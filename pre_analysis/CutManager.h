@@ -204,7 +204,7 @@ void BuildCutMap(const std::string& dataPath = "./", const std::string& cutPath 
 // Helper function to print the mapping for debugging
 void PrintCutMap() {
     std::cout << "\n=== Cut Map Summary ===" << std::endl;
-    cout << gCutMap.size() << endl;
+    std::cout << gCutMap.size() << std::endl;
     for (const auto& particleMap : gCutMap) {
         std::cout << "\nParticle: " << particleMap.first << std::endl;
         for (const auto& detectorMap : particleMap.second) {
