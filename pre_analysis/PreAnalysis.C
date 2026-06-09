@@ -299,12 +299,18 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
       return;
    }
 
-   // Branches to enable (Verified complete list)
+   // Branches to enable
    std::vector<std::string> branches{"Eg_tag_strip",
-      "Idrun","Ipol", "Nass_3", "Thet_centr_track", "Phi_centr_track", "Itipo_track", "Eclusc_track", 
+      "Idrun","Ipol", 
+      "Nass_3", 
+      "Thet_centr_track", 
+      "Phi_centr_track", 
+      "Itipo_track", 
+      "Eclusc_track", 
       "Dedx_track", 
       "Nparf",      
-      "Theta_trf", "Phi_trf", 
+      "Theta_trf", 
+      "Phi_trf", 
       "Index_trf",  
       "Iass_trf",   
       "Tof_trf", 
