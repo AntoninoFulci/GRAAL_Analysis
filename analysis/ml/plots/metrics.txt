@@ -1,0 +1,8 @@
+Test events: 200000
+Pairing accuracy  BDT : 0.9808
+Pairing accuracy  chi2: 0.9751
+Improvement (abs)     : +0.0057
+
+Peak width (std within window):
+  pi0  chi2=0.0121  bdt=0.0122
+  eta  chi2=0.0263  bdt=0.0263
