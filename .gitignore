@@ -6,3 +6,7 @@ graal_data/
 
 __pycache__/
 *.pyc
+
+.venv/
+analysis/ml/data/
+analysis/ml/model/
