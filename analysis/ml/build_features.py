@@ -137,3 +137,27 @@ def build(photons, seed=SEED):
     truth = truth_pairing_index(perm)
     y = np.argmax(order == truth[:, None], axis=1).astype(np.int64)  # slot of truth
     return X, y, masses_ord, FEATURE_NAMES
+
+
+def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="Build features.npz from MC")
+    ap.add_argument("--input", default="simulation/eta_pi0_mc.root")
+    ap.add_argument("--output", default="analysis/ml/data/features.npz")
+    ap.add_argument("--n-max", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=SEED)
+    args = ap.parse_args()
+
+    print(f"Loading photons from {args.input} ...")
+    photons = load_photons(args.input, n_max=args.n_max)
+    print(f"Loaded {len(photons)} events; building features ...")
+    X, y, masses, names = build(photons, seed=args.seed)
+    np.savez_compressed(args.output, X=X, y=y, masses=masses,
+                        feature_names=np.array(names))
+    frac = np.bincount(y, minlength=3) / len(y)
+    print(f"Wrote {args.output}: X={X.shape}, label fractions={frac.round(3)}")
+    print(f"chi2 baseline accuracy (label==0): {frac[0]:.4f}")
+
+
+if __name__ == "__main__":
+    main()
