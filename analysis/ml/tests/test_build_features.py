@@ -40,13 +40,18 @@ def test_truth_label_matches_eta_grouping():
         assert np.all((same_pair == 0) | (same_pair == 2))
 
 
-def test_no_leakage_label_distribution_roughly_uniform():
+def test_no_positional_leakage_before_chi2_ordering():
+    # The shuffle must make the truth pairing equally likely to be any of the
+    # three pairings; otherwise the model could exploit photon input position.
+    # This is checked on the RAW truth index (before chi2 ordering): it must be
+    # ~uniform (1/3 each). NB: after chi2 ordering the label distribution is
+    # deliberately skewed toward slot 0 (the chi2 pick is usually correct on
+    # this clean MC) -- that skew is real physics, not leakage.
     photons = bf.load_photons(MC_PATH, n_max=50000)
-    X, y, masses, names = bf.build(photons, seed=1)
-    counts = np.bincount(y, minlength=3) / len(y)
-    # after chi2 ordering, the truth slot must not be trivially predictable
-    # by position (each slot gets a non-trivial share)
-    assert np.all(counts > 0.05)
+    P, perm = bf.shuffle_photons(photons, seed=1)
+    truth = bf.truth_pairing_index(perm)
+    frac = np.bincount(truth, minlength=3) / len(truth)
+    assert np.all(np.abs(frac - 1 / 3) < 0.02)
 
 
 def test_feature_matrix_shape_and_names():
