@@ -144,7 +144,7 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         tree->Fill();
     }
 
-    tree->Write();
+    tree->Write("", TObject::kOverwrite);  // reuse the key, avoid extra ;N cycles
     fout->Close();
 
     printf("Generated %d events with smearing\n", Nevents);

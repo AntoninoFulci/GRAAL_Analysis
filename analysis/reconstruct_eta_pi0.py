@@ -212,7 +212,7 @@ for iev in range(n_entries):
         tout.Fill()
 
 fout.cd()
-tout.Write()
+tout.Write("", ROOT.TObject.kOverwrite)  # reuse the key, avoid extra ;N cycles
 
 n_written = tout.GetEntries()
 

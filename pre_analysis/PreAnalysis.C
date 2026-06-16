@@ -286,7 +286,7 @@ void PreAnalysis::Loop(std::string output_file) {
       output_tree->Fill();
    }
 
-   output_tree->Write();
+   output_tree->Write("", TObject::kOverwrite);  // reuse the key, avoid extra ;N cycles
    dati->Close();
 
 }
