@@ -1,4 +1,4 @@
-# Photon-Pairing ML Study (PyTorch MLP vs chi2)
+# Photon-Pairing ML Study (XGBoost BDT vs chi2)
 
 **Date:** 2026-06-16
 **Channel:** gamma p -> p eta pi0, with eta -> gamma gamma and pi0 -> gamma gamma (4 photons)
@@ -12,7 +12,7 @@ candidates. This is a **study**: prove (or disprove) that ML beats the baseline
 before any integration into the real-data reconstruction. No real-data
 application and no modification of `reconstruct_eta_pi0.py` in this scope.
 
-Success criterion: the MLP pairing accuracy on a held-out MC test set is higher
+Success criterion: the BDT pairing accuracy on a held-out MC test set is higher
 than the chi2 method's accuracy on the same set, with comparable or narrower
 reconstructed meson mass peaks.
 
@@ -33,12 +33,16 @@ reconstructed meson mass peaks.
 
 ## Library choice
 
-PyTorch (per user request). Supporting libraries:
+XGBoost (gradient-boosted decision trees). Best fit for this tabular, small
+feature-set, fixed 3-candidate problem; the HEP standard for combinatorial
+pairing, and it beats neural nets on tabular data of this size. Supporting
+libraries:
 
-- `torch` — model, training loop.
+- `xgboost` — the BDT model (`XGBClassifier`).
 - `uproot` + `awkward` — read `eta_pi0_mc.root` without a ROOT dependency on the
   ML side (lighter than pyROOT; the C++/ROOT pipeline is unchanged).
-- `numpy`, `scikit-learn` — train/test split, `StandardScaler`, metrics.
+- `numpy`, `scikit-learn` — train/test split, metrics. No feature scaling needed
+  (trees are scale-invariant).
 - `matplotlib` — diagnostic and comparison plots.
 
 ## Architecture
@@ -48,13 +52,13 @@ New directory `analysis/ml/` with three scripts plus outputs:
 | File | Responsibility |
 |------|----------------|
 | `build_features.py` | MC root -> feature matrix `X` + truth labels `y`, saved to disk (`.npz`). Pure data prep, no model. |
-| `train_mlp.py` | Load features, split, scale, train the MLP, save model + scaler + training diagnostics. |
-| `evaluate_compare.py` | Apply MLP and chi2 to the held-out test set, produce the MLP-vs-chi2 comparison plots and metrics. |
+| `train_bdt.py` | Load features, split, train the BDT, save model + training diagnostics. |
+| `evaluate_compare.py` | Apply BDT and chi2 to the held-out test set, produce the BDT-vs-chi2 comparison plots and metrics. |
 
 Outputs:
 
 - `analysis/ml/data/features.npz` — `X`, `y`, and a `chi2_order` index map.
-- `analysis/ml/model/mlp.pt` (state_dict), `analysis/ml/model/scaler.pkl`.
+- `analysis/ml/model/bdt.json` (saved XGBoost model).
 - `analysis/ml/plots/*.png`, plus a metrics summary printed to stdout / written
   to `analysis/ml/plots/metrics.txt`.
 
@@ -100,27 +104,28 @@ mixing). Per-pairing block:
 
 ## Model
 
-PyTorch MLP, multiclass over the 3 pairing classes:
+`XGBClassifier`, multiclass (`multi:softprob`) over the 3 pairing classes:
 
-- Input: scaled feature vector (`StandardScaler` fit on train only; scaler saved).
-- Hidden layers: e.g. 128 -> 64 -> 32, ReLU, dropout (~0.2).
-- Output: 3 logits, `CrossEntropyLoss` (softmax implicit).
-- Optimiser: Adam. Early stopping on validation loss. Fixed seed.
-- Inference: argmax of the 3 logits selects the pairing.
+- Input: raw feature vector (no scaling; trees are scale-invariant).
+- Starting hyperparameters: `n_estimators ~200`, `max_depth ~5`,
+  `learning_rate ~0.05`, `subsample 0.8`, `colsample_bytree 0.8`,
+  `eval_metric "mlogloss"`. Tune with early stopping on a validation split.
+- Output: 3 class probabilities; argmax selects the pairing.
+- Fixed `random_state` for reproducibility.
 
 ## Evaluation (the deliverable)
 
-On a held-out MC test set (truth known), compare MLP vs chi2:
+On a held-out MC test set (truth known), compare BDT vs chi2:
 
 - **Pairing accuracy** — fraction of events where the chosen pairing equals the
-  truth pairing. MLP vs chi2, headline number.
-- **Confusion matrix** for the MLP (which wrong pairing it picks).
+  truth pairing. BDT vs chi2, headline number.
+- **Confusion matrix** for the BDT (which wrong pairing it picks).
 - **Reconstructed mass spectra** — eta and pi0 invariant-mass peaks built from
-  truth / chi2-chosen / MLP-chosen pairings; report peak width and combinatorial
+  truth / chi2-chosen / BDT-chosen pairings; report peak width and combinatorial
   background under the peak (purity).
-- **Permutation importance** — NN-friendly substitute for tree feature
-  importance, to see which features drive the decision.
-- **Training diagnostics** — train/val loss curves.
+- **Feature importance** — native XGBoost gain-based importance, to see which
+  features drive the decision.
+- **Training diagnostics** — train/val mlogloss curves.
 
 All plots saved to `analysis/ml/plots/`; headline metrics to `metrics.txt`.
 
@@ -138,7 +143,7 @@ All plots saved to `analysis/ml/plots/`; headline metrics to `metrics.txt`.
   `m_low`/`m_high` reproduce the nominal pi0/eta masses within smearing.
 - No-leakage check: truth pairing position is uniformly distributed across the
   3 shuffled classes (i.e. shuffling actually randomises position).
-- Success gate: MLP test-set pairing accuracy > chi2 accuracy on the same set.
+- Success gate: BDT test-set pairing accuracy > chi2 accuracy on the same set.
 
 ## Out of scope (stated limitation)
 
