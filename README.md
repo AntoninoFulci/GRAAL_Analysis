@@ -6,12 +6,27 @@ Analysis code for the GRAAL experiment: event processing, particle identificatio
 
 ```
 GRAAL_Analysis/
-└── pre_analysis/
-    ├── PreAnalysis.h      # ROOT-generated TTree class (detector variables)
-    ├── PreAnalysis.C      # Analysis logic: Loop(), AnalyzeAll()
-    ├── CutManager.h       # Dynamic cut loading and lookup
-    └── cuts/              # TCutG definitions per particle/period/dataset
+├── pre_analysis/
+│   ├── PreAnalysis.h      # ROOT-generated TTree class (detector variables)
+│   ├── PreAnalysis.C      # Analysis logic: Loop(), AnalyzeAll()
+│   ├── CutManager.h       # Dynamic cut loading and lookup
+│   └── cuts/              # TCutG definitions per particle/period/dataset
+├── analysis/
+│   ├── reconstruct_2pi0.py     # gamma p -> p pi0 pi0 reconstruction
+│   └── reconstruct_eta_pi0.py  # gamma p -> p eta pi0 reconstruction
+└── simulation/
+    └── generate_eta_pi0_dataset.C  # MC generator (ML training dataset)
 ```
+
+## Pipeline
+
+1. **Pre-analysis** (`pre_analysis/`) — turns raw detector trees (`h70`) into
+   per-event 4-vector trees (`h80`).
+2. **Reconstruction** (`analysis/`) — pairs the photons of the `h80` tree into
+   the meson candidates of a given channel. Run `reconstruct_2pi0.py` **before**
+   `reconstruct_eta_pi0.py`.
+3. **Simulation** (`simulation/`) — standalone Monte Carlo generator used to
+   build a labelled dataset for a future ML model.
 
 ## Components
 
@@ -68,6 +83,41 @@ Each file defines one `TCutG` polygon. Two parameter spaces are used:
 | Forward (Fwd) | `Tof_trf` (time of flight) | `De_trf` (energy loss) |
 
 Cuts cover particles **Proton**, **Pion**, **Deuteron** across experimental periods 1998–2006 and datasets (`d1`, `d2`, `d3`, `uv`, `vis`, `fuv`, ...). Each cut is empirically determined from calibration data.
+
+### analysis/
+
+Channel reconstruction scripts that run on the pre-analysis `h80` trees. Both
+chain all `subsample/analisi_*.root` files, loop over events, and for each event
+pick the photon pairing that minimises a chi2 against the expected meson masses
+(8% resolution, `chi2 < 10` cut), then write the reconstructed 4-vectors.
+
+| Script | Channel | Output file | Output tree | Combination table |
+|--------|---------|-------------|-------------|-------------------|
+| `reconstruct_2pi0.py` | gamma p -> p pi0 pi0 | `reco_2pi0.root` | `reco_2pi0` | `combinations_2pi0.txt` |
+| `reconstruct_eta_pi0.py` | gamma p -> p eta pi0 | `reco_eta_pi0.root` | `reco_eta_pi0` | `combinations_eta_pi0.txt` |
+
+The combination table has one row per allowed pairing: four gamma indices plus
+the two target masses, `i1 i2 i3 i4 m12 m34`. In the eta-pi0 case the pair with
+target mass `> 0.4` GeV is assigned to the eta.
+
+Run order: `reconstruct_2pi0.py` first, then `reconstruct_eta_pi0.py`.
+
+```bash
+python analysis/reconstruct_2pi0.py
+python analysis/reconstruct_eta_pi0.py
+```
+
+### simulation/
+
+`generate_eta_pi0_dataset.C` is a standalone ROOT macro generating
+`gamma p -> p eta pi0` events with `TGenPhaseSpace` (eta and pi0 decaying to two
+photons each) and applying Gaussian detector smearing. It stores both truth and
+smeared 4-vectors, producing a labelled dataset (`eta_pi0_mc.root`, tree `mc`)
+for training a future ML model.
+
+```bash
+root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
+```
 
 ## Prerequisites
 
