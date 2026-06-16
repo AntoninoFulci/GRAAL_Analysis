@@ -119,6 +119,14 @@ for training a future ML model.
 root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
 ```
 
+### analysis/ml/
+
+XGBoost BDT study for photon pairing (gamma p -> p eta pi0): trains on the
+labelled MC and compares pairing accuracy and reconstructed mass resolution
+against the chi2 baseline. On idealised 4-photon MC the BDT reaches 98.1%
+pairing accuracy vs 97.5% for chi2 (chi2 is already near-optimal here). See
+`analysis/ml/README.md`. Design and plan in `docs/superpowers/`.
+
 ## Prerequisites
 
 - ROOT 6.x
