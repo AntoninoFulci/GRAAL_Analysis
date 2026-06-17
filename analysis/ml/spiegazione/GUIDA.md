@@ -73,6 +73,27 @@ Per provare velocemente su un sottoinsieme:
 .venv/bin/python -m pytest analysis/ml/tests/ -v
 ```
 
+### 1.6 Modalità test/spiegazione (`--explain`)
+
+Per **capire come funziona** vedendo i passaggi a schermo, su pochi eventi e
+senza scrivere file:
+
+```bash
+# walkthrough della costruzione delle feature: fotoni, shuffle, le 3
+# combinazioni con masse/chi2, ordinamento, etichetta, vettore di 54 feature
+.venv/bin/python -m analysis.ml.build_features --explain
+.venv/bin/python -m analysis.ml.build_features --explain --explain-events 5   # più eventi
+
+# walkthrough della decisione della BDT: distribuzione delle classi,
+# probabilità per evento (slot 0/1/2), pred vs chi2 vs verità, confusione
+.venv/bin/python -m analysis.ml.train_bdt --explain
+```
+
+`build_features --explain` stampa, per ogni evento, le matrici e le tabelle
+intermedie. `train_bdt --explain` allena un modellino veloce e mostra come la
+BDT assegna le probabilità, includendo casi in cui il χ² sbaglia e la BDT
+(a volte) corregge.
+
 ---
 
 ## Parte 2 — Cosa è stato fatto, passo passo

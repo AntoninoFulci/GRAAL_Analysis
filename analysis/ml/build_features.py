@@ -139,6 +139,82 @@ def build(photons, seed=SEED):
     return X, y, masses_ord, FEATURE_NAMES
 
 
+def _fmt_row(label, values, width=9, prec=4):
+    """One formatted table row: a label then numeric columns."""
+    cells = "".join(f"{v:>{width}.{prec}f}" for v in values)
+    return f"{label:<14}{cells}"
+
+
+def explain(photons, seed=SEED, n_show=3):
+    """Test/teaching mode: walk through the pipeline on a few events, printing
+    the intermediate matrices and tables so the logic is transparent."""
+    np.set_printoptions(precision=4, suppress=True, linewidth=120)
+    sub = photons[:n_show]
+    X, y, masses, names = build(sub, seed=seed)
+    P, perm = shuffle_photons(sub, seed=seed)          # same seed -> same shuffle
+    truth = truth_pairing_index(perm)
+
+    print("=" * 70)
+    print(f"TEST MODE — walking through {n_show} events")
+    print("Photon 4-vectors are [E, px, py, pz] (GeV).")
+    print("Truth: photons 0,1 come from the eta; 2,3 from the pi0.")
+    print("=" * 70)
+
+    for e in range(n_show):
+        print(f"\n################## EVENT {e} ##################")
+
+        print("\n[1] Raw photons (truth order):")
+        print("  idx  origin        E       px       py       pz")
+        for i in range(4):
+            origin = "eta" if i < 2 else "pi0"
+            print(f"  {i:<3}  {origin:<6}" + "".join(f"{v:>9.4f}" for v in sub[e, i]))
+
+        print(f"\n[2] Shuffle (perm = {perm[e]}):  pos j holds original photon perm[j]")
+        print("  pos  origIdx  isEta        E       px       py       pz")
+        for j in range(4):
+            oi = int(perm[e, j])
+            print(f"  {j:<3}  {oi:<7}  {str(oi < 2):<5}" +
+                  "".join(f"{v:>9.4f}" for v in P[e, j]))
+
+        print("\n[3] The 3 pairings (by shuffled position), masses and chi2:")
+        print("  k  pairs        m_low    m_high      chi2")
+        chi2_each = []
+        for k, ((i, j), (a, b)) in enumerate(PAIRINGS):
+            mA = physics.invariant_mass(P[e, i], P[e, j])
+            mB = physics.invariant_mass(P[e, a], P[e, b])
+            m_low, m_high = min(mA, mB), max(mA, mB)
+            c = physics.chi2_pairing(m_low, m_high)
+            chi2_each.append(c)
+            tag = f"({i}{j})({a}{b})"
+            print(f"  {k}  {tag:<10}{m_low:>8.4f}{m_high:>10.4f}{c:>10.3f}")
+
+        order = np.argsort(chi2_each)
+        print(f"\n[4] chi2 ascending order: {order.tolist()}  ->  block 0 = min-chi2 = the chi2 choice")
+        print(f"[5] truth pairing index (groups the two eta photons): {int(truth[e])}")
+        print(f"[6] label y = slot of truth after chi2 ordering: {int(y[e])}")
+        chi2_ok = "YES" if y[e] == 0 else "NO  (chi2 wrong -> BDT must correct)"
+        print(f"    chi2 picks block 0; truth sits in block {int(y[e])}.  chi2 correct? {chi2_ok}")
+
+        print("\n[7] Feature row (54 values) shown as 3 chi2-ordered blocks x 18 features:")
+        block = X[e].reshape(3, 18)
+        header = "  " + "feature".ljust(14) + "".join(f"{'block'+str(b):>9}" for b in range(3))
+        print(header)
+        for f_idx, fname in enumerate(_BLOCK_FEATURES):
+            print("  " + _fmt_row(fname, block[:, f_idx]))
+
+    # ---- aggregate table over a larger sample -----------------------------
+    n_stat = min(len(photons), 20000)
+    Xs, ys, _, _ = build(photons[:n_stat], seed=seed)
+    frac = np.bincount(ys, minlength=3) / len(ys)
+    print("\n" + "=" * 70)
+    print(f"AGGREGATE over {n_stat} events — label distribution (= which slot holds truth):")
+    print("  slot 0 (chi2 right)   slot 1            slot 2")
+    print(f"  {frac[0]:>8.4f}             {frac[1]:>8.4f}          {frac[2]:>8.4f}")
+    print(f"\n  => chi2 baseline accuracy (slot 0) = {frac[0]:.4f}")
+    print("  The BDT tries to recover the slot-1/slot-2 events that chi2 gets wrong.")
+    print("=" * 70)
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="Build features.npz from MC")
@@ -146,7 +222,19 @@ def main():
     ap.add_argument("--output", default="analysis/ml/data/features.npz")
     ap.add_argument("--n-max", type=int, default=None)
     ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--explain", action="store_true",
+                    help="test mode: walk through a few events step by step "
+                         "(prints matrices/tables, writes nothing)")
+    ap.add_argument("--explain-events", type=int, default=3,
+                    help="how many events to walk through in --explain mode")
     args = ap.parse_args()
+
+    if args.explain:
+        n_load = max(args.explain_events, 20000)
+        print(f"Loading photons from {args.input} (test mode) ...")
+        photons = load_photons(args.input, n_max=n_load)
+        explain(photons, seed=args.seed, n_show=args.explain_events)
+        return
 
     print(f"Loading photons from {args.input} ...")
     photons = load_photons(args.input, n_max=args.n_max)
