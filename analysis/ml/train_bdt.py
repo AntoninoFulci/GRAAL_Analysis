@@ -28,6 +28,7 @@ def main():
         objective="multi:softprob", num_class=3,
         eval_metric="mlogloss", early_stopping_rounds=25,
         random_state=SEED, n_jobs=-1)
+    
     model.fit(X_tr, y_tr, eval_set=[(X_tr, y_tr), (X_val, y_val)], verbose=False)
     model.save_model(MODEL_OUT)
 
@@ -75,7 +76,8 @@ def explain(n_events=20000, n_show=8, seed=SEED):
     print("=" * 78)
 
     photons = bf.load_photons("simulation/eta_pi0_mc.root", n_max=n_events)
-    X, y, _, names = bf.build(photons, seed=seed)
+    beam = bf.load_beam("simulation/eta_pi0_mc.root", n_max=n_events)
+    X, y, _, names = bf.build(photons, beam, seed=seed)
 
     X_tr, X_te, y_tr, y_te = train_test_split(
         X, y, test_size=0.2, random_state=seed, stratify=y)

@@ -182,12 +182,13 @@ def _fmt_row(label, values, width=9, prec=4):
     return f"{label:<14}{cells}"
 
 
-def explain(photons, seed=SEED, n_show=3):
+def explain(photons, beam, seed=SEED, n_show=3):
     """Test/teaching mode: walk through the pipeline on a few events, printing
     the intermediate matrices and tables so the logic is transparent."""
     np.set_printoptions(precision=4, suppress=True, linewidth=120)
     sub = photons[:n_show]
-    X, y, masses, names = build(sub, seed=seed)
+    sub_beam = beam[:n_show]
+    X, y, masses, names = build(sub, sub_beam, seed=seed)
     P, perm = shuffle_photons(sub, seed=seed)          # same seed -> same shuffle
     truth = truth_pairing_index(perm)
 
@@ -232,16 +233,18 @@ def explain(photons, seed=SEED, n_show=3):
         chi2_ok = "YES" if y[e] == 0 else "NO  (chi2 wrong -> BDT must correct)"
         print(f"    chi2 picks block 0; truth sits in block {int(y[e])}.  chi2 correct? {chi2_ok}")
 
-        print("\n[7] Feature row (54 values) shown as 3 chi2-ordered blocks x 18 features:")
-        block = X[e].reshape(3, 18)
+        print("\n[7] Feature row (67 values): 3 chi2-ordered blocks x 22 features"
+              " + 1 global beam_E:")
+        block = X[e][:66].reshape(3, 22)
         header = "  " + "feature".ljust(14) + "".join(f"{'block'+str(b):>9}" for b in range(3))
         print(header)
         for f_idx, fname in enumerate(_BLOCK_FEATURES):
             print("  " + _fmt_row(fname, block[:, f_idx]))
+        print(f"  {'beam_E (global)':<14}{X[e][66]:>9.4f}")
 
     # ---- aggregate table over a larger sample -----------------------------
     n_stat = min(len(photons), 20000)
-    Xs, ys, _, _ = build(photons[:n_stat], seed=seed)
+    Xs, ys, _, _ = build(photons[:n_stat], beam[:n_stat], seed=seed)
     frac = np.bincount(ys, minlength=3) / len(ys)
     print("\n" + "=" * 70)
     print(f"AGGREGATE over {n_stat} events — label distribution (= which slot holds truth):")
@@ -268,15 +271,17 @@ def main():
 
     if args.explain:
         n_load = max(args.explain_events, 20000)
-        print(f"Loading photons from {args.input} (test mode) ...")
+        print(f"Loading photons + beam from {args.input} (test mode) ...")
         photons = load_photons(args.input, n_max=n_load)
-        explain(photons, seed=args.seed, n_show=args.explain_events)
+        beam = load_beam(args.input, n_max=n_load)
+        explain(photons, beam, seed=args.seed, n_show=args.explain_events)
         return
 
-    print(f"Loading photons from {args.input} ...")
+    print(f"Loading photons + beam from {args.input} ...")
     photons = load_photons(args.input, n_max=args.n_max)
+    beam = load_beam(args.input, n_max=args.n_max)
     print(f"Loaded {len(photons)} events; building features ...")
-    X, y, masses, names = build(photons, seed=args.seed)
+    X, y, masses, names = build(photons, beam, seed=args.seed)
     np.savez_compressed(args.output, X=X, y=y, masses=masses,
                         feature_names=np.array(names))
     frac = np.bincount(y, minlength=3) / len(y)
