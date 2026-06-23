@@ -55,3 +55,20 @@ def chi2_pairing(m_low, m_high):
         ((m_low - MPI0) / (CHI2_RES * MPI0)) ** 2
         + ((m_high - META) / (CHI2_RES * META)) ** 2
     )
+
+
+def boost(vec, beta):
+    """Express the 4-vector(s) `vec` ([E, px, py, pz]) in the frame moving with
+    3-velocity `beta` relative to the lab. Vectorised over leading axes."""
+    vec = np.asarray(vec, dtype=float)
+    beta = np.asarray(beta, dtype=float)
+    e = vec[..., 0]
+    p = vec[..., 1:4]
+    b2 = np.sum(beta * beta, axis=-1)
+    safe_b2 = np.where(b2 == 0.0, 1.0, b2)
+    gamma = 1.0 / np.sqrt(1.0 - b2)
+    bp = np.sum(beta * p, axis=-1)
+    factor = (gamma - 1.0) * bp / safe_b2 - gamma * e
+    p_new = p + factor[..., None] * beta
+    e_new = gamma * (e - bp)
+    return np.concatenate([e_new[..., None], p_new], axis=-1)

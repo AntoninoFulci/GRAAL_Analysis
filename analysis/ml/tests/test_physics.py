@@ -53,3 +53,28 @@ def test_functions_are_vectorised():
     m = physics.invariant_mass(g1, g2)
     assert m.shape == (2,)
     assert m == pytest.approx([2.0, 4.0])
+
+
+def test_boost_to_rest_frame():
+    # particle with m^2 = 25 - 9 = 16 -> m = 4; boosting by its own velocity
+    # must bring it to rest (zero 3-momentum, energy = mass).
+    v = np.array([5.0, 0.0, 0.0, 3.0])
+    beta = v[1:4] / v[0]
+    r = physics.boost(v, beta)
+    assert r[0] == pytest.approx(4.0)
+    assert np.allclose(r[1:4], 0.0, atol=1e-9)
+
+
+def test_boost_zero_beta_is_identity():
+    v = np.array([2.0, 1.0, 0.0, 0.0])
+    r = physics.boost(v, np.zeros(3))
+    assert np.allclose(r, v)
+
+
+def test_boost_is_vectorised():
+    v = np.array([[5.0, 0.0, 0.0, 3.0], [5.0, 0.0, 0.0, -3.0]])
+    beta = v[:, 1:4] / v[:, 0:1]
+    r = physics.boost(v, beta)
+    assert r.shape == (2, 4)
+    assert np.allclose(r[:, 1:4], 0.0, atol=1e-9)
+    assert np.allclose(r[:, 0], 4.0)
