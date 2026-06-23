@@ -56,9 +56,11 @@ def test_no_positional_leakage_before_chi2_ordering():
 
 def test_feature_matrix_shape_and_names():
     photons = bf.load_photons(MC_PATH, n_max=1000)
-    X, y, masses, names = bf.build(photons, seed=1)
-    assert X.shape == (1000, 54)
-    assert len(names) == 54
+    beam = bf.load_beam(MC_PATH, n_max=1000)
+    X, y, masses, names = bf.build(photons, beam, seed=1)
+    assert X.shape == (1000, 67)
+    assert len(names) == 67
+    assert names[-1] == "beam_E"
     assert masses.shape == (1000, 3, 2)
     assert set(np.unique(y)).issubset({0, 1, 2})
 
@@ -67,8 +69,35 @@ def test_chi2_baseline_is_block_zero():
     # block 0 is the minimum-chi2 pairing by construction; its chi2 feature
     # must be <= the chi2 feature of blocks 1 and 2.
     photons = bf.load_photons(MC_PATH, n_max=2000)
-    X, y, masses, names = bf.build(photons, seed=1)
+    beam = bf.load_beam(MC_PATH, n_max=2000)
+    X, y, masses, names = bf.build(photons, beam, seed=1)
     chi2_cols = [names.index(f"chi2_block{b}") for b in range(3)]
     c0, c1, c2 = X[:, chi2_cols[0]], X[:, chi2_cols[1]], X[:, chi2_cols[2]]
     assert np.all(c0 <= c1 + 1e-9)
     assert np.all(c0 <= c2 + 1e-9)
+
+
+def test_load_beam_shape():
+    beam = bf.load_beam(MC_PATH, n_max=2000)
+    assert beam.shape == (2000, 4)          # [E, px, py, pz]
+    # beam is along +z: |pz| ~ E, px ~ py ~ 0
+    assert np.allclose(beam[:, 1], 0.0, atol=1e-6)
+    assert np.allclose(beam[:, 2], 0.0, atol=1e-6)
+    assert np.allclose(beam[:, 3], beam[:, 0], atol=1e-6)
+
+
+def test_beam_features_present_and_physical():
+    photons = bf.load_photons(MC_PATH, n_max=3000)
+    beam = bf.load_beam(MC_PATH, n_max=3000)
+    X, y, masses, names = bf.build(photons, beam, seed=1)
+    for b in range(3):
+        cs_lo = X[:, names.index(f"cosstar_low_block{b}")]
+        cs_hi = X[:, names.index(f"cosstar_high_block{b}")]
+        ps_lo = X[:, names.index(f"pstar_low_block{b}")]
+        ps_hi = X[:, names.index(f"pstar_high_block{b}")]
+        assert np.all((cs_lo >= -1.0001) & (cs_lo <= 1.0001))
+        assert np.all((cs_hi >= -1.0001) & (cs_hi <= 1.0001))
+        assert np.all(ps_lo >= 0.0)
+        assert np.all(ps_hi >= 0.0)
+    # the global beam energy column equals the loaded beam energy
+    assert np.allclose(X[:, names.index("beam_E")], beam[:, 0])

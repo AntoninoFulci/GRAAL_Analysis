@@ -13,6 +13,7 @@ from analysis.ml import physics
 SEED = 42
 PAIRINGS = [((0, 1), (2, 3)), ((0, 2), (1, 3)), ((0, 3), (1, 2))]
 PHOTON_BRANCHES = ["eta_gamma1", "eta_gamma2", "pi0_gamma1", "pi0_gamma2"]
+TARGET = np.array([0.938272, 0.0, 0.0, 0.0])  # proton at rest, [E, px, py, pz]
 
 
 def load_photons(root_path, tree="mc", n_max=None):
@@ -33,12 +34,25 @@ def load_photons(root_path, tree="mc", n_max=None):
     return out
 
 
-# --- per-block feature names (18 each) -------------------------------------
+def load_beam(root_path, tree="mc", n_max=None):
+    """Return the beam 4-vector per event as a (N, 4) array [E, px, py, pz]."""
+    t = uproot.open(f"{root_path}:{tree}")
+    v = t.arrays(["beam"], entry_stop=n_max, library="ak")["beam"]
+    out = np.empty((len(v), 4), dtype=np.float64)
+    out[:, 0] = np.asarray(v["fE"])
+    out[:, 1] = np.asarray(v["fP"]["fX"])
+    out[:, 2] = np.asarray(v["fP"]["fY"])
+    out[:, 3] = np.asarray(v["fP"]["fZ"])
+    return out
+
+
+# --- per-block feature names (22 each) -------------------------------------
 _BLOCK_FEATURES = [
     "m_low", "m_high", "dm_pi0", "dm_eta",
     "asym_low", "asym_high", "theta_low", "theta_high",
     "E1", "E2", "E3", "E4", "cos_mesons",
     "pt_low", "pt_high", "beta_low", "beta_high", "chi2",
+    "cosstar_low", "cosstar_high", "pstar_low", "pstar_high",
 ]
 
 
@@ -47,6 +61,7 @@ def _feature_names():
     for b in range(3):
         for f in _BLOCK_FEATURES:
             names.append("chi2_block{}".format(b) if f == "chi2" else "{}_block{}".format(f, b))
+    names.append("beam_E")
     return names
 
 
@@ -77,8 +92,18 @@ def truth_pairing_index(perm):
     return truth
 
 
-def _feature_block(P, pairing):
-    """Return (block (N,18), chi2 (N,), m_low (N,), m_high (N,)) for one pairing."""
+def _cm_cos_pstar(meson, beta_cm):
+    """cos(theta*) (vs beam +z axis) and |p*| of `meson` in the CM frame."""
+    m_cm = physics.boost(meson, beta_cm)
+    p3 = m_cm[:, 1:4]
+    pstar = np.linalg.norm(p3, axis=-1)
+    safe = np.where(pstar == 0.0, 1.0, pstar)
+    cosstar = m_cm[:, 3] / safe          # pz component / |p|
+    return cosstar, pstar
+
+
+def _feature_block(P, pairing, beam):
+    """Return (block (N,22), chi2 (N,), m_low (N,), m_high (N,)) for one pairing."""
     (i, j), (k, l) = pairing
     mA = physics.invariant_mass(P[:, i], P[:, j])
     mB = physics.invariant_mass(P[:, k], P[:, l])
@@ -96,11 +121,19 @@ def _feature_block(P, pairing):
     ptA, ptB = physics.pt(mesonA), physics.pt(mesonB)
     beA, beB = physics.beta(mesonA), physics.beta(mesonB)
 
+    # CM frame of beam + target (boost is along z for this MC)
+    W = beam + TARGET
+    beta_cm = W[:, 1:4] / W[:, 0:1]
+    csA, psA = _cm_cos_pstar(mesonA, beta_cm)
+    csB, psB = _cm_cos_pstar(mesonB, beta_cm)
+
     m_low, m_high = np.minimum(mA, mB), np.maximum(mA, mB)
     asym_low, asym_high = sel(asymA, asymB), sel(asymB, asymA)
     th_low, th_high = sel(thA, thB), sel(thB, thA)
     pt_low, pt_high = sel(ptA, ptB), sel(ptB, ptA)
     be_low, be_high = sel(beA, beB), sel(beB, beA)
+    cosstar_low, cosstar_high = sel(csA, csB), sel(csB, csA)
+    pstar_low, pstar_high = sel(psA, psB), sel(psB, psA)
     cos_mes = physics.cos_angle(mesonA, mesonB)
     chi2 = physics.chi2_pairing(m_low, m_high)
     e_sorted = np.sort(P[:, :, 0], axis=1)[:, ::-1]  # (N,4) energies desc
@@ -110,29 +143,33 @@ def _feature_block(P, pairing):
         asym_low, asym_high, th_low, th_high,
         e_sorted[:, 0], e_sorted[:, 1], e_sorted[:, 2], e_sorted[:, 3], cos_mes,
         pt_low, pt_high, be_low, be_high, chi2,
+        cosstar_low, cosstar_high, pstar_low, pstar_high,
     ])
     return block, chi2, m_low, m_high
 
 
-def build(photons, seed=SEED):
-    """Return (X (N,54), y (N,), masses (N,3,2), feature_names list)."""
+def build(photons, beam, seed=SEED):
+    """Return (X (N,67), y (N,), masses (N,3,2), feature_names list).
+
+    X = 3 chi2-ordered blocks of 22 features each, plus a final global beam_E.
+    """
     P, perm = shuffle_photons(photons, seed=seed)
     n = P.shape[0]
     blocks, chi2s, masses = [], [], []
     for pairing in PAIRINGS:
-        blk, c, ml, mh = _feature_block(P, pairing)
+        blk, c, ml, mh = _feature_block(P, pairing, beam)
         blocks.append(blk)
         chi2s.append(c)
         masses.append(np.column_stack([ml, mh]))  # (N,2): [pi0-ish, eta-ish]
-    blocks = np.stack(blocks, axis=1)   # (N,3,18)
+    blocks = np.stack(blocks, axis=1)   # (N,3,22)
     chi2s = np.stack(chi2s, axis=1)     # (N,3)
     masses = np.stack(masses, axis=1)   # (N,3,2)
 
     order = np.argsort(chi2s, axis=1)   # (N,3) ascending chi2
     rows = np.arange(n)[:, None]
-    blocks_ord = blocks[rows, order]    # (N,3,18)
+    blocks_ord = blocks[rows, order]    # (N,3,22)
     masses_ord = masses[rows, order]    # (N,3,2)
-    X = blocks_ord.reshape(n, -1)       # (N,54)
+    X = np.column_stack([blocks_ord.reshape(n, -1), beam[:, 0]])  # (N,67)
 
     truth = truth_pairing_index(perm)
     y = np.argmax(order == truth[:, None], axis=1).astype(np.int64)  # slot of truth
