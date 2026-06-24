@@ -12,6 +12,7 @@ GRAAL_Analysis/
 │   ├── CutManager.h       # Dynamic cut loading and lookup
 │   └── cuts/              # TCutG definitions per particle/period/dataset
 ├── analysis/
+│   ├── select_events.py        # event preselection (gammas + one recoil)
 │   ├── reconstruct_2pi0.py     # gamma p -> p pi0 pi0 reconstruction
 │   └── reconstruct_eta_pi0.py  # gamma p -> p eta pi0 reconstruction
 └── simulation/
@@ -22,10 +23,13 @@ GRAAL_Analysis/
 
 1. **Pre-analysis** (`pre_analysis/`) — turns raw detector trees (`h70`) into
    per-event 4-vector trees (`h80`).
-2. **Reconstruction** (`analysis/`) — pairs the photons of the `h80` tree into
+2. **Preselection** (`analysis/select_events.py`) — filters the `h80` trees,
+   keeping only events usable by the reconstruction (more than one photon and
+   exactly one recoil baryon). Run **before** the reconstruct scripts.
+3. **Reconstruction** (`analysis/`) — pairs the photons of the `h80` tree into
    the meson candidates of a given channel. Run `reconstruct_2pi0.py` **before**
    `reconstruct_eta_pi0.py`.
-3. **Simulation** (`simulation/`) — standalone Monte Carlo generator used to
+4. **Simulation** (`simulation/`) — standalone Monte Carlo generator used to
    build a labelled dataset for a future ML model.
 
 ## Components
@@ -84,7 +88,19 @@ Each file defines one `TCutG` polygon. Two parameter spaces are used:
 
 Cuts cover particles **Proton**, **Pion**, **Deuteron** across experimental periods 1998–2006 and datasets (`d1`, `d2`, `d3`, `uv`, `vis`, `fuv`, ...). Each cut is empirically determined from calibration data.
 
-### analysis/
+### analysis/select_events.py
+
+Preselection filter between pre-analysis and reconstruction. Reads every
+`pre_*.root` file in `pre_analyzed/` (tree `h80`), clones the tree structure,
+and keeps only events with more than one photon and exactly one recoil baryon
+(`protons + neutrons + deuterons == 1`). Surviving events are written to
+`selected/<name>.root` (the `pre_` prefix is dropped), same tree `h80`.
+
+```bash
+python analysis/select_events.py
+```
+
+### analysis/ (reconstruction)
 
 Channel reconstruction scripts that run on the pre-analysis `h80` trees. Both
 chain all `subsample/analisi_*.root` files, loop over events, and for each event
