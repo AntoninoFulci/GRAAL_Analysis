@@ -20,6 +20,81 @@ import ROOT
 import os
 import numpy as np
 from array import array
+from pathlib import Path
+from itertools import combinations as _combinations
+
+# Stage-1 BDT gate (signal/background pre-filter)
+_stage1_model = None
+_stage1_threshold = None
+
+def _load_stage1(model_dir: str = 'analysis/ml/model') -> bool:
+    global _stage1_model, _stage1_threshold
+    model_path = Path(model_dir) / 'bdt_stage1.json'
+    thr_path   = Path(model_dir) / 'stage1_threshold.txt'
+    if not model_path.exists():
+        print(f'[stage1] model not found at {model_path}, gate disabled')
+        return False
+    try:
+        import xgboost as xgb
+        _stage1_model = xgb.XGBClassifier()
+        _stage1_model.load_model(str(model_path))
+        _stage1_threshold = float(thr_path.read_text().strip())
+        print(f'[stage1] loaded model, threshold={_stage1_threshold:.4f}')
+        return True
+    except Exception as e:
+        print(f'[stage1] load failed ({e}), gate disabled')
+        return False
+
+def _stage1_pass(gammas_px, gammas_py, gammas_pz, gammas_E,
+                 proton_px, proton_py, proton_pz, proton_E,
+                 beam_E) -> bool:
+    """Return True if event passes stage-1 BDT."""
+    if _stage1_model is None:
+        return True
+    import numpy as np
+    M = len(gammas_E)
+    feat = np.zeros(24, dtype=np.float32)
+    # pair invariant masses (up to 15 pairs of 6 photons)
+    _MPI0 = 0.134977; _META = 0.547862
+    pair_masses = []
+    for i, j in _combinations(range(min(M, 6)), 2):
+        dx = gammas_px[i]+gammas_px[j]; dy = gammas_py[i]+gammas_py[j]
+        dz = gammas_pz[i]+gammas_pz[j]; de = gammas_E[i]+gammas_E[j]
+        m2 = de**2 - dx**2 - dy**2 - dz**2
+        pair_masses.append(float(np.sqrt(max(m2, 0.0))))
+    for k, m in enumerate(pair_masses[:15]):
+        feat[k] = m
+    feat[15] = sum(1 for m in pair_masses if abs(m - _MPI0) < 0.040)
+    feat[16] = sum(1 for m in pair_masses if abs(m - _META) < 0.080)
+    # best chi2 with first 4 photons
+    best_chi2 = 999.0
+    gs = list(zip(gammas_px, gammas_py, gammas_pz, gammas_E))
+    for (i,j) in _combinations(range(min(M,4)), 2):
+        rem = [k for k in range(min(M,4)) if k not in (i,j)]
+        for (k,l) in _combinations(rem, 2):
+            for mtgt1, mtgt2 in [(_META, _MPI0), (_MPI0, _META)]:
+                p1 = [gs[i][c]+gs[j][c] for c in range(4)]
+                p2 = [gs[k][c]+gs[l][c] for c in range(4)]
+                m1 = float(np.sqrt(max(p1[3]**2-p1[0]**2-p1[1]**2-p1[2]**2,0)))
+                m2v = float(np.sqrt(max(p2[3]**2-p2[0]**2-p2[1]**2-p2[2]**2,0)))
+                c = ((m1-mtgt1)/(0.08*mtgt1))**2 + ((m2v-mtgt2)/(0.08*mtgt2))**2
+                if c < best_chi2: best_chi2 = c
+    feat[17] = best_chi2
+    # missing mass
+    Mp = 0.938272
+    tot_E = beam_E + Mp; tot_pz = beam_E
+    miss_E = tot_E - proton_E; miss_pz = tot_pz - proton_pz
+    miss_px = -proton_px; miss_py = -proton_py
+    miss_m2 = miss_E**2 - miss_px**2 - miss_py**2 - miss_pz**2
+    feat[18] = float(np.sqrt(max(miss_m2, 0.0)))
+    feat[19] = miss_E
+    feat[20] = float(sum(gammas_E))
+    feat[21] = float(M)
+    p_mom = float(np.sqrt(proton_px**2 + proton_py**2 + proton_pz**2))
+    feat[22] = p_mom
+    feat[23] = proton_pz / p_mom if p_mom > 0 else 0.0
+    score = _stage1_model.predict_proba(feat.reshape(1, -1))[0, 1]
+    return float(score) >= _stage1_threshold
 
 
 # ============================================================
@@ -113,6 +188,7 @@ tout.Branch("missing", "TLorentzVector", missing)
 # Event loop
 # ============================================================
 
+_load_stage1()
 print("Starting event loop...")
 
 for iev in range(n_entries):
@@ -120,6 +196,20 @@ for iev in range(n_entries):
 
     if iev % 10000 == 0:
         print(f"Event {iev}/{n_entries}")
+
+    # stage-1 BDT gate: reject background-like events early
+    if chain.gammas.size() >= 4:
+        gex = [chain.gammas[k].Px() for k in range(chain.gammas.size())]
+        gey = [chain.gammas[k].Py() for k in range(chain.gammas.size())]
+        gez = [chain.gammas[k].Pz() for k in range(chain.gammas.size())]
+        geE = [chain.gammas[k].E()  for k in range(chain.gammas.size())]
+        if not _stage1_pass(gex, gey, gez, geE,
+                            chain.protons[0].Px() if chain.protons.size() else 0,
+                            chain.protons[0].Py() if chain.protons.size() else 0,
+                            chain.protons[0].Pz() if chain.protons.size() else 0,
+                            chain.protons[0].E()  if chain.protons.size() else 0,
+                            chain.beam.E()):
+            continue
 
     # reset vectors
     beam.SetPxPyPzE(0, 0, chain.beam.E(), chain.beam.E())

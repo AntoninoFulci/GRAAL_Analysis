@@ -1,0 +1,16 @@
+# Background channel cross-sections for stage-1 BDT sample_weight
+# sigma_ref_ub: reference cross-section in microbarns (peak or midrange value)
+# p_survival: fraction of events surviving photon-loss model (LossParams defaults)
+# sigma_eff = sigma_ref_ub * p_survival  (used as hybrid weight numerator)
+# Sources:
+#   pi0pi0  : CB-ELSA/TAPS, Sarantsev et al., EPJ A 25 (2005) 441
+#   3pi0    : CB-ELSA/TAPS, Thoma et al., PLB 659 (2008) 87
+#   eta2pi0 : CB-ELSA, Kashevarov et al., PRL 118 (2017) 212001
+#   omega_pi0: SAPHIR, Barth et al., EPJ A 18 (2003) 117
+#   etaprime: CB-ELSA, Crede et al., PRC 80 (2009) 055202; PDG BR(eta'->eta pi0 pi0)=0.228
+channel,sigma_ref_ub,p_survival,sigma_eff
+pi0pi0,4.5,0.82,3.69
+3pi0,1.8,0.61,1.10
+eta2pi0,0.6,0.55,0.33
+omega_pi0,1.2,0.58,0.70
+etaprime,0.35,0.52,0.18
