@@ -59,7 +59,7 @@ Per provare velocemente su un sottoinsieme:
 
 | File | Contenuto |
 |------|-----------|
-| `data/features.npz` | matrice feature `X` (N×54), label `y`, masse, nomi feature |
+| `data/features.npz` | matrice feature `X` (N×67), label `y`, masse, nomi feature |
 | `model/bdt.json` | modello XGBoost allenato |
 | `plots/training_curve.png` | curva di apprendimento (train vs validation) |
 | `plots/feature_importance.png` | importanza delle feature (gain) |
@@ -80,7 +80,7 @@ senza scrivere file:
 
 ```bash
 # walkthrough della costruzione delle feature: fotoni, shuffle, le 3
-# combinazioni con masse/chi2, ordinamento, etichetta, vettore di 54 feature
+# combinazioni con masse/chi2, ordinamento, etichetta, vettore di 67 feature
 .venv/bin/python -m analysis.ml.build_features --explain
 .venv/bin/python -m analysis.ml.build_features --explain --explain-events 5   # più eventi
 
@@ -141,7 +141,7 @@ nell'altra. `truth_pairing_index` la individua.
 
 Per ogni combinazione costruiamo le quantità fisiche discriminanti. All'interno
 di ogni coppia ordiniamo per massa (coppia leggera = "low" ≈ π⁰, coppia pesante
-= "high" ≈ η) per togliere ambiguità di permutazione. **18 feature per
+= "high" ≈ η) per togliere ambiguità di permutazione. **22 feature per
 combinazione**:
 
 | Feature | Significato fisico |
@@ -155,8 +155,11 @@ combinazione**:
 | `pt_low`, `pt_high` | impulso trasverso dei mesoni |
 | `beta_low`, `beta_high` | boost β = \|p\|/E dei mesoni |
 | `chi2` | il χ² classico della combinazione (usato come feature) |
+| `cosstar_low`, `cosstar_high` | cos(theta*) del mesone nel sistema CM (avanti/indietro rispetto al fascio) |
+| `pstar_low`, `pstar_high` | modulo dell'impulso del mesone nel sistema CM |
 
-Tutte derivano dagli stessi quadrivettori (coerenza). Sono esattamente le
+Più una feature **globale** per evento in coda al vettore: `beam_E` (energia del
+fascio). Tutte derivano dagli stessi quadrivettori (coerenza). Sono esattamente le
 feature suggerite dall'analisi HEP standard: massa, distanza dalle masse
 nominali, asimmetria energetica, angoli, boost.
 
@@ -174,7 +177,8 @@ dove 0.08 = risoluzione di massa dell'8%. Il metodo classico sceglie la
 combinazione con **χ² minimo**.
 
 Noi **ordiniamo le 3 combinazioni per χ² crescente** e le concateniamo in un
-unico vettore di `3 × 18 = 54` feature. Conseguenza elegante:
+unico vettore di `3 × 22 = 66` feature, più una colonna globale `beam_E` in coda
+(**67** in totale). Conseguenza elegante:
 
 - il **blocco 0** è sempre la scelta del χ² (χ² minimo);
 - l'**etichetta** `y` ∈ {0,1,2} è la posizione in cui finisce la combinazione
@@ -214,20 +218,21 @@ Su 1.000.000 di eventi (200.000 nel test set non visto):
 | Metodo | Accuratezza di pairing |
 |--------|------------------------|
 | χ² (baseline) | **97.51 %** |
-| BDT (XGBoost) | **98.08 %** |
+| BDT (XGBoost) | **98.33 %** |
 
-- La BDT **migliora di +0.57 punti** assoluti, recuperando circa **un quarto**
-  degli errori del χ².
+- La BDT **migliora di +0.82 punti** assoluti, recuperando circa **un terzo**
+  degli errori del χ². Le feature del fascio (cos(theta*)/|p*| nel CM + `beam_E`)
+  hanno alzato la BDT dal 98.1 % (senza fascio) al **98.3 %**.
 - Le **larghezze dei picchi** di massa η/π⁰ sono praticamente identiche: la BDT
   corregge i mis-pairing nelle code, non la risoluzione del nucleo del picco.
 
 ### Il finding da spiegare
 
-Il guadagno è **modesto perché su questo Monte Carlo il χ² è già quasi
+Il guadagno resta **contenuto perché su questo Monte Carlo il χ² è già quasi
 ottimale**. Motivo: le masse di η (0.548 GeV) e π⁰ (0.135 GeV) sono ben separate
 rispetto allo smearing del 10%, quindi la combinazione giusta ha quasi sempre il
-χ² più piccolo. Questo è un risultato **valido e interessante di per sé**: su
-eventi puliti a 4 fotoni il machine learning aggiunge poco rispetto al χ².
+χ² più piccolo. Le feature del fascio aiutano in modo misurabile (da +0.57 a
++0.82 punti), ma il margine totale resta piccolo su eventi puliti a 4 fotoni.
 
 ### Limiti e prossimo passo
 
@@ -245,7 +250,7 @@ truth-matching parziale) per misurare il guadagno in quel regime.
 ```
 analysis/ml/
 ├── physics.py            # matematica dei quadrivettori (massa, angoli, β, χ²) — vettorizzata
-├── build_features.py     # lettura MC, shuffle, 3 combinazioni, feature 54-dim, etichetta + CLI
+├── build_features.py     # lettura MC+fascio, shuffle, 3 combinazioni, feature 67-dim, etichetta + CLI
 ├── train_bdt.py          # allenamento XGBoost + plot diagnostici
 ├── evaluate_compare.py   # confronto BDT vs χ² + spettri di massa
 ├── requirements.txt      # dipendenze

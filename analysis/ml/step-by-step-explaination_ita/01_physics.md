@@ -144,3 +144,17 @@ ricostruite vicine a quelle nominali = combinazione probabilmente giusta.
 
 Questa funzione fa **due cose** nello studio: (1) è il baseline da battere, (2)
 viene usata anche come feature in pasto alla BDT.
+
+---
+
+```python
+def boost(vec, beta):
+    ...
+    return np.concatenate([e_new[..., None], p_new], axis=-1)
+```
+
+Boost di Lorentz: esprime il 4-vettore `vec` nel sistema che si muove con
+3-velocità `beta` rispetto al laboratorio. Serve per portare i mesoni nel
+sistema CM (riposo di beam+target) e misurarne cos(theta*) e |p*|. `gamma` è il
+fattore di Lorentz, `bp = beta·p`; `safe_b2` evita la divisione per zero quando
+`beta = 0` (in quel caso la trasformazione è l'identità).

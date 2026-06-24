@@ -123,9 +123,12 @@ root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
 
 XGBoost BDT study for photon pairing (gamma p -> p eta pi0): trains on the
 labelled MC and compares pairing accuracy and reconstructed mass resolution
-against the chi2 baseline. On idealised 4-photon MC the BDT reaches 98.1%
-pairing accuracy vs 97.5% for chi2 (chi2 is already near-optimal here). See
-`analysis/ml/README.md`. Design and plan in `docs/superpowers/`.
+against the chi2 baseline. Features include per-pairing kinematics plus beam
+CM-frame variables (cos(theta*), p*, beam energy). On idealised 4-photon MC the
+BDT reaches 98.3% pairing accuracy vs 97.5% for chi2 (chi2 is already
+near-optimal here). Step-by-step docs in
+`analysis/ml/step-by-step-explaination_ita/`. Design and plan in
+`docs/superpowers/`.
 
 ## Prerequisites
 

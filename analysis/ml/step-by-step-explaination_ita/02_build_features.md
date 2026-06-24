@@ -59,6 +59,27 @@ def load_photons(root_path, tree="mc", n_max=None):
 
 ---
 
+## `load_beam` e le feature del fascio
+
+`load_beam` legge il ramo `beam` (un `TLorentzVector` `(0,0,E,E)`) e ritorna
+`(N,4)`. Il `TARGET` (protone a riposo) è una costante.
+
+In `_feature_block`, dopo aver costruito i due mesoni, si calcola il sistema
+CM `W = beam + target`, il suo boost `beta_cm = W_p3 / W_E`, e si portano i due
+mesoni nel CM con `physics.boost`. Da lì:
+
+- `cosstar_low/high` = cos(theta*), angolo polare del mesone rispetto all'asse
+  del fascio (avanti/indietro);
+- `pstar_low/high` = modulo dell'impulso nel CM.
+
+Queste 4 colonne portano il blocco da 18 a 22 feature. In `build`, dopo i 3
+blocchi ordinati per chi2 (66 colonne), si aggiunge **una** colonna globale
+`beam_E` (energia del fascio): il vettore finale è di **67** feature. La massa
+mancante *totale* non è usata perché è identica per le 3 combinazioni (somma dei
+4 fotoni) e non discrimina il pairing.
+
+---
+
 ## Nomi delle feature
 
 ```python
@@ -67,6 +88,7 @@ _BLOCK_FEATURES = [
     "asym_low", "asym_high", "theta_low", "theta_high",
     "E1", "E2", "E3", "E4", "cos_mesons",
     "pt_low", "pt_high", "beta_low", "beta_high", "chi2",
+    "cosstar_low", "cosstar_high", "pstar_low", "pstar_high",
 ]
 
 def _feature_names():
@@ -74,15 +96,18 @@ def _feature_names():
     for b in range(3):
         for f in _BLOCK_FEATURES:
             names.append("chi2_block{}".format(b) if f == "chi2" else "{}_block{}".format(f, b))
+    names.append("beam_E")
     return names
 
 FEATURE_NAMES = _feature_names()
 ```
 
-- `_BLOCK_FEATURES`: i **18 nomi** delle feature di una singola combinazione.
-- `_feature_names()`: poiché concateniamo 3 combinazioni, genera 3×18 = **54
-  nomi** con suffisso `_block0/1/2` (es. `m_low_block0`, `chi2_block2`). Servono
-  per leggere/etichettare le colonne e per il grafico di feature importance.
+- `_BLOCK_FEATURES`: i **22 nomi** delle feature di una singola combinazione
+  (le ultime 4 sono le feature del fascio: cos(theta*) e |p*| di low/high).
+- `_feature_names()`: poiché concateniamo 3 combinazioni, genera 3×22 = 66
+  nomi con suffisso `_block0/1/2`, più **una** colonna globale `beam_E` in coda
+  = **67** nomi totali. Servono per leggere/etichettare le colonne e per il
+  grafico di feature importance.
 
 ---
 
@@ -142,7 +167,7 @@ fotoni dell'η.
 
 ---
 
-## `_feature_block` — le 18 feature di una combinazione
+## `_feature_block` — le 22 feature di una combinazione
 
 ```python
 def _feature_block(P, pairing):
@@ -202,12 +227,14 @@ boost β.
         asym_low, asym_high, th_low, th_high,
         e_sorted[:, 0], e_sorted[:, 1], e_sorted[:, 2], e_sorted[:, 3], cos_mes,
         pt_low, pt_high, be_low, be_high, chi2,
+        cosstar_low, cosstar_high, pstar_low, pstar_high,
     ])
     return block, chi2, m_low, m_high
 ```
 
-- `np.column_stack`: impila le 18 quantità come 18 colonne → matrice `(N, 18)`.
-  L'ordine corrisponde esattamente a `_BLOCK_FEATURES`.
+- `np.column_stack`: impila le 22 quantità come 22 colonne → matrice `(N, 22)`.
+  L'ordine corrisponde esattamente a `_BLOCK_FEATURES`. Le ultime 4 (cos(theta*)
+  e |p*| di low/high) vengono dal boost nel sistema CM (vedi sezione fascio).
 - Ritorna il blocco, più χ², m_low, m_high separati (servono dopo per
   l'ordinamento e per gli spettri di massa).
 
@@ -216,16 +243,16 @@ boost β.
 ## `build` — assemblaggio finale + etichette
 
 ```python
-def build(photons, seed=SEED):
+def build(photons, beam, seed=SEED):
     P, perm = shuffle_photons(photons, seed=seed)
     n = P.shape[0]
     blocks, chi2s, masses = [], [], []
     for pairing in PAIRINGS:
-        blk, c, ml, mh = _feature_block(P, pairing)
+        blk, c, ml, mh = _feature_block(P, pairing, beam)
         blocks.append(blk)
         chi2s.append(c)
         masses.append(np.column_stack([ml, mh]))  # (N,2): [pi0-ish, eta-ish]
-    blocks = np.stack(blocks, axis=1)   # (N,3,18)
+    blocks = np.stack(blocks, axis=1)   # (N,3,22)
     chi2s = np.stack(chi2s, axis=1)     # (N,3)
     masses = np.stack(masses, axis=1)   # (N,3,2)
 ```
@@ -234,15 +261,15 @@ def build(photons, seed=SEED):
 - Per ognuna delle 3 combinazioni calcola il blocco di feature, il suo χ², e le
   masse (low, high).
 - `np.stack(..., axis=1)`: impila lungo un nuovo asse → `blocks` ha forma
-  `(N, 3, 18)` (N eventi, 3 combinazioni, 18 feature); `chi2s` `(N, 3)`;
+  `(N, 3, 22)` (N eventi, 3 combinazioni, 22 feature); `chi2s` `(N, 3)`;
   `masses` `(N, 3, 2)`.
 
 ```python
     order = np.argsort(chi2s, axis=1)   # (N,3) ascending chi2
     rows = np.arange(n)[:, None]
-    blocks_ord = blocks[rows, order]    # (N,3,18)
+    blocks_ord = blocks[rows, order]    # (N,3,22)
     masses_ord = masses[rows, order]    # (N,3,2)
-    X = blocks_ord.reshape(n, -1)       # (N,54)
+    X = np.column_stack([blocks_ord.reshape(n, -1), beam[:, 0]])  # (N,67)
 ```
 
 **L'idea chiave.**
@@ -251,8 +278,9 @@ def build(photons, seed=SEED):
   combinazioni dal χ² più piccolo al più grande.
 - `blocks[rows, order]`: riordina i blocchi secondo `order` → il **blocco 0 è
   sempre la combinazione col χ² minimo** (= la scelta del metodo classico).
-- `X = blocks_ord.reshape(n, -1)`: appiattisce `(N, 3, 18)` in `(N, 54)`: una
-  riga per evento, 54 colonne (i 3 blocchi concatenati).
+- `X = np.column_stack([blocks_ord.reshape(n, -1), beam[:, 0]])`: appiattisce
+  `(N, 3, 22)` in `(N, 66)` e aggiunge in coda la colonna globale `beam_E` →
+  `(N, 67)`: una riga per evento, 67 colonne (3 blocchi + beam_E).
 
 ```python
     truth = truth_pairing_index(perm)
