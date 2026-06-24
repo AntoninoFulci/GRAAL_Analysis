@@ -2,8 +2,8 @@
 
 Reads the labelled MC (tree `mc` of eta_pi0_mc.root), shuffles the four
 photons per event, builds the three disjoint pairings ordered by chi2, and
-emits a 54-dim feature row plus a class label (which chi2-ordered slot holds
-the truth pairing) per event.
+emits a 67-dim feature row (3 blocks of 22 features + a global beam energy)
+plus a class label (which chi2-ordered slot holds the truth pairing) per event.
 """
 import numpy as np
 import uproot
