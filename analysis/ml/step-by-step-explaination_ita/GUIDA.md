@@ -1,13 +1,12 @@
-# Guida allo studio BDT per il photon pairing (γ p → p η π⁰)
+# Guida allo studio BDT per γ p → p η π⁰
 
-Questo documento serve a **(1) usare** il codice e **(2) spiegare passo passo**
-cosa è stato fatto e perché, in modo da poterlo presentare.
+Questo documento serve a **(1) usare** il codice e **(2) spiegare passo passo** cosa è stato fatto e perché.
 
 ---
 
-## Parte 1 — Come si usa
+## Parte 1 — Il problema fisico
 
-### 1.1 Il problema in una frase
+### 1.1 Il canale e il problema combinatorio (stage-2)
 
 Nella reazione γ p → p η π⁰ i due mesoni decadono ciascuno in due fotoni
 (η → γγ, π⁰ → γγ). Nel rivelatore vediamo **4 fotoni** ma non sappiamo quale
@@ -17,254 +16,287 @@ coppia viene dall'η e quale dal π⁰. Le combinazioni possibili sono **3**:
 (γ1 γ2)(γ3 γ4)      (γ1 γ3)(γ2 γ4)      (γ1 γ4)(γ2 γ3)
 ```
 
-Solo una è quella giusta. Scegliere la combinazione corretta è un
-*combinatorial assignment problem*. Il metodo classico è il **χ²**; qui lo
-confrontiamo con una **BDT (Boosted Decision Tree, XGBoost)**.
+Il metodo classico è il **χ²**; noi lo confrontiamo con una **BDT stage-2** (multiclasse, 3 classi).
 
-### 1.2 Installazione
+### 1.2 Il problema del fondo (stage-1)
 
-Dalla cartella radice del progetto:
+Nei dati reali esistono **canali concorrenti** che mimano il segnale: canali con più fotoni veri (6 o 5) di cui alcune particelle vengono perse nel rivelatore, producendo esattamente 4 fotoni rilevati, identici a prima vista al segnale. I canali modellati sono:
+
+| Canale | Nγ veri | Come imita il segnale |
+|--------|---------|----------------------|
+| γ p → p π⁰ π⁰ | 4 | diretto — stessa topologia |
+| γ p → p 3π⁰ | 6 | perde 2γ → 4γ |
+| γ p → p η π⁰ π⁰ | 6 | perde 2γ → 4γ |
+| γ p → p ω π⁰ (ω→γπ⁰) | 5 | perde 1γ → 4γ |
+| γ p → p η' (η'→η π⁰ π⁰) | 6 | perde 2γ → 4γ |
+
+La **BDT stage-1** (binaria, segnale vs fondo) filtra gli eventi prima dell'accoppiamento.
+
+---
+
+## Parte 2 — Come si usa
+
+### 2.1 Installazione
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r analysis/ml/requirements.txt
+# pacchetti: xgboost, uproot, awkward, scikit-learn, numpy, matplotlib, pytest
 ```
 
-Servono: `xgboost`, `uproot`, `awkward`, `scikit-learn`, `numpy`,
-`matplotlib`, `pytest`. (`uproot` legge i file `.root` senza bisogno di ROOT.)
-
-### 1.3 Esecuzione (3 passi)
+### 2.2 Pipeline completa (consigliato)
 
 ```bash
-# 1. costruisce le feature dal Monte Carlo etichettato
-.venv/bin/python -m analysis.ml.build_features
+# dalla radice del progetto
+./run_pipeline.sh --nevents 1000000
+
+# per un test veloce
+./run_pipeline.sh --nevents 10000
+```
+
+Lo script esegue in sequenza:
+1. Genera il MC ROOT per tutti e 6 i canali (segnale + 5 fondi)
+2. Costruisce le feature stage-1 e allena la BDT stage-1
+3. *(opzionale)* allena la BDT stage-2
+
+### 2.3 Esecuzione manuale passo per passo
+
+#### Generazione MC
+
+```bash
+# segnale
+root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
+
+# canali di fondo
+root -l 'simulation/generate_pi0pi0_dataset.C(1000000)'
+root -l 'simulation/generate_3pi0_dataset.C(1000000)'
+root -l 'simulation/generate_eta_2pi0_dataset.C(1000000)'
+root -l 'simulation/generate_omega_pi0_dataset.C(1000000)'
+root -l 'simulation/generate_etaprime_dataset.C(1000000)'
+```
+
+#### BDT stage-1 (segnale vs fondo)
+
+```bash
+# costruisce le 24 feature globali
+python -m analysis.ml.build_background_features \
+    --signal      simulation/eta_pi0_mc.root \
+    --backgrounds simulation/pi0pi0_mc.root simulation/3pi0_mc.root \
+                  simulation/eta_2pi0_mc.root simulation/omega_pi0_mc.root \
+                  simulation/etaprime_mc.root \
+    --cs-csv      simulation/cross_sections.csv \
+    --output      features_stage1.npz
+
+# allena e salva il modello
+python -m analysis.ml.train_bdt_stage1 \
+    --features features_stage1.npz \
+    --out-dir  analysis/ml/model
+```
+
+#### BDT stage-2 (scelta combinazione fotoni)
+
+```bash
+python -m analysis.ml.build_features
 #    -> analysis/ml/data/features.npz
 
-# 2. allena la BDT
-.venv/bin/python -m analysis.ml.train_bdt
+python -m analysis.ml.train_bdt
 #    -> analysis/ml/model/bdt.json  +  plot diagnostici
 
-# 3. confronta BDT vs χ² e produce gli spettri di massa
-.venv/bin/python -m analysis.ml.evaluate_compare
+python -m analysis.ml.evaluate_compare
 #    -> analysis/ml/plots/metrics.txt  +  mass_pi0.png, mass_eta.png
 ```
 
-Per provare velocemente su un sottoinsieme:
+### 2.4 Ricostruzione con gate stage-1
 
 ```bash
-.venv/bin/python -m analysis.ml.build_features --n-max 20000 --output analysis/ml/data/prova.npz
+python analysis/reconstruct_eta_pi0.py
+# Il gate BDT stage-1 si attiva automaticamente se model/bdt_stage1.json esiste.
+# Se non esiste, procede senza il gate.
 ```
 
-### 1.4 Output prodotti
+### 2.5 Output prodotti
 
 | File | Contenuto |
 |------|-----------|
-| `data/features.npz` | matrice feature `X` (N×67), label `y`, masse, nomi feature |
-| `model/bdt.json` | modello XGBoost allenato |
-| `plots/training_curve.png` | curva di apprendimento (train vs validation) |
-| `plots/feature_importance.png` | importanza delle feature (gain) |
-| `plots/confusion.png` | matrice di confusione della BDT |
-| `plots/mass_pi0.png`, `plots/mass_eta.png` | spettri di massa η/π⁰: truth vs χ² vs BDT |
-| `plots/metrics.txt` | numeri di sintesi (accuratezza BDT vs χ², larghezza dei picchi) |
+| `features_stage1.npz` | X (N×24), y (0=fondo/1=segnale), w (pesi sezione d'urto) |
+| `model/bdt_stage1.json` | modello XGBoost stage-1 |
+| `model/stage1_threshold.txt` | soglia ottimale (F1 max su validation set) |
+| `model/stage1_metrics.txt` | AUC, precisione, recall, F1 |
+| `model/stage1_roc.png` | curva ROC |
+| `model/stage1_feature_importance.png` | importanza delle 24 feature |
+| `model/stage1_score_dist.png` | distribuzione score segnale vs fondo |
+| `data/features.npz` | X (N×67), y, masse, nomi feature (stage-2) |
+| `model/bdt.json` | modello XGBoost stage-2 |
+| `plots/training_curve.png` | curva di apprendimento (train vs val) |
+| `plots/feature_importance.png` | importanza feature (stage-2) |
+| `plots/confusion.png` | matrice di confusione |
+| `plots/mass_pi0.png`, `plots/mass_eta.png` | spettri di massa: truth vs χ² vs BDT |
+| `plots/metrics.txt` | accuratezza BDT vs χ², larghezze dei picchi |
 
-### 1.5 Test
-
-```bash
-.venv/bin/python -m pytest analysis/ml/tests/ -v
-```
-
-### 1.6 Modalità test/spiegazione (`--explain`)
-
-Per **capire come funziona** vedendo i passaggi a schermo, su pochi eventi e
-senza scrivere file:
+### 2.6 Test
 
 ```bash
-# walkthrough della costruzione delle feature: fotoni, shuffle, le 3
-# combinazioni con masse/chi2, ordinamento, etichetta, vettore di 67 feature
-.venv/bin/python -m analysis.ml.build_features --explain
-.venv/bin/python -m analysis.ml.build_features --explain --explain-events 5   # più eventi
-
-# walkthrough della decisione della BDT: distribuzione delle classi,
-# probabilità per evento (slot 0/1/2), pred vs chi2 vs verità, confusione
-.venv/bin/python -m analysis.ml.train_bdt --explain
+python -m pytest analysis/ml/tests/ -v
+# 19 test, tutti verdi
 ```
 
-`build_features --explain` stampa, per ogni evento, le matrici e le tabelle
-intermedie. `train_bdt --explain` allena un modellino veloce e mostra come la
-BDT assegna le probabilità, includendo casi in cui il χ² sbaglia e la BDT
-(a volte) corregge.
+### 2.7 Modalità spiegazione (`--explain`)
+
+```bash
+# walkthrough della costruzione delle feature stage-2
+python -m analysis.ml.build_features --explain
+python -m analysis.ml.build_features --explain --explain-events 5
+
+# walkthrough della decisione BDT stage-2
+python -m analysis.ml.train_bdt --explain
+```
 
 ---
 
-## Parte 2 — Cosa è stato fatto, passo passo
+## Parte 3 — Cosa è stato fatto, passo passo
 
-### Passo 0 — Il dataset Monte Carlo (già esistente)
+### Passo 0 — Dataset Monte Carlo segnale
 
-Il file `simulation/generate_eta_pi0_dataset.C` genera 1.000.000 di eventi
-γ p → p η π⁰ con `TGenPhaseSpace`, fa decadere η e π⁰ in due fotoni ciascuno, e
-applica uno **smearing gaussiano** che imita la risoluzione del rivelatore
-(energia dei fotoni ~10%, angoli pochi gradi). Salva sia le quantità "vere"
-(truth) sia quelle "misurate" (smeared).
+`simulation/generate_eta_pi0_dataset.C` genera eventi γ p → p η π⁰ con `TGenPhaseSpace`, decadimento η,π⁰ → γγ, smearing gaussiano (σ_E/E = 10%, σ_θ = 5°, σ_φ = 3° per fotoni; σ_p/p = 4% per il protone).
 
-**Perché è importante:** essendo simulazione, sappiamo *con certezza* quali
-fotoni vengono dall'η e quali dal π⁰. Questa è l'etichetta (label) che permette
-l'apprendimento supervisionato. Senza truth non potremmo allenare nulla.
+**Perché:** conoscendo la truth si può etichettare ogni evento e allenare in modo supervisionato.
 
-Output: `simulation/eta_pi0_mc.root`, albero `mc`, con i 4 fotoni
-`eta_gamma1`, `eta_gamma2`, `pi0_gamma1`, `pi0_gamma2`.
+Output: `simulation/eta_pi0_mc.root`, albero `mc`, branch `eta_gamma1/2`, `pi0_gamma1/2`, `beam`, `proton`.
 
-### Passo 1 — Lettura dei fotoni (`build_features.py`, `load_photons`)
+### Passo 0b — Dataset Monte Carlo dei canali di fondo
 
-Leggiamo i 4 quadrivettori smeared di ogni evento in un array numpy di forma
-`(N, 4, 4)`: N eventi × 4 fotoni × 4 componenti `[E, px, py, pz]`. Per
-convenzione i fotoni 0,1 sono quelli dell'η e 2,3 quelli del π⁰ (lo sappiamo dal
-truth).
+Cinque nuovi generatori in `simulation/`, tutti basati sullo stesso header `smearing.h`. Ogni generatore usa `TGenPhaseSpace` in cascata per simulare i decadimenti intermedi (es. ω→γπ⁰, η'→ηπ⁰π⁰).
 
-### Passo 2 — Mescolamento (shuffle) per evitare il "barare"
+Le sezioni d'urto di riferimento vengono da misure sperimentali (CB-ELSA/TAPS, SAPHIR, CB-ELSA) e moltiplicati per la probabilità di sopravvivenza p_survival calcolata con il modello `photon_loss.py`.
 
-Se lasciassimo i fotoni nell'ordine `[η, η, π⁰, π⁰]`, il modello imparerebbe la
-risposta dalla **posizione**, non dalla fisica. Quindi per ogni evento
-**permutiamo casualmente** i 4 fotoni (`shuffle_photons`, seed fisso per
-riproducibilità). Teniamo traccia della permutazione per sapere, *a posteriori*,
-qual era la combinazione vera.
+### Passo 0c — Modello di perdita fotoni (`photon_loss.py`)
 
-Verifica fatta: prima dell'ordinamento la combinazione vera cade su ciascuna
-delle 3 posizioni con probabilità ~1/3 → **nessun leakage posizionale**.
+P_loss(E, θ) = 1 − (1 − P_threshold(E)) × (1 − P_acceptance(θ))
 
-### Passo 3 — Le 3 combinazioni e l'etichetta vera (`truth_pairing_index`)
+dove entrambi i termini sono sigmoidi con parametri calibrati sull'accettanza di GRAAL. Serve per capire che frazione degli eventi a 6γ veri arriva a 4γ osservati, e quindi quanto "peso" dare ai canali di fondo nel training.
 
-Per ogni evento costruiamo le 3 combinazioni disgiunte. La combinazione **vera**
-è quella che mette insieme i due fotoni dell'η in una coppia e i due del π⁰
-nell'altra. `truth_pairing_index` la individua.
-
-### Passo 4 — Le feature fisiche (`_feature_block`)
-
-Per ogni combinazione costruiamo le quantità fisiche discriminanti. All'interno
-di ogni coppia ordiniamo per massa (coppia leggera = "low" ≈ π⁰, coppia pesante
-= "high" ≈ η) per togliere ambiguità di permutazione. **22 feature per
-combinazione**:
-
-| Feature | Significato fisico |
-|---------|--------------------|
-| `m_low`, `m_high` | masse invarianti delle due coppie γγ |
-| `dm_pi0`, `dm_eta` | distanza dalle masse nominali: \|m_low − m_π⁰\|, \|m_high − m_η\| |
-| `asym_low`, `asym_high` | asimmetria energetica \|E1−E2\|/(E1+E2) (i decadimenti veri sono più simmetrici) |
-| `theta_low`, `theta_high` | angolo di apertura tra i 2 fotoni (legato alla massa: m² ≈ E1·E2·(1−cosθ)) |
-| `E1..E4` | energie dei 4 fotoni ordinate |
-| `cos_mesons` | coseno dell'angolo tra i due mesoni ricostruiti |
-| `pt_low`, `pt_high` | impulso trasverso dei mesoni |
-| `beta_low`, `beta_high` | boost β = \|p\|/E dei mesoni |
-| `chi2` | il χ² classico della combinazione (usato come feature) |
-| `cosstar_low`, `cosstar_high` | cos(theta*) del mesone nel sistema CM (avanti/indietro rispetto al fascio) |
-| `pstar_low`, `pstar_high` | modulo dell'impulso del mesone nel sistema CM |
-
-Più una feature **globale** per evento in coda al vettore: `beam_E` (energia del
-fascio). Tutte derivano dagli stessi quadrivettori (coerenza). Sono esattamente le
-feature suggerite dall'analisi HEP standard: massa, distanza dalle masse
-nominali, asimmetria energetica, angoli, boost.
-
-### Passo 5 — L'idea chiave: ordinare le 3 combinazioni per χ² (`build`)
-
-Questo è il punto più importante del design.
-
-Il **χ²** misura quanto le masse ricostruite si avvicinano a quelle nominali:
-
-```
-χ² = ((m_low − m_π⁰)/(0.08·m_π⁰))²  +  ((m_high − m_η)/(0.08·m_η))²
+```python
+from analysis.ml.photon_loss import LossParams, estimate_survival
+p = estimate_survival(Es, thetas, LossParams(), n_keep=4)
 ```
 
-dove 0.08 = risoluzione di massa dell'8%. Il metodo classico sceglie la
-combinazione con **χ² minimo**.
+### Passo 1 — Feature stage-1 (`build_background_features.py`)
 
-Noi **ordiniamo le 3 combinazioni per χ² crescente** e le concateniamo in un
-unico vettore di `3 × 22 = 66` feature, più una colonna globale `beam_E` in coda
-(**67** in totale). Conseguenza elegante:
+24 feature globali (non assumono alcun accoppiamento):
 
-- il **blocco 0** è sempre la scelta del χ² (χ² minimo);
-- l'**etichetta** `y` ∈ {0,1,2} è la posizione in cui finisce la combinazione
-  vera dopo l'ordinamento.
+| # | Feature | Significato |
+|---|---------|-------------|
+| 0–14 | `m_gg_ij` | masse invarianti di tutte le coppie γγ (fino a 15) |
+| 15 | `n_pairs_near_pi0` | quante coppie con \|m−m_π⁰\| < 40 MeV |
+| 16 | `n_pairs_near_eta` | quante coppie con \|m−m_η\| < 80 MeV |
+| 17 | `best_chi2_eta_pi0` | best χ² assumendo η+π⁰ tra i primi 4 fotoni |
+| 18 | `missing_mass` | massa del sistema mancante (beam+p_target − protone) |
+| 19 | `missing_E` | energia mancante |
+| 20 | `total_gamma_E` | somma energie fotoni osservati |
+| 21 | `n_gamma_obs` | numero fotoni osservati |
+| 22 | `proton_p` | modulo impulso protone |
+| 23 | `proton_costheta` | cos(θ) protone |
 
-Così la BDT impara una domanda precisa: *"la scelta del χ² (blocco 0) è giusta,
-oppure devo correggerla scegliendo il blocco 1 o 2?"* Il χ² diventa il baseline
-da battere, codificato direttamente nel problema: **accuratezza del χ² =
-frazione di eventi con `y = 0`**.
+**Pesatura ibrida:** ogni canale di fondo riceve sample_weight = σ_eff / N_eventi, in modo che la BDT veda la composizione realistica del fondo.
 
-### Passo 6 — Allenamento della BDT (`train_bdt.py`)
+### Passo 2 — Allenamento BDT stage-1 (`train_bdt_stage1.py`)
 
-Un `XGBClassifier` multiclasse (`multi:softprob`, 3 classi):
+`XGBClassifier(binary:logistic)` con:
+- 300 alberi, profondità 5, learning rate 0.05, subsample 0.8
+- early stopping su AUC del validation set (20%)
+- soglia ottimale trovata massimizzando F1 sul validation set
+- salva modello, soglia, metriche e 3 plot diagnostici
 
-- split train / validation / test (stratificato, seed fisso);
-- iperparametri: 400 alberi, profondità 5, learning rate 0.05, subsample 0.8,
-  early stopping sulla validation;
-- niente scaling (gli alberi sono invarianti di scala);
-- salva il modello e i plot diagnostici (curva di training, feature importance,
-  matrice di confusione).
+### Passo 3 — Gate nella ricostruzione (`reconstruct_eta_pi0.py`)
 
-### Passo 7 — Confronto BDT vs χ² (`evaluate_compare.py`)
+```python
+# All'inizio dello script
+_load_stage1()   # carica bdt_stage1.json + stage1_threshold.txt
 
-Sullo **stesso test set** non visto in allenamento:
+# Nel loop eventi, prima di tutto il resto
+if chain.gammas.size() >= 4:
+    if not _stage1_pass(...):
+        continue   # evento scartato: classificato come fondo
+```
 
-- accuratezza di pairing: BDT vs χ² (= sempre blocco 0);
-- spettri di massa η e π⁰ ricostruiti con la combinazione scelta da truth / χ² /
-  BDT, con larghezza del picco e fondo combinatorio;
-- scrive `metrics.txt`.
+Se il modello non esiste il gate è disabilitato → backward compatible.
+
+### Passo 4 — Feature stage-2 (`build_features.py`, 67 feature)
+
+Per ogni evento, 3 combinazioni γγ–γγ, ordinate per χ² crescente.
+Per ogni combinazione: 22 feature cinetiche (masse, χ², asimmetrie, angoli, β, cos(θ*) nel CM, |p*| nel CM). Concatenate → 66 + 1 colonna globale `beam_E` = **67 feature**.
+
+L'**etichetta** y ∈ {0,1,2} è la posizione in cui si trova la combinazione vera dopo l'ordinamento. y=0 → il χ² ha ragione (caso più frequente, ~97.5%).
+
+### Passo 5 — Allenamento BDT stage-2 (`train_bdt.py`)
+
+`XGBClassifier(multi:softprob, 3 classi)`:
+- 400 alberi, profondità 5, learning rate 0.05, subsample 0.8
+- early stopping sulla validation
+- niente scaling (gli alberi sono invarianti di scala)
+
+### Passo 6 — Confronto BDT vs χ² (`evaluate_compare.py`)
+
+Stesso test set non visto: accuratezza di pairing, spettri di massa η e π⁰, larghezza dei picchi, numero di errori corretti.
 
 ---
 
-## Parte 3 — Risultati e interpretazione
+## Parte 4 — Risultati e interpretazione
 
-Su 1.000.000 di eventi (200.000 nel test set non visto):
+### BDT stage-2 (scelta combinazione, 4γ ideali)
+
+Su 1.000.000 di eventi (200.000 nel test set):
 
 | Metodo | Accuratezza di pairing |
 |--------|------------------------|
 | χ² (baseline) | **97.51 %** |
-| BDT (XGBoost) | **98.33 %** |
+| BDT stage-2 | **98.33 %** |
 
-- La BDT **migliora di +0.82 punti** assoluti, recuperando circa **un terzo**
-  degli errori del χ². Le feature del fascio (cos(theta*)/|p*| nel CM + `beam_E`)
-  hanno alzato la BDT dal 98.1 % (senza fascio) al **98.3 %**.
-- Le **larghezze dei picchi** di massa η/π⁰ sono praticamente identiche: la BDT
-  corregge i mis-pairing nelle code, non la risoluzione del nucleo del picco.
+Guadagno: +0.82 punti assoluti, ~1/3 degli errori del χ² recuperati.
+Le feature del fascio (cos(θ*), |p*| nel CM + beam_E) hanno alzato la BDT dal 98.1% al 98.3%.
 
-### Il finding da spiegare
+**Perché il guadagno è contenuto:** su MC idealizzato a 4γ puliti il χ² è già quasi ottimale (η e π⁰ hanno masse ben separate rispetto allo smearing del 10%). Il vero vantaggio della BDT emerge con molteplicità variabile, fotoni spuri e fondo — che è esattamente il regime dei dati reali dopo il gate stage-1.
 
-Il guadagno resta **contenuto perché su questo Monte Carlo il χ² è già quasi
-ottimale**. Motivo: le masse di η (0.548 GeV) e π⁰ (0.135 GeV) sono ben separate
-rispetto allo smearing del 10%, quindi la combinazione giusta ha quasi sempre il
-χ² più piccolo. Le feature del fascio aiutano in modo misurabile (da +0.57 a
-+0.82 punti), ma il margine totale resta piccolo su eventi puliti a 4 fotoni.
+### BDT stage-1 (segnale vs fondo)
 
-### Limiti e prossimo passo
-
-Questo MC è **idealizzato**: esattamente 4 fotoni, niente fondo, niente
-splitoff, niente fotoni persi. Nei dati reali del GRAAL il problema combinatorio
-è molto più difficile (multiplicità di fotoni variabile, cluster spuri, fondo).
-È lì che ci si aspetta il vero vantaggio della BDT. La pipeline è già pronta:
-basta darle in pasto un dataset più realistico (o i dati reali con
-truth-matching parziale) per misurare il guadagno in quel regime.
+Il gate stage-1 rigetta eventi con topologia incompatibile con γ p → p η π⁰. La BDT usa le sezioni d'urto fisiche per pesare i contributi relativi dei canali di fondo, dando maggiore importanza ai fondi con σ_eff più alta (π⁰ π⁰ è il dominante con 3.69 μb).
 
 ---
 
-## Appendice — Mappa dei file
+## Parte 5 — Mappa dei file
 
 ```
 analysis/ml/
-├── physics.py            # matematica dei quadrivettori (massa, angoli, β, χ²) — vettorizzata
-├── build_features.py     # lettura MC+fascio, shuffle, 3 combinazioni, feature 67-dim, etichetta + CLI
-├── train_bdt.py          # allenamento XGBoost + plot diagnostici
-├── evaluate_compare.py   # confronto BDT vs χ² + spettri di massa
-├── requirements.txt      # dipendenze
-├── README.md             # sintesi breve
-├── GUIDA.md              # questo documento
-├── tests/                # test (14, tutti verdi)
-├── data/                 # features.npz (generato, git-ignored)
-├── model/                # bdt.json (generato, git-ignored)
-└── plots/                # figure + metrics.txt
+├── physics.py                    # quadrivettori vettorizzati (massa, angoli, β, χ², boost)
+├── build_features.py             # MC segnale → feature 67-dim + etichette (stage-2)
+├── build_background_features.py  # segnale+fondi → feature 24-dim + pesi (stage-1)
+├── photon_loss.py                # modello sigmoid P_loss(E,θ), stima p_survival
+├── train_bdt.py                  # XGBoost multiclasse stage-2 + plot diagnostici
+├── train_bdt_stage1.py           # XGBoost binario stage-1 + soglia F1-ottima
+├── evaluate_compare.py           # confronto BDT vs χ² + spettri di massa
+├── requirements.txt
+├── tests/
+│   ├── test_physics.py           # 5 test
+│   ├── test_build_features.py    # 9 test
+│   ├── test_photon_loss.py       # 9 test
+│   └── test_build_background_features.py  # 10 test
+├── data/                         # features.npz, features_stage1.npz (generati)
+├── model/                        # bdt.json, bdt_stage1.json (generati)
+└── plots/
 
 simulation/
-└── generate_eta_pi0_dataset.C   # generatore MC etichettato
+├── smearing.h                    # SmearPhoton, SmearProton (inline, condivisi)
+├── generate_eta_pi0_dataset.C    # segnale (truth + smearing)
+├── generate_pi0pi0_dataset.C     # fondo 4γ
+├── generate_3pi0_dataset.C       # fondo 6γ
+├── generate_eta_2pi0_dataset.C   # fondo 6γ
+├── generate_omega_pi0_dataset.C  # fondo 5γ (ω→γπ⁰)
+├── generate_etaprime_dataset.C   # fondo 6γ (η'→ηπ⁰π⁰)
+└── cross_sections.csv            # σ_ref, p_survival, σ_eff per 5 canali
 
 docs/superpowers/
-├── specs/  ...-design.md         # specifica di design
-└── plans/  ...-bdt-study.md      # piano di implementazione
+├── specs/2026-06-24-background-channels-mc-design.md   # specifica di design
+└── plans/2026-06-24-background-channels-mc.md          # piano di implementazione
+
+run_pipeline.sh                   # launcher completo (MC + feature + BDT)
 ```

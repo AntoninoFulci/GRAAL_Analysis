@@ -1,191 +1,292 @@
 # GRAAL Analysis
 
-Analysis code for the GRAAL experiment: event processing, particle identification, and 4-vector reconstruction using the ROOT framework.
+Codice di analisi per l'esperimento GRAAL: ricostruzione degli eventi, identificazione delle particelle e filtraggio con BDT per il canale γ p → p η π⁰.
 
-## Repository Structure
+---
+
+## Struttura del repository
 
 ```
 GRAAL_Analysis/
 ├── pre_analysis/
-│   ├── PreAnalysis.h      # ROOT-generated TTree class (detector variables)
-│   ├── PreAnalysis.C      # Analysis logic: Loop(), AnalyzeAll()
-│   ├── CutManager.h       # Dynamic cut loading and lookup
-│   └── cuts/              # TCutG definitions per particle/period/dataset
+│   ├── PreAnalysis.h               # classe TTree generata da ROOT (variabili rivelatore)
+│   ├── PreAnalysis.C               # logica di analisi: Loop(), AnalyzeAll()
+│   ├── CutManager.h                # caricamento dinamico dei tagli grafici (TCutG)
+│   └── cuts/                       # tagli TCutG per particella/periodo/dataset
 ├── analysis/
-│   ├── select_events.py        # event preselection (gammas + one recoil)
-│   ├── reconstruct_2pi0.py     # gamma p -> p pi0 pi0 reconstruction
-│   └── reconstruct_eta_pi0.py  # gamma p -> p eta pi0 reconstruction
-└── simulation/
-    └── generate_eta_pi0_dataset.C  # MC generator (ML training dataset)
+│   ├── select_events.py            # preselezione eventi (fotoni + barione di rinculo)
+│   ├── reconstruct_2pi0.py         # γ p → p π⁰ π⁰: accoppiamento fotoni + chi2
+│   ├── reconstruct_eta_pi0.py      # γ p → p η π⁰: accoppiamento + gate BDT stage-1
+│   └── ml/
+│       ├── physics.py              # matematica dei quadrivettori (vettorizzata, numpy)
+│       ├── build_features.py       # feature 67-dim per BDT stage-2 (photon pairing)
+│       ├── build_background_features.py  # feature 24-dim per BDT stage-1 (segnale/fondo)
+│       ├── train_bdt.py            # BDT stage-2: multiclasse (scelta combinazione)
+│       ├── train_bdt_stage1.py     # BDT stage-1: binario (segnale vs fondo)
+│       ├── evaluate_compare.py     # confronto BDT vs χ² + spettri di massa
+│       ├── photon_loss.py          # modello di perdita fotoni per MC di fondo
+│       ├── requirements.txt
+│       ├── tests/                  # 19+ test pytest (tutti verdi)
+│       ├── data/                   # features.npz (generato, ignorato da git)
+│       ├── model/                  # bdt.json, bdt_stage1.json (generati)
+│       ├── plots/                  # figure diagnostiche
+│       └── step-by-step-explaination_ita/  # documentazione dettagliata in italiano
+├── simulation/
+│   ├── smearing.h                       # header condiviso: SmearPhoton, SmearProton
+│   ├── generate_eta_pi0_dataset.C       # segnale: γ p → p η π⁰ (MC etichettato)
+│   ├── generate_pi0pi0_dataset.C        # fondo: γ p → p π⁰ π⁰  (4γ)
+│   ├── generate_3pi0_dataset.C          # fondo: γ p → p 3π⁰    (6γ)
+│   ├── generate_eta_2pi0_dataset.C      # fondo: γ p → p η π⁰ π⁰ (6γ)
+│   ├── generate_omega_pi0_dataset.C     # fondo: γ p → p ω π⁰   (5γ)
+│   ├── generate_etaprime_dataset.C      # fondo: γ p → p η'      (6γ)
+│   └── cross_sections.csv              # sezioni d'urto efficaci per pesatura ibrida
+├── docs/superpowers/
+│   ├── specs/  2026-06-24-background-channels-mc-design.md
+│   └── plans/  2026-06-24-background-channels-mc.md
+└── run_pipeline.sh                 # launcher completo: MC → feature → BDT
 ```
 
-## Pipeline
+---
 
-1. **Pre-analysis** (`pre_analysis/`) — turns raw detector trees (`h70`) into
-   per-event 4-vector trees (`h80`).
-2. **Preselection** (`analysis/select_events.py`) — filters the `h80` trees,
-   keeping only events usable by the reconstruction (more than one photon and
-   exactly one recoil baryon). Run **before** the reconstruct scripts.
-3. **Reconstruction** (`analysis/`) — pairs the photons of the `h80` tree into
-   the meson candidates of a given channel. Run `reconstruct_2pi0.py` **before**
-   `reconstruct_eta_pi0.py`.
-4. **Simulation** (`simulation/`) — standalone Monte Carlo generator used to
-   build a labelled dataset for a future ML model.
+## Pipeline completa
 
-## Components
+```
+[dati raw ROOT]
+      │
+      ▼
+1. pre_analysis/PreAnalysis.C    →  h80 trees (un file per run)
+      │
+      ▼
+2. analysis/select_events.py     →  selected/*.root  (preselezione)
+      │
+      ▼
+3a. simulation/generate_*.C      →  *_mc.root  (Monte Carlo segnale + 5 canali di fondo)
+      │
+      ├──► 3b. analysis/ml/build_background_features.py → features_stage1.npz
+      │         analysis/ml/train_bdt_stage1.py         → model/bdt_stage1.json
+      │
+      ├──► 3c. analysis/ml/build_features.py            → data/features.npz
+      │         analysis/ml/train_bdt.py                → model/bdt.json
+      │
+      ▼
+4. analysis/reconstruct_eta_pi0.py  →  reco_eta_pi0.root
+   (con gate BDT stage-1 + accoppiamento chi2/BDT stage-2)
+```
 
-### PreAnalysis.h
+### Avvio rapido (tutto in un colpo)
 
-ROOT-generated class providing structured access to all detector variables. Key variable groups:
+```bash
+# pipeline completa con 1M eventi per canale
+./run_pipeline.sh
 
-| Group | Variables |
-|-------|-----------|
-| Event metadata | `Idrun`, `Idevt`, `Itrig`, `Ipol` |
-| Tagging system | `Mplastic`, `Iplastic`, `Eg_tag_pm`, `Ncstrip`, `Eg_tag_strip` |
-| Calorimeter (BGO) | `Nbclus`, `Eclus`, `Tetclus`, `Phiclus`, `Eclusc` |
-| Central tracks | `Nass_3`, `Itipo_track`, `Dedx_track`, `Eclusc_track`, `Thet_centr_track` |
-| Forward tracks | `Nparf`, `Theta_trf`, `Phi_trf`, `Tof_trf`, `De_trf` |
-| Barrel / wall | `Nbar`, `Ebar`, `M_wal`, `Wal_par` |
+# test veloce su 10k eventi
+./run_pipeline.sh --nevents 10000
 
-### PreAnalysis.C
+# salta la generazione MC (già fatta)
+./run_pipeline.sh --skip-mc
 
-Implements `Loop()`, which produces an output TTree (`h80`) per run folder. The pipeline per event:
+# solo ri-allenamento BDT
+./run_pipeline.sh --skip-mc --skip-features
+```
 
-1. **Beam reconstruction** — 4-vector from first tagging strip energy `Eg_tag_strip[0]`
-2. **Central detector** (`Nass_3` loop, `Itipo_track`):
-   - `== 11` → photon candidate (neutral, BGO cluster energy)
-   - `== 13/14` → charged: proton or pion via graphical cuts on `Eclusc_track` vs `Dedx_track`
-3. **Forward detector** (`Nparf` loop, `Iass_trf`):
-   - Neutral (`index == 1`): neutron (TOF ≥ 12 ns) or photon (7.5–12.5 ns)
-   - Charged: proton / pion / deuteron via graphical cuts on `Tof_trf` vs `De_trf`
-4. **4-vector reconstruction** — relativistic kinematics from β, detector angles
-5. **Output** — fills `beam`, `gammas`, `neutrons`, `protons`, `deuterons` 4-vector branches plus lightweight angle branches (`gamma_theta/phi`, `pions_theta/phi`, `deuterons_theta/phi`, `fcharged_*`)
+---
 
-The wrapper `AnalyzeAll(base_in, base_out)` iterates all run subfolders and calls `PreAnalysis()` once per folder.
+## Moduli principali
 
-### CutManager.h
+### 1. PreAnalysis.h / PreAnalysis.C
 
-Loads and organizes `TCutG` particle ID cuts at startup. Cuts are keyed by `Particle → Detector → RunID`.
+Converte gli alberi grezzi `h70` del rivelatore in alberi `h80` per evento con 4-vettori ricostruiti.
 
-**Key functions:**
+Pipeline per evento:
+1. fascio dal tagger (`Eg_tag_strip[0]`)
+2. rivelatore centrale (`Itipo_track`): 11 = fotone, 13/14 = protone/pione (tagli grafici su Eclusc vs dE/dx)
+3. rivelatore in avanti (`Iass_trf`): neutrone (TOF ≥ 12 ns), fotone (7.5–12.5 ns), protone/pione/deuterone (tagli su TOF vs ΔE)
+4. ricostruzione cinematica + scrittura branch `beam`, `gammas`, `protons`, `neutrons`, `deuterons`
 
-| Function | Description |
-|----------|-------------|
-| `BuildCutMap(dataPath, cutPath)` | Scans data folders for run IDs, loads all `.cpp` cut files |
-| `GetCut(particle, detector, runID)` | Returns the `TCutG*` for a given particle/detector/run |
-| `PrintCutMap()` | Prints a summary of loaded cuts for debugging |
+```bash
+root -l pre_analysis/PreAnalysis.C
+# poi da ROOT:
+AnalyzeAll("/percorso/dati", "/percorso/output")
+```
 
-Cut files follow the naming convention `{Particle}{Detector}Cut_{Year}_{Dataset}.cpp` (e.g. `ProtonFwdCut_2002_uv1.cpp`). `BuildCutMap` parses the filename to extract particle, detector region, and run period, then maps the cut to all run IDs belonging to that period's data folder.
+### 2. CutManager.h
 
-### cuts/
+Carica e organizza i tagli `TCutG` all'avvio. Chiave: `Particella → Rivelatore → RunID`. Convenzione nomi file: `{Particella}{Rivelatore}Cut_{Anno}_{Dataset}.cpp`.
 
-Each file defines one `TCutG` polygon. Two parameter spaces are used:
+### 3. select_events.py
 
-| Detector region | X-axis | Y-axis |
-|----------------|--------|--------|
-| Central (Cnt) | `Eclusc_track` (corrected BGO energy) | `Dedx_track` (dE/dx) |
-| Forward (Fwd) | `Tof_trf` (time of flight) | `De_trf` (energy loss) |
-
-Cuts cover particles **Proton**, **Pion**, **Deuteron** across experimental periods 1998–2006 and datasets (`d1`, `d2`, `d3`, `uv`, `vis`, `fuv`, ...). Each cut is empirically determined from calibration data.
-
-### analysis/select_events.py
-
-Preselection filter between pre-analysis and reconstruction. Reads every
-`pre_*.root` file in `pre_analyzed/` (tree `h80`), clones the tree structure,
-and keeps only events with more than one photon and exactly one recoil baryon
-(`protons + neutrons + deuterons == 1`). Surviving events are written to
-`selected/<name>.root` (the `pre_` prefix is dropped), same tree `h80`.
+Filtro di preselezione tra pre-analisi e ricostruzione. Tiene solo gli eventi con >1 fotone e esattamente 1 barione di rinculo.
 
 ```bash
 python analysis/select_events.py
 ```
 
-### analysis/ (reconstruction)
+### 4. reconstruct_2pi0.py / reconstruct_eta_pi0.py
 
-Channel reconstruction scripts that run on the pre-analysis `h80` trees. Both
-chain all `subsample/analisi_*.root` files, loop over events, and for each event
-pick the photon pairing that minimises a chi2 against the expected meson masses
-(8% resolution, `chi2 < 10` cut), then write the reconstructed 4-vectors.
+Accoppiamento fotoni con minimizzazione del χ²:
 
-| Script | Channel | Output file | Output tree | Combination table |
-|--------|---------|-------------|-------------|-------------------|
-| `reconstruct_2pi0.py` | gamma p -> p pi0 pi0 | `reco_2pi0.root` | `reco_2pi0` | `combinations_2pi0.txt` |
-| `reconstruct_eta_pi0.py` | gamma p -> p eta pi0 | `reco_eta_pi0.root` | `reco_eta_pi0` | `combinations_eta_pi0.txt` |
+```
+χ² = ((m₁₂ − m_meson1) / (0.08·m_meson1))² + ((m₃₄ − m_meson2) / (0.08·m_meson2))²
+```
 
-The combination table has one row per allowed pairing: four gamma indices plus
-the two target masses, `i1 i2 i3 i4 m12 m34`. In the eta-pi0 case the pair with
-target mass `> 0.4` GeV is assigned to the eta.
-
-Run order: `reconstruct_2pi0.py` first, then `reconstruct_eta_pi0.py`.
+`reconstruct_eta_pi0.py` ha in più un **gate BDT stage-1**: gli eventi classificati come fondo vengono scartati prima dell'accoppiamento. Il gate si attiva automaticamente se `analysis/ml/model/bdt_stage1.json` esiste; se non c'è il codice prosegue normalmente.
 
 ```bash
 python analysis/reconstruct_2pi0.py
 python analysis/reconstruct_eta_pi0.py
 ```
 
-### simulation/
+---
 
-`generate_eta_pi0_dataset.C` is a standalone ROOT macro generating
-`gamma p -> p eta pi0` events with `TGenPhaseSpace` (eta and pi0 decaying to two
-photons each) and applying Gaussian detector smearing. It stores both truth and
-smeared 4-vectors, producing a labelled dataset (`eta_pi0_mc.root`, tree `mc`)
-for training a future ML model.
+## Generatori Monte Carlo (`simulation/`)
+
+Tutti i generatori usano `TGenPhaseSpace` di ROOT e applicano lo smearing gaussiano del rivelatore tramite `smearing.h` (`SmearPhoton`, `SmearProton`).
+
+| File | Canale | Nγ veri | Output | Soglia [GeV] |
+|------|--------|---------|--------|--------------|
+| `generate_eta_pi0_dataset.C` | γ p → p η π⁰ (segnale) | 4 | `eta_pi0_mc.root` | 0.926 |
+| `generate_pi0pi0_dataset.C` | γ p → p π⁰ π⁰ | 4 | `pi0pi0_mc.root` | 0.309 |
+| `generate_3pi0_dataset.C` | γ p → p 3π⁰ | 6 | `3pi0_mc.root` | 0.492 |
+| `generate_eta_2pi0_dataset.C` | γ p → p η π⁰ π⁰ | 6 | `eta_2pi0_mc.root` | 1.174 |
+| `generate_omega_pi0_dataset.C` | γ p → p ω π⁰ (ω→γπ⁰) | 5 | `omega_pi0_mc.root` | 1.366 |
+| `generate_etaprime_dataset.C` | γ p → p η' (η'→η π⁰ π⁰) | 6 | `etaprime_mc.root` | 1.446 |
 
 ```bash
 root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
+# oppure con lo script wrapper:
+./run_pipeline.sh --nevents 1000000
 ```
 
-### analysis/ml/
+I canali di fondo **mimano il segnale**: con 6γ veri, perderne 2 dà esattamente 4γ nel rivelatore, identici a prima vista al segnale.
 
-XGBoost BDT study for photon pairing (gamma p -> p eta pi0): trains on the
-labelled MC and compares pairing accuracy and reconstructed mass resolution
-against the chi2 baseline. Features include per-pairing kinematics plus beam
-CM-frame variables (cos(theta*), p*, beam energy). On idealised 4-photon MC the
-BDT reaches 98.3% pairing accuracy vs 97.5% for chi2 (chi2 is already
-near-optimal here). Step-by-step docs in
-`analysis/ml/step-by-step-explaination_ita/`. Design and plan in
-`docs/superpowers/`.
+---
 
-## Prerequisites
+## Pipeline ML (`analysis/ml/`)
 
-- ROOT 6.x
-- C++17-compatible compiler
-- GRAAL data files (ROOT TTrees with tree name `h70`)
+### Stage-1 BDT — classificazione segnale/fondo
 
-## Usage
-
-### Process all run folders
+BDT binario (XGBoost `binary:logistic`) che opera su **24 feature globali** dell'evento: masse invarianti di tutte le coppie γγ, conteggi vicino a m_π⁰/m_η, best χ², massa mancante, cinematica del protone, numero di fotoni osservati. Viene allenato su segnale + 5 canali di fondo con pesatura proporzionale alla sezione d'urto efficace σ_eff.
 
 ```bash
-root -l pre_analysis/PreAnalysis.C
+# costruisce le feature di stage-1
+python -m analysis.ml.build_background_features \
+    --signal        simulation/eta_pi0_mc.root \
+    --backgrounds   simulation/pi0pi0_mc.root simulation/3pi0_mc.root \
+                    simulation/eta_2pi0_mc.root simulation/omega_pi0_mc.root \
+                    simulation/etaprime_mc.root \
+    --cs-csv        simulation/cross_sections.csv \
+    --output        features_stage1.npz
+
+# allena il BDT stage-1
+python -m analysis.ml.train_bdt_stage1 \
+    --features features_stage1.npz \
+    --out-dir  analysis/ml/model
 ```
-```cpp
-AnalyzeAll("/path/to/graal_data", "/path/to/output")
+
+Output: `model/bdt_stage1.json`, `model/stage1_threshold.txt`, 3 plot diagnostici, `model/stage1_metrics.txt`.
+
+### Stage-2 BDT — scelta della combinazione fotoni
+
+BDT multiclasse (3 classi) che decide quale delle 3 combinazioni γγ–γγ sia quella giusta (η vs π⁰). Usa **67 feature** per evento: 3 blocchi × 22 feature cinetiche (masse, asimmetrie, angoli, boost, cos(θ*) nel CM) + energia del fascio.
+
+```bash
+python -m analysis.ml.build_features
+python -m analysis.ml.train_bdt
+python -m analysis.ml.evaluate_compare
 ```
 
-`AnalyzeAll` calls `BuildCutMap` once, then runs `PreAnalysis` for each subfolder, writing one output file per period: `pre_analisi_<folder_name>.root`.
+Risultati su 1M eventi (test set non visto):
 
-### Process a single glob pattern
+| Metodo | Accuratezza pairing |
+|--------|---------------------|
+| χ² (baseline) | 97.51 % |
+| BDT stage-2 | 98.33 % |
 
-```cpp
-PreAnalysis("/path/to/graal_data/1999_uv/*.root", "out.root")
+### Modello di perdita fotoni (`photon_loss.py`)
+
+Modella l'inefficienza del rivelatore come probabilità di perdita indipendente per fotone:
+
+```
+P_loss(E, θ) = 1 − (1 − P_threshold(E)) × (1 − P_acceptance(θ))
 ```
 
-## Output Format
+entrambi i termini sono funzioni sigmoidi. Usato per stimare la frazione di sopravvivenza di ciascun canale di fondo e calcolare σ_eff in `cross_sections.csv`.
 
-Output trees (`h80`) contain per-event branches:
+```bash
+# stima la sopravvivenza per un canale a 6γ con default LossParams
+python -m analysis.ml.photon_loss --n-photons 6 --n-keep 4
+```
 
-| Branch | Type | Content |
-|--------|------|---------|
-| `beam` | `PxPyPzEVector` | Beam photon 4-vector |
-| `gammas` | `vector<PxPyPzEVector>` | Photon candidates |
-| `protons` | `vector<PxPyPzEVector>` | Proton candidates |
-| `neutrons` | `vector<PxPyPzEVector>` | Neutron candidates |
-| `deuterons` | `vector<PxPyPzEVector>` | Deuteron candidates |
-| `gamma_theta/phi` | `vector<double>` | Photon angles (deg) |
-| `pions_theta/phi` | `vector<double>` | Pion angles (deg) |
-| `deuterons_theta/phi` | `vector<double>` | Deuteron angles (deg) |
-| `fcharged_theta/phi/beta/tof` | `vector<double>` | Forward charged particle kinematics |
-| `fcharded_de` | `vector<double>` | Forward charged dE |
-| `Polarization` | `Int_t` | Beam polarization state |
-| `RunNumber` | `Int_t` | Run ID |
+### Test
+
+```bash
+python -m pytest analysis/ml/tests/ -v
+# 19 test, tutti verdi
+```
+
+---
+
+## Sezioni d'urto (pesatura BDT stage-1)
+
+File `simulation/cross_sections.csv`:
+
+| Canale | σ_ref [μb] | p_survival | σ_eff [μb] | Fonte |
+|--------|-----------|------------|------------|-------|
+| π⁰ π⁰ | 4.5 | 0.82 | 3.69 | CB-ELSA/TAPS, Sarantsev+05 |
+| 3π⁰ | 1.8 | 0.61 | 1.10 | CB-ELSA/TAPS, Thoma+08 |
+| η π⁰ π⁰ | 0.6 | 0.55 | 0.33 | CB-ELSA, Kashevarov+17 |
+| ω π⁰ | 1.2 | 0.58 | 0.70 | SAPHIR, Barth+03 |
+| η' | 0.35 | 0.52 | 0.18 | CB-ELSA, Crede+09 |
+
+---
+
+## Prerequisiti
+
+- ROOT 6.x con `TGenPhaseSpace`
+- Python ≥ 3.9
+- `pip install xgboost uproot awkward scikit-learn numpy matplotlib pytest`
+- Dati GRAAL (alberi ROOT con tree name `h70`)
+
+---
+
+## Formato degli alberi di output
+
+### `h80` (pre-analisi)
+
+| Branch | Tipo | Contenuto |
+|--------|------|-----------|
+| `beam` | `PxPyPzEVector` | 4-vettore fascio |
+| `gammas` | `vector<PxPyPzEVector>` | fotoni |
+| `protons` | `vector<PxPyPzEVector>` | protoni |
+| `neutrons` | `vector<PxPyPzEVector>` | neutroni |
+| `deuterons` | `vector<PxPyPzEVector>` | deuteroni |
+| `Polarization` | `Int_t` | stato di polarizzazione |
+| `RunNumber` | `Int_t` | numero di run |
+
+### `reco_eta_pi0` (ricostruzione finale)
+
+| Branch | Tipo | Contenuto |
+|--------|------|-----------|
+| `chi2` | `Float_t` | χ² della combinazione scelta |
+| `eta_mass`, `pi0_mass` | `Float_t` | masse ricostruite [GeV] |
+| `beam`, `proton`, `eta`, `pi0` | `TLorentzVector` | 4-vettori |
+| `eta_gamma1/2`, `pi0_gamma1/2` | `TLorentzVector` | fotoni delle coppie |
+| `missing` | `TLorentzVector` | 4-vettore mancante |
+
+---
+
+## Documentazione dettagliata
+
+Spiegazione passo-passo in italiano (teoria + codice):
+
+```
+analysis/ml/step-by-step-explaination_ita/
+├── GUIDA.md            # visione d'insieme + come si usa + risultati
+├── README.md           # ordine di lettura
+├── 01_physics.md       # physics.py: quadrivettori vettorizzati
+├── 02_build_features.md # build_features.py: feature 67-dim stage-2
+├── 03_train_bdt.md     # train_bdt.py: allenamento XGBoost
+└── 04_evaluate_compare.md # evaluate_compare.py: BDT vs chi2
+```
+
+Specifica di design e piano di implementazione: `docs/superpowers/`.
