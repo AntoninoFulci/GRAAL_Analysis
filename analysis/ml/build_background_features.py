@@ -63,10 +63,11 @@ def _inv_mass(p4s: list[np.ndarray]) -> float:
 
 def _load_4vec(tree, name: str) -> np.ndarray:
     """Load TLorentzVector branch as (N,4) array [px,py,pz,E]."""
-    px = tree[f"{name}/fP/fP.fX"].array(library="np")
-    py = tree[f"{name}/fP/fP.fY"].array(library="np")
-    pz = tree[f"{name}/fP/fP.fZ"].array(library="np")
-    E  = tree[f"{name}/fE"].array(library="np")
+    arr = tree[name].array(library="ak")
+    px = np.asarray(arr["fP"]["fX"])
+    py = np.asarray(arr["fP"]["fY"])
+    pz = np.asarray(arr["fP"]["fZ"])
+    E  = np.asarray(arr["fE"])
     return np.stack([px, py, pz, E], axis=1)
 
 
