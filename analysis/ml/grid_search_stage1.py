@@ -38,17 +38,18 @@ from sklearn.model_selection import train_test_split
 
 
 _PARAM_GRID: dict[str, list] = {
-    "max_depth":        [3, 4, 5, 6, 7],
-    "learning_rate":    [0.01, 0.05, 0.10, 0.20],
-    "subsample":        [0.6, 0.8, 1.0],
-    "colsample_bytree": [0.6, 0.8, 1.0],
+    "max_depth":        [3, 4, 5, 6],
+    "learning_rate":    [0.05, 0.10, 0.15, 0.20],
+    "subsample":        [0.7, 0.8, 1.0],
+    "colsample_bytree": [0.7, 0.8, 1.0],
     "min_child_weight": [1, 5, 20],
-    "gamma":            [0.0, 0.1, 0.5],
+    "gamma":            [0.0, 0.1, 0.3],
 }
 
-# Set high and rely on early stopping to auto-select best n_estimators
-_N_ESTIMATORS_MAX = 1000
-_EARLY_STOPPING_ROUNDS = 30
+# Cap at 400 trees; early stopping at 20 rounds keeps configs fast.
+# lr=0.01 excluded: it needs 500+ trees to converge → prohibitively slow.
+_N_ESTIMATORS_MAX = 400
+_EARLY_STOPPING_ROUNDS = 20
 
 
 def _train_single(
@@ -135,7 +136,8 @@ def run_search(
             f"  depth={cfg['max_depth']}  lr={cfg['learning_rate']:.3f}"
             f"  sub={cfg['subsample']}  col={cfg['colsample_bytree']}"
             f"  mcw={cfg['min_child_weight']}  gam={cfg['gamma']}"
-            f"  ({elapsed:.0f}s){marker}"
+            f"  ({elapsed:.0f}s){marker}",
+            flush=True,
         )
         if auc > best_auc:
             best_auc = auc

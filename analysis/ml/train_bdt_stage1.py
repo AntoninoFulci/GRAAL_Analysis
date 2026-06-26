@@ -65,6 +65,10 @@ def train(
     n_estimators: int = 300,
     max_depth: int = 5,
     learning_rate: float = 0.05,
+    subsample: float = 0.8,
+    colsample_bytree: float = 0.8,
+    min_child_weight: int = 1,
+    gamma: float = 0.0,
 ) -> None:
     data = np.load(features_path)
     X: np.ndarray = data["X"].astype(np.float32)
@@ -80,8 +84,10 @@ def train(
         n_estimators=n_estimators,
         max_depth=max_depth,
         learning_rate=learning_rate,
-        subsample=0.8,
-        colsample_bytree=0.8,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        min_child_weight=min_child_weight,
+        gamma=gamma,
         eval_metric="auc",
         random_state=seed,
         tree_method="hist",
@@ -175,18 +181,27 @@ def _cli() -> None:
     )
     args = parser.parse_args()
 
-    n_est = args.n_estimators
-    depth = args.max_depth
-    lr    = args.lr
+    n_est   = args.n_estimators
+    depth   = args.max_depth
+    lr      = args.lr
+    sub     = 0.8
+    col     = 0.8
+    mcw     = 1
+    gam     = 0.0
 
     if args.hyperparams:
         import json
         cfg = json.loads(Path(args.hyperparams).read_text())
-        n_est = int(cfg.get("n_estimators", n_est))
-        depth = int(cfg.get("max_depth",    depth))
-        lr    = float(cfg.get("learning_rate", lr))
+        n_est = int(cfg.get("n_estimators",    n_est))
+        depth = int(cfg.get("max_depth",        depth))
+        lr    = float(cfg.get("learning_rate",  lr))
+        sub   = float(cfg.get("subsample",      sub))
+        col   = float(cfg.get("colsample_bytree", col))
+        mcw   = int(cfg.get("min_child_weight", mcw))
+        gam   = float(cfg.get("gamma",          gam))
         print(f"Hyperparams from {args.hyperparams}:")
-        for k in ("max_depth", "learning_rate", "n_estimators"):
+        for k in ("max_depth", "learning_rate", "n_estimators",
+                  "subsample", "colsample_bytree", "min_child_weight", "gamma"):
             if k in cfg:
                 print(f"  {k}: {cfg[k]}")
 
@@ -198,6 +213,10 @@ def _cli() -> None:
         n_estimators=n_est,
         max_depth=depth,
         learning_rate=lr,
+        subsample=sub,
+        colsample_bytree=col,
+        min_child_weight=mcw,
+        gamma=gam,
     )
 
 
