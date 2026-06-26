@@ -162,22 +162,42 @@ def train(
 
 def _cli() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--features", default="features_stage1.npz")
-    parser.add_argument("--out-dir", default="analysis/ml/model")
+    parser.add_argument("--features",     default="features_stage1.npz")
+    parser.add_argument("--out-dir",      default="analysis/ml/model")
     parser.add_argument("--val-fraction", type=float, default=0.2)
-    parser.add_argument("--n-estimators", type=int, default=300)
-    parser.add_argument("--max-depth", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=0.05)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--n-estimators", type=int,   default=300)
+    parser.add_argument("--max-depth",    type=int,   default=5)
+    parser.add_argument("--lr",           type=float, default=0.05)
+    parser.add_argument("--seed",         type=int,   default=42)
+    parser.add_argument(
+        "--hyperparams", default=None,
+        help="JSON from grid_search_stage1.py; overrides --n-estimators, --max-depth, --lr.",
+    )
     args = parser.parse_args()
+
+    n_est = args.n_estimators
+    depth = args.max_depth
+    lr    = args.lr
+
+    if args.hyperparams:
+        import json
+        cfg = json.loads(Path(args.hyperparams).read_text())
+        n_est = int(cfg.get("n_estimators", n_est))
+        depth = int(cfg.get("max_depth",    depth))
+        lr    = float(cfg.get("learning_rate", lr))
+        print(f"Hyperparams from {args.hyperparams}:")
+        for k in ("max_depth", "learning_rate", "n_estimators"):
+            if k in cfg:
+                print(f"  {k}: {cfg[k]}")
+
     train(
         features_path=args.features,
         out_dir=args.out_dir,
         val_fraction=args.val_fraction,
         seed=args.seed,
-        n_estimators=args.n_estimators,
-        max_depth=args.max_depth,
-        learning_rate=args.lr,
+        n_estimators=n_est,
+        max_depth=depth,
+        learning_rate=lr,
     )
 
 

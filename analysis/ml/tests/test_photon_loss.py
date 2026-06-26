@@ -9,10 +9,10 @@ def make_rng(seed: int = 0) -> np.random.Generator:
 
 
 class TestPLoss:
-    def test_high_energy_low_angle_low_loss(self):
-        """High-energy, central photon should have near-zero loss probability."""
+    def test_high_energy_central_angle_low_loss(self):
+        """High-energy, central photon (theta=1.0 rad, 57 deg) should have near-zero loss."""
         params = LossParams()
-        p = p_loss(np.array([0.5]), np.array([0.2]), params)
+        p = p_loss(np.array([0.5]), np.array([1.0]), params)
         assert p[0] < 0.10
 
     def test_low_energy_high_loss(self):
@@ -46,7 +46,7 @@ class TestPLoss:
 class TestApplyLossEvents:
     def test_all_survive_high_energy(self):
         """With very high energy photons at small angles, most events survive if n_photons == n_keep."""
-        params = LossParams(E_thr=0.001, sigma_E=0.0001, theta_acc=3.0, sigma_theta=0.01)
+        params = LossParams(E_thr=0.001, sigma_E=0.0001, theta_min_acc=0.01, theta_max_acc=6.0, sigma_theta=0.01)
         N = 500
         Es = np.ones((N, 4)) * 0.8
         thetas = np.ones((N, 4)) * 0.2
@@ -70,12 +70,14 @@ class TestEstimateSurvival:
         p = estimate_survival(Es, thetas, LossParams(), n_keep=4)
         assert 0.0 <= p <= 1.0
 
-    def test_stricter_n_keep_lower_survival(self):
-        """Requiring all photons to survive is harder than requiring fewer."""
+    def test_more_photons_lower_all_survive(self):
+        """P(all 4 of 4 survive) > P(all 6 of 6 survive): always true for p < 1."""
         rng = np.random.default_rng(1)
-        Es = rng.uniform(0.1, 0.6, (2000, 4))
-        thetas = rng.uniform(0.2, 1.5, (2000, 4))
-        p_all4 = estimate_survival(Es, thetas, LossParams(), n_keep=4, n_trials=5)
-        p_any3 = estimate_survival(Es, thetas, LossParams(), n_keep=3, n_trials=5)
-        # needing all 4 survive is harder than needing exactly 3
-        assert p_all4 < p_any3
+        params = LossParams()
+        Es4 = rng.uniform(0.1, 0.6, (2000, 4))
+        Es6 = rng.uniform(0.1, 0.6, (2000, 6))
+        thetas4 = rng.uniform(0.5, 1.5, (2000, 4))
+        thetas6 = rng.uniform(0.5, 1.5, (2000, 6))
+        p_4of4 = estimate_survival(Es4, thetas4, params, n_keep=4, n_trials=5)
+        p_6of6 = estimate_survival(Es6, thetas6, params, n_keep=6, n_trials=5)
+        assert p_4of4 > p_6of6
