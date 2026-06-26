@@ -10,3 +10,5 @@ __pycache__/
 .venv/
 analysis/ml/data/
 analysis/ml/model/
+.vscode/
+*cache*
