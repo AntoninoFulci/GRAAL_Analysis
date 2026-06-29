@@ -42,6 +42,8 @@ except ImportError:
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
+from analysis.ml.callbacks import TqdmCallback
+
 
 def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
     """Find threshold maximising F1 on the provided set."""
@@ -69,6 +71,9 @@ def train(
     colsample_bytree: float = 0.8,
     min_child_weight: int = 1,
     gamma: float = 0.0,
+    device: str = "cpu",
+    nthread: int = -1,
+    verbose: bool = True,
 ) -> None:
     data = np.load(features_path)
     X: np.ndarray = data["X"].astype(np.float32)
@@ -79,6 +84,12 @@ def train(
     X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
         X, y, w, test_size=val_fraction, random_state=seed, stratify=y
     )
+
+    callbacks = []
+    if verbose:
+        callbacks.append(
+            TqdmCallback(n_estimators=n_estimators, desc="training", val_metric="auc")
+        )
 
     model = xgb.XGBClassifier(
         n_estimators=n_estimators,
@@ -91,13 +102,16 @@ def train(
         eval_metric="auc",
         random_state=seed,
         tree_method="hist",
+        device=device,
+        nthread=nthread,
+        callbacks=callbacks,
     )
     model.fit(
         X_tr, y_tr,
         sample_weight=w_tr,
         eval_set=[(X_val, y_val)],
         sample_weight_eval_set=[w_val],
-        verbose=50,
+        verbose=False,
     )
 
     scores_val = model.predict_proba(X_val)[:, 1]
@@ -179,6 +193,12 @@ def _cli() -> None:
         "--hyperparams", default=None,
         help="JSON from grid_search_stage1.py; overrides --n-estimators, --max-depth, --lr.",
     )
+    parser.add_argument("--device",     default="cpu",
+                        help="XGBoost device: cpu (default), cuda, mps (future)")
+    parser.add_argument("--nthread",    type=int, default=-1,
+                        help="XGBoost nthread; -1 = all cores")
+    parser.add_argument("--no-verbose", action="store_true",
+                        help="Disable per-tree progress bar")
     args = parser.parse_args()
 
     n_est   = args.n_estimators
@@ -217,6 +237,9 @@ def _cli() -> None:
         colsample_bytree=col,
         min_child_weight=mcw,
         gamma=gam,
+        device=args.device,
+        nthread=args.nthread,
+        verbose=not args.no_verbose,
     )
 
 
