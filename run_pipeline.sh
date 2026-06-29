@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
         --skip-grid-search)   SKIP_GRID_SEARCH=1;           shift   ;;
         --grid-search-niter)  GRID_SEARCH_NITER="$2";       shift 2 ;;
         --help|-h)
-            sed -n '2,12p' "$0"
+            sed -n '2,15p' "$0"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac

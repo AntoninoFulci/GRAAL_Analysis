@@ -142,12 +142,13 @@ def run_search(
         row = {"auc": auc, "n_estimators": n_est, "time_s": round(elapsed, 1), **cfg}
         results.append(row)
 
-        if auc > best_auc:
+        improved = auc > best_auc
+        if improved:
             best_auc = auc
             best_cfg = dict(row)
         pbar.set_postfix(best=f"{best_auc:.4f}", last=f"{auc:.4f}")
 
-        marker = " *" if auc == best_auc else ""
+        marker = " *" if improved else ""
         tqdm.write(
             f"  [{i+1:3d}/{len(candidates)}] AUC={auc:.4f}  n_est={n_est:4d}"
             f"  depth={cfg['max_depth']}  lr={cfg['learning_rate']:.3f}"
