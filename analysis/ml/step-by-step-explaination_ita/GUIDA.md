@@ -78,7 +78,7 @@ root -l 'simulation/generate_etaprime_dataset.C(1000000)'
 #### BDT stage-1 (segnale vs fondo)
 
 ```bash
-# costruisce le 24 feature globali
+# costruisce le 24 feature globali (con shuffle ordinamento fotoni)
 python -m analysis.ml.build_background_features \
     --signal      simulation/eta_pi0_mc.root \
     --backgrounds simulation/pi0pi0_mc.root simulation/3pi0_mc.root \
@@ -87,10 +87,17 @@ python -m analysis.ml.build_background_features \
     --cs-csv      simulation/cross_sections.csv \
     --output      features_stage1.npz
 
-# allena e salva il modello
-python -m analysis.ml.train_bdt_stage1 \
+# grid search iper-parametri (opzionale, ~10 min)
+python -m analysis.ml.grid_search_stage1 \
     --features features_stage1.npz \
-    --out-dir  analysis/ml/model
+    --out-dir  analysis/ml/model \
+    --n-iter   30
+
+# allena e salva il modello (con iper-parametri ottimizzati)
+python -m analysis.ml.train_bdt_stage1 \
+    --features    features_stage1.npz \
+    --out-dir     analysis/ml/model \
+    --hyperparams analysis/ml/model/best_hyperparams.json
 ```
 
 #### BDT stage-2 (scelta combinazione fotoni)
@@ -119,6 +126,8 @@ python analysis/reconstruct_eta_pi0.py
 | File | Contenuto |
 |------|-----------|
 | `features_stage1.npz` | X (N×24), y (0=fondo/1=segnale), w (pesi sezione d'urto) |
+| `model/grid_search_results.csv` | AUC e parametri per tutte le 30 configurazioni |
+| `model/best_hyperparams.json` | migliori iper-parametri (AUC, n_estimators, depth, lr, …) |
 | `model/bdt_stage1.json` | modello XGBoost stage-1 |
 | `model/stage1_threshold.txt` | soglia ottimale (F1 max su validation set) |
 | `model/stage1_metrics.txt` | AUC, precisione, recall, F1 |
@@ -137,7 +146,7 @@ python analysis/reconstruct_eta_pi0.py
 
 ```bash
 python -m pytest analysis/ml/tests/ -v
-# 19 test, tutti verdi
+# 40 test, tutti verdi
 ```
 
 ### 2.7 Modalità spiegazione (`--explain`)
@@ -171,9 +180,23 @@ Le sezioni d'urto di riferimento vengono da misure sperimentali (CB-ELSA/TAPS, S
 
 ### Passo 0c — Modello di perdita fotoni (`photon_loss.py`)
 
+```
 P_loss(E, θ) = 1 − (1 − P_threshold(E)) × (1 − P_acceptance(θ))
+```
 
-dove entrambi i termini sono sigmoidi con parametri calibrati sull'accettanza di GRAAL. Serve per capire che frazione degli eventi a 6γ veri arriva a 4γ osservati, e quindi quanto "peso" dare ai canali di fondo nel training.
+`P_threshold(E)` è una sigmoide sull'energia (soglia ~50 MeV). `P_acceptance(θ)` usa un **modello a doppia sigmoide** che riflette la geometria reale di BGO: il rivelatore accetta fotoni solo nell'intervallo ~25°–155° (0.436–2.705 rad). Ci sono due buchi: uno in avanti (buco del fascio) e uno in indietro. Parametri:
+
+```python
+@dataclass
+class LossParams:
+    E_thr: float = 0.050          # soglia energia [GeV]
+    sigma_E: float = 0.020        # larghezza sigmoide energia
+    theta_min_acc: float = 0.436  # bordo avanti [rad] (~25°)
+    theta_max_acc: float = 2.705  # bordo indietro [rad] (~155°)
+    sigma_theta: float = 0.050    # larghezza bordi [rad] (~3°)
+```
+
+Serve per capire che frazione degli eventi a 6γ veri arriva a 4γ osservati, e quindi quanto "peso" dare ai canali di fondo nel training.
 
 ```python
 from analysis.ml.photon_loss import LossParams, estimate_survival
@@ -181,6 +204,8 @@ p = estimate_survival(Es, thetas, LossParams(), n_keep=4)
 ```
 
 ### Passo 1 — Feature stage-1 (`build_background_features.py`)
+
+Prima di calcolare le feature, i fotoni vengono **mescolati casualmente** per evento (permutazione vettorizzata su `N×4`). Questo elimina un bias di ordinamento: senza shuffle, le feature dipendenti dalla posizione (es. `m_gg_01`) sarebbero banalmente discriminanti perché il segnale nel file MC ha sempre i fotoni dell'η nelle posizioni 0 e 1. Lo shuffle è applicato sia al segnale che al fondo.
 
 24 feature globali (non assumono alcun accoppiamento):
 
@@ -199,13 +224,46 @@ p = estimate_survival(Es, thetas, LossParams(), n_keep=4)
 
 **Pesatura ibrida:** ogni canale di fondo riceve sample_weight = σ_eff / N_eventi, in modo che la BDT veda la composizione realistica del fondo.
 
-### Passo 2 — Allenamento BDT stage-1 (`train_bdt_stage1.py`)
+### Passo 2 — Grid search e allenamento BDT stage-1
 
-`XGBClassifier(binary:logistic)` con:
-- 300 alberi, profondità 5, learning rate 0.05, subsample 0.8
+#### Ricerca iper-parametri (`grid_search_stage1.py`)
+
+Ricerca randomizzata su 30 configurazioni con early stopping per configurazione (~20 s ciascuna, ~10 min totali). Griglia esplorata:
+
+```python
+_PARAM_GRID = {
+    "max_depth":        [3, 4, 5, 6],
+    "learning_rate":    [0.05, 0.10, 0.15, 0.20],
+    "subsample":        [0.7, 0.8, 1.0],
+    "colsample_bytree": [0.7, 0.8, 1.0],
+    "min_child_weight": [1, 5, 20],
+    "gamma":            [0.0, 0.1, 0.3],
+}
+```
+
+Output: `model/grid_search_results.csv` (tutte le configurazioni con AUC), `model/best_hyperparams.json`.
+
+```bash
+python -m analysis.ml.grid_search_stage1 \
+    --features features_stage1.npz --out-dir analysis/ml/model --n-iter 30
+```
+
+#### Allenamento (`train_bdt_stage1.py`)
+
+`XGBClassifier(binary:logistic)` con iper-parametri ottimizzati dal grid search:
+- **600 alberi**, **profondità 6**, **learning rate 0.20**, subsample 0.8, colsample_bytree 0.8
 - early stopping su AUC del validation set (20%)
 - soglia ottimale trovata massimizzando F1 sul validation set
 - salva modello, soglia, metriche e 3 plot diagnostici
+
+```bash
+python -m analysis.ml.train_bdt_stage1 \
+    --features features_stage1.npz \
+    --out-dir  analysis/ml/model \
+    --hyperparams analysis/ml/model/best_hyperparams.json
+```
+
+Il flag `--hyperparams` legge il JSON prodotto dal grid search e sovrascrive tutti i parametri individuali.
 
 ### Passo 3 — Gate nella ricostruzione (`reconstruct_eta_pi0.py`)
 
@@ -259,7 +317,21 @@ Le feature del fascio (cos(θ*), |p*| nel CM + beam_E) hanno alzato la BDT dal 9
 
 ### BDT stage-1 (segnale vs fondo)
 
+Su 2.65M eventi (1M segnale + 1.65M fondo pesato), test set 20%:
+
+| Metrica | Valore |
+|---------|--------|
+| AUC | **0.9987** |
+| Soglia operativa | 0.8226 |
+| Precisione | 0.977 |
+| Recall | 0.987 |
+| F1 | 0.982 |
+
+Iper-parametri ottimali (grid search, 30 config): depth=6, lr=0.20, n_est=600, sub=0.8, col=0.8, mcw=1, gamma=0.
+
 Il gate stage-1 rigetta eventi con topologia incompatibile con γ p → p η π⁰. La BDT usa le sezioni d'urto fisiche per pesare i contributi relativi dei canali di fondo, dando maggiore importanza ai fondi con σ_eff più alta (π⁰ π⁰ è il dominante con 3.69 μb).
+
+La feature più discriminante è `best_chi2_eta_pi0` (miglior χ² assumendo la topologia η+π⁰): cattura la compatibilità cinematica globale dell'evento con il segnale.
 
 ---
 
@@ -270,16 +342,18 @@ analysis/ml/
 ├── physics.py                    # quadrivettori vettorizzati (massa, angoli, β, χ², boost)
 ├── build_features.py             # MC segnale → feature 67-dim + etichette (stage-2)
 ├── build_background_features.py  # segnale+fondi → feature 24-dim + pesi (stage-1)
-├── photon_loss.py                # modello sigmoid P_loss(E,θ), stima p_survival
+├── photon_loss.py                # modello doppia-sigmoide P_loss(E,θ), stima p_survival
 ├── train_bdt.py                  # XGBoost multiclasse stage-2 + plot diagnostici
-├── train_bdt_stage1.py           # XGBoost binario stage-1 + soglia F1-ottima
+├── train_bdt_stage1.py           # XGBoost binario stage-1 + soglia F1-ottima + --hyperparams
+├── grid_search_stage1.py         # ricerca randomizzata iper-parametri stage-1 (30 config, ~10 min)
 ├── evaluate_compare.py           # confronto BDT vs χ² + spettri di massa
 ├── requirements.txt
 ├── tests/
 │   ├── test_physics.py           # 5 test
 │   ├── test_build_features.py    # 9 test
-│   ├── test_photon_loss.py       # 9 test
-│   └── test_build_background_features.py  # 10 test
+│   ├── test_photon_loss.py       # 9 test (modello doppia-sigmoide)
+│   └── test_build_background_features.py  # 17 test (include shuffle + loss)
+# totale: 40 test
 ├── data/                         # features.npz, features_stage1.npz (generati)
 ├── model/                        # bdt.json, bdt_stage1.json (generati)
 └── plots/

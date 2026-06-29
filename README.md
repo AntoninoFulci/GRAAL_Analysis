@@ -26,7 +26,8 @@ GRAAL_Analysis/
 │       ├── evaluate_compare.py     # confronto BDT vs χ² + spettri di massa
 │       ├── photon_loss.py          # modello di perdita fotoni per MC di fondo
 │       ├── requirements.txt
-│       ├── tests/                  # 19+ test pytest (tutti verdi)
+│       ├── grid_search_stage1.py   # ricerca randomizzata iper-parametri BDT stage-1
+│       ├── tests/                  # 40 test pytest (tutti verdi)
 │       ├── data/                   # features.npz (generato, ignorato da git)
 │       ├── model/                  # bdt.json, bdt_stage1.json (generati)
 │       ├── plots/                  # figure diagnostiche
@@ -177,13 +178,23 @@ python -m analysis.ml.build_background_features \
     --cs-csv        simulation/cross_sections.csv \
     --output        features_stage1.npz
 
-# allena il BDT stage-1
-python -m analysis.ml.train_bdt_stage1 \
+# grid search iper-parametri (opzionale — ~10 min, 30 configurazioni)
+python -m analysis.ml.grid_search_stage1 \
     --features features_stage1.npz \
-    --out-dir  analysis/ml/model
+    --out-dir  analysis/ml/model \
+    --n-iter   30
+#    -> model/grid_search_results.csv, model/best_hyperparams.json
+
+# allena il BDT stage-1 (con iper-parametri da grid search, se disponibili)
+python -m analysis.ml.train_bdt_stage1 \
+    --features    features_stage1.npz \
+    --out-dir     analysis/ml/model \
+    --hyperparams analysis/ml/model/best_hyperparams.json
 ```
 
 Output: `model/bdt_stage1.json`, `model/stage1_threshold.txt`, 3 plot diagnostici, `model/stage1_metrics.txt`.
+
+Risultati con iper-parametri ottimizzati (depth=6, lr=0.20, 600 alberi): **AUC=0.9987**, soglia=0.8226, precisione=0.977, recall=0.987.
 
 ### Stage-2 BDT — scelta della combinazione fotoni
 
@@ -210,7 +221,7 @@ Modella l'inefficienza del rivelatore come probabilità di perdita indipendente 
 P_loss(E, θ) = 1 − (1 − P_threshold(E)) × (1 − P_acceptance(θ))
 ```
 
-entrambi i termini sono funzioni sigmoidi. Usato per stimare la frazione di sopravvivenza di ciascun canale di fondo e calcolare σ_eff in `cross_sections.csv`.
+`P_threshold` è una sigmoide sull'energia. `P_acceptance` usa un **modello a doppia sigmoide** che riflette la geometria reale di BGO: una sigmoide per il buco in avanti (~25°) e una per quello in indietro (~155°), con parametri calibrati sull'accettanza di GRAAL (`theta_min_acc=0.436 rad`, `theta_max_acc=2.705 rad`, `sigma_theta=0.050 rad`). Usato per stimare la frazione di sopravvivenza di ciascun canale di fondo e calcolare σ_eff in `cross_sections.csv`.
 
 ```bash
 # stima la sopravvivenza per un canale a 6γ con default LossParams
@@ -221,7 +232,7 @@ python -m analysis.ml.photon_loss --n-photons 6 --n-keep 4
 
 ```bash
 python -m pytest analysis/ml/tests/ -v
-# 19 test, tutti verdi
+# 40 test, tutti verdi
 ```
 
 ---

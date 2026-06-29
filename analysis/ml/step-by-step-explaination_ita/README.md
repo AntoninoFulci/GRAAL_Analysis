@@ -12,9 +12,10 @@ Documentazione passo per passo per capire e presentare lo studio (pipeline compl
 
 ### Moduli aggiuntivi (stage-1 e fondo)
 
-- `photon_loss.py` — modello sigmoid P_loss(E,θ): spiegato in [GUIDA.md §Passo 0c](GUIDA.md).
-- `build_background_features.py` — feature 24-dim per classificazione segnale/fondo: spiegato in [GUIDA.md §Passo 1](GUIDA.md).
-- `train_bdt_stage1.py` — BDT binario stage-1: spiegato in [GUIDA.md §Passo 2](GUIDA.md).
+- `photon_loss.py` — modello doppia-sigmoide P_loss(E,θ) con accettanza BGO a due bordi: spiegato in [GUIDA.md §Passo 0c](GUIDA.md).
+- `build_background_features.py` — feature 24-dim per classificazione segnale/fondo + shuffle ordinamento fotoni: spiegato in [GUIDA.md §Passo 1](GUIDA.md).
+- `grid_search_stage1.py` — ricerca randomizzata iper-parametri BDT stage-1: spiegato in [GUIDA.md §Passo 2](GUIDA.md).
+- `train_bdt_stage1.py` — BDT binario stage-1 + flag `--hyperparams`: spiegato in [GUIDA.md §Passo 2](GUIDA.md).
 - Generatori MC di fondo (`simulation/generate_*.C`): spiegati in [GUIDA.md §Passo 0b](GUIDA.md).
 
 Ogni file `0X_*.md` spiega il rispettivo sorgente quasi linea per linea.

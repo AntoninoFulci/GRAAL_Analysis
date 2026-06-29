@@ -1,4 +1,5 @@
 *.root
+*.npz
 graal_data/
 .DS_Store
 **.DS_Store**
