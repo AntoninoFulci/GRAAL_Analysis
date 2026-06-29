@@ -116,7 +116,7 @@ if [[ $SKIP_FEATURES -eq 0 ]]; then
         fi
     done
 
-    python -u -m analysis.ml.build_background_features \
+    ${PYTHON} -u -m analysis.ml.build_background_features \
         --signal        "$SIG" \
         --backgrounds   "${BG_FILES[@]}" \
         --cs-csv        "$CS_CSV" \
@@ -136,7 +136,7 @@ if [[ $SKIP_TRAIN -eq 0 && $SKIP_GRID_SEARCH -eq 0 ]]; then
         exit 1
     fi
 
-    python -u -m analysis.ml.grid_search_stage1 \
+    ${PYTHON} -u -m analysis.ml.grid_search_stage1 \
         --features  "$FEATURES_FILE" \
         --out-dir   "$OUT_DIR" \
         --n-iter    "$GRID_SEARCH_NITER"
@@ -155,16 +155,16 @@ if [[ $SKIP_TRAIN -eq 0 ]]; then
         exit 1
     fi
 
-    HYPERPARAMS_FLAG=""
+    HYPERPARAMS_FLAG=()
     if [[ -f "${OUT_DIR}/best_hyperparams.json" ]]; then
-        HYPERPARAMS_FLAG="--hyperparams ${OUT_DIR}/best_hyperparams.json"
+        HYPERPARAMS_FLAG=("--hyperparams" "${OUT_DIR}/best_hyperparams.json")
         echo "  Usando iper-parametri da ${OUT_DIR}/best_hyperparams.json"
     fi
 
-    python -u -m analysis.ml.train_bdt_stage1 \
+    ${PYTHON} -u -m analysis.ml.train_bdt_stage1 \
         --features  "$FEATURES_FILE" \
         --out-dir   "$OUT_DIR" \
-        ${HYPERPARAMS_FLAG}
+        "${HYPERPARAMS_FLAG[@]}"
 
     stage_done
     echo ""
