@@ -23,6 +23,8 @@ import itertools
 import json
 import random
 import time
+
+from tqdm import tqdm
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +63,8 @@ def _train_single(
     w_val: np.ndarray,
     params: dict[str, Any],
     seed: int,
+    device: str = "cpu",
+    nthread: int = -1,
 ) -> tuple[float, int]:
     """Train one XGBoost config; return (val_auc, best_n_estimators)."""
     model = xgb.XGBClassifier(
@@ -69,6 +73,8 @@ def _train_single(
         random_state=seed,
         tree_method="hist",
         early_stopping_rounds=_EARLY_STOPPING_ROUNDS,
+        device=device,
+        nthread=nthread,
         **params,
     )
     model.fit(
@@ -91,6 +97,8 @@ def run_search(
     full_grid: bool = False,
     val_fraction: float = 0.20,
     seed: int = 42,
+    device: str = "cpu",
+    nthread: int = -1,
 ) -> None:
     rng_py = random.Random(seed)
 
@@ -119,29 +127,34 @@ def run_search(
     best_auc = -1.0
     best_cfg: dict = {}
 
-    for i, cfg in enumerate(candidates):
+    pbar = tqdm(candidates, desc="grid search", unit="cfg")
+    for i, cfg in enumerate(pbar):
         t0 = time.time()
         try:
-            auc, n_est = _train_single(X_tr, y_tr, w_tr, X_val, y_val, w_val, cfg, seed)
+            auc, n_est = _train_single(
+                X_tr, y_tr, w_tr, X_val, y_val, w_val, cfg, seed,
+                device=device, nthread=nthread,
+            )
         except Exception as exc:
-            print(f"  [{i+1}/{len(candidates)}] FAILED: {exc}")
+            tqdm.write(f"  [{i+1}/{len(candidates)}] FAILED: {exc}")
             continue
         elapsed = time.time() - t0
         row = {"auc": auc, "n_estimators": n_est, "time_s": round(elapsed, 1), **cfg}
         results.append(row)
 
-        marker = " *" if auc > best_auc else ""
-        print(
+        if auc > best_auc:
+            best_auc = auc
+            best_cfg = dict(row)
+        pbar.set_postfix(best=f"{best_auc:.4f}", last=f"{auc:.4f}")
+
+        marker = " *" if auc == best_auc else ""
+        tqdm.write(
             f"  [{i+1:3d}/{len(candidates)}] AUC={auc:.4f}  n_est={n_est:4d}"
             f"  depth={cfg['max_depth']}  lr={cfg['learning_rate']:.3f}"
             f"  sub={cfg['subsample']}  col={cfg['colsample_bytree']}"
             f"  mcw={cfg['min_child_weight']}  gam={cfg['gamma']}"
             f"  ({elapsed:.0f}s){marker}",
-            flush=True,
         )
-        if auc > best_auc:
-            best_auc = auc
-            best_cfg = dict(row)
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -180,6 +193,10 @@ def _cli() -> None:
                         help="Enumerate all combinations (slow)")
     parser.add_argument("--val-fraction", type=float, default=0.20)
     parser.add_argument("--seed",         type=int, default=42)
+    parser.add_argument("--device",  default="cpu",
+                        help="XGBoost device: cpu (default), cuda, mps (future)")
+    parser.add_argument("--nthread", type=int, default=-1,
+                        help="XGBoost nthread; -1 = all cores")
     args = parser.parse_args()
 
     run_search(
@@ -189,6 +206,8 @@ def _cli() -> None:
         full_grid=args.full_grid,
         val_fraction=args.val_fraction,
         seed=args.seed,
+        device=args.device,
+        nthread=args.nthread,
     )
 
 
