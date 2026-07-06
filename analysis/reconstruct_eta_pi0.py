@@ -101,11 +101,20 @@ def _stage1_pass(gammas_px, gammas_py, gammas_pz, gammas_E,
 # Configuration
 # ============================================================
 
-input_dir         = "subsample"                # folder with pre-analysis ROOT files
-output_file       = "reco_eta_pi0.root"        # reconstruction output file
-input_tree        = "h80"                      # pre-analysis tree name
-output_tree       = "reco_eta_pi0"             # output tree name
-combinations_file = "combinations_eta_pi0.txt" # photon-pairing table (i1 i2 i3 i4 m12 m34)
+import argparse as _ap
+_parser = _ap.ArgumentParser()
+_parser.add_argument("--input-dir",         default="subsample",
+                     help="Folder with pre-analysis ROOT files (default: subsample)")
+_parser.add_argument("--output-file",       default="reco_eta_pi0.root")
+_parser.add_argument("--combinations-file", default="combinations_eta_pi0.txt")
+_parser.add_argument("--input-tree",        default="h80")
+_args = _parser.parse_args()
+
+input_dir         = _args.input_dir
+output_file       = _args.output_file
+combinations_file = _args.combinations_file
+input_tree        = _args.input_tree
+output_tree       = "reco_eta_pi0"
 
 # ============================================================
 # Load the photon-combination table
@@ -130,7 +139,7 @@ chain = ROOT.TChain(input_tree)
 
 root_files = [
     f for f in os.listdir(input_dir)
-    if f.endswith(".root") and f.startswith("analisi_")
+    if f.endswith(".root")
 ]
 
 print(f"Found {len(root_files)} ROOT files")
