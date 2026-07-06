@@ -247,6 +247,9 @@ for iev in range(n_entries):
             chain.protons[0].E(),
         )
 
+    if chain.gammas.size() < 4:
+        continue
+
     chi2_values = []
 
     # --------------------------------------------------------
