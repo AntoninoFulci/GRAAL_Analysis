@@ -13,3 +13,5 @@ analysis/ml/data/
 analysis/ml/model/
 .vscode/
 *cache*
+
+docs/
