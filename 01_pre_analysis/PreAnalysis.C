@@ -65,27 +65,28 @@ void PreAnalysis::Loop(std::string output_file) {
    
 
    // Output branches
-   output_tree->Branch("beam",    "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >", &beam);
+   output_tree->Branch("beam",      "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >", &beam);
    output_tree->Branch("gammas",    "vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &gammas);
    output_tree->Branch("neutrons",  "vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &neutrons);
    output_tree->Branch("protons",   "vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &protons);
    output_tree->Branch("deuterons", "vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &deuterons);
    
    // New, fast angle branches
-   output_tree->Branch("gamma_theta", "vector<double>", &gamma_theta);
-   output_tree->Branch("gamma_phi",   "vector<double>", &gamma_phi);
-   output_tree->Branch("pions_theta", "vector<double>", &pions_theta);
-   output_tree->Branch("pions_phi",   "vector<double>", &pions_phi);
+   output_tree->Branch("gamma_theta",     "vector<double>", &gamma_theta);
+   output_tree->Branch("gamma_phi",       "vector<double>", &gamma_phi);
+   output_tree->Branch("pions_theta",     "vector<double>", &pions_theta);
+   output_tree->Branch("pions_phi",       "vector<double>", &pions_phi);
    output_tree->Branch("deuterons_theta", "vector<double>", &deuterons_theta);
    output_tree->Branch("deuterons_phi",   "vector<double>", &deuterons_phi);
-   output_tree->Branch("fcharged_theta",   "vector<double>", &fcharged_theta);
-   output_tree->Branch("fcharged_phi",   "vector<double>", &fcharged_phi);
+   output_tree->Branch("fcharged_theta",  "vector<double>", &fcharged_theta);
+   output_tree->Branch("fcharged_phi",    "vector<double>", &fcharged_phi);
    output_tree->Branch("fcharged_beta",   "vector<double>", &fcharged_beta);
-   output_tree->Branch("fcharged_tof",   "vector<double>", &fcharged_tof);
-   output_tree->Branch("fcharded_de",   "vector<double>", &fcharded_de);
+   output_tree->Branch("fcharged_tof",    "vector<double>", &fcharged_tof);
+   output_tree->Branch("fcharded_de",     "vector<double>", &fcharded_de);
 
    output_tree->Branch("Polarization", &Polarization, "Polarization/I");
    output_tree->Branch("RunNumber", &RunNumber, "RunNumber/I");
+
    // Check to see if we have a chain
    if (fChain == nullptr) {
       std::cerr << "PreAnalysis::Loop - fChain is null, nothing to do." << std::endl;
@@ -106,12 +107,12 @@ void PreAnalysis::Loop(std::string output_file) {
       neutrons.clear();
       protons.clear();
       deuterons.clear();
-      gamma_theta.clear(); // Clear new vectors
-      gamma_phi.clear();   // Clear new vectors
-      pions_theta.clear(); // Clear new vectors
-      pions_phi.clear();   // Clear new vectors
-      deuterons_theta.clear(); // Clear new vectors
-      deuterons_phi.clear();   // Clear new vectors
+      gamma_theta.clear();
+      gamma_phi.clear();
+      pions_theta.clear();
+      pions_phi.clear();
+      deuterons_theta.clear();
+      deuterons_phi.clear();
       fcharged_theta.clear();
       fcharged_phi.clear();
       fcharged_beta.clear();
@@ -164,8 +165,8 @@ void PreAnalysis::Loop(std::string output_file) {
                if (PionCntCut != nullptr && PionCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
 
                   // Pion Candidate (Central)
-                  pions_theta.push_back(Thet_centr_track[i]); // PUSH THETA
-                  pions_phi.push_back(Phi_centr_track[i]);     // PUSH PHI                 
+                  pions_theta.push_back(Thet_centr_track[i]);
+                  pions_phi.push_back(Phi_centr_track[i]);               
                } 
             }
          }
@@ -178,14 +179,15 @@ void PreAnalysis::Loop(std::string output_file) {
          double Phi_trf_rad   = Phi_trf[i] / 180. * M_PI;
 
          int index_trf_ = 0;
+         
          if (Index_trf[i] != 0) {
-            // ROOT arrays start from 0, Fortran from 1
-            index_trf_ = Index_trf[i] - 1;
+            index_trf_ = Index_trf[i] - 1;    // This because in C++ arrays start from 0, while Fortran started from 1
          }
+
          int index = static_cast<int>(Iass_trf[index_trf_]);
 
-         if (index == 1) { // Neutral Forward Particles
-            if (Tof_trf[i] >= 12) { // Neutron Region
+         if (index == 1) {                                                       // Neutral Forward Particles
+            if (Tof_trf[i] >= 12) {                                              // Neutron Region
                double beta = 335. / (Tof_trf[i] * CLIGHT * 1.E-09);
                if ((1 - beta * beta) > 0) {
                   ROOT::Math::PxPyPzEVector CandidatefNeutron;
@@ -202,10 +204,10 @@ void PreAnalysis::Loop(std::string output_file) {
                       neutrons.push_back(CandidatefNeutron);
                   }
                }
-            } else if (Tof_trf[i] >= 7.5 && Tof_trf[i] <= 12.5) { // Photon Region
+            } else if (Tof_trf[i] >= 7.5 && Tof_trf[i] <= 12.5) {                // Photon Region
                // Photon Angle Candidate (Forward)
-               gamma_theta.push_back(Theta_trf[i]); // PUSH THETA
-               gamma_phi.push_back(Phi_trf[i]);     // PUSH PHI
+               gamma_theta.push_back(Theta_trf[i]);
+               gamma_phi.push_back(Phi_trf[i]);
             }
          }
 
@@ -250,8 +252,8 @@ void PreAnalysis::Loop(std::string output_file) {
                TCutG *PionFwdCut = GetCut("Pion", "Fwd", Idrun, false);
                if (PionFwdCut != nullptr && PionFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
                   // Pion Angle Candidate (Forward)
-                  pions_theta.push_back(Theta_trf[i]); // PUSH THETA
-                  pions_phi.push_back(Phi_trf[i]);     // PUSH PHI
+                  pions_theta.push_back(Theta_trf[i]);
+                  pions_phi.push_back(Phi_trf[i]);
                }
 
                // Deuteron Forward Region
@@ -259,13 +261,13 @@ void PreAnalysis::Loop(std::string output_file) {
                if (DeuteronCut  != nullptr && DeuteronCut ->IsInside(Tof_trf[i], De_trf[i])) {
                   
                   // Deuteron Angle Candidate (Forward)
-                  deuterons_theta.push_back(Theta_trf[i]); // PUSH THETA
-                  deuterons_phi.push_back(Phi_trf[i]);     // PUSH PHI
+                  deuterons_theta.push_back(Theta_trf[i]);
+                  deuterons_phi.push_back(Phi_trf[i]);
                   
                   if ((1 - beta * beta) > 0) {
                      ROOT::Math::PxPyPzEVector CandidatefDeu;
                      double gamma          = 1. / sqrt(1 - beta * beta);
-                     double ENE_FDEUTERON  = gamma * RMD; // energia totale
+                     double ENE_FDEUTERON  = gamma * RMD;
                      double Pfdeu_sq       = ENE_FDEUTERON * ENE_FDEUTERON - RMD * RMD;
                      if (Pfdeu_sq >= 0) {
                          double Pfdeu          = sqrt(Pfdeu_sq);
@@ -333,6 +335,7 @@ void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
 
    // Build the cut map once (faster than doing it for every folder).
    // Keep current "cuts" location relative unless you want it absolute.
+   
    BuildCutMap((base_in + "/").c_str(), "./cuts");
    PrintCutMap();
 

@@ -1,10 +1,3 @@
-//////////////////////////////////////////////////////////
-// This class has been automatically generated on
-// Wed Dec  3 11:35:22 2025 by ROOT version 6.36.000
-// from TTree h70/ 
-// found on file: test_data/run1883.root
-//////////////////////////////////////////////////////////
-
 #ifndef PreAnalysis_h
 #define PreAnalysis_h
 
@@ -404,14 +397,13 @@ public :
 #ifdef PreAnalysis_cxx
 PreAnalysis::PreAnalysis(std::string files, const std::vector<std::string>& branchNames) : fChain(0) 
 {
-// if parameter tree is not specified (or zero), connect the file
-// used to generate this class and read the Tree.
    h70chain = new TChain("h70");
 
    std::cout << "Opening files: " << files << std::endl;
    h70chain->Add(files.c_str());
 
    Init(h70chain);
+   // Here we enable only the specified branches if branchNames is not empty
    EnableOnly(h70chain, branchNames);
 }
 

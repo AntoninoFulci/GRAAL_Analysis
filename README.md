@@ -1,48 +1,6 @@
 # GRAAL Analysis
 
-Codice di analisi per l'esperimento GRAAL: ricostruzione degli eventi, identificazione delle particelle e filtraggio con BDT per il canale γ p → p η π⁰.
-
----
-
-## Struttura del repository
-
-```
-GRAAL_Analysis/
-├── pre_analysis/
-│   ├── PreAnalysis.h               # classe TTree generata da ROOT (variabili rivelatore)
-│   ├── PreAnalysis.C               # logica di analisi: Loop(), AnalyzeAll()
-│   ├── CutManager.h                # caricamento dinamico dei tagli grafici (TCutG)
-│   └── cuts/                       # tagli TCutG per particella/periodo/dataset
-├── analysis/
-│   ├── select_events.py            # preselezione eventi (fotoni + barione di rinculo)
-│   ├── reconstruct_2pi0.py         # γ p → p π⁰ π⁰: accoppiamento fotoni + chi2
-│   ├── reconstruct_eta_pi0.py      # γ p → p η π⁰: accoppiamento + gate BDT stage-1
-│   └── ml/
-│       ├── physics.py              # matematica dei quadrivettori (vettorizzata, numpy)
-│       ├── build_features.py       # feature 67-dim per BDT stage-2 (photon pairing)
-│       ├── build_background_features.py  # feature 24-dim per BDT stage-1 (segnale/fondo)
-│       ├── train_bdt.py            # BDT stage-2: multiclasse (scelta combinazione)
-│       ├── train_bdt_stage1.py     # BDT stage-1: binario (segnale vs fondo)
-│       ├── evaluate_compare.py     # confronto BDT vs χ² + spettri di massa
-│       ├── photon_loss.py          # modello di perdita fotoni per MC di fondo
-│       ├── requirements.txt
-│       ├── grid_search_stage1.py   # ricerca randomizzata iper-parametri BDT stage-1
-│       ├── tests/                  # 40 test pytest (tutti verdi)
-│       ├── data/                   # features.npz (generato, ignorato da git)
-│       ├── model/                  # bdt.json, bdt_stage1.json (generati)
-│       ├── plots/                  # figure diagnostiche
-│       └── step-by-step-explaination_ita/  # documentazione dettagliata in italiano
-├── simulation/
-│   ├── smearing.h                       # header condiviso: SmearPhoton, SmearProton
-│   ├── generate_eta_pi0_dataset.C       # segnale: γ p → p η π⁰ (MC etichettato)
-│   ├── generate_pi0pi0_dataset.C        # fondo: γ p → p π⁰ π⁰  (4γ)
-│   ├── generate_3pi0_dataset.C          # fondo: γ p → p 3π⁰    (6γ)
-│   ├── generate_eta_2pi0_dataset.C      # fondo: γ p → p η π⁰ π⁰ (6γ)
-│   ├── generate_omega_pi0_dataset.C     # fondo: γ p → p ω π⁰   (5γ)
-│   ├── generate_etaprime_dataset.C      # fondo: γ p → p η'      (6γ)
-│   └── cross_sections.csv              # sezioni d'urto efficaci per pesatura ibrida
-└── run_pipeline.sh                 # launcher completo: MC → feature → BDT
-```
+Codice di analisi per l'esperimento GRAAL: ricostruzione degli eventi, identificazione delle particelle e filtraggio con BDT per un canale selezionato.
 
 ---
 
@@ -71,7 +29,7 @@ GRAAL_Analysis/
    (con gate BDT stage-1 + accoppiamento chi2/BDT stage-2)
 ```
 
-### Avvio rapido (tutto in un colpo)
+### Quickstart
 
 ```bash
 # pipeline completa con 1M eventi per canale
@@ -282,19 +240,3 @@ File `simulation/cross_sections.csv`:
 | `missing` | `TLorentzVector` | 4-vettore mancante |
 
 ---
-
-## Documentazione dettagliata
-
-Spiegazione passo-passo in italiano (teoria + codice):
-
-```
-analysis/ml/step-by-step-explaination_ita/
-├── GUIDA.md            # visione d'insieme + come si usa + risultati
-├── README.md           # ordine di lettura
-├── 01_physics.md       # physics.py: quadrivettori vettorizzati
-├── 02_build_features.md # build_features.py: feature 67-dim stage-2
-├── 03_train_bdt.md     # train_bdt.py: allenamento XGBoost
-└── 04_evaluate_compare.md # evaluate_compare.py: BDT vs chi2
-```
-
-Specifica di design e piano di implementazione: `docs/superpowers/`.

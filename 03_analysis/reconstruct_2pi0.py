@@ -22,11 +22,12 @@ from array import array
 # Configuration
 # ============================================================
 
-input_dir         = "subsample"             # folder with pre-analysis ROOT files
-output_file       = "reco_2pi0.root"        # reconstruction output file
+input_dir         = "02_analysis/data/combinations_eta_pi0.txt"             # folder with pre-analysis ROOT files
+output_file       = "02_analysis/data/reco_2pi0.root"        # reconstruction output file
 input_tree        = "h80"                   # pre-analysis tree name
-output_tree       = "reco_2pi0"             # output tree name
+output_tree       = "h90_reco_2pi0"             # output tree name
 combinations_file = "combinations_2pi0.txt" # photon-pairing table (i1 i2 i3 i4 m12 m34)
+chi2_cut          = 10.0                   # chi2 cut for reconstructed pi0 pairs
 
 # ============================================================
 # Load the photon-combination table
@@ -163,7 +164,7 @@ for iev in range(n_entries):
     # best combination
     idx = chi2_values.index(min(chi2_values))
     chi2[0] = chi2_values[idx]
-    if chi2[0] < 10:  # chi2 cut
+    if chi2[0] < chi2_cut:  # chi2 cut
         xx1 = chain.gammas[int(combinations[idx, 0])].Px()
         xx2 = chain.gammas[int(combinations[idx, 1])].Px()
         xx3 = chain.gammas[int(combinations[idx, 2])].Px()
