@@ -5,81 +5,93 @@
 # Runs AFTER the pre-analysis and BEFORE the reconstruct_* scripts.
 # Reads the pre-analysis ROOT files (tree "h80", named "pre_*.root"),
 # keeps only the events that can feed the two-meson reconstruction
-# (more than one photon and exactly one recoil baryon), and writes
-# the surviving events to a new file with the same tree structure,
-# dropping the "pre_" filename prefix.
+# (more than one photon and exactly one recoil baryon), and writes the
+# surviving events to a new file as tree "h85", dropping the "pre_"
+# filename prefix.
 # ============================================================
 
-import ROOT
+import argparse
 import os
 
-# Input/output folders
-input_dir  = "pre_analyzed"   # pre-analysis output files (pre_*.root)
-output_dir = "selected"       # preselected output files
+import ROOT
 
-# TTree name (set by the pre-analysis)
-tree_name = "h80"
+INPUT_TREE = "h80"   # written by 01_pre_analysis/PreAnalysis.C
+OUTPUT_TREE = "h85"  # read by 03_analysis/reco_core.py
 
-# Create the output folder if missing
-os.makedirs(output_dir, exist_ok=True)
 
-# All ROOT files starting with "pre_"
-root_files = [
-    f for f in os.listdir(input_dir)
-    if f.endswith(".root") and f.startswith("pre_")
-]
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Preselect events for the two-meson reconstruction"
+    )
+    p.add_argument("--input-dir", default="pre_analyzed",
+                   help="folder with the pre_*.root files")
+    p.add_argument("--output-dir", default="selected",
+                   help="folder for the preselected files")
+    return p.parse_args()
 
-print(f"Found {len(root_files)} ROOT files")
 
-for filename in root_files:
+def main():
+    args = parse_args()
 
-    input_path = os.path.join(input_dir, filename)
+    os.makedirs(args.output_dir, exist_ok=True)
 
-    # Drop the "pre_" prefix for the output name
-    output_filename = filename.replace("pre_", "", 1)
-    output_path = os.path.join(output_dir, output_filename)
+    root_files = [
+        f for f in os.listdir(args.input_dir)
+        if f.endswith(".root") and f.startswith("pre_")
+    ]
 
-    print(f"\nProcessing: {filename} -> {output_filename}")
+    print(f"Found {len(root_files)} ROOT files")
 
-    # Open input file
-    input_file = ROOT.TFile.Open(input_path)
-    if not input_file or input_file.IsZombie():
-        print("  [ERROR] Cannot open file")
-        continue
+    for filename in root_files:
+        input_path = os.path.join(args.input_dir, filename)
 
-    tree = input_file.Get(tree_name)
-    if not tree:
-        print(f"  [ERROR] TTree '{tree_name}' not found")
+        # Drop the "pre_" prefix for the output name
+        output_filename = filename.replace("pre_", "", 1)
+        output_path = os.path.join(args.output_dir, output_filename)
+
+        print(f"\nProcessing: {filename} -> {output_filename}")
+
+        input_file = ROOT.TFile.Open(input_path)
+        if not input_file or input_file.IsZombie():
+            raise RuntimeError(f"cannot open {input_path}")
+
+        tree = input_file.Get(INPUT_TREE)
+        if not tree:
+            keys = [k.GetName() for k in input_file.GetListOfKeys()]
+            raise RuntimeError(
+                f"tree '{INPUT_TREE}' not found in {input_path}; found: {keys}"
+            )
+
+        output_file = ROOT.TFile(output_path, "RECREATE")
+
+        # CloneTree keeps the source name ("h80"), so rename explicitly.
+        selected_tree = tree.CloneTree(0)
+        selected_tree.SetName(OUTPUT_TREE)
+        selected_tree.SetTitle(OUTPUT_TREE)
+
+        n_entries = tree.GetEntries()
+        print(f"  Number of events: {n_entries}")
+
+        n_selected = 0
+        for event in tree:
+            # keep events with >1 photon and exactly one recoil baryon
+            if (
+                event.gammas.size() > 1 and
+                event.protons.size() +
+                event.neutrons.size() +
+                event.deuterons.size() == 1
+            ):
+                selected_tree.Fill()
+                n_selected += 1
+
+        print(f"  Selected events: {n_selected}")
+
+        selected_tree.Write("", ROOT.TObject.kOverwrite)
+        output_file.Close()
         input_file.Close()
-        continue
 
-    # Output file
-    output_file = ROOT.TFile(output_path, "RECREATE")
+    print("\nSelection complete")
 
-    # Clone the tree structure (no entries yet)
-    selected_tree = tree.CloneTree(0)
 
-    n_entries = tree.GetEntries()
-    print(f"  Number of events: {n_entries}")
-
-    n_selected = 0
-
-    for event in tree:
-        # keep events with >1 photon and exactly one recoil baryon
-        if (
-            event.gammas.size() > 1 and
-            event.protons.size() +
-            event.neutrons.size() +
-            event.deuterons.size() == 1
-        ):
-            selected_tree.Fill()
-            n_selected += 1
-
-    print(f"  Selected events: {n_selected}")
-
-    # Write and close
-    selected_tree.Write("", ROOT.TObject.kOverwrite)  # reuse the key, avoid extra ;N cycles
-    output_file.Close()
-    input_file.Close()
-
-print("\nSelection complete")
+if __name__ == "__main__":
+    main()
