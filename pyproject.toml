@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graal-analysis"
+version = "0.1.0"
+description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
+requires-python = ">=3.11"
+
+# The pipeline dirs are numbered so their order is visible on disk, but a
+# Python package name cannot start with a digit. This maps one onto the other.
+[tool.setuptools]
+packages = [
+    "event_selector",
+    "analysis",
+    "analysis.tests",
+    "mc_simulation",
+    "mc_simulation.tests",
+    "analysis_bdt",
+    "analysis_bdt.tests",
+]
+
+[tool.setuptools.package-dir]
+event_selector = "02_event_selector"
+analysis       = "03_analysis"
+mc_simulation  = "04_mc_simulation"
+analysis_bdt   = "05_analysis_bdt"
+
+[tool.pytest.ini_options]
+testpaths = ["03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests"]
