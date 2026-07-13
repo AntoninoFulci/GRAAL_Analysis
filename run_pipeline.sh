@@ -1,46 +1,63 @@
 #!/usr/bin/env bash
 # ============================================================
-# GRAAL full MC + BDT pipeline
+# GRAAL full pipeline: MC -> stage-1 BDT -> preselection -> reconstruction
 #
 # Usage:
-#   ./run_pipeline.sh [--nevents N] [--out-dir DIR] [--skip-mc]
+#   ./run_pipeline.sh [--nevents N] [--force-mc] [--skip-mc]
 #                     [--skip-features] [--skip-grid-search]
-#                     [--grid-search-niter N] [--skip-train] [--help]
+#                     [--grid-search-niter N] [--skip-train]
+#                     [--skip-selection] [--skip-reco] [--help]
 #
-# Steps:
-#   1. Generate ROOT MC (signal + 5 background channels)
-#   2. Build stage-1 BDT features  (build_background_features.py)
-#   3. Grid search iper-parametri  (grid_search_stage1.py)
-#   4. Train stage-1 BDT           (train_bdt_stage1.py)
+# Stages:
+#   1. MC generation      (skipped automatically if all 6 channels exist)
+#   2. Stage-1 features   (build_background_features)
+#   3. Grid search        (grid_search_stage1)
+#   4. Train stage-1 BDT  (train_bdt_stage1)
+#   5. Event preselection (h80 -> h85)
+#   6. Reconstruction     (chi2 and BDT-gated, both)
+#
+# Stages 5-6 need real pre-analysed data in pre_analyzed/. Without it they are
+# skipped and the MC + BDT half of the pipeline still runs.
 # ============================================================
 
 set -euo pipefail
 
 # ---- defaults ----
 NEVENTS=1000000
-SIM_DIR="simulation"
-OUT_DIR="analysis/ml/model"
-FEATURES_FILE="features_stage1.npz"
-CS_CSV="${SIM_DIR}/cross_sections.csv"
+MC_DIR="04_mc_simulation"
+MC_DATA_DIR="${MC_DIR}/data"
+BDT_DIR="05_analysis_bdt"
+OUT_DIR="${BDT_DIR}/model"
+FEATURES_FILE="${BDT_DIR}/data/features_stage1.npz"
+CS_CSV="${MC_DIR}/cross_sections/cross_sections.csv"
 
+PRE_DIR="pre_analyzed"
+SELECTED_DIR="selected"
+RECO_DIR="03_analysis/data"
+
+FORCE_MC=0
 SKIP_MC=0
 SKIP_FEATURES=0
 SKIP_TRAIN=0
 SKIP_GRID_SEARCH=0
+SKIP_SELECTION=0
+SKIP_RECO=0
 GRID_SEARCH_NITER=30
 
 # ---- parse args ----
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --nevents)     NEVENTS="$2";       shift 2 ;;
-        --out-dir)     OUT_DIR="$2";       shift 2 ;;
-        --skip-mc)     SKIP_MC=1;          shift   ;;
-        --skip-features) SKIP_FEATURES=1; shift   ;;
-        --skip-train)  SKIP_TRAIN=1;       shift   ;;
-        --skip-grid-search)   SKIP_GRID_SEARCH=1;           shift   ;;
-        --grid-search-niter)  GRID_SEARCH_NITER="$2";       shift 2 ;;
+        --nevents)            NEVENTS="$2";           shift 2 ;;
+        --force-mc)           FORCE_MC=1;             shift   ;;
+        --skip-mc)            SKIP_MC=1;              shift   ;;
+        --skip-features)      SKIP_FEATURES=1;        shift   ;;
+        --skip-train)         SKIP_TRAIN=1;           shift   ;;
+        --skip-grid-search)   SKIP_GRID_SEARCH=1;     shift   ;;
+        --grid-search-niter)  GRID_SEARCH_NITER="$2"; shift 2 ;;
+        --skip-selection)     SKIP_SELECTION=1;       shift   ;;
+        --skip-reco)          SKIP_RECO=1;            shift   ;;
         --help|-h)
-            sed -n '2,15p' "$0"
+            sed -n '2,22p' "$0"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -49,14 +66,14 @@ done
 PYTHON="${PYTHON:-python}"
 ROOT_EXEC="${ROOT_EXEC:-root}"
 
-# ---- helpers ----
+TOTAL_STAGES=6
 _STAGE_T0=0
 
 stage() {
-    local n=$1 total=$2 desc=$3
+    local n=$1 desc=$2
     _STAGE_T0=$(date +%s)
     echo ""
-    echo "[${n}/${total}] ${desc}  ($(date '+%H:%M:%S'))"
+    echo "[${n}/${TOTAL_STAGES}] ${desc}  ($(date '+%H:%M:%S'))"
 }
 
 stage_done() {
@@ -65,16 +82,32 @@ stage_done() {
     echo "    -> completato in $((T1 - _STAGE_T0))s"
 }
 
-TOTAL_STAGES=4
-
 echo "=================================================="
 echo "  GRAAL pipeline  (N=${NEVENTS})"
 echo "=================================================="
 
-# ---- Step 1: MC generation ----
-if [[ $SKIP_MC -eq 0 ]]; then
-    stage 1 $TOTAL_STAGES "MC generation (${NEVENTS} eventi per canale)"
-    cd "$SIM_DIR"
+# ---- Stage 1: MC generation ----
+stage 1 "MC generation"
+
+# mc_status exits 0 when all six channels are on disk, 1 when any is missing.
+# It always prints the table, and warns (without failing) past 10 days.
+MC_ALL_PRESENT=0
+if ${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"; then
+    MC_ALL_PRESENT=1
+fi
+
+NEED_MC=1
+if [[ $SKIP_MC -eq 1 ]]; then
+    echo "    -> --skip-mc: generazione saltata"
+    NEED_MC=0
+elif [[ $FORCE_MC -eq 1 ]]; then
+    echo "    -> --force-mc: rigenero comunque"
+elif [[ $MC_ALL_PRESENT -eq 1 ]]; then
+    NEED_MC=0
+fi
+
+if [[ $NEED_MC -eq 1 ]]; then
+    mkdir -p "${MC_DATA_DIR}"
 
     channels=(
         "generate_eta_pi0_dataset.C"
@@ -84,74 +117,76 @@ if [[ $SKIP_MC -eq 0 ]]; then
         "generate_omega_pi0_dataset.C"
         "generate_etaprime_dataset.C"
     )
+    # The macros write their .root file into the current directory, so run them
+    # from the data dir and reach back up for the macro itself.
+    pushd "${MC_DATA_DIR}" > /dev/null
     for macro in "${channels[@]}"; do
-        name="${macro%.C}"
-        echo "  -> ${name} (N=${NEVENTS})"
-        ${ROOT_EXEC} -l -b -q "${macro}(${NEVENTS})"
+        echo "  -> ${macro%.C} (N=${NEVENTS})"
+        ${ROOT_EXEC} -l -b -q "../${macro}(${NEVENTS})"
     done
+    popd > /dev/null
 
-    cd ..
     stage_done
-else
-    echo "[1/${TOTAL_STAGES}] MC generation — saltato"
 fi
 
-# ---- Step 2: build features ----
+# ---- Stage 2: build features ----
 if [[ $SKIP_FEATURES -eq 0 ]]; then
-    stage 2 $TOTAL_STAGES "Build features stage-1"
+    stage 2 "Build features stage-1"
 
-    SIG="${SIM_DIR}/eta_pi0_mc.root"
+    SIG="${MC_DATA_DIR}/eta_pi0_mc.root"
     BG_FILES=(
-        "${SIM_DIR}/pi0pi0_mc.root"
-        "${SIM_DIR}/3pi0_mc.root"
-        "${SIM_DIR}/eta_2pi0_mc.root"
-        "${SIM_DIR}/omega_pi0_mc.root"
-        "${SIM_DIR}/etaprime_mc.root"
+        "${MC_DATA_DIR}/pi0pi0_mc.root"
+        "${MC_DATA_DIR}/3pi0_mc.root"
+        "${MC_DATA_DIR}/eta_2pi0_mc.root"
+        "${MC_DATA_DIR}/omega_pi0_mc.root"
+        "${MC_DATA_DIR}/etaprime_mc.root"
     )
 
     for f in "$SIG" "${BG_FILES[@]}"; do
         if [[ ! -f "$f" ]]; then
-            echo "ERROR: missing file $f (run with --skip-mc=0 first)"
+            echo "ERROR: missing MC file $f (run without --skip-mc)"
             exit 1
         fi
     done
 
-    ${PYTHON} -u -m analysis.ml.build_background_features \
-        --signal        "$SIG" \
-        --backgrounds   "${BG_FILES[@]}" \
-        --cs-csv        "$CS_CSV" \
-        --output        "$FEATURES_FILE"
+    mkdir -p "$(dirname "${FEATURES_FILE}")"
+
+    ${PYTHON} -u -m analysis_bdt.build_background_features \
+        --signal      "$SIG" \
+        --backgrounds "${BG_FILES[@]}" \
+        --cs-csv      "$CS_CSV" \
+        --output      "$FEATURES_FILE"
 
     stage_done
 else
-    echo "[2/${TOTAL_STAGES}] Feature building — saltato"
+    echo "[2/${TOTAL_STAGES}] Build features — saltato"
 fi
 
-# ---- Step 3: grid search (opzionale) ----
+# ---- Stage 3: grid search ----
 if [[ $SKIP_TRAIN -eq 0 && $SKIP_GRID_SEARCH -eq 0 ]]; then
-    stage 3 $TOTAL_STAGES "Grid search iper-parametri (n_iter=${GRID_SEARCH_NITER})"
+    stage 3 "Grid search iper-parametri (n_iter=${GRID_SEARCH_NITER})"
 
     if [[ ! -f "$FEATURES_FILE" ]]; then
-        echo "ERROR: ${FEATURES_FILE} not found (run step 2 first)"
+        echo "ERROR: ${FEATURES_FILE} not found (run stage 2 first)"
         exit 1
     fi
 
-    ${PYTHON} -u -m analysis.ml.grid_search_stage1 \
-        --features  "$FEATURES_FILE" \
-        --out-dir   "$OUT_DIR" \
-        --n-iter    "$GRID_SEARCH_NITER"
+    ${PYTHON} -u -m analysis_bdt.grid_search_stage1 \
+        --features "$FEATURES_FILE" \
+        --out-dir  "$OUT_DIR" \
+        --n-iter   "$GRID_SEARCH_NITER"
 
     stage_done
-elif [[ $SKIP_TRAIN -eq 0 ]]; then
+else
     echo "[3/${TOTAL_STAGES}] Grid search — saltato"
 fi
 
-# ---- Step 4: train BDT ----
+# ---- Stage 4: train stage-1 BDT ----
 if [[ $SKIP_TRAIN -eq 0 ]]; then
-    stage 4 $TOTAL_STAGES "Training BDT stage-1"
+    stage 4 "Training BDT stage-1"
 
     if [[ ! -f "$FEATURES_FILE" ]]; then
-        echo "ERROR: ${FEATURES_FILE} not found (run step 2 first)"
+        echo "ERROR: ${FEATURES_FILE} not found (run stage 2 first)"
         exit 1
     fi
 
@@ -161,23 +196,59 @@ if [[ $SKIP_TRAIN -eq 0 ]]; then
         echo "  Usando iper-parametri da ${OUT_DIR}/best_hyperparams.json"
     fi
 
-    ${PYTHON} -u -m analysis.ml.train_bdt_stage1 \
-        --features  "$FEATURES_FILE" \
-        --out-dir   "$OUT_DIR" \
+    ${PYTHON} -u -m analysis_bdt.train_bdt_stage1 \
+        --features "$FEATURES_FILE" \
+        --out-dir  "$OUT_DIR" \
         "${HYPERPARAMS_FLAG[@]}"
 
     stage_done
     echo ""
     echo "  Threshold : $(cat "${OUT_DIR}/stage1_threshold.txt")"
-    echo ""
     echo "  Metrics:"
     cat "${OUT_DIR}/stage1_metrics.txt"
 else
     echo "[4/${TOTAL_STAGES}] BDT training — saltato"
 fi
 
+# ---- Stage 5: event preselection (h80 -> h85) ----
+if [[ $SKIP_SELECTION -eq 0 ]]; then
+    if [[ ! -d "${PRE_DIR}" ]]; then
+        echo ""
+        echo "[5/${TOTAL_STAGES}] Preselezione — saltata: ${PRE_DIR}/ non esiste"
+        echo "    (dati reali pre-analizzati assenti su questa macchina)"
+        SKIP_RECO=1
+    else
+        stage 5 "Preselezione eventi (h80 -> h85)"
+        ${PYTHON} -u -m event_selector.select_events \
+            --input-dir  "${PRE_DIR}" \
+            --output-dir "${SELECTED_DIR}"
+        stage_done
+    fi
+else
+    echo "[5/${TOTAL_STAGES}] Preselezione — saltata"
+fi
+
+# ---- Stage 6: reconstruction, chi2 and BDT ----
+if [[ $SKIP_RECO -eq 0 ]]; then
+    stage 6 "Ricostruzione eta pi0 (chi2 + BDT)"
+
+    echo "  -> analisi standard (chi2)"
+    ${PYTHON} -u -m analysis.reconstruct_eta_pi0_chi2 \
+        --input-dir   "${SELECTED_DIR}" \
+        --output-file "${RECO_DIR}/reco_eta_pi0_chi2.root"
+
+    echo "  -> analisi con gate BDT stage-1"
+    ${PYTHON} -u -m analysis.reconstruct_eta_pi0_bdt \
+        --input-dir   "${SELECTED_DIR}" \
+        --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
+        --model-dir   "${OUT_DIR}"
+
+    stage_done
+else
+    echo "[6/${TOTAL_STAGES}] Ricostruzione — saltata"
+fi
+
 echo ""
 echo "=================================================="
 echo "  Pipeline complete."
-echo "  Next: python analysis/reconstruct_eta_pi0.py"
 echo "=================================================="
