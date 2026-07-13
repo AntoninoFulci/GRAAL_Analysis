@@ -4,7 +4,7 @@ import pytest
 from analysis_bdt import build_features as bf
 from analysis_bdt import physics
 
-MC_PATH = "simulation/eta_pi0_mc.root"
+MC_PATH = "04_mc_simulation/data/eta_pi0_mc.root"
 
 
 def test_load_photons_shape_and_masses():
