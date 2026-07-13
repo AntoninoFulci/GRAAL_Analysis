@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from analysis.ml import physics
+from analysis_bdt import physics
 
 
 def test_invariant_mass_two_back_to_back_photons():

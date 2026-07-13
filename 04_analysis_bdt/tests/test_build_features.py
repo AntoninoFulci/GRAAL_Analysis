@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from analysis.ml import build_features as bf
-from analysis.ml import physics
+from analysis_bdt import build_features as bf
+from analysis_bdt import physics
 
 MC_PATH = "simulation/eta_pi0_mc.root"
 

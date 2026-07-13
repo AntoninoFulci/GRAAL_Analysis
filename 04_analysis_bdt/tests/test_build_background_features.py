@@ -1,7 +1,7 @@
 """Tests for build_background_features module."""
 import numpy as np
 import pytest
-from analysis.ml.build_background_features import (
+from analysis_bdt.build_background_features import (
     FEATURE_NAMES_S1,
     compute_stage1_features,
     _PAIR_IDX,

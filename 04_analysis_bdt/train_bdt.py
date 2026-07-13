@@ -69,7 +69,7 @@ def explain(n_events=20000, n_show=8, seed=SEED):
     """Test mode: train a small/fast model on a subset and print, step by step,
     how the BDT decides — per-class probabilities for a few events, the
     prediction vs chi2 vs truth, and a text confusion matrix."""
-    from analysis.ml import build_features as bf
+    from analysis_bdt import build_features as bf
 
     print("=" * 78)
     print(f"TEST MODE — training a small BDT on {n_events} events to show its decisions")

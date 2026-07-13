@@ -14,7 +14,7 @@ def _tiny_dataset(n: int = 200, seed: int = 0):
 
 def test_tqdm_callback_completes_training():
     """TqdmCallback should allow XGBoost to train to completion without error."""
-    from analysis.ml.callbacks import TqdmCallback
+    from analysis_bdt.callbacks import TqdmCallback
 
     X, y = _tiny_dataset()
     X_tr, X_val = X[:160], X[160:]
@@ -37,7 +37,7 @@ def test_tqdm_callback_completes_training():
 
 def test_tqdm_callback_after_iteration_returns_false():
     """after_iteration must return False to not stop training early."""
-    from analysis.ml.callbacks import TqdmCallback
+    from analysis_bdt.callbacks import TqdmCallback
 
     cb = TqdmCallback(n_estimators=5, desc="test", val_metric="auc")
 
@@ -53,7 +53,7 @@ def test_tqdm_callback_after_iteration_returns_false():
 
 def test_tqdm_callback_no_crash_missing_metric():
     """TqdmCallback should not crash if val_metric is not in evals_log."""
-    from analysis.ml.callbacks import TqdmCallback
+    from analysis_bdt.callbacks import TqdmCallback
 
     cb = TqdmCallback(n_estimators=5, desc="test", val_metric="auc")
 

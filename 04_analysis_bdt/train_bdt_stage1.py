@@ -42,7 +42,7 @@ except ImportError:
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
-from analysis.ml.callbacks import TqdmCallback
+from analysis_bdt.callbacks import TqdmCallback
 
 
 def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:

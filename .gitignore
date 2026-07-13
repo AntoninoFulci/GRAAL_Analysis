@@ -15,3 +15,5 @@ analysis/ml/model/
 *cache*
 
 docs/
+.superpowers/
+.vscode/

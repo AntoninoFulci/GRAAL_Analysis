@@ -41,9 +41,6 @@ GRAAL_Analysis/
 │   ├── generate_omega_pi0_dataset.C     # fondo: γ p → p ω π⁰   (5γ)
 │   ├── generate_etaprime_dataset.C      # fondo: γ p → p η'      (6γ)
 │   └── cross_sections.csv              # sezioni d'urto efficaci per pesatura ibrida
-├── docs/superpowers/
-│   ├── specs/  2026-06-24-background-channels-mc-design.md
-│   └── plans/  2026-06-24-background-channels-mc.md
 └── run_pipeline.sh                 # launcher completo: MC → feature → BDT
 ```
 

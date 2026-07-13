@@ -27,7 +27,7 @@ try:
 except ImportError as exc:
     raise ImportError("uproot required: pip install uproot") from exc
 
-from analysis.ml.photon_loss import LossParams, sample_surviving_photons
+from analysis_bdt.photon_loss import LossParams, sample_surviving_photons
 
 # ---------------------------------------------------------------------------
 # 24 features — computed on exactly 4 photons (after loss for background)
