@@ -29,3 +29,6 @@ analysis_bdt   = "05_analysis_bdt"
 
 [tool.pytest.ini_options]
 testpaths = ["03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests"]
+# The three tests/ dirs would all collide on the package name "tests" under the
+# default import mode, because their numbered parents cannot prefix them.
+addopts = "--import-mode=importlib"

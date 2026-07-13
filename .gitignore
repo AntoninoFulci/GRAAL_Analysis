@@ -9,8 +9,7 @@ __pycache__/
 *.pyc
 
 .venv/
-analysis/ml/data/
-analysis/ml/model/
+*.egg-info/
 .vscode/
 *cache*
 
