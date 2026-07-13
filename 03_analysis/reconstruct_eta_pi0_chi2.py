@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Reconstruction of gamma p -> p pi0 pi0: chi2 pairing, no BDT gate.
+"""Standard reconstruction of gamma p -> p eta pi0: chi2 pairing, no BDT gate.
 
-Reads the preselected tree (h85) and pairs the first four photons into the two
-pi0 candidates that best match the pi0 mass.
-
-There is no BDT variant of this channel: the stage-1 model is trained with 2pi0
-as a background, so gating 2pi0 on it would be meaningless.
+Reads the preselected tree (h85) and pairs the first four photons into an eta
+and a pi0 by minimising the chi2 over the combination table.
 
 Run:
-    python -m analysis.reconstruct_2pi0 --input-dir selected
+    python -m analysis.reconstruct_eta_pi0_chi2 --input-dir selected
 """
 import argparse
 from pathlib import Path
 
 from analysis.reco_core import RecoConfig, run_reconstruction
-from analysis.reco_physics import TWO_PI0
+from analysis.reco_physics import ETA_PI0
 
 
 def main():
@@ -22,7 +19,7 @@ def main():
     p.add_argument("--input-dir", type=Path, default=Path("selected"),
                    help="folder with the preselected ROOT files")
     p.add_argument("--output-file", type=Path,
-                   default=Path("03_analysis/data/reco_2pi0.root"))
+                   default=Path("03_analysis/data/reco_eta_pi0_chi2.root"))
     p.add_argument("--input-tree", default="h85")
     p.add_argument("--chi2-cut", type=float, default=10.0)
     args = p.parse_args()
@@ -31,10 +28,10 @@ def main():
         input_dir=args.input_dir,
         output_file=args.output_file,
         input_tree=args.input_tree,
-        output_tree="reco_2pi0",
+        output_tree="reco_eta_pi0_chi2",
         chi2_cut=args.chi2_cut,
     )
-    run_reconstruction(cfg, TWO_PI0, gate=None)
+    run_reconstruction(cfg, ETA_PI0, gate=None)
 
 
 if __name__ == "__main__":
