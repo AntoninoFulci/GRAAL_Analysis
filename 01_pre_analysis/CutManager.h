@@ -2,6 +2,7 @@
 // ROOT macro to build a map of TCutG cuts based on run IDs and folder structure
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -276,16 +277,112 @@ TCutG* GetCut(const std::string& particle, const std::string& detector, int runI
 // Overloaded version with verbose option
 TCutG* GetCut(const std::string& particle, const std::string& detector, int runID, bool verbose) {
     TCutG* cut = GetCut(particle, detector, runID);
-    
+
     if (cut && verbose) {
         auto folderIt = gRunToFolder.find(runID);
         std::string folder = (folderIt != gRunToFolder.end()) ? folderIt->second : "unknown";
-        
-        std::cout << "✓ Retrieved: " << particle << " " << detector << " cut for run " << runID 
+
+        std::cout << "✓ Retrieved: " << particle << " " << detector << " cut for run " << runID
                   << " (folder: " << folder << ")" << std::endl;
         std::cout << "  Cut name: " << cut->GetName() << std::endl;
         std::cout << "  Points: " << cut->GetN() << std::endl;
     }
-    
+
     return cut;
+}
+
+// ---------------------------------------------------------------------------
+// Required cuts vs legitimately absent ones
+//
+// A cut can be missing for two very different reasons, and the code used to
+// treat them identically. GetCut returns nullptr either way, and every caller
+// wrote `if (cut != nullptr && cut->IsInside(...))` — so a missing cut
+// short-circuits to false, which is indistinguishable from "the track failed
+// the cut". A forgotten Proton cut therefore did not fail loudly: it silently
+// reclassified every proton candidate as a pion, and the physics changed with
+// nothing to say so.
+//
+// The two reasons:
+//   * Absent by design  — deuterons can only be produced on a deuterium target,
+//     so hydrogen runs have no deuteron cut and must not look for one.
+//   * Missing by mistake — a cut the run genuinely needs is not on disk. That is
+//     a configuration error and must stop the analysis.
+//
+// HasCut answers the first question silently; RequireCut enforces the second.
+// ---------------------------------------------------------------------------
+
+// Silent existence check: no stderr, no side effects.
+bool HasCut(const std::string& particle, const std::string& detector, int runID) {
+    auto particleIt = gCutMap.find(particle);
+    if (particleIt == gCutMap.end()) return false;
+
+    auto detectorIt = particleIt->second.find(detector);
+    if (detectorIt == particleIt->second.end()) return false;
+
+    return detectorIt->second.count(runID) > 0;
+}
+
+// The data-taking folder a run belongs to (e.g. "2002_d1"), or "" if unknown.
+std::string GetRunFolder(int runID) {
+    auto it = gRunToFolder.find(runID);
+    return (it != gRunToFolder.end()) ? it->second : std::string();
+}
+
+// Deuterium-target runs are tagged _d, _d1, _d2 … in the folder name; hydrogen
+// runs are tagged _uv, _fuv, _vis. A deuteron cannot come off a proton target,
+// so on a hydrogen run the deuteron cut is absent by design and the deuteron
+// branch must not run at all.
+bool IsDeuteriumRun(int runID) {
+    const std::string folder = GetRunFolder(runID);
+    const size_t sep = folder.rfind('_');
+    if (sep == std::string::npos || sep + 1 >= folder.size()) return false;
+    return folder[sep + 1] == 'd';
+}
+
+// The forward detector was unusable over the 2005_d1 run range: PreAnalysis
+// skips the whole forward block there, so none of its cuts are required — and
+// indeed ProtonFwd and DeuteronFwd do not exist for it.
+bool IsForwardExcluded(int runID) {
+    return runID > 4577 && runID < 4606;   // 2005_d1
+}
+
+// Fetch a cut the analysis genuinely requires. A miss is fatal: carrying on
+// would silently change what the reconstruction sees.
+TCutG* RequireCut(const std::string& particle, const std::string& detector, int runID) {
+    if (!HasCut(particle, detector, runID)) {
+        const std::string folder = GetRunFolder(runID);
+        std::cerr << "!!! Missing required cut: " << particle << " " << detector
+                  << " for run " << runID << std::endl;
+        if (folder.empty()) {
+            std::cerr << "    Run " << runID << " belongs to no known folder — the cut map "
+                      << "was built from a different data directory." << std::endl;
+        } else {
+            std::cerr << "    Run belongs to folder '" << folder << "'; expected cut file: "
+                      << particle << detector << "Cut_" << folder << ".cpp" << std::endl;
+        }
+        std::cerr << "    Refusing to continue: without this cut every candidate would be "
+                  << "silently misclassified." << std::endl;
+        gSystem->Exit(1);
+    }
+    return GetCut(particle, detector, runID);
+}
+
+// Check, once per run, that every cut that run will actually use is on disk.
+// Called from the event loop the first time a run ID is seen, so a bad run stops
+// the analysis on its first event instead of quietly producing wrong physics for
+// millions of them.
+void ValidateRunCuts(int runID) {
+    static std::set<int> validated;
+    if (!validated.insert(runID).second) return;   // already checked this run
+
+    RequireCut("Proton", "Cnt", runID);
+    RequireCut("Pion",   "Cnt", runID);
+
+    if (!IsForwardExcluded(runID)) {
+        RequireCut("Proton", "Fwd", runID);
+        RequireCut("Pion",   "Fwd", runID);
+        if (IsDeuteriumRun(runID)) {
+            RequireCut("Deuteron", "Fwd", runID);
+        }
+    }
 }

@@ -123,6 +123,10 @@ void PreAnalysis::Loop(std::string output_file) {
       Polarization = int(Ipol);
       RunNumber    = Idrun;
 
+      // Fatal if a cut this run needs is not on disk. Checked once per run, so a
+      // bad run stops here instead of silently misclassifying every track in it.
+      ValidateRunCuts(Idrun);
+
       // Central Tracks Loop
       for (int i = 0; i < Nass_3; ++i) {
          double Theta_centr_track_rad   = Thet_centr_track[i] / 180. * M_PI;
@@ -141,9 +145,11 @@ void PreAnalysis::Loop(std::string output_file) {
 
          // Centrally detected charged tracks (candidate protons / pions)
          if (Itipo_track[i] == 13 || Itipo_track[i] == 14) {
-            TCutG *ProtonCntCut = GetCut("Proton", "Cnt", Idrun, false);
+            // RequireCut, not GetCut: a null proton cut used to short-circuit the
+            // && and send every proton candidate down the pion branch below.
+            TCutG *ProtonCntCut = RequireCut("Proton", "Cnt", Idrun);
 
-            if (ProtonCntCut != nullptr && ProtonCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
+            if (ProtonCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
                // Proton Candidate
                double Etotpro = Eclusc_track[i] + RMP;
                double Ppro_sq = Etotpro * Etotpro - RMP * RMP;
@@ -161,8 +167,8 @@ void PreAnalysis::Loop(std::string output_file) {
             } 
             else {
 
-               TCutG *PionCntCut = GetCut("Pion", "Cnt", Idrun, false);
-               if (PionCntCut != nullptr && PionCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
+               TCutG *PionCntCut = RequireCut("Pion", "Cnt", Idrun);
+               if (PionCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
 
                   // Pion Candidate (Central)
                   pions_theta.push_back(Thet_centr_track[i]);
@@ -219,7 +225,7 @@ void PreAnalysis::Loop(std::string output_file) {
                DIST_WALL = 301.53;
             }
 
-            if (!( Idrun > 4577 && Idrun < 4606)) { // 2005_d1 run range
+            if (!IsForwardExcluded(Idrun)) { // forward detector unusable over 2005_d1
                   double beta    = DIST_WALL / (Tof_trf[i] * CLIGHT * 1.E-09);
                   fcharged_theta.push_back(Theta_trf_rad);
                   fcharged_phi.push_back(Phi_trf_rad);
@@ -228,8 +234,8 @@ void PreAnalysis::Loop(std::string output_file) {
                   fcharded_de.push_back(De_trf[i]);
 
                // Proton Forward Region
-               TCutG *ProtonFwdCut = GetCut("Proton", "Fwd", Idrun, false);
-               if (ProtonFwdCut != nullptr && ProtonFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
+               TCutG *ProtonFwdCut = RequireCut("Proton", "Fwd", Idrun);
+               if (ProtonFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
 
                   if ((1 - beta * beta) > 0) {
                      ROOT::Math::PxPyPzEVector CandidatefProton;
@@ -249,16 +255,21 @@ void PreAnalysis::Loop(std::string output_file) {
                }
 
                // Pion Forward Region
-               TCutG *PionFwdCut = GetCut("Pion", "Fwd", Idrun, false);
-               if (PionFwdCut != nullptr && PionFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
+               TCutG *PionFwdCut = RequireCut("Pion", "Fwd", Idrun);
+               if (PionFwdCut->IsInside(Tof_trf[i], De_trf[i])) {
                   // Pion Angle Candidate (Forward)
                   pions_theta.push_back(Theta_trf[i]);
                   pions_phi.push_back(Phi_trf[i]);
                }
 
-               // Deuteron Forward Region
-               TCutG *DeuteronCut = GetCut("Deuteron", "Fwd", Idrun, false);
-               if (DeuteronCut  != nullptr && DeuteronCut ->IsInside(Tof_trf[i], De_trf[i])) {
+               // Deuteron Forward Region.
+               // Only deuterium-target runs can produce a deuteron, and only they
+               // have a deuteron cut. Asking on a hydrogen run used to return null
+               // and skip on the &&, which looked exactly like a failed cut.
+               TCutG *DeuteronCut = IsDeuteriumRun(Idrun)
+                                       ? RequireCut("Deuteron", "Fwd", Idrun)
+                                       : nullptr;
+               if (DeuteronCut != nullptr && DeuteronCut->IsInside(Tof_trf[i], De_trf[i])) {
                   
                   // Deuteron Angle Candidate (Forward)
                   deuterons_theta.push_back(Theta_trf[i]);
