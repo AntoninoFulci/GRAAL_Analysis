@@ -1,0 +1,15 @@
+### GRAAL Analysis
+
+- [Home](Home)
+- [Pipeline](pipeline)
+- [Formati dati](data-formats)
+- [01 — Pre-analisi](01-pre-analysis)
+    - [Cuts](01-pre-analysis-cuts)
+- [02 — Selezione eventi](02-event-selector)
+- [03 — Analisi](03-analysis)
+    - [Ricostruzione chi2](03-analysis-chi2)
+    - [Gate BDT](03-analysis-bdt-gate)
+- [04 — Simulazione MC](04-mc-simulation)
+- [05 — BDT stage-1](05-analysis-bdt)
+    - [Feature stage-1](05-analysis-bdt-features)
+- [Testing](testing)
