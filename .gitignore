@@ -16,3 +16,9 @@ __pycache__/
 docs/
 .superpowers/
 .vscode/
+
+# Test data: the folder skeleton and its README are tracked, the data is not.
+test_data/**
+!test_data/README.md
+!test_data/*/
+!test_data/*/.gitkeep
