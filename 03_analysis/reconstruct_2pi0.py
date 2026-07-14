@@ -22,7 +22,7 @@ def main():
     p.add_argument("--input-dir", type=Path, default=Path("selected"),
                    help="folder with the preselected ROOT files")
     p.add_argument("--output-file", type=Path,
-                   default=Path("03_analysis/data/reco_2pi0.root"))
+                   default=Path("analyzed/reco_2pi0.root"))
     p.add_argument("--input-tree", default="h85")
     p.add_argument("--chi2-cut", type=float, default=10.0)
     args = p.parse_args()
