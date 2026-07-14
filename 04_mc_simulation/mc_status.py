@@ -10,6 +10,12 @@ CLI:
 
 Exit 0 = every channel is present (the pipeline may skip generation).
 Exit 1 = at least one is missing (the pipeline must generate).
+Exit 2 = internal error (e.g. this module failed to import its dependencies,
+         or crashed for any other reason). The caller MUST NOT treat this the
+         same as exit 1: doing so once made a bare `python` interpreter that
+         could not import the package look like "MC missing" and triggered a
+         multi-hour regeneration of six channels that were sitting on disk
+         the whole time.
 Staleness never changes the exit code: it warns, it does not block.
 """
 from __future__ import annotations
@@ -89,14 +95,21 @@ def report(statuses: list[ChannelStatus]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Check the Monte Carlo files on disk")
-    p.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
-    args = p.parse_args(argv)
+    try:
+        p = argparse.ArgumentParser(description="Check the Monte Carlo files on disk")
+        p.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
+        args = p.parse_args(argv)
 
-    statuses = status(args.data_dir)
-    report(statuses)
+        statuses = status(args.data_dir)
+        report(statuses)
 
-    return 0 if all_present(statuses) else 1
+        return 0 if all_present(statuses) else 1
+    except SystemExit:
+        # argparse's own --help/bad-argument exits: pass through unchanged.
+        raise
+    except Exception as exc:  # noqa: BLE001 - this is the top-level error boundary
+        print(f"ERROR: mc_status failed internally: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

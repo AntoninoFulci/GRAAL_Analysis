@@ -86,15 +86,44 @@ echo "=================================================="
 echo "  GRAAL pipeline  (N=${NEVENTS})"
 echo "=================================================="
 
+# ---- Preflight: the pipeline packages must be importable ----
+# A bare `python` (the default for $PYTHON) that has not run `pip install -e .`
+# fails every `python -m mc_simulation...` / `python -m analysis...` call with
+# ModuleNotFoundError. mc_status.py used to exit 1 on that crash too, which is
+# indistinguishable from "an MC channel is missing" -- the pipeline would then
+# regenerate six channels at full statistics (hours) while the real files sat
+# untouched on disk, and stage 2 would die with the same ModuleNotFoundError
+# anyway. Fail loud here, before anything expensive runs.
+if ! ${PYTHON} -c "import mc_simulation, analysis, analysis_bdt" 2>/dev/null; then
+    echo "ERROR: i pacchetti della pipeline non sono importabili."
+    echo "       Esegui:  pip install -e ."
+    echo "       (oppure passa il tuo interprete:  PYTHON=.venv/bin/python ./run_pipeline.sh ...)"
+    exit 1
+fi
+
 # ---- Stage 1: MC generation ----
 stage 1 "MC generation"
 
-# mc_status exits 0 when all six channels are on disk, 1 when any is missing.
-# It always prints the table, and warns (without failing) past 10 days.
+# mc_status exits 0 when all six channels are on disk, 1 when any is missing,
+# 2 on an internal error. set -e is guarded off for this one call so we can
+# inspect the exit code ourselves; anything outside {0,1} is fatal and must
+# NEVER be silently treated as "MC missing" (that is what used to trigger
+# hours of needless regeneration).
 MC_ALL_PRESENT=0
-if ${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"; then
-    MC_ALL_PRESENT=1
-fi
+set +e
+${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"
+mc_status_rc=$?
+set -e
+
+case "$mc_status_rc" in
+    0) MC_ALL_PRESENT=1 ;;
+    1) MC_ALL_PRESENT=0 ;;
+    *)
+        echo "ERROR: mc_simulation.mc_status ha fallito internamente (exit ${mc_status_rc})."
+        echo "       Non e' un 'MC mancante': controlla l'errore sopra prima di rigenerare."
+        exit 1
+        ;;
+esac
 
 NEED_MC=1
 if [[ $SKIP_MC -eq 1 ]]; then

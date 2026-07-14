@@ -2,6 +2,8 @@ import os
 import time
 from datetime import datetime
 
+import pytest
+
 from mc_simulation import mc_status as ms
 
 
@@ -91,3 +93,24 @@ def test_cli_still_exits_zero_when_files_are_stale(tmp_path, capsys):
 
     assert ms.main(["--data-dir", str(tmp_path)]) == 0
     assert "WARNING" in capsys.readouterr().out
+
+
+def test_cli_exits_two_on_internal_error(monkeypatch, capsys, tmp_path):
+    # Exit 2 must be distinct from exit 1 ("a channel is missing"): the
+    # pipeline treats them very differently (fatal vs. "go generate"), and
+    # conflating them is exactly the bug this module used to have.
+    def _boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(ms, "status", _boom)
+
+    assert ms.main(["--data-dir", str(tmp_path)]) == 2
+    assert "boom" in capsys.readouterr().err
+
+
+def test_cli_help_still_exits_zero_via_systemexit():
+    # argparse's own --help path raises SystemExit(0); main() must let it
+    # through rather than swallowing it into the generic error->2 handler.
+    with pytest.raises(SystemExit) as excinfo:
+        ms.main(["--help"])
+    assert excinfo.value.code == 0
