@@ -326,27 +326,40 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
    std::cout << "Finished" << std::endl;
 }
 
-void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
-                const std::string &base_out = "/data/graal/pre_analisi") {
-   // One output ROOT file per subdirectory:
-   // /data/graal/pre_analisi/pre_analisi_<run_name>.root
+void AnalyzeAll(const std::string &base_in  = "graal_data",
+                const std::string &base_out = "pre_analyzed",
+                const std::string &cuts_dir = "01_pre_analysis/cuts") {
+   // One output ROOT file per run subdirectory:
+   //   <base_out>/pre_analisi_<run_name>.root
+   // The "pre_" prefix is what 02_event_selector/select_events.py looks for.
+
+   // AccessPathName returns FALSE when the path exists. The sense is inverted;
+   // this is correct as written.
+   if (gSystem->AccessPathName(base_in.c_str())) {
+      std::cerr << "!!! AnalyzeAll: input directory not found: " << base_in << std::endl;
+      gSystem->Exit(1);
+   }
+   if (gSystem->AccessPathName(cuts_dir.c_str())) {
+      std::cerr << "!!! AnalyzeAll: cuts directory not found: " << cuts_dir << std::endl;
+      gSystem->Exit(1);
+   }
 
    gSystem->mkdir(base_out.c_str(), true);
 
    // Build the cut map once (faster than doing it for every folder).
-   // Keep current "cuts" location relative unless you want it absolute.
-   
-   BuildCutMap((base_in + "/").c_str(), "./cuts");
+   BuildCutMap((base_in + "/").c_str(), cuts_dir.c_str());
    PrintCutMap();
 
    TSystemDirectory baseDir("graal_data", base_in.c_str());
    TList *entries = baseDir.GetListOfFiles();
    if (!entries) {
-      std::cerr << "AnalyzeAll: cannot list directory: " << base_in << std::endl;
-      return;
+      std::cerr << "!!! AnalyzeAll: cannot list directory: " << base_in << std::endl;
+      gSystem->Exit(1);
    }
 
    entries->Sort(); // nicer/consistent ordering
+
+   int n_runs = 0;
 
    TIter next(entries);
    while (TObject *obj = next()) {
@@ -365,5 +378,17 @@ void AnalyzeAll(const std::string &base_in = "/data/graal/graal_data",
       std::cout << "    output: " << out_file << std::endl;
 
       PreAnalysis(in_pattern, out_file);
+      ++n_runs;
    }
+
+   // An empty input directory is an error, not a quiet success: the pipeline
+   // would otherwise carry on into a selection stage with nothing to select.
+   if (n_runs == 0) {
+      std::cerr << "!!! AnalyzeAll: no run subdirectories found in " << base_in << std::endl;
+      std::cerr << "    Expected one directory per run, each holding the raw *.root files."
+                << std::endl;
+      gSystem->Exit(1);
+   }
+
+   std::cout << "AnalyzeAll: processed " << n_runs << " run(s) -> " << base_out << std::endl;
 }
