@@ -73,44 +73,78 @@ presa dati diversi — un singolo poligono su tutta la statistica includerebbe
 o escluderebbe candidate in modo sistematicamente sbagliato per i periodi
 agli estremi.
 
-## Cosa succede a un run senza cut corrispondente
+## Cut assente per scelta, cut assente per errore
 
-`GetCut(particle, detector, runID)` (la funzione che `PreAnalysis.C`
-interroga per ogni traccia candidata) fa tre controlli in cascata —
-particella nella mappa, rivelatore nella mappa della particella, run ID
-nella mappa del rivelatore — e al primo che fallisce:
+Un cut può mancare per due ragioni molto diverse, e finché non si distinguono la
+fisica cambia in silenzio.
 
-- stampa un `ERROR:` su `std::cerr` con la causa specifica (e, se il run è
-  comunque noto a un'altra combinazione particella/rivelatore, dice a quale
-  periodo appartiene, per facilitare la diagnosi);
-- **restituisce `nullptr`**, non lancia un'eccezione e non ferma
-  l'esecuzione.
+**Assente per scelta.** Un deutone può uscire solo da un bersaglio di deuterio.
+Sui periodi a idrogeno (`_uv`, `_fuv`, `_vis`) il cut deutone non esiste, ed è
+giusto così: quel canale non va nemmeno cercato. Lo stesso vale per l'intero
+blocco in avanti nel range `2005_d1`, dove il rivelatore forward era
+inutilizzabile.
 
-Il chiamante (`PreAnalysis.C`) tratta sempre `nullptr` come "nessuna
-candidata in questa categoria":
+**Assente per errore.** Qualcuno aggiunge un periodo di presa dati e dimentica un
+file di cut. Quel run ha bisogno di quel cut e non ce l'ha.
+
+### Il difetto che c'era (corretto il 14 luglio 2026)
+
+`GetCut` restituiva `nullptr` in entrambi i casi, e ogni chiamante scriveva:
 
 ```cpp
 TCutG *ProtonCntCut = GetCut("Proton", "Cnt", Idrun, false);
-if (ProtonCntCut != nullptr && ProtonCntCut->IsInside(Eclusc_track[i], Dedx_track[i])) {
-   // ...
+if (ProtonCntCut != nullptr && ProtonCntCut->IsInside(...)) {
+   // protone
+} else {
+   // ...altrimenti prova come pione
 }
 ```
 
-Quindi un run senza cut per una certa particella non fa fallire la
-pre-analisi: perde silenziosamente ogni candidata di quella specie per
-quel run, mentre le altre categorie (quelle con un cut valido) continuano a
-essere popolate normalmente. Dato che `GetCut` viene chiamato per ogni
-traccia candidata (non una volta per run), un cut mancante produce una riga
-`ERROR` per ogni traccia che avrebbe dovuto passare da lì — su `stderr`,
-non un'eccezione, quindi facile da perdere in un log lungo se non lo si
-cerca esplicitamente.
+Se il cut protone mancava, il `&&` corto-circuitava a `false` — che è
+**indistinguibile da "la traccia non ha passato il cut"**. La traccia finiva nel
+ramo `else` e veniva testata come pione. Un file di cut dimenticato non faceva
+fallire la run: **riclassificava ogni candidato protone come pione**, e la fisica
+cambiava senza che niente lo dicesse. L'unico segnale era una riga su `stderr` per
+*ogni traccia*: un diluvio illeggibile, facilissimo da perdere.
 
-## Un'anomalia trovata leggendo il codice
+### Come funziona adesso
 
-`PionFwdCut_2005_d1.cpp` esiste, ma non viene mai usato: `PreAnalysis.C`
-esclude esplicitamente l'intervallo di run `2005_d1`
-(`Idrun > 4577 && Idrun < 4606`) dal blocco che processa le tracce cariche
-in avanti (proton/pion/deuteron Fwd), a causa di una nota nel codice su
-quel range di run. Coerentemente, per `2005_d1` non esistono né
-`ProtonFwdCut` né `DeuteronFwdCut` — solo il file `PionFwdCut` è rimasto,
-orfano.
+Le due ragioni sono separate nel codice:
+
+| funzione | cosa fa |
+|---|---|
+| `HasCut(p, d, run)` | chiede se il cut esiste, in silenzio, senza effetti |
+| `IsDeuteriumRun(run)` | il periodo è a deuterio (`_d`)? Solo lì si cerca il deutone |
+| `IsForwardExcluded(run)` | il range `2005_d1`, dove il blocco forward è escluso |
+| `RequireCut(p, d, run)` | prende un cut **obbligatorio**: se manca, **esce con codice 1** |
+| `ValidateRunCuts(run)` | controlla **una volta per run** che ci siano tutti i cut che quel run userà |
+
+`ValidateRunCuts` viene chiamata dal loop sugli eventi la prima volta che si
+incontra un run: una run malformata si ferma al primo evento, invece di produrre
+fisica sbagliata per milioni. Il messaggio nomina il run, il periodo e il file che
+si aspettava:
+
+```
+!!! Missing required cut: Proton Cnt for run 9000
+    Run belongs to folder '9999_zz'; expected cut file: ProtonCntCut_9999_zz.cpp
+    Refusing to continue: without this cut every candidate would be silently misclassified.
+```
+
+E il deutone non viene più chiesto sui run a idrogeno: non lo si cerca affatto,
+invece di cercarlo, ricevere `nullptr` e saltarlo per caso.
+
+Quali cut servono davvero a un dato run:
+
+| cut | quando è obbligatorio |
+|---|---|
+| `Proton Cnt`, `Pion Cnt` | sempre |
+| `Proton Fwd`, `Pion Fwd` | sempre, tranne nel range `2005_d1` |
+| `Deuteron Fwd` | solo sui periodi `_d`, `2005_d1` escluso |
+
+## Un file orfano
+
+`PionFwdCut_2005_d1.cpp` esiste ma non viene mai usato: `PreAnalysis.C` esclude
+tutto il blocco forward per quel range di run, perché il rivelatore in avanti era
+inutilizzabile. Coerentemente, per `2005_d1` non esistono né `ProtonFwdCut` né
+`DeuteronFwdCut` — è rimasto solo il file del pione, orfano. Non è un errore da
+correggere: è il residuo di una scelta corretta.
