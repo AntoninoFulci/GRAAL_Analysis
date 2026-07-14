@@ -42,6 +42,19 @@ def main():
 
     print(f"Found {len(root_files)} ROOT files")
 
+    if not root_files:
+        all_entries = sorted(os.listdir(args.input_dir))
+        if all_entries:
+            sample = ", ".join(all_entries[:10])
+            found_desc = f"found {len(all_entries)} other entries instead: {sample}"
+        else:
+            found_desc = "the directory is empty"
+        raise RuntimeError(
+            f"no files matching 'pre_*.root' in {args.input_dir!r}; {found_desc}. "
+            "Refusing to run stage 6 against stale files already in "
+            f"{args.output_dir!r}."
+        )
+
     for filename in root_files:
         input_path = os.path.join(args.input_dir, filename)
 
