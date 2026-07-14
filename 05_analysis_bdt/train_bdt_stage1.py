@@ -14,7 +14,7 @@ Outputs (all in model/ by default):
     stage1_metrics.txt    — AUC, threshold, precision, recall, F1
 
 Usage:
-    python -m analysis.ml.train_bdt_stage1 \\
+    python -m analysis_bdt.train_bdt_stage1 \\
         --features features_stage1.npz \\
         --out-dir analysis/ml/model
 """

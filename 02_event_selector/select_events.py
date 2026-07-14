@@ -51,7 +51,7 @@ def main():
             found_desc = "the directory is empty"
         raise RuntimeError(
             f"no files matching 'pre_*.root' in {args.input_dir!r}; {found_desc}. "
-            "Refusing to run stage 6 against stale files already in "
+            "Refusing to let the reconstruction run against stale files already in "
             f"{args.output_dir!r}."
         )
 

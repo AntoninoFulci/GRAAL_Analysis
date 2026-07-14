@@ -7,7 +7,7 @@ and background are presented with EXACTLY 4 observed photons:
     exactly 4 survive, mimicking detector acceptance and threshold effects.
 
 Usage:
-    python -m analysis.ml.build_background_features \\
+    python -m analysis_bdt.build_background_features \\
         --signal signal_mc.root \\
         --backgrounds pi0pi0_mc.root 3pi0_mc.root eta_2pi0_mc.root \\
                        omega_pi0_mc.root etaprime_mc.root \\

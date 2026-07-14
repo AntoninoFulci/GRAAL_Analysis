@@ -5,7 +5,7 @@ combination of tree depth, learning rate, and regularisation.  Saves the best
 configuration to a JSON file alongside a summary CSV.
 
 Usage:
-    python -m analysis.ml.grid_search_stage1 \\
+    python -m analysis_bdt.grid_search_stage1 \\
         --features features_stage1.npz \\
         --out-dir analysis/ml/model \\
         [--n-iter 30] [--seed 42]
