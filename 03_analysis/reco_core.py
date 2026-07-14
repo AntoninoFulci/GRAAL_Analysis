@@ -2,6 +2,19 @@
 
 The physics lives in reco_physics. This module only moves data in and out of
 ROOT and applies the optional event gate.
+
+Event requirements, applied identically to the chi2 run and the BDT-gated run,
+before either the gate or the chi2 pairing run:
+  - at least 4 reconstructed photons (the combination table only ever
+    references photons 0-3);
+  - exactly 1 reconstructed proton. The reaction is gamma p -> p eta pi0: the
+    recoil is a proton. Events without exactly one proton are skipped, not
+    padded with a fictitious (0,0,0,0) proton -- a zero proton fakes a missing
+    mass of ~1.87 GeV (a real proton gives ~0.75 GeV) and a stage-1 BDT score
+    from a region of feature space the model never saw in training, which used
+    to make the BDT run silently drop every such event while the chi2 run kept
+    them. Skipping both runs at the source keeps the two samples identical
+    except for the gate, which is the entire point of the comparison.
 """
 from __future__ import annotations
 
@@ -122,6 +135,7 @@ def run_reconstruction(
     tout.Branch("missing", "TLorentzVector", missing)
 
     n_gated_out = 0
+    n_no_proton = 0
     print("Starting event loop...")
 
     for iev in range(n_entries):
@@ -134,11 +148,17 @@ def run_reconstruction(
         if chain.gammas.size() < 4:
             continue
 
+        # Require exactly one reconstructed proton (the recoil in gamma p ->
+        # p eta pi0). Applied before the gate and before the chi2 so the chi2
+        # run and the BDT run see the identical event set. See module
+        # docstring for why a fictitious zero-proton is not used instead.
+        if chain.protons.size() != 1:
+            n_no_proton += 1
+            continue
+
         photons = np.vstack([_as_array(chain.gammas[k]) for k in range(4)])
 
-        proton_v = (
-            _as_array(chain.protons[0]) if chain.protons.size() == 1 else np.zeros(4)
-        )
+        proton_v = _as_array(chain.protons[0])
         neutron_v = (
             _as_array(chain.neutrons[0]) if chain.neutrons.size() == 1 else np.zeros(4)
         )
@@ -187,6 +207,7 @@ def run_reconstruction(
     print("====================================")
     print(f"Created file  : {cfg.output_file}")
     print(f"Tree          : {cfg.output_tree}")
+    print(f"Skipped (not exactly 1 proton): {n_no_proton}")
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")
     print(f"Events written: {n_written}")
