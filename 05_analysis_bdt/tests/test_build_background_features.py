@@ -4,6 +4,7 @@ import pytest
 from analysis_bdt.build_background_features import (
     FEATURE_NAMES_S1,
     compute_stage1_features,
+    channel_from_filename,
     _PAIR_IDX,
 )
 
@@ -118,3 +119,27 @@ class TestComputeStage1Features:
         beam   = np.array([[0, 0, 1.2, 1.2]])
         X = compute_stage1_features(photons, proton, beam)
         assert X[0, 8] < 0.01   # best_chi2
+
+
+class TestChannelFromFilename:
+    def test_derives_channel_from_bare_filename(self):
+        assert channel_from_filename("pi0pi0_mc.root") == "pi0pi0"
+
+    def test_derives_channel_from_full_path(self):
+        assert channel_from_filename(
+            "/data/mc/eta_2pi0_mc.root"
+        ) == "eta_2pi0"
+
+    def test_is_independent_of_argument_order(self):
+        # The whole point: the channel comes from the name, not from where
+        # the file sits in a --backgrounds list. Reordering must not change
+        # the derived channel for any individual file.
+        files = ["3pi0_mc.root", "pi0pi0_mc.root", "etaprime_mc.root"]
+        forward = [channel_from_filename(f) for f in files]
+        backward = [channel_from_filename(f) for f in reversed(files)]
+        assert forward == ["3pi0", "pi0pi0", "etaprime"]
+        assert backward == list(reversed(forward))
+
+    def test_raises_on_unexpected_naming(self):
+        with pytest.raises(ValueError, match="_mc.root"):
+            channel_from_filename("pi0pi0.root")

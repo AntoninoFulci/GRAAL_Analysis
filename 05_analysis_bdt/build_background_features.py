@@ -107,6 +107,25 @@ def load_signal_photons(tree) -> np.ndarray:
     return np.stack(arrays, axis=1)
 
 
+_BG_FILE_SUFFIX = "_mc.root"
+
+
+def channel_from_filename(bg_file: str) -> str:
+    """Derive a background channel name from its file, e.g. pi0pi0_mc.root -> pi0pi0.
+
+    The channel MUST come from the filename, never from list position: binding
+    by position let an innocent reordering of --backgrounds silently pair a
+    file with the wrong cross-section weight with no error at all.
+    """
+    stem = Path(bg_file).name
+    if not stem.endswith(_BG_FILE_SUFFIX):
+        raise ValueError(
+            f"background file {bg_file!r} does not match the expected "
+            f"'<channel>{_BG_FILE_SUFFIX}' naming convention"
+        )
+    return stem[: -len(_BG_FILE_SUFFIX)]
+
+
 def _extract_E_theta(photons: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Extract energy and polar angle arrays from (N, M, 4) photon array."""
     px, py, pz = photons[:, :, 0], photons[:, :, 1], photons[:, :, 2]
@@ -240,10 +259,11 @@ def main() -> None:
         all_w.append(np.ones(len(X), dtype=np.float32))
 
     # --- backgrounds (apply photon loss → exactly 4 survivors) -------------
-    channel_order = ["pi0pi0", "3pi0", "eta2pi0", "omega_pi0", "etaprime"]
     params = LossParams()
 
-    for bg_file, channel in zip(args.backgrounds, channel_order):
+    for bg_file in args.backgrounds:
+        channel = channel_from_filename(bg_file)
+
         with uproot.open(bg_file) as f:
             tree = f["mc"]
             n_true_arr = tree["n_true_gamma"].array(library="np")
@@ -273,7 +293,14 @@ def main() -> None:
         X = compute_stage1_features(photons_4, proton_sel, beam_sel)
         all_X.append(X)
         all_y.append(np.zeros(len(X), dtype=np.int8))
-        sigma_eff = cs_map.get(channel, 1.0)
+        if channel not in cs_map:
+            raise KeyError(
+                f"no cross-section for channel {channel!r} (from {bg_file!r}) "
+                f"in {args.cs_csv!r}; known channels: {sorted(cs_map)}. "
+                "Defaulting to weight 1.0 would silently retrain on the wrong "
+                "cross-section, so this is fatal instead."
+            )
+        sigma_eff = cs_map[channel]
         # per-event weight: channel contribution ∝ sigma_eff / total_sigma
         # (O(0.1) values — numerically stable)
         all_w.append(np.full(len(X), sigma_eff / total_sigma, dtype=np.float32))
