@@ -9,7 +9,7 @@
 #                     [--skip-mc] [--force-mc]
 #                     [--skip-features] [--skip-grid-search]
 #                     [--grid-search-niter N] [--skip-train]
-#                     [--skip-reco] [--help]
+#                     [--skip-reco] [--skip-plots] [--help]
 #
 # Stages:
 #   1. Pre-analisi         raw/          -> pre_analyzed/  (albero h80)
@@ -19,6 +19,7 @@
 #   5. Grid search iper-parametri
 #   6. Training BDT stage-1
 #   7. Ricostruzione       selected/     -> analyzed/      (chi2 e BDT)
+#   8. Plot                analyzed/     -> 06_plots/plots/  (Dalitz + masse)
 #
 # La ricostruzione e' in fondo perche' il run BDT ha bisogno del modello,
 # che esiste solo dopo lo stage 6.
@@ -58,6 +59,7 @@ RAW_DIR="graal_data"
 PRE_DIR="pre_analyzed"
 SELECTED_DIR="selected"
 ANALYZED_DIR="analyzed"
+PLOTS_DIR="06_plots/plots"
 
 TEST_DATA=0
 SKIP_PREANALYSIS=0
@@ -69,6 +71,7 @@ SKIP_FEATURES=0
 SKIP_GRID_SEARCH=0
 SKIP_TRAIN=0
 SKIP_RECO=0
+SKIP_PLOTS=0
 GRID_SEARCH_NITER=30
 
 # ---- parse args ----
@@ -87,6 +90,7 @@ while [[ $# -gt 0 ]]; do
         --grid-search-niter)  GRID_SEARCH_NITER="$2"; shift 2 ;;
         --skip-train)         SKIP_TRAIN=1;           shift   ;;
         --skip-reco)          SKIP_RECO=1;            shift   ;;
+        --skip-plots)         SKIP_PLOTS=1;           shift   ;;
         --help|-h)
             # Print the header block between the two ==== delimiters. Bound to the
             # delimiter rather than a line number, which silently truncated the
@@ -107,7 +111,7 @@ fi
 PYTHON="${PYTHON:-python}"
 ROOT_EXEC="${ROOT_EXEC:-root}"
 
-TOTAL_STAGES=7
+TOTAL_STAGES=8
 _STAGE_T0=0
 
 stage() {
@@ -346,6 +350,29 @@ if [[ $SKIP_RECO -eq 0 ]]; then
     stage_done
 else
     echo "[7/${TOTAL_STAGES}] Ricostruzione — saltata"
+fi
+
+# ---- Stage 8: plot (Dalitz + masse invarianti) ----
+if [[ $SKIP_PLOTS -eq 0 ]]; then
+    RECO_CHI2="${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
+    RECO_BDT="${ANALYZED_DIR}/reco_eta_pi0_bdt.root"
+
+    if [[ ! -f "${RECO_CHI2}" || ! -f "${RECO_BDT}" ]]; then
+        echo ""
+        echo "[8/${TOTAL_STAGES}] Plot — saltato: manca almeno un file ricostruito in ${ANALYZED_DIR}/"
+        echo "    (i plot confrontano le due analisi: servono entrambi)"
+    else
+        stage 8 "Plot (Dalitz + masse invarianti)"
+
+        ${PYTHON} -u -m plots.dalitz \
+            --chi2    "${RECO_CHI2}" \
+            --bdt     "${RECO_BDT}" \
+            --out-dir "${PLOTS_DIR}"
+
+        stage_done
+    fi
+else
+    echo "[8/${TOTAL_STAGES}] Plot — saltato"
 fi
 
 echo ""
