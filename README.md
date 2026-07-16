@@ -26,7 +26,7 @@ nessun import funziona.
 
 ```bash
 ./run_pipeline.sh                # catena completa sui dati veri
-./run_pipeline.sh --test-data    # collaudo su 1-2 run di prova (vedi test_data/README.md)
+./run_pipeline.sh --test-data    # collaudo su 1-2 run di prova (vedi wiki, Testing)
 ./run_pipeline.sh --help         # tutte le flag
 ```
 

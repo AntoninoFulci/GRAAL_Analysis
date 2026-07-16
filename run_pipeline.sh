@@ -199,7 +199,7 @@ if [[ $SKIP_PREANALYSIS -eq 0 ]]; then
         if [[ ! -d "${RAW_DIR}" ]]; then
             echo "ERROR: la cartella dei dati grezzi non esiste: ${RAW_DIR}/"
             if [[ $TEST_DATA -eq 1 ]]; then
-                echo "       Copiaci 1-2 run da /data/graal/graal_data/ — vedi test_data/README.md"
+                echo "       Creala e copiaci 1-2 run da /data/graal/graal_data/ (vedi wiki, Testing)"
             fi
             exit 1
         fi

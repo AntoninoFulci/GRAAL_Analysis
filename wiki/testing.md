@@ -67,16 +67,18 @@ stampino lo stesso `Skipped (not exactly 1 proton)`.
 `--test-data` rimappa le quattro cartelle dati del rivelatore
 (`RAW_DIR`, `PRE_DIR`, `SELECTED_DIR`, `ANALYZED_DIR`) sotto `test_data/`,
 con la stessa struttura che hanno sul server — vedi [Pipeline](pipeline)
-per i default esatti. Cosa copiarci dentro, da
-`test_data/README.md`:
+per i default esatti. La cartella non è versionata: te la crei e te la
+riempi.
 
 ```bash
+mkdir -p test_data/raw
 scp -r <server>:/data/graal/graal_data/<nome_run> test_data/raw/
 ```
 
 Una o due run intere (non singoli file), scegliendo run piccole: la
 pre-analisi le legge tutte. La struttura attesa è una cartella per run con
-dentro i `.root` grezzi.
+dentro i `.root` grezzi. Se `test_data/raw/` non c'è, la fase 1 si ferma
+dicendolo.
 
 ### Cosa prova questo collaudo, e cosa no
 
@@ -95,5 +97,5 @@ funzionino: quelle restano scoperte da questo collaudo, e sono responsabilità
 della suite pytest (per la logica) o di un run completo senza
 `--skip-mc`/`--skip-train` (per l'esecuzione vera, costosa in tempo).
 
-Nessun output di `test_data/` esce dalla cartella né viene versionato: solo
-`test_data/README.md` e lo scheletro delle sottocartelle stanno in git.
+Niente di `test_data/` viene versionato — né i dati né lo scheletro delle
+cartelle.

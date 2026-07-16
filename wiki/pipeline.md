@@ -93,8 +93,8 @@ ${ROOT_EXEC} -l -b -q -e \
 viene saltata (`--force-preanalysis` per rifarla comunque). La pre-analisi
 legge run grezze intere ed è lunga: non deve ripartire per sbaglio ogni
 volta che si rilancia la pipeline. Se `RAW_DIR` non esiste, lo script si
-ferma con un errore che, sotto `--test-data`, rimanda esplicitamente a
-`test_data/README.md`.
+ferma con un errore che, sotto `--test-data`, dice di crearla e cosa
+copiarci dentro (vedi [Testing](testing)).
 
 Consuma: `RAW_DIR/<run>/*.root` (una cartella per run). Produce:
 `PRE_DIR/pre_analisi_<run>.root`, un file per run, ciascuno con l'albero

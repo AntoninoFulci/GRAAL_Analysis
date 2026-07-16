@@ -17,11 +17,11 @@ docs/
 .superpowers/
 .vscode/
 
-# Test data: the folder skeleton and its README are tracked, the data is not.
-test_data/**
-!test_data/README.md
-!test_data/*/
-!test_data/*/.gitkeep
+# Test data: nothing under here is tracked. --test-data redirects the detector
+# directories onto this folder; create it and fill it yourself (see Testing in
+# the wiki). The skeleton and README that used to be tracked were a convenience,
+# not a contract.
+test_data/
 
 # Anchored to the repo root: an unanchored `data/` matches at any depth and
 # would also swallow 04_mc_simulation/data/ and 05_analysis_bdt/data/, which
