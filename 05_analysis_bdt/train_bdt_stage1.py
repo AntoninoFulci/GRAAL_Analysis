@@ -16,12 +16,13 @@ Outputs (all in model/ by default):
 Usage:
     python -m analysis_bdt.train_bdt_stage1 \\
         --features features_stage1.npz \\
-        --out-dir analysis/ml/model
+        --out-dir 05_analysis_bdt/model
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -61,7 +62,7 @@ def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
 
 def train(
     features_path: str,
-    out_dir: str = "analysis/ml/model",
+    out_dir: str = "05_analysis_bdt/model",
     val_fraction: float = 0.2,
     seed: int = 42,
     n_estimators: int = 300,
@@ -80,6 +81,28 @@ def train(
     y: np.ndarray = data["y"].astype(np.float32)
     w: np.ndarray = data["w"].astype(np.float32)
     feature_names: list[str] = list(data["feature_names"])
+
+    # Which channel these features were built to find, and around which two
+    # mesons. Refuse features that do not say: the gate has to know, and a
+    # default guess here would be a guess about physics.
+    for key in ("signal_channel", "hypothesis"):
+        if key not in data:
+            raise KeyError(
+                f"{features_path} has no {key!r}. It predates the channel "
+                "registry, so which channel it treats as signal is recorded "
+                "nowhere. Rebuild it with analysis_bdt.build_background_features."
+            )
+    signal_channel = str(data["signal_channel"])
+    hypothesis = str(data["hypothesis"])
+    # Assumptions, not settings: what prior the classes were mixed at, and
+    # whether the MC was shown the beam the experiment actually had. Older
+    # feature files predate both; say so rather than implying a value.
+    signal_prior = float(data["signal_prior"]) if "signal_prior" in data else None
+    beam_reweighted = (
+        bool(data["beam_reweighted"]) if "beam_reweighted" in data else None
+    )
+    print(f"signal channel: {signal_channel}   hypothesis: {hypothesis}")
+    print(f"signal prior: {signal_prior}   beam reweighted: {beam_reweighted}")
 
     X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
         X, y, w, test_size=val_fraction, random_state=seed, stratify=y
@@ -128,7 +151,28 @@ def train(
     model.save_model(str(out / "bdt_stage1.json"))
     (out / "stage1_threshold.txt").write_text(f"{threshold:.6f}\n")
 
+    # Travels with the model so the gate can build its features around the same
+    # mesons, and refuse when asked to gate something else. A .json booster on
+    # its own does not remember what it was taught to look for.
+    (out / "stage1_provenance.json").write_text(
+        json.dumps(
+            {
+                "signal_channel": signal_channel,
+                "hypothesis": hypothesis,
+                "signal_prior": signal_prior,
+                "beam_reweighted": beam_reweighted,
+                "feature_names": feature_names,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
     metrics_text = (
+        f"Signal:    {signal_channel}\n"
+        f"Hypothesis:{hypothesis}\n"
+        f"Prior:     {signal_prior}  (a training choice, not a cross-section)\n"
+        f"Beam rewt: {beam_reweighted}\n"
         f"AUC:       {auc:.4f}\n"
         f"Threshold: {threshold:.4f}\n"
         f"Precision: {p:.4f}\n"
@@ -183,7 +227,7 @@ def train(
 def _cli() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features",     default="features_stage1.npz")
-    parser.add_argument("--out-dir",      default="analysis/ml/model")
+    parser.add_argument("--out-dir",      default="05_analysis_bdt/model")
     parser.add_argument("--val-fraction", type=float, default=0.2)
     parser.add_argument("--n-estimators", type=int,   default=300)
     parser.add_argument("--max-depth",    type=int,   default=5)

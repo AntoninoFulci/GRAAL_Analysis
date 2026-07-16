@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
 from analysis.stage1_gate import Stage1Gate
 from analysis_bdt.build_background_features import compute_stage1_features
 
@@ -90,3 +91,41 @@ def test_load_raises_when_the_threshold_is_missing(tmp_path):
     (tmp_path / "bdt_stage1.json").write_text("{}")
     with pytest.raises(FileNotFoundError, match="stage1_threshold.txt"):
         Stage1Gate.load(tmp_path)
+
+
+def test_load_raises_when_the_provenance_is_missing(tmp_path):
+    # Without it the gate cannot know which channel the model hunts, nor which
+    # mesons its features were built around. Defaulting would be a guess about
+    # physics dressed up as a default.
+    (tmp_path / "bdt_stage1.json").write_text("{}")
+    (tmp_path / "stage1_threshold.txt").write_text("0.5\n")
+    with pytest.raises(FileNotFoundError, match="stage1_provenance.json"):
+        Stage1Gate.load(tmp_path)
+
+
+def test_the_features_follow_the_hypothesis_the_model_was_trained_on():
+    # A gate holding a 2pi0 model must build 2pi0 features, not eta+pi0 ones.
+    model = FakeModel(0.9)
+    gate = Stage1Gate(model, threshold=0.5, hypothesis=TWO_PI0_HYP)
+    photons, protons, beams = _events()
+
+    gate.accepts_many(photons, protons, beams)
+
+    expected = compute_stage1_features(photons, protons, beams, TWO_PI0_HYP)
+    np.testing.assert_allclose(model.seen, expected, rtol=1e-6)
+
+
+def test_check_hypothesis_passes_when_the_model_matches_the_reconstruction():
+    gate = Stage1Gate(FakeModel(0.9), threshold=0.5, hypothesis=ETA_PI0_HYP)
+    gate.check_hypothesis(ETA_PI0_HYP)  # must not raise
+
+
+def test_check_hypothesis_refuses_a_model_trained_on_another_final_state():
+    # The point of the gate is that it is the ONLY difference between the chi2
+    # run and the BDT run. A model trained to find something else still returns
+    # a score for every event, so this has to fail loudly rather than gate on it.
+    gate = Stage1Gate(
+        FakeModel(0.9), threshold=0.5, hypothesis=TWO_PI0_HYP, signal_channel="pi0pi0"
+    )
+    with pytest.raises(ValueError, match="trained on the '2pi0' hypothesis"):
+        gate.check_hypothesis(ETA_PI0_HYP)

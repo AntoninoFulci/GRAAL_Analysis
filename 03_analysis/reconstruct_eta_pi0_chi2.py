@@ -1,26 +1,28 @@
 #!/usr/bin/env python3
 """Standard reconstruction of gamma p -> p eta pi0: chi2 pairing, no BDT gate.
 
-Reads the preselected tree (h85) and pairs the first four photons into an eta
+Reads the preselected tree and pairs the first four photons into an eta
 and a pi0 by minimising the chi2 over the combination table.
 
 Run:
-    python -m analysis.reconstruct_eta_pi0_chi2 --input-dir selected
+    python -m analysis.reconstruct_eta_pi0_chi2 --input-dir data/selected
 """
 import argparse
 from pathlib import Path
 
-from analysis.reco_core import RecoConfig, run_reconstruction
+from analysis.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
 from analysis.reco_physics import ETA_PI0
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--input-dir", type=Path, default=Path("selected"),
+    p.add_argument("--input-dir", type=Path, default=Path("data/selected"),
                    help="folder with the preselected ROOT files")
     p.add_argument("--output-file", type=Path,
-                   default=Path("analyzed/reco_eta_pi0_chi2.root"))
-    p.add_argument("--input-tree", default="h85")
+                   default=Path("data/analyzed/reco_eta_pi0_chi2.root"))
+    p.add_argument("--input-tree", default=AUTO_TREE,
+                   help="tree inside the selected files; 'auto' takes whichever "
+                        "known preselection tree is there (h85, or the older h80)")
     p.add_argument("--chi2-cut", type=float, default=10.0)
     args = p.parse_args()
 

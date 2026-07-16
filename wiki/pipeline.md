@@ -46,7 +46,7 @@ Python e l'eseguibile ROOT da usare; di default sono `python` e `root`.
 Prima di lanciare qualunque fase, lo script prova:
 
 ```bash
-${PYTHON} -c "import mc_simulation, analysis, analysis_bdt, event_selector"
+${PYTHON} -c "import graal_common, mc_simulation, analysis, analysis_bdt, event_selector, plots"
 ```
 
 Se fallisce, si ferma subito con:
@@ -159,20 +159,33 @@ Produce: `04_mc_simulation/data/<canale>_mc.root`, uno per canale.
 ## Fase 4 — Build feature stage-1
 
 ```bash
+# prima: misura il fascio vero dai dati
+${PYTHON} -u -m analysis_bdt.beam_spectrum \
+    --selected-dir "${SELECTED_DIR}" \
+    --tree         "${INPUT_TREE}" \
+    --output       "${BEAM_SPECTRUM_FILE}"
+
 ${PYTHON} -u -m analysis_bdt.build_background_features \
-    --signal      "${MC_DATA_DIR}/eta_pi0_mc.root" \
-    --backgrounds "${MC_DATA_DIR}/pi0pi0_mc.root" \
-                  "${MC_DATA_DIR}/3pi0_mc.root" \
-                  "${MC_DATA_DIR}/eta_2pi0_mc.root" \
-                  "${MC_DATA_DIR}/omega_pi0_mc.root" \
-                  "${MC_DATA_DIR}/etaprime_mc.root" \
-    --cs-csv      "04_mc_simulation/cross_sections/cross_sections.csv" \
-    --output      "05_analysis_bdt/data/features_stage1.npz"
+    --mc-dir         "${MC_DATA_DIR}" \
+    --signal-channel "${SIGNAL_CHANNEL}" \
+    --signal-prior   "${SIGNAL_PRIOR}" \
+    --beam-spectrum  "${BEAM_SPECTRUM_FILE}" \
+    --output         "05_analysis_bdt/data/features_stage1.npz"
 ```
 
-Prima di lanciarlo, lo script verifica che tutti e 6 i file MC esistano; se
-manca qualcosa si ferma con `ERROR: missing MC file ... (run without
---skip-mc)`. Produce la matrice di feature a 24 colonne usata dalla fase 5 e
+Quali file servano non è più scritto qui: `--signal-channel` nomina il canale
+che fa da segnale, e il registry `00_common/channels.py` risolve il suo file e
+quelli degli altri cinque, che diventano il fondo. Un canale mancante si ferma
+con `missing MC file for '<canale>'`.
+
+La misura dello spettro viene prima perché il MC va riponderato sul fascio che
+l'esperimento ha davvero avuto, non su quello piatto dei generatori (vedi
+[04 — Simulazione MC](04-mc-simulation)). Non è cachata: costa poco rispetto
+alla costruzione delle feature, e si misura da quello che `SELECTED_DIR`
+contiene adesso. Se la cartella non esiste, la fase avverte e prosegue col
+fascio piatto invece di fallire.
+
+Produce la matrice di feature a 24 colonne usata dalla fase 5 e
 dalla fase 6 — dettagli in [05-analysis-bdt-features](05-analysis-bdt-features).
 
 ## Fase 5 — Grid search iper-parametri

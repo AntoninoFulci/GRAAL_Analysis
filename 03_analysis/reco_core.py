@@ -15,6 +15,10 @@ before either the gate or the chi2 pairing run:
     to make the BDT run silently drop every such event while the chi2 run kept
     them. Skipping both runs at the source keeps the two samples identical
     except for the gate, which is the entire point of the comparison.
+
+One cut is applied after the pairing, also to both runs: an event where either
+reconstructed meson carries more energy than the tagged beam photon is thrown
+away. See _reconstruct_and_fill.
 """
 from __future__ import annotations
 
@@ -27,6 +31,8 @@ from typing import Protocol
 import numpy as np
 import ROOT
 
+from graal_common import pairing as pr
+from graal_common import trees
 from analysis import reco_physics as rp
 
 
@@ -50,11 +56,14 @@ class Gate(Protocol):
         ...
 
 
+AUTO_TREE = trees.AUTO
+
+
 @dataclass
 class RecoConfig:
     input_dir: Path
     output_file: Path
-    input_tree: str = "h85"
+    input_tree: str = AUTO_TREE
     output_tree: str = "reco"
     chi2_cut: float = 10.0
 
@@ -62,6 +71,15 @@ class RecoConfig:
 def _as_array(v) -> np.ndarray:
     """TLorentzVector -> (4,) [px, py, pz, E]."""
     return np.array([v.Px(), v.Py(), v.Pz(), v.E()], dtype=np.float64)
+
+
+def _resolve_tree(probe, requested: str, filename: str) -> str:
+    """Which tree to read out of the preselected files, and say which."""
+    keys = [k.GetName() for k in probe.GetListOfKeys()]
+    name = trees.resolve(keys, requested, filename)
+    if requested == trees.AUTO:
+        print(f"Input tree: {name} (auto-detected)")
+    return name
 
 
 def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
@@ -74,19 +92,16 @@ def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
 
     print(f"Found {len(root_files)} ROOT files")
 
-    # Fail loud if the tree is not the one we expect, naming what we did find.
+    # Fail loud if the tree is not there, naming what we did find.
     probe = ROOT.TFile.Open(str(input_dir / root_files[0]))
     if not probe or probe.IsZombie():
         raise RuntimeError(f"cannot open {input_dir / root_files[0]}")
-    if not probe.Get(input_tree):
-        keys = [k.GetName() for k in probe.GetListOfKeys()]
+    try:
+        tree_name = _resolve_tree(probe, input_tree, root_files[0])
+    finally:
         probe.Close()
-        raise RuntimeError(
-            f"tree '{input_tree}' not found in {root_files[0]}; found: {keys}"
-        )
-    probe.Close()
 
-    chain = ROOT.TChain(input_tree)
+    chain = ROOT.TChain(tree_name)
     for f in root_files:
         chain.Add(str(input_dir / f))
     return chain
@@ -98,12 +113,6 @@ def run_reconstruction(
     gate: Gate | None = None,
 ) -> int:
     """Reconstruct one channel. Returns the number of events written."""
-    if not channel.combinations_file.exists():
-        raise FileNotFoundError(
-            f"combinations table not found: {channel.combinations_file}"
-        )
-    combinations = np.loadtxt(channel.combinations_file)
-
     chain = _build_chain(Path(cfg.input_dir), cfg.input_tree)
     n_entries = chain.GetEntries()
     print(f"Total events in chain: {n_entries}")
@@ -148,16 +157,19 @@ def run_reconstruction(
 
     n_gated_out = 0
     n_no_proton = 0
+    n_impossible = 0
     print("Starting event loop...")
 
     def _reconstruct_and_fill(photons, proton_v, neutron_v, beam_v) -> None:
         """chi2-pair one accepted event and write it. Identical for both runs."""
-        idx, chi2_val = rp.best_combination(photons, combinations)
+        nonlocal n_impossible
+
+        pairing, chi2_val = pr.best_pairing(photons, channel.hypothesis)
         chi2[0] = chi2_val
         if chi2_val >= cfg.chi2_cut:
             return
 
-        heavy_idx, light_idx = rp.assign_pairs(combinations[idx], channel)
+        heavy_idx, light_idx = pairing.heavy, pairing.light
 
         beam.SetPxPyPzE(*beam_v)
         proton.SetPxPyPzE(*proton_v)
@@ -172,6 +184,21 @@ def run_reconstruction(
         light_g2.SetPxPyPzE(*lg2)
         heavy.SetPxPyPzE(*(hg1 + hg2))
         light.SetPxPyPzE(*(lg1 + lg2))
+
+        # Drop what the reaction cannot produce. The target is a proton at rest,
+        # so it contributes its mass and no momentum: neither meson can carry
+        # away more energy than the tagged beam photon brought in. An event that
+        # says otherwise is not a badly measured event, it is a wrong one —
+        # almost always the tagger associating the wrong beam photon with the
+        # trigger. Neither the chi2 nor the gate can repair it, because both look
+        # at the photons and the proton and never at that association.
+        #
+        # Cut here, inside the shared path, so the chi2 run and the BDT run lose
+        # exactly the same events and the only difference between them stays the
+        # gate.
+        if heavy.E() > beam.E() or light.E() > beam.E():
+            n_impossible += 1
+            return
 
         missing_v = (beam + target) - (heavy + light)
         missing.SetPxPyPzE(
@@ -256,6 +283,7 @@ def run_reconstruction(
     print(f"Skipped (not exactly 1 proton): {n_no_proton}")
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")
+    print(f"Cut (meson energy above the beam): {n_impossible}")
     print(f"Events written: {n_written}")
     print("====================================")
 

@@ -26,7 +26,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-CHANNELS = ["eta_pi0", "pi0pi0", "3pi0", "eta_2pi0", "omega_pi0", "etaprime"]
+# The six channels, and what each one's file is called, come from the registry
+# rather than a list repeated here: a channel added there but forgotten here
+# would make this report claim the MC was complete when it was not.
+from graal_common.channels import CHANNEL_NAMES as CHANNELS
+from graal_common.channels import get_channel
 
 STALE_DAYS = 10
 
@@ -49,7 +53,7 @@ def status(data_dir: Path, now: datetime | None = None) -> list[ChannelStatus]:
 
     out = []
     for name in CHANNELS:
-        path = data_dir / f"{name}_mc.root"
+        path = data_dir / get_channel(name).mc_filename
         if path.exists():
             mtime = datetime.fromtimestamp(path.stat().st_mtime)
             age = (now - mtime).total_seconds() / 86400.0

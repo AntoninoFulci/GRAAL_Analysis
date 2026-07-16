@@ -4,6 +4,7 @@
 #
 # Usage:
 #   ./run_pipeline.sh [--test-data] [--nevents N] [--input-tree NOME]
+#                     [--signal-channel CANALE] [--signal-prior F]
 #                     [--skip-preanalysis] [--force-preanalysis]
 #                     [--skip-selection]
 #                     [--skip-mc] [--force-mc]
@@ -12,14 +13,14 @@
 #                     [--skip-reco] [--skip-plots] [--help]
 #
 # Stages:
-#   1. Pre-analisi         raw/          -> pre_analyzed/  (albero h80)
-#   2. Selezione eventi    pre_analyzed/ -> selected/      (albero h85)
+#   1. Pre-analisi         data/graal_data/   -> data/pre_analyzed/ (albero h80)
+#   2. Selezione eventi    data/pre_analyzed/ -> data/selected/     (albero h85)
 #   3. MC generation       (saltata se i 6 canali esistono gia')
 #   4. Build features stage-1
 #   5. Grid search iper-parametri
 #   6. Training BDT stage-1
-#   7. Ricostruzione       selected/     -> analyzed/      (chi2 e BDT)
-#   8. Plot                analyzed/     -> 06_plots/plots/  (Dalitz + masse)
+#   7. Ricostruzione       data/selected/     -> data/analyzed/     (chi2 e BDT)
+#   8. Plot                data/analyzed/     -> 06_plots/plots/    (Dalitz + masse)
 #
 # La ricostruzione e' in fondo perche' il run BDT ha bisogno del modello,
 # che esiste solo dopo lo stage 6.
@@ -28,11 +29,27 @@
 # (raw, pre_analyzed, selected, analyzed) e i plot. Il Monte Carlo e il
 # modello restano quelli veri.
 #
-# --input-tree serve per una selected/ prodotta da una versione precedente del
-# codice, quando la preselezione lasciava all'albero il nome h80 ereditato dalla
-# pre-analisi. Sui dati nuovi non serve: il default e' gia' h85. Esempio, per
-# ricostruire e basta una selected/ vecchia:
-#   ./run_pipeline.sh --input-tree h80 --skip-preanalysis --skip-selection \
+# I dati del rivelatore stanno sotto data/ (data/selected, data/analyzed, ...).
+#
+# --input-tree di default e' 'auto': la ricostruzione prende l'albero di
+# preselezione che i file hanno davvero, h85 o il piu' vecchio h80 ereditato
+# dalla pre-analisi. Passa un nome esplicito solo per forzarne uno.
+#
+# --signal-channel sceglie quale canale il BDT impara a riconoscere; gli altri
+# cinque diventano il suo fondo. Vale per gli stage 4-6 (feature, grid search,
+# training). Lo stage 7 ricostruisce eta+pi0.
+#
+# --signal-prior e' la quota del peso di training che va al segnale (default
+# 0.5, bilanciato). E' una SCELTA, non fisica: la sezione d'urto del segnale e'
+# cio' che questa analisi misura, quindi non puo' essere anche un suo ingresso.
+# I fondi fra loro sono invece pesati per sezione d'urto misurata.
+#
+# Lo stage 4 misura lo spettro del fascio da SELECTED_DIR e ci riponderа sopra
+# il MC: i generatori estraggono un fascio piatto, GRAAL ha luce laser
+# retrodiffusa Compton con un bordo.
+#
+# Esempio, per rifare solo la ricostruzione su una selected/ gia' pronta:
+#   ./run_pipeline.sh --skip-preanalysis --skip-selection \
 #                     --skip-mc --skip-features --skip-grid-search --skip-train
 # ============================================================
 
@@ -41,25 +58,40 @@ set -euo pipefail
 # ---- defaults ----
 NEVENTS=1000000
 
-# The tree the reconstruction reads out of selected/. The preselection writes
-# h85; an older selected/ may still carry the h80 name it inherited from the
-# pre-analysis, and --input-tree is how you point at it.
-INPUT_TREE="h85"
+# The tree the reconstruction reads out of selected/. "auto" takes whichever
+# known preselection tree the files carry: the selection writes h85, an older
+# selected/ still has the h80 it inherited from the pre-analysis. Name one
+# explicitly to override the detection.
+INPUT_TREE="auto"
+
+# Which channel the stage-1 BDT is trained to pick out. Any of the six in
+# graal_common.channels can play signal; the rest become its background.
+SIGNAL_CHANNEL="eta_pi0"
+
+# Share of the training weight given to the signal class. A CHOICE, not physics:
+# the signal cross-section is what this analysis measures, so it cannot also be
+# an input to it. 0.5 = balanced against all backgrounds together.
+SIGNAL_PRIOR="0.5"
 
 MC_DIR="04_mc_simulation"
 MC_DATA_DIR="${MC_DIR}/data"
 BDT_DIR="05_analysis_bdt"
 MODEL_DIR="${BDT_DIR}/model"
 FEATURES_FILE="${BDT_DIR}/data/features_stage1.npz"
-CS_CSV="${MC_DIR}/cross_sections/cross_sections.csv"
+BEAM_SPECTRUM_FILE="${BDT_DIR}/data/beam_spectrum.npz"
 CUTS_DIR="01_pre_analysis/cuts"
 PREANALYSIS_MACRO="01_pre_analysis/PreAnalysis.C"
 
 # Detector-data directories. --test-data moves all five under test_data/.
-RAW_DIR="graal_data"
-PRE_DIR="pre_analyzed"
-SELECTED_DIR="selected"
-ANALYZED_DIR="analyzed"
+# Everything the detector produced lives under data/. These used to default to
+# a bare selected/ and analyzed/ at the repo root, which is not where the data
+# is: stage 7 died on "input directory not found: selected" for anyone
+# following the README, and analyzed/ only appeared to work because it had been
+# symlinked to data/analyzed/ by hand.
+RAW_DIR="data/graal_data"
+PRE_DIR="data/pre_analyzed"
+SELECTED_DIR="data/selected"
+ANALYZED_DIR="data/analyzed"
 PLOTS_DIR="06_plots/plots"
 
 TEST_DATA=0
@@ -81,6 +113,8 @@ while [[ $# -gt 0 ]]; do
         --test-data)          TEST_DATA=1;            shift   ;;
         --nevents)            NEVENTS="$2";           shift 2 ;;
         --input-tree)         INPUT_TREE="$2";        shift 2 ;;
+        --signal-channel)     SIGNAL_CHANNEL="$2";    shift 2 ;;
+        --signal-prior)       SIGNAL_PRIOR="$2";      shift 2 ;;
         --skip-preanalysis)   SKIP_PREANALYSIS=1;     shift   ;;
         --force-preanalysis)  FORCE_PREANALYSIS=1;    shift   ;;
         --skip-selection)     SKIP_SELECTION=1;       shift   ;;
@@ -140,7 +174,7 @@ echo "=================================================="
 # A bare `python` (the default for $PYTHON) that has not run `pip install -e .`
 # fails every `python -m ...` call with ModuleNotFoundError. Fail here, loudly,
 # before anything expensive runs.
-if ! ${PYTHON} -c "import mc_simulation, analysis, analysis_bdt, event_selector, plots" 2>/dev/null; then
+if ! ${PYTHON} -c "import graal_common, mc_simulation, analysis, analysis_bdt, event_selector, plots" 2>/dev/null; then
     echo "ERROR: i pacchetti della pipeline non sono importabili."
     echo "       Esegui:  pip install -e ."
     echo "       (oppure passa il tuo interprete:  PYTHON=.venv/bin/python ./run_pipeline.sh ...)"
@@ -229,20 +263,17 @@ fi
 if [[ $NEED_MC -eq 1 ]]; then
     mkdir -p "${MC_DATA_DIR}"
 
-    channels=(
-        "generate_eta_pi0_dataset.C"
-        "generate_pi0pi0_dataset.C"
-        "generate_3pi0_dataset.C"
-        "generate_eta_2pi0_dataset.C"
-        "generate_omega_pi0_dataset.C"
-        "generate_etaprime_dataset.C"
-    )
+    # The channel list comes from the registry, so a channel added there cannot
+    # be forgotten here and quietly never generated.
+    read -r -a channels <<< "$(${PYTHON} -c \
+        'from graal_common.channels import CHANNEL_NAMES; print(" ".join(CHANNEL_NAMES))')"
+
     # The macros write their .root file into the current directory, so run them
     # from the data dir and reach back up for the macro itself.
     pushd "${MC_DATA_DIR}" > /dev/null
-    for macro in "${channels[@]}"; do
-        echo "  -> ${macro%.C} (N=${NEVENTS})"
-        ${ROOT_EXEC} -l -b -q "../${macro}(${NEVENTS})"
+    for channel in "${channels[@]}"; do
+        echo "  -> ${channel} (N=${NEVENTS})"
+        ${ROOT_EXEC} -l -b -q "../generate_${channel}_dataset.C(${NEVENTS})"
     done
     popd > /dev/null
 
@@ -251,31 +282,38 @@ fi
 
 # ---- Stage 4: build features ----
 if [[ $SKIP_FEATURES -eq 0 ]]; then
-    stage 4 "Build features stage-1"
-
-    SIG="${MC_DATA_DIR}/eta_pi0_mc.root"
-    BG_FILES=(
-        "${MC_DATA_DIR}/pi0pi0_mc.root"
-        "${MC_DATA_DIR}/3pi0_mc.root"
-        "${MC_DATA_DIR}/eta_2pi0_mc.root"
-        "${MC_DATA_DIR}/omega_pi0_mc.root"
-        "${MC_DATA_DIR}/etaprime_mc.root"
-    )
-
-    for f in "$SIG" "${BG_FILES[@]}"; do
-        if [[ ! -f "$f" ]]; then
-            echo "ERROR: missing MC file $f (run without --skip-mc)"
-            exit 1
-        fi
-    done
+    stage 4 "Build features stage-1 (segnale: ${SIGNAL_CHANNEL})"
 
     mkdir -p "$(dirname "${FEATURES_FILE}")"
 
+    # The beam the generators drew is flat; the beam GRAAL had is Compton
+    # backscattered laser light with an edge. Measure the real one off the
+    # selected data and reweight the MC onto it, or the BDT learns a boundary
+    # calibrated to a beam that never existed. Cheap next to the feature build,
+    # so it is not cached: it is measured from whatever selected/ holds now.
+    BEAM_FLAG=()
+    if [[ -d "${SELECTED_DIR}" ]]; then
+        echo "  -> misuro lo spettro del fascio da ${SELECTED_DIR}/"
+        ${PYTHON} -u -m analysis_bdt.beam_spectrum \
+            --selected-dir "${SELECTED_DIR}" \
+            --tree         "${INPUT_TREE}" \
+            --output       "${BEAM_SPECTRUM_FILE}"
+        BEAM_FLAG=("--beam-spectrum" "${BEAM_SPECTRUM_FILE}")
+    else
+        echo "  ATTENZIONE: ${SELECTED_DIR}/ non esiste: niente riponderazione del"
+        echo "              fascio. Il training terra' il fascio piatto dei"
+        echo "              generatori, che i dati non hanno."
+    fi
+
+    # Which files are needed, and which channel is the background, are the
+    # registry's business now: it resolves them from --signal-channel, and
+    # stage 3 above has already checked all six are on disk.
     ${PYTHON} -u -m analysis_bdt.build_background_features \
-        --signal      "$SIG" \
-        --backgrounds "${BG_FILES[@]}" \
-        --cs-csv      "$CS_CSV" \
-        --output      "$FEATURES_FILE"
+        --mc-dir         "$MC_DATA_DIR" \
+        --signal-channel "$SIGNAL_CHANNEL" \
+        --signal-prior   "$SIGNAL_PRIOR" \
+        "${BEAM_FLAG[@]}" \
+        --output         "$FEATURES_FILE"
 
     stage_done
 else

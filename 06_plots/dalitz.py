@@ -105,15 +105,17 @@ def _collect(tree) -> dict[str, np.ndarray]:
         pi0_m.append(e.pi0_mass)
 
         # Counted, never cut — so the summary can say how much of the sample
-        # sits outside what the kinematics allow.
+        # sits outside what the kinematics allow. Mostly resolution smearing at
+        # the Dalitz boundary, which is why it is a number and not a cut.
         limit = kin.dalitz_limit(kin.sqrt_s(beam, target), kin.M_PI0)
         over_limit.append(mep_meas[-1] > limit)
 
-        # Also counted, never cut: the eta carrying more energy than the beam
-        # photon. The target is at rest and contributes only its mass, so in
-        # gamma p -> p eta pi0 this is kinematically impossible — unlike the
-        # broad over_limit tail above (mostly resolution smearing at the
-        # Dalitz boundary), this one points at a tagger mis-association.
+        # An eta carrying more energy than the beam photon is impossible rather
+        # than mismeasured, and the reconstruction drops those events outright
+        # now (reco_core._reconstruct_and_fill). Still counted here, and
+        # expected to read 0: anything else means this tree was produced before
+        # that cut existed, and the summary should say so rather than let it
+        # pass unnoticed.
         eta_over_beam.append(eta[3] > beam[3])
 
     return {
@@ -313,9 +315,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  eventi         chi2 {len(chi2['eta_mass']):7d}   BDT {len(bdt['eta_mass']):7d}")
     print(f"  M(eta p) oltre il limite cinematico (soprattutto risoluzione al bordo Dalitz):"
           f"  chi2 {100 * chi2['over_limit'].mean():.1f}%   BDT {100 * bdt['over_limit'].mean():.1f}%")
-    print(f"  eta con energia maggiore del fotone di fascio (cinematicamente impossibile):"
-          f"  chi2 {100 * chi2['eta_over_beam'].mean():.1f}%   BDT {100 * bdt['eta_over_beam'].mean():.1f}%")
     print("  (contati, non tagliati)")
+
+    # Should be 0 on anything the current reconstruction produced.
+    stale = max(chi2["eta_over_beam"].mean(), bdt["eta_over_beam"].mean())
+    if stale > 0:
+        print("")
+        print(f"  ATTENZIONE: {100 * stale:.1f}% degli eventi ha un'eta piu' energetica")
+        print("  del fotone di fascio, che e' cinematicamente impossibile. La reco")
+        print("  taglia questi eventi: questi alberi sono stati prodotti prima del")
+        print("  taglio. Rifai la fase 7.")
     print("====================================")
 
     return 0

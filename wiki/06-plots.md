@@ -127,29 +127,28 @@ over_limit.append(mep_meas[-1] > limit)
 cioè confronta M(η p) **misurata** contro il limite cinematico W − m_π⁰ (W
 = massa invariante fascio+bersaglio). Il conteggio è **contato, non
 tagliato** — il commento nel codice lo dice esplicitamente — e viene
-stampato a fine run:
+stampato a fine run.
 
-```
-M(eta p) oltre il limite cinematico:  chi2 32.9%   BDT 32.5%
-```
+Un evento oltre questo limite non è necessariamente un errore di misurazione:
+è il segnale che qualcosa nella cinematica misurata dell'evento non torna con
+fascio e bersaglio nominali. In gran parte è risoluzione al bordo del Dalitz,
+ed è per questo che resta **contato e non tagliato**.
 
-(numeri dal run su `data/analyzed/`, un solo file ricostruito — vedi sotto).
-Un evento oltre questo limite non è necessariamente un errore di
-misurazione: è il segnale che qualcosa nella cinematica misurata dell'evento
-non torna con fascio e bersaglio nominali. Un caso concreto e più stringente
-del limite generale: confrontando direttamente l'energia dell'η ricostruita
-con quella del fotone di tagging (`eta.E() > beam.E()`) — cosa impossibile
-in γp → pηπ⁰, dove il bersaglio è fermo e contribuisce solo con la propria
-massa — succede per il **4.0%** degli eventi chi2 e il **6.9%** degli
-eventi BDT sullo stesso file (verificato leggendo direttamente l'albero;
-questo confronto specifico non è stampato dalla fase, a differenza del
-limite cinematico generale sopra — ma ogni evento con questa proprietà è
-anche oltre il limite cinematico generale, quindi è un sottoinsieme di
-quel 32.9%/32.5%). Il fatto che sia più frequente, non meno, nel campione
-filtrato dal gate BDT è la controprova che questa non è una fluttuazione
-statistica isolata: punta a un problema di associazione col tagger, non
-risolvibile né dal chi2 né dal gate BDT, perché entrambi lavorano sui
-fotoni e sul protone, non sulla scelta del fotone di fascio.
+Il caso davvero impossibile è un altro, e ora è **tagliato**: un mesone
+ricostruito con più energia del fotone di tagging. Il bersaglio è fermo e
+contribuisce solo la propria massa, quindi in γp → pηπ⁰ non può succedere. Non
+è un evento misurato male, è un evento sbagliato — quasi sempre il tagger che
+associa al trigger il fotone di fascio sbagliato, cosa che né il chi2 né il
+gate BDT possono riparare, perché entrambi guardano i fotoni e il protone e mai
+quella associazione. La ricostruzione li scarta dentro il percorso condiviso da
+entrambi i run (vedi [Ricostruzione chi2](03-analysis-chi2)), così le due
+analisi perdono esattamente gli stessi eventi e l'unica differenza fra loro
+resta il gate.
+
+Il contatore `eta con energia maggiore del fotone di fascio` resta nel
+riepilogo e deve leggere **0**: se non lo fa, quegli alberi sono stati
+ricostruiti prima che il taglio esistesse, e la fase 8 lo dice invece di
+lasciarlo passare.
 
 ## Fase 8 in `run_pipeline.sh`
 

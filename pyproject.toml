@@ -19,6 +19,8 @@ requires-python = ">=3.10"
 # Python package name cannot start with a digit. This maps one onto the other.
 [tool.setuptools]
 packages = [
+    "graal_common",
+    "graal_common.tests",
     "event_selector",
     "analysis",
     "analysis.tests",
@@ -31,6 +33,9 @@ packages = [
 ]
 
 [tool.setuptools.package-dir]
+# 00 is not a pipeline stage: it is what the stages agree on (meson masses, the
+# channel registry). Numbered anyway so it sorts above the stages that use it.
+graal_common   = "00_common"
 event_selector = "02_event_selector"
 analysis       = "03_analysis"
 mc_simulation  = "04_mc_simulation"
@@ -38,7 +43,7 @@ analysis_bdt   = "05_analysis_bdt"
 plots          = "06_plots"
 
 [tool.pytest.ini_options]
-testpaths = ["03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests", "06_plots/tests"]
-# The three tests/ dirs would all collide on the package name "tests" under the
+testpaths = ["00_common/tests", "03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests", "06_plots/tests"]
+# The tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"

@@ -7,7 +7,7 @@ configuration to a JSON file alongside a summary CSV.
 Usage:
     python -m analysis_bdt.grid_search_stage1 \\
         --features features_stage1.npz \\
-        --out-dir analysis/ml/model \\
+        --out-dir 05_analysis_bdt/model \\
         [--n-iter 30] [--seed 42]
 
 By default runs a randomised search (n_iter samples from the grid) because
@@ -92,7 +92,7 @@ def _train_single(
 
 def run_search(
     features_path: str,
-    out_dir: str = "analysis/ml/model",
+    out_dir: str = "05_analysis_bdt/model",
     n_iter: int = 30,
     full_grid: bool = False,
     val_fraction: float = 0.20,
@@ -187,7 +187,7 @@ def run_search(
 def _cli() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features",     default="features_stage1.npz")
-    parser.add_argument("--out-dir",      default="analysis/ml/model")
+    parser.add_argument("--out-dir",      default="05_analysis_bdt/model")
     parser.add_argument("--n-iter",       type=int, default=30,
                         help="Random configs to try (ignored with --full-grid)")
     parser.add_argument("--full-grid",    action="store_true",

@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import numpy as np
 
-# Must match 03_analysis/reco_physics.py — a plot that disagrees with the
-# reconstruction about the eta mass is worse than no plot.
-M_PI0 = 0.134977
-M_ETA = 0.547862
-M_PROTON = 0.938272
+# From the same registry the reconstruction reads, rather than a copy kept in
+# step by hand: a plot that disagrees with the reconstruction about the eta mass
+# is worse than no plot.
+from graal_common.channels import M_ETA, M_PI0, M_PROTON
+
+__all__ = ["M_ETA", "M_PI0", "M_PROTON", "dalitz_limit", "invariant_mass", "sqrt_s"]
 
 
 def invariant_mass(a: np.ndarray, b: np.ndarray) -> float:

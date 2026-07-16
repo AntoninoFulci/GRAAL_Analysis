@@ -6,39 +6,49 @@ in inferenza. Questa pagina elenca le 24 feature nell'ordine reale del
 codice e registra la regola che il bug del gate (vedi
 [Gate BDT](03-analysis-bdt-gate)) ha lasciato dietro di sé.
 
-## `FEATURE_NAMES_S1`, nell'ordine
+## `feature_names(hypothesis)`, nell'ordine
+
+Tre nomi su 24 dipendono dall'**ipotesi**: quali due mesoni i 4 fotoni stanno
+venendo testati contro. Non è una proprietà dell'evento, è la domanda che gli
+si fa, e cambia con `--signal-channel`. Sotto, i nomi per l'ipotesi di default
+`eta_pi0`; con `2pi0` le stesse posizioni diventano `n_pairs_near_pi0_2`,
+`n_pairs_near_pi0_1`, `best_chi2_2pi0`. Il nome si porta dietro l'ipotesi
+proprio perché non vada ricordata a mente.
 
 ```python
-FEATURE_NAMES_S1: list[str] = [
-    # C(4,2)=6 invariant masses
-    "m_gg_01", "m_gg_02", "m_gg_03",
-    "m_gg_12", "m_gg_13",
-    "m_gg_23",
-    # pair counts near meson poles
-    "n_pairs_near_pi0",     # |m_gg - 0.135| < 0.040 GeV
-    "n_pairs_near_eta",     # |m_gg - 0.548| < 0.080 GeV
-    # best chi2 for any assignment of 4γ to η+π⁰
-    "best_chi2_eta_pi0",
-    # missing kinematics  (beam + target − proton)
-    "missing_mass",
-    "missing_E",
-    "missing_pz",
-    "missing_pt",
-    # photon energy statistics
-    "total_gamma_E",
-    "beam_E",
-    "max_gamma_E",
-    "min_gamma_E",
-    "gamma_E_rms",          # rms spread of photon energies
-    # photon angular statistics
-    "sum_opening_angles",   # sum of all 6 opening angles
-    "min_pair_mass",
-    "max_pair_mass",
-    "total_pt_gamma",       # scalar sum of photon pT
-    # proton
-    "proton_p",
-    "proton_costheta",
-]
+def feature_names(hypothesis: Hypothesis = ETA_PI0_HYP) -> list[str]:
+    names = [
+        # C(4,2)=6 invariant masses
+        "m_gg_01", "m_gg_02", "m_gg_03",
+        "m_gg_12", "m_gg_13",
+        "m_gg_23",
+        # pair counts near the two mass poles
+        f"n_pairs_near_{hypothesis.light_label}",   # |m_gg - 0.135| < 0.040 GeV
+        f"n_pairs_near_{hypothesis.heavy_label}",   # |m_gg - 0.548| < 0.080 GeV
+        # best chi2 for any assignment of the 4 photons to the two mesons
+        f"best_chi2_{hypothesis.name}",
+        # missing kinematics  (beam + target − proton)
+        "missing_mass",
+        "missing_E",
+        "missing_pz",
+        "missing_pt",
+        # photon energy statistics
+        "total_gamma_E",
+        "beam_E",
+        "max_gamma_E",
+        "min_gamma_E",
+        "gamma_E_rms",          # rms spread of photon energies
+        # photon angular statistics
+        "sum_opening_angles",   # sum of all 6 opening angles
+        "min_pair_mass",
+        "max_pair_mass",
+        "total_pt_gamma",       # scalar sum of photon pT
+        # proton
+        "proton_p",
+        "proton_costheta",
+    ]
+    assert len(names) == N_FEATURES_S1
+    return names
 ```
 
 Raggruppate come le raggruppa il codice:
@@ -55,9 +65,18 @@ Raggruppate come le raggruppa il codice:
 
 `compute_stage1_features` è vettorizzata (nessun ciclo Python sugli eventi):
 prende `photons (N,4,4)`, `proton (N,4)`, `beam (N,4)` — sempre esattamente
-4 fotoni per evento, mai di più — e restituisce `(N, 24)` in `float32`. Un
-`assert len(FEATURE_NAMES_S1) == 24` nel modulo tiene la lista dei nomi e la
-lunghezza reale del vettore sincronizzate.
+4 fotoni per evento, mai di più — e restituisce `(N, 24)` in `float32`. Prende
+anche l'ipotesi, che di default è `eta_pi0`. L'`assert` dentro `feature_names`
+tiene la lista dei nomi e la lunghezza reale del vettore sincronizzate.
+
+Quale ipotesi un modello abbia visto non è lasciato alla memoria di nessuno: il
+training la scrive in `model/stage1_provenance.json`, e `Stage1Gate` la rilegge
+per costruire le sue feature attorno agli stessi due mesoni. Se la
+ricostruzione gli chiede di filtrare uno stato finale diverso, il gate si
+rifiuta invece di rispondere: un modello trainato a cercare η+π⁰ restituisce
+comunque un punteggio per ogni evento di qualunque canale, e quel punteggio
+diventerebbe silenziosamente la differenza fra l'analisi chi2 e quella con il
+gate — cioè esattamente la cosa che il confronto sta misurando.
 
 ## La regola che il bug ha prodotto
 

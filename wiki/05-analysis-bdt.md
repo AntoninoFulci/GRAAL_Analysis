@@ -19,9 +19,22 @@ combinatoria chi2 che usa `reconstruct_eta_pi0_chi2.py` (vedi
 Costruiti da `build_background_features.py` (vedi
 [Feature stage-1](05-analysis-bdt-features) per il dettaglio delle 24
 feature) a partire dai sei canali Monte Carlo di
-[04 — Simulazione MC](04-mc-simulation): segnale = `eta_pi0` (etichetta 1),
-fondo = gli altri cinque canali, pesati per sezione d'urto efficace
-(`sigma_eff` dal CSV) e uniti in un unico set (etichetta 0).
+[04 — Simulazione MC](04-mc-simulation): segnale = il canale scelto con
+`--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri cinque
+(etichetta 0). Tutti pesati per sezione d'urto di riferimento normalizzata,
+segnale compreso.
+
+**Tutti e sei passano per lo stesso modello di perdita fotoni**, segnale
+incluso. Prima il segnale lo saltava, con la motivazione che η→γγ e π⁰→γγ danno
+già esattamente 4 fotoni: ma la perdita non è solo il conteggio, è l'accettanza
+del rivelatore. Saltarla lasciava il 15% dei fotoni di segnale a θ<25°, dentro
+il buco del fascio, dove il BGO non vede niente e dove i dati veri hanno
+esattamente zero fotoni — mentre ogni fotone di fondo era già stato filtrato
+sull'accettanza. Il modello di rivelatore diventava così funzione dell'etichetta
+di classe, e il BDT poteva separare su *quale* modello di perdita fosse stato
+applicato invece che sulla fisica. Solo il 28% del segnale MC sopravvive
+all'accettanza a cui i fondi sono sottoposti: l'altro 72% erano eventi che
+l'esperimento non poteva registrare come 4γ.
 
 ## Metriche correnti
 
@@ -29,19 +42,62 @@ Da `05_analysis_bdt/model/stage1_metrics.txt` (valori reali, non da fidarsi
 di numeri citati altrove — questo file è la fonte):
 
 ```
-AUC:       0.9985
-Threshold: 0.8423
-Precision: 0.9764
-Recall:    0.9856
-F1:        0.9809
-N_train:   2119915
-N_val:     529979
+Signal:    eta_pi0
+Hypothesis:eta_pi0
+Prior:     0.5  (a training choice, not a cross-section)
+Beam rewt: True
+AUC:       0.9980
+Threshold: 0.8078
+Precision: 0.9425
+Recall:    0.9579
+F1:        0.9502
+N_train:   1545680
+N_val:     386420
 ```
 
-La soglia operativa (`05_analysis_bdt/model/stage1_threshold.txt`, `0.842261`)
-è scelta massimizzando l'F1 su un set di validazione (`_find_best_threshold`
-in `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99) — non è un
-valore fissato a mano, viene ricalcolata a ogni training.
+La soglia operativa (`05_analysis_bdt/model/stage1_threshold.txt`) è scelta
+massimizzando l'F1 su un set di validazione (`_find_best_threshold` in
+`train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99) — non è un valore
+fissato a mano, viene ricalcolata a ogni training.
+
+Il campione è più piccolo di prima (1.93M eventi contro 2.65M) perché il
+segnale ora passa per l'accettanza come tutti: 283k eventi invece di 1M.
+
+Vale la pena registrare cosa il fix dell'accettanza **non** ha cambiato: l'AUC
+è rimasta a 0.998. L'asimmetria segnale/fondo nel modello di rivelatore non era
+ciò che rendeva il classificatore così bravo — separava già su fisica vera.
+Quello che è cambiato è che il campione di training ora è fisicamente
+possibile, e che precision e recall si sono spostate.
+
+## Dimensione efficace del campione
+
+Il riepilogo della fase 4 stampa la **Kish effective sample size**: quanti
+eventi di peso uguale vale il campione riponderato.
+
+```
+Effective sample size: 570097 of 1932100 (29.5%)
+Dropped by reweighting: 100051 events (5.18%)
+```
+
+Non è una curiosità. Riponderare costa sempre un po' di potere statistico, ma
+una prima versione della riponderazione lo aveva ridotto all'**1.2%**: 128
+eventi su 1.9M portavano il 3.3% di tutto il peso, perché al bordo di soglia il
+MC ha solo la coda di smearing del tagger e il rapporto p_data/p_mc arrivava a
+1994 (vedi `beam_spectrum.reweight`). Un campione così sembra fatto di milioni
+di eventi e si comporta come se ne avesse migliaia, e nient'altro nella catena
+lo direbbe. Se questo numero scende sotto il 10%, la fase 4 avverte.
+
+## Perché i pesi hanno media 1
+
+I pesi finiscono normalizzati a media 1, conservando ogni rapporto fra loro.
+Solo i rapporti portano fisica, quindi la scala assoluta dovrebbe essere
+irrilevante — e non lo è: XGBoost misura `min_child_weight` in somma di
+hessiane, che scala col peso dell'evento. Con le quote per canale che sommavano
+a 1 sull'intero campione (~5e-7 per evento) nessuno split raggiungeva mai
+`min_child_weight >= 1`, xgboost restituiva un moncone, e tutte e 30 le
+configurazioni della grid search tornavano ad **AUC 0.5000**. Senza errori.
+Sembrava che le feature non valessero nulla, e invece erano i pesi troppo
+piccoli.
 
 ## Grid search
 

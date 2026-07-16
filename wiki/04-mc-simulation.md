@@ -15,40 +15,101 @@ generatrice (`generate_<canale>_dataset.C`) che scrive
 macro stessa (`TFile *fout = new TFile("pi0pi0_mc.root", "RECREATE")`),
 girata dalla cartella dati.
 
+## Il fascio dei generatori non è il fascio di GRAAL
+
+Ogni generatore estrae l'energia del fotone taggato così:
+
+```cpp
+double Ebeam = rng.Uniform(threshold, 1.55);
+```
+
+Piatta, dalla soglia di produzione del canale a un tetto fisso. Il fascio di
+GRAAL non somiglia a questo: è luce laser retrodiffusa Compton sull'anello, e
+lo spettro **sale fino a un bordo Compton** che sta dove lo mette la linea
+laser. Misurato su `data/selected` (17.15M fotoni taggati, min 0.644, mediana
+1.087, max 1.718): due bordi sovrapposti — le linee verde e UV usate in periodi
+di presa dati diversi — una spalla verso 0.79, e una coda fino a 1.72 che il
+tetto a 1.55 del MC non copre affatto.
+
+`beam_E` è una delle 24 feature stage-1, e il resto della cinematica è
+correlata con essa: un fascio piatto nel MC non è una discrepanza cosmetica, è
+un classificatore calibrato su un fascio che l'esperimento non ha mai avuto.
+
+La fase 4 misura `p_data(E)` dai file veri e riponderа il MC con
+`p_data(E) / p_mc(E)` (`05_analysis_bdt/beam_spectrum.py`). Riponderare la
+marginale del fascio basta a trascinarsi dietro tutto il resto, perché i
+generatori estraggono prima l'energia del fascio e costruiscono la cinematica
+da quella.
+
+**Dove il MC non sa rispondere, non si riponderа.** Un generatore estrae dalla
+soglia in su e poi smeara con la risoluzione del tagger: appena sotto quella
+soglia il MC ha solo la coda dello smearing, mentre i dati lì sono pieni di
+eventi. Quegli eventi sono veri ma non possono essere quel canale — sotto
+soglia la reazione non avviene, sono fondo di qualcun altro. Dividere per
+quella coda chiede al MC una domanda cui non può rispondere e torna un numero
+enorme: sul campione `eta_pi0` (soglia 0.875) il bin 0.870-0.880 dava
+`p_data = 1.196` contro `p_mc = 0.0006`, cioè un rapporto di **1994**.
+`MIN_MC_PER_BIN` azzera il peso dove il MC ha troppi pochi eventi per stimare
+la propria densità.
+
 ## Sezioni d'urto e abbinamento per nome file
 
-`04_mc_simulation/cross_sections/cross_sections.csv` porta la sezione
-d'urto di riferimento e la sopravvivenza attesa per ciascun fondo:
+Il registry `00_common/channels.py` porta la sezione d'urto di riferimento dei
+**fondi**. Il segnale non ne ha:
 
-```csv
-channel,sigma_ref_ub,p_survival,sigma_eff
-pi0pi0,4.5,0.82,3.69
-3pi0,1.8,0.61,1.10
-eta_2pi0,0.6,0.55,0.33
-omega_pi0,1.2,0.58,0.70
-etaprime,0.35,0.52,0.18
-```
+| canale | `sigma_ref_ub` | fonte |
+|---|---|---|
+| `eta_pi0` | — | **è la misura**, vedi sotto |
+| `pi0pi0` | 4.5 | CB-ELSA/TAPS, Sarantsev *et al.*, EPJ A 25 (2005) 441 |
+| `3pi0` | 1.8 | CB-ELSA/TAPS, Thoma *et al.*, PLB 659 (2008) 87 |
+| `eta_2pi0` | 0.6 | CB-ELSA, Kashevarov *et al.*, PRL 118 (2017) 212001 |
+| `omega_pi0` | 1.2 | SAPHIR, Barth *et al.*, EPJ A 18 (2003) 117 |
+| `etaprime` | 0.35 | CB-ELSA, Crede *et al.*, PRC 80 (2009) 055202 |
 
-Il canale segnale (`eta_pi0`) non compare in questo CSV — non ha bisogno di
-un peso relativo, entra nel training con peso 1. Nella fase di
-[costruzione delle feature](05-analysis-bdt-features), ogni file di fondo
-viene abbinato alla propria riga del CSV per **nome file**, mai per
-posizione nella lista `--backgrounds`:
+Il peso per evento è `sigma_ref_ub / Σ sigma_ref_ub`, e **non** è moltiplicato
+per nessuna frazione di sopravvivenza: gli eventi nel campione sono già passati
+per il modello di perdita fotoni, quindi la loro numerosità porta già
+l'accettanza. Moltiplicarla di nuovo nel peso la contava due volte. Il vecchio
+`cross_sections.csv` faceva esattamente questo, con una colonna `p_survival`
+per giunta scollegata dal modello reale (diceva 0.82 per `pi0pi0`, dove il
+modello ne misura 0.25). Quel CSV non è più letto da nessuno.
+
+### Perché il segnale non ha una sezione d'urto
+
+Misurare σ(γp → pηπ⁰) **è quello per cui questa analisi esiste**. Un numero nel
+registry sarebbe una risposta, usata per pesare gli eventi da cui la risposta
+si estrae: circolare, e in silenzio — il training riprodurrebbe semplicemente
+il prior che gli è stato passato.
+
+Fra i fondi, invece, le sezioni d'urto relative sono fisica vera e il BDT deve
+saperle: dicono quanto della contaminazione è π⁰π⁰ piuttosto che η′. Quello che
+non possono dire è quanto segnale ci sia rispetto a tutto il resto. Quel
+rapporto è una **scelta**, dichiarata con `--signal-prior` (default 0.5,
+bilanciato), non una misura. Il peso per evento diventa quindi:
+
+- segnale: `signal_prior`, spalmato sui suoi eventi
+- fondo *c*: `(1 − signal_prior) × σ_c / Σσ_fondi`
+
+normalizzato per canale, così la quota che arriva è esattamente quella voluta,
+qualunque sia il numero di eventi generati e qualunque cosa la riponderazione
+del fascio abbia fatto ai totali.
+
+Ogni file è abbinato al proprio canale per **nome file**, mai per posizione in
+una lista:
 
 ```python
-def channel_from_filename(bg_file: str) -> str:
-    stem = Path(bg_file).name
-    if not stem.endswith(_BG_FILE_SUFFIX):
+def channel_from_filename(path: str | Path) -> MCChannel:
+    stem = Path(path).name
+    if not stem.endswith(_MC_FILE_SUFFIX):
         raise ValueError(...)
-    return stem[: -len(_BG_FILE_SUFFIX)]
+    return get_channel(stem[: -len(_MC_FILE_SUFFIX)])
 ```
 
-(`05_analysis_bdt/build_background_features.py`). Un file che non finisce
-per `_mc.root`, o un nome canale assente dal CSV, sono entrambi errori
-fatali (`ValueError` / `KeyError`), non un peso di default silenzioso: legare
-il peso alla posizione in lista avrebbe permesso a un riordino innocente di
-`--backgrounds` di abbinare silenziosamente un file al peso sbagliato, senza
-alcun errore.
+(`00_common/channels.py`). Un file che non finisce per `_mc.root`, o un nome
+canale assente dal registry, sono entrambi errori fatali (`ValueError` /
+`KeyError`), non un peso di default silenzioso: legare il peso alla posizione
+in lista avrebbe permesso a un riordino innocente di abbinare silenziosamente
+un file al peso sbagliato, senza alcun errore.
 
 ## Il modello di perdita fotoni
 

@@ -36,11 +36,18 @@ numerata su un nome di pacchetto pulito:
 
 | Cartella | Pacchetto importabile |
 |---|---|
+| `00_common/` | `graal_common` |
 | `02_event_selector/` | `event_selector` |
 | `03_analysis/` | `analysis` |
 | `04_mc_simulation/` | `mc_simulation` |
 | `05_analysis_bdt/` | `analysis_bdt` |
 | `06_plots/` | `plots` |
+
+`00_common/` non è una fase: è ciò su cui le fasi devono essere d'accordo — le
+masse dei mesoni, l'elenco dei canali, le sezioni d'urto. È numerato `00` solo
+per ordinarsi sopra le fasi che lo usano. Le masse vivevano in tre moduli
+contemporaneamente, uno dei quali portava un commento che chiedeva al lettore
+di tenerle allineate a mano.
 
 Questa mappatura esiste solo dopo un'installazione editable:
 
@@ -67,14 +74,14 @@ basta — va rifatto `pip install -e .`.
 
 | # | Fase | Cartella | Da → a |
 |---|------|----------|--------|
-| 1 | Pre-analisi | `01_pre_analysis/` | dati grezzi → `pre_analyzed/` (albero `h80`) |
-| 2 | Selezione eventi | `02_event_selector/` | `pre_analyzed/` → `selected/` (albero `h85`) |
+| 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
+| 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
 | 3 | Simulazione Monte Carlo | `04_mc_simulation/` | 6 canali: segnale + 5 fondi |
 | 4 | Build feature stage-1 | `05_analysis_bdt/` | MC → matrice di feature |
 | 5 | Grid search iper-parametri | `05_analysis_bdt/` | → `best_hyperparams.json` |
 | 6 | Training BDT stage-1 | `05_analysis_bdt/` | → modello + soglia |
-| 7 | Ricostruzione | `03_analysis/` | `selected/` → `analyzed/` (chi2 **e** BDT) |
-| 8 | Plot | `06_plots/` | `analyzed/` → `06_plots/plots/` (Dalitz + masse) |
+| 7 | Ricostruzione | `03_analysis/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
+| 8 | Plot | `06_plots/` | `data/analyzed/` → `06_plots/plots/` (Dalitz + masse) |
 
 L'ordine non è arbitrario: la ricostruzione sta dopo il training perché il run
 con gate BDT ha bisogno del modello, che esiste solo dopo la fase 6; e i plot
