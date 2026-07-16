@@ -56,20 +56,36 @@ gate era una predizione su rumore, non su feature reali.
 from analysis_bdt.build_background_features import compute_stage1_features
 
 class Stage1Gate:
-    def accepts(self, photons, proton, beam):
-        X = compute_stage1_features(photons[None], proton[None], beam[None])
-        score = float(self.model.predict_proba(X)[0, 1])
-        return score >= self.threshold
+    def accepts_many(self, photons, protons, beams):
+        X = compute_stage1_features(photons, protons, beams)
+        scores = self.model.predict_proba(X)[:, 1]
+        return scores >= self.threshold
 ```
 
 `Stage1Gate.load(model_dir)` carica `bdt_stage1.json` (il booster XGBoost) e
-`stage1_threshold.txt` (la soglia operativa), poi `accepts` chiama
+`stage1_threshold.txt` (la soglia operativa), poi `accepts_many` chiama
 `compute_stage1_features` — **la stessa funzione**, non una riscrittura,
 usata da `05_analysis_bdt/build_background_features.py` per costruire il
 set di addestramento (vedi [Feature stage-1](05-analysis-bdt-features)). Non
 esiste più una seconda implementazione che possa disallinearsi dal training:
 c'è una sola funzione che sa come costruire il vettore a 24 feature, e sia
 il training sia l'inferenza la chiamano.
+
+### Perché a blocchi e non evento per evento
+
+Il gate riceve `(N,4,4)` fotoni e restituisce `N` verdetti: `reco_core` accumula
+`_GATE_CHUNK` eventi (20000) e lo interroga una volta sola. Non è
+micro-ottimizzazione. Interrogato un evento alla volta il gate costava **0,335 ms
+per evento** — 0,098 per costruire le feature, 0,237 per chiamare il modello — e
+quasi niente di quel tempo era il modello che pensava: era overhead per chiamata.
+Su 17 milioni di eventi faceva **75 minuti sugli 85** dell'intera catena. numpy e
+xgboost lo ammortizzano entrambi su un blocco, insieme di circa **300 volte**.
+
+Il buffer cambia **solo quando** il gate viene interrogato, mai quali eventi ci
+arrivano: le guardie (≥4 fotoni, esattamente 1 protone) girano prima, su ogni
+evento, in ordine. Verificato sui dati veri: l'output della versione a blocchi è
+**bit per bit identico** a quello della versione a evento singolo, su tutte le
+variabili e tutti gli eventi — sia per il run col gate sia per quello chi2.
 
 Un test di regressione (`03_analysis/tests/test_stage1_gate.py::test_the_model_is_scored_on_the_features_it_was_trained_on`)
 verifica esattamente questo: intercetta il vettore che il gate passa a

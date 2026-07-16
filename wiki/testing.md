@@ -31,7 +31,7 @@ nell'import mode di default di pytest.
 |---|---|
 | `03_analysis/tests/test_packaging.py` | i pacchetti numerati sono importabili sotto i nomi puliti |
 | `03_analysis/tests/test_reco_physics.py` | massa invariante, formula del chi2, `best_combination` (accoppiamento vincente), `assign_pairs` (scambio eta/pi0 quando il target pesante arriva per secondo) |
-| `03_analysis/tests/test_stage1_gate.py` | `Stage1Gate.accepts` sopra/sotto/esattamente alla soglia; che il modello riceva esattamente le feature di `compute_stage1_features` (regressione contro un disallineamento già successo in passato); `Stage1Gate.load` solleva `FileNotFoundError` se mancano modello o soglia |
+| `03_analysis/tests/test_stage1_gate.py` | `Stage1Gate.accepts_many` sopra/sotto/esattamente alla soglia, e che ogni evento del blocco riceva il proprio verdetto nell'ordine giusto; che il modello riceva esattamente le feature di `compute_stage1_features` (regressione contro un disallineamento già successo in passato); `Stage1Gate.load` solleva `FileNotFoundError` se mancano modello o soglia |
 | `04_mc_simulation/tests/test_mc_status.py` | stato/staleness dei 6 canali; exit code 0/1/2 della CLI; che `--help` esca con 0 |
 | `05_analysis_bdt/tests/test_physics.py` | massa invariante, asimmetria di energia, angolo di apertura, boost al sistema del centro di massa — tutto vettorizzato |
 | `05_analysis_bdt/tests/test_photon_loss.py` | il modello di perdita fotoni (`LossParams`, `p_loss`, `apply_loss_events`, `estimate_survival`) |
