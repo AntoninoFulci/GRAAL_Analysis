@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Dalitz plot M(eta p) vs M(pi0 p), and the invariant-mass distributions.
+"""Dalitz plot M(eta p) vs M(pi0 p), plus the meson invariant masses.
+
+Three families of figure:
+  dalitz_*    M(eta p) vs M(pi0 p), colz — the resonance view
+  massa_*     M(eta) and M(pi0) on their own
+  masse_2d_*  those same two masses against each other, colz — where the gate
+              shows up as the blob tightening onto the truth crossing
+
 
 Compares the two reconstructions — plain chi2 against the BDT-gated one — which
 is the whole reason both exist. Everything kinematic comes from
@@ -37,6 +44,13 @@ BDT_TREE = "reco_eta_pi0_bdt"
 # deliberately wider so anything unphysical stays visible instead of piling into
 # the edge bin.
 _DALITZ_MIN, _DALITZ_MAX, _DALITZ_BINS = 1.0, 2.8, 90
+
+# Windows for the meson masses. The 1D distributions and the 2D correlation share
+# them on purpose: the 2D figure is those two plots crossed, so it can only be
+# read against them if the axes match.
+_ETA_MASS_MIN, _ETA_MASS_MAX = 0.3, 0.8
+_PI0_MASS_MIN, _PI0_MASS_MAX = 0.05, 0.25
+_MASS2D_BINS = 90
 
 
 def _as_array(v) -> np.ndarray:
@@ -133,6 +147,38 @@ def _mass_hist(name: str, title: str, x: np.ndarray, lo: float, hi: float) -> RO
     return h
 
 
+def _mass2d_hist(name: str, title: str, eta: np.ndarray, pi0: np.ndarray) -> ROOT.TH2F:
+    """The same two masses the 1D plots show, plotted against each other.
+
+    Deliberately on the 1D windows: this figure is those two plots crossed, and
+    reading one against the other only works if the axes agree with them.
+    """
+    h = ROOT.TH2F(
+        name,
+        f"{title};M(#eta)  [GeV];M(#pi^{{0}})  [GeV]",
+        _MASS2D_BINS, _ETA_MASS_MIN, _ETA_MASS_MAX,
+        _MASS2D_BINS, _PI0_MASS_MIN, _PI0_MASS_MAX,
+    )
+    for xi, yi in zip(eta, pi0):
+        h.Fill(xi, yi)
+    return h
+
+
+def _draw_truth_cross() -> list:
+    """Mark (M_ETA, M_PI0) on the current pad: where the signal must sit.
+
+    Returns the lines so the caller can hold a reference — PyROOT collects a
+    TLine nothing points at, and it disappears from the canvas silently.
+    """
+    v = ROOT.TLine(kin.M_ETA, _PI0_MASS_MIN, kin.M_ETA, _PI0_MASS_MAX)
+    h = ROOT.TLine(_ETA_MASS_MIN, kin.M_PI0, _ETA_MASS_MAX, kin.M_PI0)
+    for line in (v, h):
+        line.SetLineColor(ROOT.kRed + 1)
+        line.SetLineStyle(2)
+        line.Draw()
+    return [v, h]
+
+
 def _save(canvas, out_dir: Path, stem: str) -> None:
     """Every figure goes out as PNG (to look at) and PDF (vector, for talks)."""
     canvas.SaveAs(str(out_dir / f"{stem}.png"))
@@ -174,10 +220,20 @@ def main(argv: list[str] | None = None) -> int:
                 data[f"mep_{var}"], data[f"mpp_{var}"],
             )
 
-    hists["massa_eta_chi2"] = _mass_hist("massa_eta_chi2", "solo chi2", chi2["eta_mass"], 0.3, 0.8)
-    hists["massa_eta_bdt"] = _mass_hist("massa_eta_bdt", "gate BDT", bdt["eta_mass"], 0.3, 0.8)
-    hists["massa_pi0_chi2"] = _mass_hist("massa_pi0_chi2", "solo chi2", chi2["pi0_mass"], 0.05, 0.25)
-    hists["massa_pi0_bdt"] = _mass_hist("massa_pi0_bdt", "gate BDT", bdt["pi0_mass"], 0.05, 0.25)
+    hists["massa_eta_chi2"] = _mass_hist(
+        "massa_eta_chi2", "solo chi2", chi2["eta_mass"], _ETA_MASS_MIN, _ETA_MASS_MAX)
+    hists["massa_eta_bdt"] = _mass_hist(
+        "massa_eta_bdt", "gate BDT", bdt["eta_mass"], _ETA_MASS_MIN, _ETA_MASS_MAX)
+    hists["massa_pi0_chi2"] = _mass_hist(
+        "massa_pi0_chi2", "solo chi2", chi2["pi0_mass"], _PI0_MASS_MIN, _PI0_MASS_MAX)
+    hists["massa_pi0_bdt"] = _mass_hist(
+        "massa_pi0_bdt", "gate BDT", bdt["pi0_mass"], _PI0_MASS_MIN, _PI0_MASS_MAX)
+
+    # The two meson masses against each other: on this figure the gate shows up
+    # as the blob tightening onto the truth crossing, not as a shifted median.
+    for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
+        name = f"masse_2d_{tag}"
+        hists[name] = _mass2d_hist(name, lab, data["eta_mass"], data["pi0_mass"])
 
     # --- one canvas per Dalitz ---
     for name in [k for k in hists if k.startswith("dalitz_")]:
@@ -185,6 +241,28 @@ def main(argv: list[str] | None = None) -> int:
         c.SetRightMargin(0.13)
         hists[name].Draw("colz")
         _save(c, args.out_dir, name)
+
+    # --- the two meson masses against each other, one canvas each ---
+    # The crossing lines mark where the signal must sit. Kept alive in a list
+    # because PyROOT garbage-collects a TLine that nothing references, and it
+    # then vanishes from the canvas without any error.
+    keep_alive = []
+    for name in ["masse_2d_chi2", "masse_2d_bdt"]:
+        c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
+        c.SetRightMargin(0.13)
+        hists[name].Draw("colz")
+        keep_alive.extend(_draw_truth_cross())
+        _save(c, args.out_dir, name)
+
+    # --- the two side by side ---
+    c = ROOT.TCanvas("c_masse_2d", "masse 2D", 1500, 650)
+    c.Divide(2, 1)
+    for i, name in enumerate(["masse_2d_chi2", "masse_2d_bdt"], start=1):
+        c.cd(i)
+        ROOT.gPad.SetRightMargin(0.13)
+        hists[name].Draw("colz")
+        keep_alive.extend(_draw_truth_cross())
+    _save(c, args.out_dir, "masse_2d_confronto")
 
     # --- the four-panel summary ---
     c = ROOT.TCanvas("c_confronto", "Dalitz", 1500, 1000)
