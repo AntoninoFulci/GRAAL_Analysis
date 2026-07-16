@@ -8,14 +8,14 @@ def test_graal_common_importable():
     assert "eta_pi0" in CHANNELS
 
 
-def test_analysis_bdt_importable():
-    from analysis_bdt import photon_loss
+def test_bdt_training_importable():
+    from bdt_training import photon_loss
 
     assert hasattr(photon_loss, "sample_surviving_photons")
 
 
 def test_stage1_feature_builder_importable():
-    from analysis_bdt.build_background_features import (
+    from bdt_training.build_background_features import (
         FEATURE_NAMES_S1,
         compute_stage1_features,
     )

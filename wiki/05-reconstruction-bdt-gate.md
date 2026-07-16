@@ -1,8 +1,8 @@
 # Gate BDT
 
-`03_analysis/stage1_gate.py` è il filtro che `reconstruct_eta_pi0_bdt.py`
+`05_reconstruction/stage1_gate.py` è il filtro che `reconstruct_eta_pi0_bdt.py`
 applica a ogni evento prima della combinatoria chi2: un classificatore
-BDT (stage-1, vedi [BDT stage-1](05-analysis-bdt)) addestrato a distinguere
+BDT (stage-1, vedi [BDT stage-1](04-bdt-training)) addestrato a distinguere
 il segnale η π⁰ dal fondo fisico (π⁰π⁰, 3π⁰, η2π⁰, ωπ⁰, η′). Prima di
 spiegare come funziona oggi, questa pagina deve registrare un bug che ha
 invalidato ogni risultato BDT prodotto prima del fix, perché tra sei mesi
@@ -19,13 +19,13 @@ non coincidono.
 > ogni decisione del gate era priva di significato.
 
 Il modello stage-1 è addestrato su un vettore a 24 feature il cui layout è
-`FEATURE_NAMES_S1` (vedi [Feature stage-1](05-analysis-bdt-features)): 6
+`FEATURE_NAMES_S1` (vedi [Feature stage-1](04-bdt-training-features)): 6
 masse invariante di coppia negli slot 0-5, poi conteggi di coppie vicine ai
 poli dei mesoni, il miglior chi2, la cinematica mancante, le statistiche sui
 fotoni, la cinematica del protone.
 
 Il vecchio `reconstruct_eta_pi0.py` (rimosso dal repository — la versione
-prima della rimozione è recuperabile con `git show abb20fd^:03_analysis/reconstruct_eta_pi0.py`)
+prima della rimozione è recuperabile con `git show abb20fd^:05_reconstruction/reconstruct_eta_pi0.py`)
 costruiva questo vettore a mano, dentro `_stage1_pass`, invece di chiamare
 la funzione che aveva costruito il set di addestramento. La sua versione
 enumerava fino a `C(6,2) = 15` coppie di fotoni (l'evento può avere più di
@@ -53,7 +53,7 @@ gate era una predizione su rumore, non su feature reali.
 ## Come funziona oggi
 
 ```python
-from analysis_bdt.build_background_features import compute_stage1_features
+from bdt_training.build_background_features import compute_stage1_features
 
 class Stage1Gate:
     def accepts_many(self, photons, protons, beams):
@@ -65,8 +65,8 @@ class Stage1Gate:
 `Stage1Gate.load(model_dir)` carica `bdt_stage1.json` (il booster XGBoost) e
 `stage1_threshold.txt` (la soglia operativa), poi `accepts_many` chiama
 `compute_stage1_features` — **la stessa funzione**, non una riscrittura,
-usata da `05_analysis_bdt/build_background_features.py` per costruire il
-set di addestramento (vedi [Feature stage-1](05-analysis-bdt-features)). Non
+usata da `04_bdt_training/build_background_features.py` per costruire il
+set di addestramento (vedi [Feature stage-1](04-bdt-training-features)). Non
 esiste più una seconda implementazione che possa disallinearsi dal training:
 c'è una sola funzione che sa come costruire il vettore a 24 feature, e sia
 il training sia l'inferenza la chiamano.
@@ -87,7 +87,7 @@ evento, in ordine. Verificato sui dati veri: l'output della versione a blocchi �
 **bit per bit identico** a quello della versione a evento singolo, su tutte le
 variabili e tutti gli eventi — sia per il run col gate sia per quello chi2.
 
-Un test di regressione (`03_analysis/tests/test_stage1_gate.py::test_the_model_is_scored_on_the_features_it_was_trained_on`)
+Un test di regressione (`05_reconstruction/tests/test_stage1_gate.py::test_the_model_is_scored_on_the_features_it_was_trained_on`)
 verifica esattamente questo: intercetta il vettore che il gate passa a
 `predict_proba` e lo confronta, elemento per elemento, con una chiamata
 diretta a `compute_stage1_features` sugli stessi eventi. Se qualcuno
@@ -119,8 +119,8 @@ diverso da quello richiesto.
 
 ## Dove andare da qui
 
-- [Feature stage-1](05-analysis-bdt-features) — le 24 feature nell'ordine
+- [Feature stage-1](04-bdt-training-features) — le 24 feature nell'ordine
   reale, e la regola che il bug ha lasciato: un solo punto del codice può
   costruire questo vettore.
-- [BDT stage-1](05-analysis-bdt) — come il modello viene addestrato, le sue
+- [BDT stage-1](04-bdt-training) — come il modello viene addestrato, le sue
   metriche correnti.

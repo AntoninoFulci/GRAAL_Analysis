@@ -19,7 +19,7 @@ l'uno all'altro:
   (π⁰π⁰, 3π⁰, η2π⁰, ωπ⁰, η′) prima ancora di arrivare al chi2.
 
 Le due ricostruzioni condividono lo stesso codice di I/O e lo stesso taglio
-chi2 (`03_analysis/reco_core.py`): l'unica differenza tra i due file di
+chi2 (`05_reconstruction/reco_core.py`): l'unica differenza tra i due file di
 output è il gate BDT, ed è così che il confronto ha senso — qualunque
 differenza tra `reco_eta_pi0_chi2` e `reco_eta_pi0_bdt` si può attribuire
 al gate e a nient'altro.
@@ -37,11 +37,22 @@ numerata su un nome di pacchetto pulito:
 | Cartella | Pacchetto importabile |
 |---|---|
 | `00_common/` | `graal_common` |
+| `01_pre_analysis/` | — (macro ROOT, non un pacchetto Python) |
 | `02_event_selector/` | `event_selector` |
-| `03_analysis/` | `analysis` |
-| `04_mc_simulation/` | `mc_simulation` |
-| `05_analysis_bdt/` | `analysis_bdt` |
+| `03_mc_simulation/` | `mc_simulation` |
+| `04_bdt_training/` | `bdt_training` |
+| `05_reconstruction/` | `reconstruction` |
 | `06_plots/` | `plots` |
+
+**Il numero è l'ordine in cui la fase gira**, e deve restare tale o non vale
+niente. Per un po' non lo è stato: la ricostruzione era `03` ma girava quinta,
+dopo il Monte Carlo (`04`) e il training (`05`), perché ha bisogno del modello
+che quei due producono. Leggere l'elenco delle cartelle dall'alto insegnava
+l'ordine sbagliato.
+
+Anche i nomi mentivano: `analysis` e `analysis_bdt` leggevano come "l'analisi" e
+"l'analisi col BDT", cioè due analisi alternative. Non lo sono. La ricostruzione
+è **una** — il chi2 — e il BDT è un cancello che le sta davanti.
 
 `00_common/` non è una fase: è ciò su cui le fasi devono essere d'accordo — le
 masse dei mesoni, l'elenco dei canali, le sezioni d'urto. È numerato `00` solo
@@ -76,11 +87,11 @@ basta — va rifatto `pip install -e .`.
 |---|------|----------|--------|
 | 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
 | 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
-| 3 | Simulazione Monte Carlo | `04_mc_simulation/` | 6 canali: segnale + 5 fondi |
-| 4 | Build feature stage-1 | `05_analysis_bdt/` | MC → matrice di feature |
-| 5 | Grid search iper-parametri | `05_analysis_bdt/` | → `best_hyperparams.json` |
-| 6 | Training BDT stage-1 | `05_analysis_bdt/` | → modello + soglia |
-| 7 | Ricostruzione | `03_analysis/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
+| 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 6 canali: segnale + 5 fondi |
+| 4 | Build feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
+| 5 | Grid search iper-parametri | `04_bdt_training/` | → `best_hyperparams.json` |
+| 6 | Training BDT stage-1 | `04_bdt_training/` | → modello + soglia |
+| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
 | 8 | Plot | `06_plots/` | `data/analyzed/` → `06_plots/plots/` (Dalitz + masse) |
 
 L'ordine non è arbitrario: la ricostruzione sta dopo il training perché il run

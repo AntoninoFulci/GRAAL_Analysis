@@ -7,7 +7,7 @@ What is left here is the mapping from a channel to the branches it writes.
 import numpy as np
 
 from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
-from analysis import reco_physics as rp
+from reconstruction import reco_physics as rp
 
 
 def test_eta_pi0_labels_its_branches_after_its_mesons():

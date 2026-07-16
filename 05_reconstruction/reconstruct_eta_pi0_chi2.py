@@ -5,13 +5,13 @@ Reads the preselected tree and pairs the first four photons into an eta
 and a pi0 by minimising the chi2 over the combination table.
 
 Run:
-    python -m analysis.reconstruct_eta_pi0_chi2 --input-dir data/selected
+    python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/selected
 """
 import argparse
 from pathlib import Path
 
-from analysis.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
-from analysis.reco_physics import ETA_PI0
+from reconstruction.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
+from reconstruction.reco_physics import ETA_PI0
 
 
 def main():

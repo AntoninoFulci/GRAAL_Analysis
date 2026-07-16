@@ -73,9 +73,9 @@ SIGNAL_CHANNEL="eta_pi0"
 # an input to it. 0.5 = balanced against all backgrounds together.
 SIGNAL_PRIOR="0.5"
 
-MC_DIR="04_mc_simulation"
+MC_DIR="03_mc_simulation"
 MC_DATA_DIR="${MC_DIR}/data"
-BDT_DIR="05_analysis_bdt"
+BDT_DIR="04_bdt_training"
 MODEL_DIR="${BDT_DIR}/model"
 FEATURES_FILE="${BDT_DIR}/data/features_stage1.npz"
 BEAM_SPECTRUM_FILE="${BDT_DIR}/data/beam_spectrum.npz"
@@ -174,7 +174,7 @@ echo "=================================================="
 # A bare `python` (the default for $PYTHON) that has not run `pip install -e .`
 # fails every `python -m ...` call with ModuleNotFoundError. Fail here, loudly,
 # before anything expensive runs.
-if ! ${PYTHON} -c "import graal_common, mc_simulation, analysis, analysis_bdt, event_selector, plots" 2>/dev/null; then
+if ! ${PYTHON} -c "import graal_common, event_selector, mc_simulation, bdt_training, reconstruction, plots" 2>/dev/null; then
     echo "ERROR: i pacchetti della pipeline non sono importabili."
     echo "       Esegui:  pip install -e ."
     echo "       (oppure passa il tuo interprete:  PYTHON=.venv/bin/python ./run_pipeline.sh ...)"
@@ -294,7 +294,7 @@ if [[ $SKIP_FEATURES -eq 0 ]]; then
     BEAM_FLAG=()
     if [[ -d "${SELECTED_DIR}" ]]; then
         echo "  -> misuro lo spettro del fascio da ${SELECTED_DIR}/"
-        ${PYTHON} -u -m analysis_bdt.beam_spectrum \
+        ${PYTHON} -u -m bdt_training.beam_spectrum \
             --selected-dir "${SELECTED_DIR}" \
             --tree         "${INPUT_TREE}" \
             --output       "${BEAM_SPECTRUM_FILE}"
@@ -308,7 +308,7 @@ if [[ $SKIP_FEATURES -eq 0 ]]; then
     # Which files are needed, and which channel is the background, are the
     # registry's business now: it resolves them from --signal-channel, and
     # stage 3 above has already checked all six are on disk.
-    ${PYTHON} -u -m analysis_bdt.build_background_features \
+    ${PYTHON} -u -m bdt_training.build_background_features \
         --mc-dir         "$MC_DATA_DIR" \
         --signal-channel "$SIGNAL_CHANNEL" \
         --signal-prior   "$SIGNAL_PRIOR" \
@@ -329,7 +329,7 @@ if [[ $SKIP_TRAIN -eq 0 && $SKIP_GRID_SEARCH -eq 0 ]]; then
         exit 1
     fi
 
-    ${PYTHON} -u -m analysis_bdt.grid_search_stage1 \
+    ${PYTHON} -u -m bdt_training.grid_search_stage1 \
         --features "$FEATURES_FILE" \
         --out-dir  "$MODEL_DIR" \
         --n-iter   "$GRID_SEARCH_NITER"
@@ -354,7 +354,7 @@ if [[ $SKIP_TRAIN -eq 0 ]]; then
         echo "  Usando iper-parametri da ${MODEL_DIR}/best_hyperparams.json"
     fi
 
-    ${PYTHON} -u -m analysis_bdt.train_bdt_stage1 \
+    ${PYTHON} -u -m bdt_training.train_bdt_stage1 \
         --features "$FEATURES_FILE" \
         --out-dir  "$MODEL_DIR" \
         "${HYPERPARAMS_FLAG[@]}"
@@ -375,13 +375,13 @@ if [[ $SKIP_RECO -eq 0 ]]; then
     mkdir -p "${ANALYZED_DIR}"
 
     echo "  -> analisi standard (chi2)"
-    ${PYTHON} -u -m analysis.reconstruct_eta_pi0_chi2 \
+    ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
         --output-file "${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
 
     echo "  -> analisi con gate BDT stage-1"
-    ${PYTHON} -u -m analysis.reconstruct_eta_pi0_bdt \
+    ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
         --output-file "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \

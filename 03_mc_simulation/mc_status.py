@@ -6,7 +6,7 @@ already there. This module is what it asks. It is Python rather than shell
 because `stat` takes different flags on macOS and Linux.
 
 CLI:
-    python -m mc_simulation.mc_status --data-dir 04_mc_simulation/data
+    python -m mc_simulation.mc_status --data-dir 03_mc_simulation/data
 
 Exit 0 = every channel is present (the pipeline may skip generation).
 Exit 1 = at least one is missing (the pipeline must generate).

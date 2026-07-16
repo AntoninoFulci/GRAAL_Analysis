@@ -1,10 +1,10 @@
 # Feature stage-1
 
-`05_analysis_bdt/build_background_features.py::compute_stage1_features`
+`04_bdt_training/build_background_features.py::compute_stage1_features`
 calcola il vettore a 24 feature che il BDT stage-1 vede, sia in training sia
 in inferenza. Questa pagina elenca le 24 feature nell'ordine reale del
 codice e registra la regola che il bug del gate (vedi
-[Gate BDT](03-analysis-bdt-gate)) ha lasciato dietro di sé.
+[Gate BDT](05-reconstruction-bdt-gate)) ha lasciato dietro di sé.
 
 ## `feature_names(hypothesis)`, nell'ordine
 
@@ -84,18 +84,18 @@ Il vecchio `reconstruct_eta_pi0.py` costruiva un secondo vettore a 24
 feature a mano, con un layout diverso (impacchettava fino a 15 masse di
 coppia negli slot 0-14, invece delle 6 reali negli slot 0-5), e il modello
 finiva per essere interrogato su rumore — vedi
-[Gate BDT](03-analysis-bdt-gate) per la cronologia completa. La riparazione
+[Gate BDT](05-reconstruction-bdt-gate) per la cronologia completa. La riparazione
 non è stata correggere quella seconda implementazione: è stata eliminarla.
 
 **`compute_stage1_features` è l'unico punto del codice in cui un vettore di
 feature stage-1 può essere costruito.** Sia `build_background_features.py`
 (che costruisce il set di addestramento da MC, vedi
-[BDT stage-1](05-analysis-bdt)) sia `stage1_gate.py` (che costruisce il
-vettore per un evento in inferenza, vedi [Gate BDT](03-analysis-bdt-gate))
+[BDT stage-1](04-bdt-training)) sia `stage1_gate.py` (che costruisce il
+vettore per un evento in inferenza, vedi [Gate BDT](05-reconstruction-bdt-gate))
 chiamano questa stessa funzione. Non deve mai esistere una seconda
 implementazione, nemmeno temporanea o "equivalente": è esattamente quello
 che ha reso invisibile il bug la prima volta — le due implementazioni
 sembravano fare la stessa cosa finché nessuno le ha confrontate numero per
 numero. Il test di regressione in
-`03_analysis/tests/test_stage1_gate.py` esiste per rendere impossibile
+`05_reconstruction/tests/test_stage1_gate.py` esiste per rendere impossibile
 ripetere l'errore senza che un test fallisca.

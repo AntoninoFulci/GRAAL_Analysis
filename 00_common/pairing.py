@@ -7,7 +7,7 @@ expression here — agreeing by inspection and free to drift. That is the shape 
 the bug that once had the gate scoring its model on a feature vector built by a
 second, drifted copy of the feature builder.
 
-The enumeration used to live in `03_analysis/data/combinations_*.txt`, a file
+The enumeration used to live in `05_reconstruction/data/combinations_*.txt`, a file
 per channel listing rows like
 
     0 1 2 3 0.547862 0.134977      # photons (0,1) are the eta, (2,3) the pi0

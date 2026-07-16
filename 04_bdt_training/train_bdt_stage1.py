@@ -14,9 +14,9 @@ Outputs (all in model/ by default):
     stage1_metrics.txt    — AUC, threshold, precision, recall, F1
 
 Usage:
-    python -m analysis_bdt.train_bdt_stage1 \\
+    python -m bdt_training.train_bdt_stage1 \\
         --features features_stage1.npz \\
-        --out-dir 05_analysis_bdt/model
+        --out-dir 04_bdt_training/model
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ except ImportError:
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
-from analysis_bdt.callbacks import TqdmCallback
+from bdt_training.callbacks import TqdmCallback
 
 
 def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
@@ -62,7 +62,7 @@ def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
 
 def train(
     features_path: str,
-    out_dir: str = "05_analysis_bdt/model",
+    out_dir: str = "04_bdt_training/model",
     val_fraction: float = 0.2,
     seed: int = 42,
     n_estimators: int = 300,
@@ -90,7 +90,7 @@ def train(
             raise KeyError(
                 f"{features_path} has no {key!r}. It predates the channel "
                 "registry, so which channel it treats as signal is recorded "
-                "nowhere. Rebuild it with analysis_bdt.build_background_features."
+                "nowhere. Rebuild it with bdt_training.build_background_features."
             )
     signal_channel = str(data["signal_channel"])
     hypothesis = str(data["hypothesis"])
@@ -227,7 +227,7 @@ def train(
 def _cli() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features",     default="features_stage1.npz")
-    parser.add_argument("--out-dir",      default="05_analysis_bdt/model")
+    parser.add_argument("--out-dir",      default="04_bdt_training/model")
     parser.add_argument("--val-fraction", type=float, default=0.2)
     parser.add_argument("--n-estimators", type=int,   default=300)
     parser.add_argument("--max-depth",    type=int,   default=5)

@@ -1,7 +1,7 @@
 """Tests for photon_loss module."""
 import numpy as np
 import pytest
-from analysis_bdt.photon_loss import LossParams, apply_loss_events, estimate_survival, p_loss
+from bdt_training.photon_loss import LossParams, apply_loss_events, estimate_survival, p_loss
 
 
 def make_rng(seed: int = 0) -> np.random.Generator:

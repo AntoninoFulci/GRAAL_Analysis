@@ -46,7 +46,7 @@ Python e l'eseguibile ROOT da usare; di default sono `python` e `root`.
 Prima di lanciare qualunque fase, lo script prova:
 
 ```bash
-${PYTHON} -c "import graal_common, mc_simulation, analysis, analysis_bdt, event_selector, plots"
+${PYTHON} -c "import graal_common, event_selector, mc_simulation, bdt_training, reconstruction, plots"
 ```
 
 Se fallisce, si ferma subito con:
@@ -59,7 +59,7 @@ ERROR: i pacchetti della pipeline non sono importabili.
 
 Questo controllo esiste per non scoprire l'errore a metà della fase 2 (o
 peggio, dopo ore di fase 3): un `python` che non ha visto `pip install -e .`
-non troverà `event_selector` né `analysis_bdt`, e il fallimento deve essere
+non troverà `event_selector` né `bdt_training`, e il fallimento deve essere
 immediato e leggibile — vedi [Home](Home) per il perché dei nomi numerati.
 
 ## Cartelle dati del rivelatore e `--test-data`
@@ -76,8 +76,8 @@ Quattro cartelle sono, di default, quelle di produzione:
 Nota: il default di produzione per i dati grezzi è `graal_data/`, **non**
 `test_data/raw/` — quella seconda directory esiste solo sotto `--test-data`.
 
-Il Monte Carlo (`04_mc_simulation/data`) e il modello BDT
-(`05_analysis_bdt/model`) **non** vengono rimappati da `--test-data`: restano
+Il Monte Carlo (`03_mc_simulation/data`) e il modello BDT
+(`04_bdt_training/model`) **non** vengono rimappati da `--test-data`: restano
 sempre quelli veri, in produzione come in collaudo. Duplicarli per il
 collaudo non proverebbe niente di più e costerebbe ore — vedi
 [Testing](testing).
@@ -121,7 +121,7 @@ ${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"
 
 `mc_status` controlla se i 6 canali (`eta_pi0`, `pi0pi0`, `3pi0`,
 `eta_2pi0`, `omega_pi0`, `etaprime`) sono tutti presenti in
-`04_mc_simulation/data/`. Il suo exit code guida la decisione:
+`03_mc_simulation/data/`. Il suo exit code guida la decisione:
 
 | Exit | Significato | Azione dello script |
 |---|---|---|
@@ -154,23 +154,23 @@ generate_omega_pi0_dataset.C(NEVENTS)
 generate_etaprime_dataset.C(NEVENTS)
 ```
 
-Produce: `04_mc_simulation/data/<canale>_mc.root`, uno per canale.
+Produce: `03_mc_simulation/data/<canale>_mc.root`, uno per canale.
 
 ## Fase 4 — Build feature stage-1
 
 ```bash
 # prima: misura il fascio vero dai dati
-${PYTHON} -u -m analysis_bdt.beam_spectrum \
+${PYTHON} -u -m bdt_training.beam_spectrum \
     --selected-dir "${SELECTED_DIR}" \
     --tree         "${INPUT_TREE}" \
     --output       "${BEAM_SPECTRUM_FILE}"
 
-${PYTHON} -u -m analysis_bdt.build_background_features \
+${PYTHON} -u -m bdt_training.build_background_features \
     --mc-dir         "${MC_DATA_DIR}" \
     --signal-channel "${SIGNAL_CHANNEL}" \
     --signal-prior   "${SIGNAL_PRIOR}" \
     --beam-spectrum  "${BEAM_SPECTRUM_FILE}" \
-    --output         "05_analysis_bdt/data/features_stage1.npz"
+    --output         "04_bdt_training/data/features_stage1.npz"
 ```
 
 Quali file servano non è più scritto qui: `--signal-channel` nomina il canale
@@ -180,20 +180,20 @@ con `missing MC file for '<canale>'`.
 
 La misura dello spettro viene prima perché il MC va riponderato sul fascio che
 l'esperimento ha davvero avuto, non su quello piatto dei generatori (vedi
-[04 — Simulazione MC](04-mc-simulation)). Non è cachata: costa poco rispetto
+[03 — Simulazione MC](03-mc-simulation)). Non è cachata: costa poco rispetto
 alla costruzione delle feature, e si misura da quello che `SELECTED_DIR`
 contiene adesso. Se la cartella non esiste, la fase avverte e prosegue col
 fascio piatto invece di fallire.
 
 Produce la matrice di feature a 24 colonne usata dalla fase 5 e
-dalla fase 6 — dettagli in [05-analysis-bdt-features](05-analysis-bdt-features).
+dalla fase 6 — dettagli in [04-bdt-training-features](04-bdt-training-features).
 
 ## Fase 5 — Grid search iper-parametri
 
 ```bash
-${PYTHON} -u -m analysis_bdt.grid_search_stage1 \
-    --features "05_analysis_bdt/data/features_stage1.npz" \
-    --out-dir  "05_analysis_bdt/model" \
+${PYTHON} -u -m bdt_training.grid_search_stage1 \
+    --features "04_bdt_training/data/features_stage1.npz" \
+    --out-dir  "04_bdt_training/model" \
     --n-iter   "${GRID_SEARCH_NITER}"
 ```
 
@@ -204,14 +204,14 @@ Richiede che `features_stage1.npz` esista già (fase 4).
 ## Fase 6 — Training BDT stage-1
 
 ```bash
-${PYTHON} -u -m analysis_bdt.train_bdt_stage1 \
-    --features "05_analysis_bdt/data/features_stage1.npz" \
-    --out-dir  "05_analysis_bdt/model" \
-    [--hyperparams "05_analysis_bdt/model/best_hyperparams.json"]
+${PYTHON} -u -m bdt_training.train_bdt_stage1 \
+    --features "04_bdt_training/data/features_stage1.npz" \
+    --out-dir  "04_bdt_training/model" \
+    [--hyperparams "04_bdt_training/model/best_hyperparams.json"]
 ```
 
 Il flag `--hyperparams` viene aggiunto solo se
-`05_analysis_bdt/model/best_hyperparams.json` esiste già (cioè se la fase 5
+`04_bdt_training/model/best_hyperparams.json` esiste già (cioè se la fase 5
 è girata prima, in questo run o in uno precedente). Al termine lo script
 stampa la soglia (`stage1_threshold.txt`) e le metriche
 (`stage1_metrics.txt`).
@@ -219,14 +219,14 @@ stampa la soglia (`stage1_threshold.txt`) e le metriche
 ## Fase 7 — Ricostruzione (chi2 e BDT)
 
 ```bash
-${PYTHON} -u -m analysis.reconstruct_eta_pi0_chi2 \
+${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
     --input-dir   "${SELECTED_DIR}" \
     --output-file "${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
 
-${PYTHON} -u -m analysis.reconstruct_eta_pi0_bdt \
+${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
     --input-dir   "${SELECTED_DIR}" \
     --output-file "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
-    --model-dir   "05_analysis_bdt/model"
+    --model-dir   "04_bdt_training/model"
 ```
 
 Questa è l'ultima fase e per un motivo preciso: il secondo run ha bisogno

@@ -16,7 +16,7 @@ import os
 import ROOT
 
 INPUT_TREE = "h80"   # written by 01_pre_analysis/PreAnalysis.C
-OUTPUT_TREE = "h85"  # read by 03_analysis/reco_core.py
+OUTPUT_TREE = "h85"  # read by 05_reconstruction/reco_core.py
 
 
 def parse_args():

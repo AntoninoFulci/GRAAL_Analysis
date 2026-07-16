@@ -1,7 +1,7 @@
-# 05 — BDT stage-1
+# 04 — Training BDT
 
-`05_analysis_bdt/` addestra il classificatore che il gate di
-[`03_analysis/stage1_gate.py`](03-analysis-bdt-gate) applica prima della
+`04_bdt_training/` addestra il classificatore che il gate di
+[`05_reconstruction/stage1_gate.py`](05-reconstruction-bdt-gate) applica prima della
 combinatoria chi2: un BDT binario (XGBoost) che impara a distinguere il
 segnale η π⁰ dal fondo fisico prima ancora che si tenti di ricostruirlo.
 
@@ -12,14 +12,14 @@ ricostruzione, riducendo la contaminazione nel campione finale rispetto al
 solo taglio chi2. Il modello non sostituisce il chi2 — lavora a monte:
 `reconstruct_eta_pi0_bdt.py` applica prima il gate, poi la stessa
 combinatoria chi2 che usa `reconstruct_eta_pi0_chi2.py` (vedi
-[03 — Analisi](03-analysis)).
+[05 — Ricostruzione](05-reconstruction)).
 
 ## Dati di addestramento
 
 Costruiti da `build_background_features.py` (vedi
-[Feature stage-1](05-analysis-bdt-features) per il dettaglio delle 24
+[Feature stage-1](04-bdt-training-features) per il dettaglio delle 24
 feature) a partire dai sei canali Monte Carlo di
-[04 — Simulazione MC](04-mc-simulation): segnale = il canale scelto con
+[03 — Simulazione MC](03-mc-simulation): segnale = il canale scelto con
 `--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri cinque
 (etichetta 0). Tutti pesati per sezione d'urto di riferimento normalizzata,
 segnale compreso.
@@ -38,7 +38,7 @@ l'esperimento non poteva registrare come 4γ.
 
 ## Metriche correnti
 
-Da `05_analysis_bdt/model/stage1_metrics.txt` (valori reali, non da fidarsi
+Da `04_bdt_training/model/stage1_metrics.txt` (valori reali, non da fidarsi
 di numeri citati altrove — questo file è la fonte):
 
 ```
@@ -55,7 +55,7 @@ N_train:   1545680
 N_val:     386420
 ```
 
-La soglia operativa (`05_analysis_bdt/model/stage1_threshold.txt`) è scelta
+La soglia operativa (`04_bdt_training/model/stage1_threshold.txt`) è scelta
 massimizzando l'F1 su un set di validazione (`_find_best_threshold` in
 `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99) — non è un valore
 fissato a mano, viene ricalcolata a ogni training.
@@ -102,9 +102,9 @@ piccoli.
 ## Grid search
 
 ```bash
-python -m analysis_bdt.grid_search_stage1 \
-    --features 05_analysis_bdt/data/features_stage1.npz \
-    --out-dir  05_analysis_bdt/model \
+python -m bdt_training.grid_search_stage1 \
+    --features 04_bdt_training/data/features_stage1.npz \
+    --out-dir  04_bdt_training/model \
     --n-iter   30
 ```
 
@@ -134,10 +134,10 @@ va in `best_hyperparams.json`, il riepilogo completo in
 ## Training
 
 ```bash
-python -m analysis_bdt.train_bdt_stage1 \
-    --features 05_analysis_bdt/data/features_stage1.npz \
-    --out-dir  05_analysis_bdt/model \
-    [--hyperparams 05_analysis_bdt/model/best_hyperparams.json]
+python -m bdt_training.train_bdt_stage1 \
+    --features 04_bdt_training/data/features_stage1.npz \
+    --out-dir  04_bdt_training/model \
+    [--hyperparams 04_bdt_training/model/best_hyperparams.json]
 ```
 
 Se `--hyperparams` è passato, il JSON prodotto dalla grid search sovrascrive
@@ -162,9 +162,9 @@ training) come fasi 4-6 — vedi [Pipeline](pipeline) per i flag
 (`--skip-features`, `--skip-grid-search`, `--grid-search-niter`,
 `--skip-train`). Per rifare solo l'addestramento senza rigenerare l'MC o le
 feature, i due comandi sopra bastano da soli, a patto che
-`05_analysis_bdt/data/features_stage1.npz` esista già.
+`04_bdt_training/data/features_stage1.npz` esista già.
 
 ## Dove andare da qui
 
-- [Feature stage-1](05-analysis-bdt-features) — le 24 feature nell'ordine
+- [Feature stage-1](04-bdt-training-features) — le 24 feature nell'ordine
   reale del vettore, e la regola contro cui il bug del gate ha reagito.

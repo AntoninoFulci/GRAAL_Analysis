@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
-from analysis_bdt.build_background_features import (
+from bdt_training.build_background_features import (
     FEATURE_NAMES_S1,
     compute_stage1_features,
     feature_names,

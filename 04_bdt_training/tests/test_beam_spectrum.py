@@ -7,7 +7,7 @@ events at energies the data never produced.
 import numpy as np
 import pytest
 
-from analysis_bdt.beam_spectrum import BeamSpectrum, from_energies, reweight
+from bdt_training.beam_spectrum import BeamSpectrum, from_energies, reweight
 
 
 def _flat(rng, n, lo, hi):

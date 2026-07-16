@@ -5,8 +5,8 @@ from plots import kinematics as kin
 
 
 def test_constants_match_the_reconstruction():
-    # The plots must speak the same physics as 03_analysis/reco_physics.py.
-    from analysis import reco_physics as rp
+    # The plots must speak the same physics as 05_reconstruction/reco_physics.py.
+    from reconstruction import reco_physics as rp
 
     assert kin.M_PI0 == rp.M_PI0
     assert kin.M_ETA == rp.M_ETA

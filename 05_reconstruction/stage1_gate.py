@@ -19,9 +19,9 @@ from pathlib import Path
 import numpy as np
 
 from graal_common.channels import ETA_PI0_HYP, HYPOTHESES, Hypothesis
-from analysis_bdt.build_background_features import compute_stage1_features
+from bdt_training.build_background_features import compute_stage1_features
 
-DEFAULT_MODEL_DIR = Path(__file__).parent.parent / "05_analysis_bdt" / "model"
+DEFAULT_MODEL_DIR = Path(__file__).parent.parent / "04_bdt_training" / "model"
 
 MODEL_FILE = "bdt_stage1.json"
 THRESHOLD_FILE = "stage1_threshold.txt"
@@ -63,7 +63,7 @@ class Stage1Gate:
                 f"stage-1 provenance not found: {provenance_path}. It records which "
                 "channel the model was trained to find and which mesons its features "
                 "were built around; without it the gate cannot know what it is "
-                "gating. Retrain with analysis_bdt.train_bdt_stage1 to produce it."
+                "gating. Retrain with bdt_training.train_bdt_stage1 to produce it."
             )
 
         import xgboost as xgb

@@ -1,7 +1,7 @@
 # 06 — Plot
 
 `06_plots/` è l'ultima fase della pipeline: prende i due alberi scritti
-dalla ricostruzione (fase 7, [Analisi](03-analysis)) e disegna il Dalitz
+dalla ricostruzione (fase 7, [Analisi](05-reconstruction)) e disegna il Dalitz
 plot M(η p) vs M(π⁰ p), colorato con `colz`, una volta per la ricostruzione
 solo-chi2 e una per quella con gate BDT — così il confronto fra le due, che
 è l'intero motivo per cui esistono due ricostruzioni, si vede direttamente.
@@ -9,14 +9,14 @@ solo-chi2 e una per quella con gate BDT — così il confronto fra le due, che
 ## Il pacchetto: `kinematics.py` puro, `dalitz.py` con ROOT
 
 La cartella espone due moduli con responsabilità nettamente separate, sullo
-stesso principio già visto in [03 — Analisi](03-analysis) per
+stesso principio già visto in [05 — Ricostruzione](05-reconstruction) per
 `reco_core.py`/`reco_physics.py`:
 
 - **`kinematics.py`** — nessun `import ROOT`, nessun I/O: aritmetica su
   array numpy `(4,)` `[px, py, pz, E]`. Espone `invariant_mass`, `sqrt_s`,
   `dalitz_limit`, e le costanti `M_PI0`, `M_ETA`, `M_PROTON` — che un test
   (`test_constants_match_the_reconstruction`) verifica essere identiche a
-  quelle di `03_analysis/reco_physics.py`, perché un plot in disaccordo con
+  quelle di `05_reconstruction/reco_physics.py`, perché un plot in disaccordo con
   la ricostruzione sulla massa dell'η sarebbe peggio di nessun plot.
 - **`dalitz.py`** — apre i file ROOT, riempie gli istogrammi, disegna. Fa
   `import ROOT`.
@@ -104,7 +104,7 @@ non portano la stessa informazione.
   indipendente dai fotoni. È l'unica delle due variabili che può essere in
   disaccordo con il fascio.
 - **`implicito`** usa il ramo `missing`, definito in
-  `03_analysis/reco_core.py` come `missing = (beam + target) - (eta + pi0)`
+  `05_reconstruction/reco_core.py` come `missing = (beam + target) - (eta + pi0)`
   (confermato anche in [Formati dati](data-formats)). Da qui l'identità
   algebrica
 
@@ -141,7 +141,7 @@ contribuisce solo la propria massa, quindi in γp → pηπ⁰ non può succeder
 associa al trigger il fotone di fascio sbagliato, cosa che né il chi2 né il
 gate BDT possono riparare, perché entrambi guardano i fotoni e il protone e mai
 quella associazione. La ricostruzione li scarta dentro il percorso condiviso da
-entrambi i run (vedi [Ricostruzione chi2](03-analysis-chi2)), così le due
+entrambi i run (vedi [Ricostruzione chi2](05-reconstruction-chi2)), così le due
 analisi perdono esattamente gli stessi eventi e l'unica differenza fra loro
 resta il gate.
 
@@ -180,7 +180,7 @@ messaggio chiaro sul motivo.
   flag di `run_pipeline.sh`.
 - [Formati dati](data-formats) — lo schema di `reco_eta_pi0_chi2` /
   `reco_eta_pi0_bdt`, da cui questa fase legge.
-- [03 — Analisi](03-analysis) — dove `eta`, `pi0`, `proton` e `missing`
+- [05 — Ricostruzione](05-reconstruction) — dove `eta`, `pi0`, `proton` e `missing`
   vengono scritti.
 - [Testing](testing) — perché `dalitz.py` non è coperto da pytest e
   `kinematics.py` sì.

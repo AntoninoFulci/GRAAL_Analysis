@@ -19,9 +19,9 @@ because the generators draw the beam energy first and build the event kinematics
 from it: fix the marginal and the correlations follow.
 
 Usage:
-    python -m analysis_bdt.beam_spectrum \\
+    python -m bdt_training.beam_spectrum \\
         --selected-dir data/selected \\
-        --output 05_analysis_bdt/data/beam_spectrum.npz
+        --output 04_bdt_training/data/beam_spectrum.npz
 """
 from __future__ import annotations
 
@@ -186,7 +186,7 @@ def main() -> None:
                         help="tree inside them; 'auto' takes whichever known "
                              "preselection tree is there")
     parser.add_argument("--bins", type=int, default=DEFAULT_BINS)
-    parser.add_argument("--output", default="05_analysis_bdt/data/beam_spectrum.npz")
+    parser.add_argument("--output", default="04_bdt_training/data/beam_spectrum.npz")
     args = parser.parse_args()
 
     spectrum = measure(args.selected_dir, args.tree, args.bins)

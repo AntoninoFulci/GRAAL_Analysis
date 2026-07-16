@@ -33,13 +33,13 @@ it is: a choice.
 
 And the beam. The generators draw a flat tagged-photon energy; GRAAL's beam is
 Compton-backscattered laser light with an edge. --beam-spectrum reweights the MC
-onto the beam the experiment really had — see analysis_bdt.beam_spectrum.
+onto the beam the experiment really had — see bdt_training.beam_spectrum.
 
 Usage:
-    python -m analysis_bdt.build_background_features \\
-        --mc-dir 04_mc_simulation/data \\
+    python -m bdt_training.build_background_features \\
+        --mc-dir 03_mc_simulation/data \\
         --signal-channel eta_pi0 \\
-        --beam-spectrum 05_analysis_bdt/data/beam_spectrum.npz \\
+        --beam-spectrum 04_bdt_training/data/beam_spectrum.npz \\
         --output features_stage1.npz
 """
 
@@ -66,9 +66,9 @@ from graal_common.channels import (
     resolve_hypothesis,
 )
 from graal_common.pairing import PAIR_IDX, chi2_per_pairing, pair_masses
-from analysis_bdt.beam_spectrum import BeamSpectrum
-from analysis_bdt.beam_spectrum import reweight as beam_reweight
-from analysis_bdt.photon_loss import LossParams, sample_surviving_photons
+from bdt_training.beam_spectrum import BeamSpectrum
+from bdt_training.beam_spectrum import reweight as beam_reweight
+from bdt_training.photon_loss import LossParams, sample_surviving_photons
 
 # ---------------------------------------------------------------------------
 # 24 features — computed on exactly 4 photons, after the loss model
@@ -310,7 +310,7 @@ def build_channel_features(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mc-dir", default="04_mc_simulation/data",
+    parser.add_argument("--mc-dir", default="03_mc_simulation/data",
                         help="folder holding the <channel>_mc.root files")
     parser.add_argument("--signal-channel", default="eta_pi0", choices=CHANNEL_NAMES,
                         help="which channel is class 1 (default: eta_pi0)")
@@ -322,7 +322,7 @@ def main() -> None:
                              "defaults to the one the signal channel fixes, and "
                              "is required when it fixes none")
     parser.add_argument("--beam-spectrum", default=None,
-                        help="npz from analysis_bdt.beam_spectrum: reweight the MC "
+                        help="npz from bdt_training.beam_spectrum: reweight the MC "
                              "onto the beam the experiment actually had. Without "
                              "it the training keeps the generators' flat beam, "
                              "which the data does not have")

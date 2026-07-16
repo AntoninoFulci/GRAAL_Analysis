@@ -6,14 +6,14 @@ accepted by the stage-1 BDT. Both scripts share reco_core, so any difference
 between their outputs is the gate and nothing else.
 
 Run:
-    python -m analysis.reconstruct_eta_pi0_bdt --input-dir data/selected
+    python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/selected
 """
 import argparse
 from pathlib import Path
 
-from analysis.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
-from analysis.reco_physics import ETA_PI0
-from analysis.stage1_gate import DEFAULT_MODEL_DIR, Stage1Gate
+from reconstruction.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
+from reconstruction.reco_physics import ETA_PI0
+from reconstruction.stage1_gate import DEFAULT_MODEL_DIR, Stage1Gate
 
 
 def main():

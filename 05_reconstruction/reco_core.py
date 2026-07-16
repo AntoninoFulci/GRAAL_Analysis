@@ -33,7 +33,7 @@ import ROOT
 
 from graal_common import pairing as pr
 from graal_common import trees
-from analysis import reco_physics as rp
+from reconstruction import reco_physics as rp
 
 
 # How many events to hold before asking the gate about them. A gate asked one

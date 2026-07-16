@@ -1,6 +1,6 @@
-# 03 — Analisi
+# 05 — Ricostruzione
 
-`03_analysis/` è dove i quattro fotoni e il barione di rinculo selezionati
+`05_reconstruction/` è dove i quattro fotoni e il barione di rinculo selezionati
 dalla fase 2 (`h85`) diventano un η e un π⁰ ricostruiti. La cartella espone
 tre entrypoint eseguibili sopra un nucleo condiviso:
 
@@ -21,7 +21,7 @@ responsabilità nettamente separate:
   contiene fisica propria.
 - **`reco_physics.py`** — la fisica pura: la combinatoria dei fotoni, il
   chi2, l'assegnazione η/π⁰. Funzioni su array numpy `(4,)` `[px, py, pz,
-  E]`, senza ROOT — vedi [Ricostruzione chi2](03-analysis-chi2) e
+  E]`, senza ROOT — vedi [Ricostruzione chi2](05-reconstruction-chi2) e
   [Testing](testing) per il perché di questa separazione.
 
 ## La regola di design che rende il confronto significativo
@@ -29,7 +29,7 @@ responsabilità nettamente separate:
 `reconstruct_eta_pi0_chi2.py` e `reconstruct_eta_pi0_bdt.py` differiscono
 **solo** per l'argomento `gate` passato a `run_reconstruction`: `None` nel
 primo caso, uno `Stage1Gate` caricato nel secondo (vedi
-[Gate BDT](03-analysis-bdt-gate)). Tutto il resto — lettura dell'albero,
+[Gate BDT](05-reconstruction-bdt-gate)). Tutto il resto — lettura dell'albero,
 requisiti sull'evento, combinazione chi2, scrittura — passa dalla stessa
 funzione. Questo è deliberato: qualunque differenza tra `reco_eta_pi0_chi2`
 e `reco_eta_pi0_bdt` si può attribuire al gate e a nient'altro, perché non
@@ -63,7 +63,7 @@ partenza.
 `reconstruct_2pi0.py` gira sullo stesso nucleo (`TWO_PI0` invece di
 `ETA_PI0` in `reco_physics.py`) ma senza gate. Non è un'omissione: il
 modello BDT stage-1 è addestrato usando 2π⁰ **come fondo** (vedi
-[BDT stage-1](05-analysis-bdt) e [Feature stage-1](05-analysis-bdt-features)
+[BDT stage-1](04-bdt-training) e [Feature stage-1](04-bdt-training-features)
 — `pi0pi0` è uno dei cinque canali di fondo nel CSV delle sezioni d'urto).
 Far passare eventi 2π⁰ attraverso un gate addestrato a respingerli non
 avrebbe senso: il gate esiste per separare η π⁰ dal fondo, e 2π⁰ *è* quel
@@ -71,8 +71,8 @@ fondo.
 
 ## Dove andare da qui
 
-- [Ricostruzione chi2](03-analysis-chi2) — la tabella delle combinazioni, la
+- [Ricostruzione chi2](05-reconstruction-chi2) — la tabella delle combinazioni, la
   formula del chi2, l'assegnazione η/π⁰, il taglio, il quadrimomento
   mancante.
-- [Gate BDT](03-analysis-bdt-gate) — come funziona il gate oggi, e il bug
+- [Gate BDT](05-reconstruction-bdt-gate) — come funziona il gate oggi, e il bug
   che ha reso invalidi i risultati BDT prodotti prima del fix.

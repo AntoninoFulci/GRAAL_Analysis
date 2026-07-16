@@ -2,7 +2,7 @@
 
 La fisica della combinatoria vive interamente in `00_common/pairing.py` —
 funzioni pure su array numpy, senza ROOT (vedi [Testing](testing) per il
-perché). Sta in `00_common/` e non in `03_analysis/` perché non è solo della
+perché). Sta in `00_common/` e non in `05_reconstruction/` perché non è solo della
 ricostruzione: è **lo stesso chi2** che il BDT riceve come feature 8. Erano due
 implementazioni separate — un ciclo guidato da tabella di qua, un'espressione
 vettorizzata di là — che concordavano a ispezione ed erano libere di divergere.
@@ -32,7 +32,7 @@ Tre divisioni × due assegnazioni = sei accoppiamenti per η+π⁰; tre per 2π�
 dove scambiare "heavy" e "light" rietichetta le coppie senza porre una domanda
 diversa.
 
-Questo elenco **stava su disco**, in `03_analysis/data/combinations_eta_pi0.txt`:
+Questo elenco **stava su disco**, in `05_reconstruction/data/combinations_eta_pi0.txt`:
 
 ```
 0 1 2 3 0.547862 0.134977

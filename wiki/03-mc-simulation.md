@@ -1,6 +1,6 @@
-# 04 — Simulazione Monte Carlo
+# 03 — Simulazione Monte Carlo
 
-`04_mc_simulation/` genera i sei canali usati per addestrare (e valutare)
+`03_mc_simulation/` genera i sei canali usati per addestrare (e valutare)
 il BDT stage-1: il segnale η π⁰ e cinque fondi fisici.
 
 ## I sei canali
@@ -9,9 +9,9 @@ il BDT stage-1: il segnale η π⁰ e cinque fondi fisici.
 CHANNELS = ["eta_pi0", "pi0pi0", "3pi0", "eta_2pi0", "omega_pi0", "etaprime"]
 ```
 
-(`04_mc_simulation/mc_status.py`). Ogni canale ha una propria macro ROOT
+(`03_mc_simulation/mc_status.py`). Ogni canale ha una propria macro ROOT
 generatrice (`generate_<canale>_dataset.C`) che scrive
-`04_mc_simulation/data/<canale>_mc.root` — il file viene creato dalla
+`03_mc_simulation/data/<canale>_mc.root` — il file viene creato dalla
 macro stessa (`TFile *fout = new TFile("pi0pi0_mc.root", "RECREATE")`),
 girata dalla cartella dati.
 
@@ -36,7 +36,7 @@ correlata con essa: un fascio piatto nel MC non è una discrepanza cosmetica, è
 un classificatore calibrato su un fascio che l'esperimento non ha mai avuto.
 
 La fase 4 misura `p_data(E)` dai file veri e riponderа il MC con
-`p_data(E) / p_mc(E)` (`05_analysis_bdt/beam_spectrum.py`). Riponderare la
+`p_data(E) / p_mc(E)` (`04_bdt_training/beam_spectrum.py`). Riponderare la
 marginale del fascio basta a trascinarsi dietro tutto il resto, perché i
 generatori estraggono prima l'energia del fascio e costruiscono la cinematica
 da quella.
@@ -113,7 +113,7 @@ un file al peso sbagliato, senza alcun errore.
 
 ## Il modello di perdita fotoni
 
-`05_analysis_bdt/photon_loss.py` modella l'inefficienza del rivelatore come
+`04_bdt_training/photon_loss.py` modella l'inefficienza del rivelatore come
 una probabilità di perdita indipendente per fotone:
 
 ```
@@ -146,7 +146,7 @@ stesso numero che il gate stage-1 vede in produzione.
 ## `mc_status`: cosa controlla
 
 ```bash
-python -m mc_simulation.mc_status --data-dir 04_mc_simulation/data
+python -m mc_simulation.mc_status --data-dir 03_mc_simulation/data
 ```
 
 Per ciascuno dei 6 canali controlla se `<canale>_mc.root` esiste in

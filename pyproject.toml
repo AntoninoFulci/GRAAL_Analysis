@@ -17,17 +17,22 @@ requires-python = ">=3.10"
 
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.
+#
+# The number is the order the stage runs in, and that has to hold or it is worth
+# nothing. It did not: the reconstruction was 03 while running fifth, after the
+# MC (04) and the training (05), because it needs the model those two produce.
+# Reading the folder list top to bottom taught you the wrong order.
 [tool.setuptools]
 packages = [
     "graal_common",
     "graal_common.tests",
     "event_selector",
-    "analysis",
-    "analysis.tests",
     "mc_simulation",
     "mc_simulation.tests",
-    "analysis_bdt",
-    "analysis_bdt.tests",
+    "bdt_training",
+    "bdt_training.tests",
+    "reconstruction",
+    "reconstruction.tests",
     "plots",
     "plots.tests",
 ]
@@ -37,13 +42,13 @@ packages = [
 # channel registry). Numbered anyway so it sorts above the stages that use it.
 graal_common   = "00_common"
 event_selector = "02_event_selector"
-analysis       = "03_analysis"
-mc_simulation  = "04_mc_simulation"
-analysis_bdt   = "05_analysis_bdt"
+mc_simulation  = "03_mc_simulation"
+bdt_training   = "04_bdt_training"
+reconstruction = "05_reconstruction"
 plots          = "06_plots"
 
 [tool.pytest.ini_options]
-testpaths = ["00_common/tests", "03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests", "06_plots/tests"]
+testpaths = ["00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_plots/tests"]
 # The tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
-from analysis.stage1_gate import Stage1Gate
-from analysis_bdt.build_background_features import compute_stage1_features
+from reconstruction.stage1_gate import Stage1Gate
+from bdt_training.build_background_features import compute_stage1_features
 
 
 class FakeModel:

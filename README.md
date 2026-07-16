@@ -39,11 +39,11 @@ fatta non vengono rifatti (`--force-mc` e `--force-preanalysis` per forzarli).
 |---|------|----------|--------|
 | 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
 | 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
-| 3 | Simulazione Monte Carlo | `04_mc_simulation/` | 6 canali: segnale + 5 fondi |
-| 4 | Feature stage-1 | `05_analysis_bdt/` | MC → matrice di feature |
-| 5 | Grid search | `05_analysis_bdt/` | iper-parametri |
-| 6 | Training BDT | `05_analysis_bdt/` | → modello + soglia |
-| 7 | Ricostruzione | `03_analysis/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
+| 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 6 canali: segnale + 5 fondi |
+| 4 | Feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
+| 5 | Grid search | `04_bdt_training/` | iper-parametri |
+| 6 | Training BDT | `04_bdt_training/` | → modello + soglia |
+| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
 | 8 | Plot | `06_plots/` | `data/analyzed/` → `06_plots/plots/` (Dalitz + masse) |
 
 I dati del rivelatore stanno tutti sotto `data/`. Quello su cui le fasi devono

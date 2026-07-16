@@ -9,7 +9,7 @@ contenuto no.
 | `h70` | il rivelatore (DAQ) | dati grezzi, fuori da questo repository |
 | `h80` | `01_pre_analysis/PreAnalysis.C` | un'entry per evento: `beam`, `gammas`, `protons`, `neutrons`, `deuterons` come quadrivettori |
 | `h85` | `02_event_selector/select_events.py` | come `h80`, ma solo gli eventi con più di un fotone ed esattamente un barione ricostruito |
-| `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `03_analysis/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
+| `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `05_reconstruction/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
 
 ## `h80` — pre-analisi
 
@@ -64,7 +64,7 @@ sarebbero indistinguibili senza aprire il file.
 
 ## `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` — ricostruzione
 
-Scritti da `03_analysis/reco_core.py::run_reconstruction`, letti da
+Scritti da `05_reconstruction/reco_core.py::run_reconstruction`, letti da
 `h85` in `SELECTED_DIR`. Il nome dell'albero di output è passato come
 parametro dai due entrypoint (`reconstruct_eta_pi0_chi2.py`,
 `reconstruct_eta_pi0_bdt.py`) e coincide col nome del file: `reco_eta_pi0_chi2`
