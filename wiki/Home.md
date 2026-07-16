@@ -40,6 +40,7 @@ numerata su un nome di pacchetto pulito:
 | `03_analysis/` | `analysis` |
 | `04_mc_simulation/` | `mc_simulation` |
 | `05_analysis_bdt/` | `analysis_bdt` |
+| `06_plots/` | `plots` |
 
 Questa mappatura esiste solo dopo un'installazione editable:
 
@@ -49,10 +50,16 @@ pip install -e .
 
 Senza, ogni `python -m <pacchetto>...` fallisce con `ModuleNotFoundError`. Lo
 script `run_pipeline.sh` lo sa e non lascia scoprire il problema a metà
-esecuzione: fa un preflight check (`import mc_simulation, analysis,
-analysis_bdt, event_selector`) prima di lanciare qualunque fase e si ferma
-subito, con un messaggio che dice esattamente cosa fare, se l'import fallisce.
+esecuzione: prova a importare tutti i pacchetti della tabella qui sopra prima
+di lanciare qualunque fase, e se anche uno solo manca si ferma subito, con un
+messaggio che dice esattamente cosa fare. Il controllo li elenca tutti apposta:
+lo stage dei plot è l'ultimo della catena, e senza `plots` nel preflight
+l'errore salterebbe fuori dopo ore di ricostruzione invece che in partenza.
 Vedi [Pipeline](pipeline) per il testo esatto.
+
+Nota per chi aggiorna un clone già esistente: l'installazione editable registra
+i pacchetti una volta sola, quindi un `git pull` che ne aggiunge uno nuovo non
+basta — va rifatto `pip install -e .`.
 
 ## Le otto fasi
 
