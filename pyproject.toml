@@ -26,6 +26,8 @@ packages = [
     "mc_simulation.tests",
     "analysis_bdt",
     "analysis_bdt.tests",
+    "plots",
+    "plots.tests",
 ]
 
 [tool.setuptools.package-dir]
@@ -33,9 +35,10 @@ event_selector = "02_event_selector"
 analysis       = "03_analysis"
 mc_simulation  = "04_mc_simulation"
 analysis_bdt   = "05_analysis_bdt"
+plots          = "06_plots"
 
 [tool.pytest.ini_options]
-testpaths = ["03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests"]
+testpaths = ["03_analysis/tests", "04_mc_simulation/tests", "05_analysis_bdt/tests", "06_plots/tests"]
 # The three tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"
