@@ -22,3 +22,9 @@ test_data/**
 !test_data/README.md
 !test_data/*/
 !test_data/*/.gitkeep
+data/
+
+# The plot histograms are tracked alongside the figures they came from: 16 KB of
+# TH1F/TH2F, not events, and they let the plots be restyled without re-running
+# the event loop. The blanket *.root rule at the top is for detector data.
+!06_plots/plots/istogrammi.root
