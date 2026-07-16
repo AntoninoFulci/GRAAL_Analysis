@@ -1,11 +1,11 @@
 {
-  "auc": 0.9985161621253494,
-  "n_estimators": 400,
-  "time_s": 22.2,
+  "auc": 0.9980247083089158,
+  "n_estimators": 384,
+  "time_s": 15.6,
   "max_depth": 6,
   "learning_rate": 0.2,
   "subsample": 0.8,
-  "colsample_bytree": 0.8,
-  "min_child_weight": 1,
+  "colsample_bytree": 1.0,
+  "min_child_weight": 20,
   "gamma": 0.0
 }

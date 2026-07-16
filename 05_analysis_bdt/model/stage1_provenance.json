@@ -1,0 +1,32 @@
+{
+  "signal_channel": "eta_pi0",
+  "hypothesis": "eta_pi0",
+  "signal_prior": 0.5,
+  "beam_reweighted": true,
+  "feature_names": [
+    "m_gg_01",
+    "m_gg_02",
+    "m_gg_03",
+    "m_gg_12",
+    "m_gg_13",
+    "m_gg_23",
+    "n_pairs_near_pi0",
+    "n_pairs_near_eta",
+    "best_chi2_eta_pi0",
+    "missing_mass",
+    "missing_E",
+    "missing_pz",
+    "missing_pt",
+    "total_gamma_E",
+    "beam_E",
+    "max_gamma_E",
+    "min_gamma_E",
+    "gamma_E_rms",
+    "sum_opening_angles",
+    "min_pair_mass",
+    "max_pair_mass",
+    "total_pt_gamma",
+    "proton_p",
+    "proton_costheta"
+  ]
+}

@@ -1,7 +1,11 @@
-AUC:       0.9985
-Threshold: 0.8423
-Precision: 0.9764
-Recall:    0.9856
-F1:        0.9809
-N_train:   2119915
-N_val:     529979
+Signal:    eta_pi0
+Hypothesis:eta_pi0
+Prior:     0.5  (a training choice, not a cross-section)
+Beam rewt: True
+AUC:       0.9980
+Threshold: 0.8078
+Precision: 0.9425
+Recall:    0.9579
+F1:        0.9502
+N_train:   1545680
+N_val:     386420
