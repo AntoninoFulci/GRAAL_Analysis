@@ -22,7 +22,11 @@ test_data/**
 !test_data/README.md
 !test_data/*/
 !test_data/*/.gitkeep
-data/
+
+# Anchored to the repo root: an unanchored `data/` matches at any depth and
+# would silently swallow tracked directories like 03_analysis/data/ (the
+# combination tables the reconstruction reads).
+/data/
 
 # The plot histograms are tracked alongside the figures they came from: 16 KB of
 # TH1F/TH2F, not events, and they let the plots be restyled without re-running

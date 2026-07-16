@@ -24,8 +24,9 @@
 # La ricostruzione e' in fondo perche' il run BDT ha bisogno del modello,
 # che esiste solo dopo lo stage 6.
 #
-# --test-data ridirige le cartelle dei dati del rivelatore su test_data/.
-# Il Monte Carlo e il modello restano quelli veri.
+# --test-data ridirige su test_data/ le cartelle dei dati del rivelatore
+# (raw, pre_analyzed, selected, analyzed) e i plot. Il Monte Carlo e il
+# modello restano quelli veri.
 #
 # --input-tree serve per una selected/ prodotta da una versione precedente del
 # codice, quando la preselezione lasciava all'albero il nome h80 ereditato dalla
@@ -54,7 +55,7 @@ CS_CSV="${MC_DIR}/cross_sections/cross_sections.csv"
 CUTS_DIR="01_pre_analysis/cuts"
 PREANALYSIS_MACRO="01_pre_analysis/PreAnalysis.C"
 
-# Detector-data directories. --test-data moves all four under test_data/.
+# Detector-data directories. --test-data moves all five under test_data/.
 RAW_DIR="graal_data"
 PRE_DIR="pre_analyzed"
 SELECTED_DIR="selected"
@@ -106,6 +107,7 @@ if [[ $TEST_DATA -eq 1 ]]; then
     PRE_DIR="test_data/pre_analyzed"
     SELECTED_DIR="test_data/selected"
     ANALYZED_DIR="test_data/analyzed"
+    PLOTS_DIR="test_data/plots"
 fi
 
 PYTHON="${PYTHON:-python}"
@@ -138,7 +140,7 @@ echo "=================================================="
 # A bare `python` (the default for $PYTHON) that has not run `pip install -e .`
 # fails every `python -m ...` call with ModuleNotFoundError. Fail here, loudly,
 # before anything expensive runs.
-if ! ${PYTHON} -c "import mc_simulation, analysis, analysis_bdt, event_selector" 2>/dev/null; then
+if ! ${PYTHON} -c "import mc_simulation, analysis, analysis_bdt, event_selector, plots" 2>/dev/null; then
     echo "ERROR: i pacchetti della pipeline non sono importabili."
     echo "       Esegui:  pip install -e ."
     echo "       (oppure passa il tuo interprete:  PYTHON=.venv/bin/python ./run_pipeline.sh ...)"

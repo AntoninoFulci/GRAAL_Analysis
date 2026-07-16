@@ -72,7 +72,7 @@ def _open_tree(path: Path, tree_name: str):
 def _collect(tree) -> dict[str, np.ndarray]:
     """One pass over the tree, pulling out everything the plots need."""
     mep_meas, mpp_meas, mep_miss, mpp_miss = [], [], [], []
-    eta_m, pi0_m, over_limit = [], [], []
+    eta_m, pi0_m, over_limit, eta_over_beam = [], [], [], []
 
     for e in tree:
         eta = _as_array(e.eta)
@@ -95,6 +95,13 @@ def _collect(tree) -> dict[str, np.ndarray]:
         limit = kin.dalitz_limit(kin.sqrt_s(beam, target), kin.M_PI0)
         over_limit.append(mep_meas[-1] > limit)
 
+        # Also counted, never cut: the eta carrying more energy than the beam
+        # photon. The target is at rest and contributes only its mass, so in
+        # gamma p -> p eta pi0 this is kinematically impossible — unlike the
+        # broad over_limit tail above (mostly resolution smearing at the
+        # Dalitz boundary), this one points at a tagger mis-association.
+        eta_over_beam.append(eta[3] > beam[3])
+
     return {
         "mep_meas": np.array(mep_meas),
         "mpp_meas": np.array(mpp_meas),
@@ -103,6 +110,7 @@ def _collect(tree) -> dict[str, np.ndarray]:
         "eta_mass": np.array(eta_m),
         "pi0_mass": np.array(pi0_m),
         "over_limit": np.array(over_limit),
+        "eta_over_beam": np.array(eta_over_beam),
     }
 
 
@@ -225,8 +233,10 @@ def main(argv: list[str] | None = None) -> int:
     print("\n====================================")
     print(f"Scritti in {args.out_dir}/")
     print(f"  eventi         chi2 {len(chi2['eta_mass']):7d}   BDT {len(bdt['eta_mass']):7d}")
-    print(f"  M(eta p) oltre il limite cinematico:"
+    print(f"  M(eta p) oltre il limite cinematico (soprattutto risoluzione al bordo Dalitz):"
           f"  chi2 {100 * chi2['over_limit'].mean():.1f}%   BDT {100 * bdt['over_limit'].mean():.1f}%")
+    print(f"  eta con energia maggiore del fotone di fascio (cinematicamente impossibile):"
+          f"  chi2 {100 * chi2['eta_over_beam'].mean():.1f}%   BDT {100 * bdt['eta_over_beam'].mean():.1f}%")
     print("  (contati, non tagliati)")
     print("====================================")
 

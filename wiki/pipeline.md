@@ -17,8 +17,8 @@ essere: ogni comando qui sotto è preso dal parsing reale delle opzioni in
                    [--skip-reco] [--skip-plots] [--help]
 ```
 
-`--help`/`-h` stampa le righe 2-27 dello script stesso (l'intestazione con
-schema delle fasi) ed esce con codice 0.
+`--help`/`-h` stampa l'intestazione dello script stesso (il blocco tra i due
+delimitatori `# ====`, con schema delle fasi) ed esce con codice 0.
 
 ## Flag
 

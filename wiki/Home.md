@@ -82,5 +82,5 @@ della logica di riuso.
 - [Formati dati](data-formats) — la lineage degli alberi ROOT, da `h70`
   grezzo fino a `reco_eta_pi0_chi2`/`reco_eta_pi0_bdt`.
 - [Testing](testing) — la suite pytest e il collaudo con `test_data/`.
-- Le pagine `01_`…`05_` — una per cartella, con il dettaglio dei cut, della
-  fisica di ricostruzione e delle feature BDT.
+- Le pagine `01_`…`06_` — una per cartella, con il dettaglio dei cut, della
+  fisica di ricostruzione, delle feature BDT e dei plot.
