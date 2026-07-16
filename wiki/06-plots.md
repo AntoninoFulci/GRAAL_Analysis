@@ -67,7 +67,24 @@ dalla ricostruzione (`eta_mass`, `pi0_mass`) e un flag booleano,
 | `dalitz_confronto.{png,pdf}` | i quattro Dalitz sopra, un canvas 2×2 (`TCanvas::Divide(2,2)`) | confronto diretto a colpo d'occhio |
 | `massa_eta.{png,pdf}` | massa invariante η, chi2 e BDT sovrapposti, con la massa vera come linea rossa tratteggiata | — |
 | `massa_pi0.{png,pdf}` | come sopra, per il π⁰ | — |
+| `masse_2d_chi2.{png,pdf}` | M(η) vs M(π⁰) in `colz`, campione chi2 | — |
+| `masse_2d_bdt.{png,pdf}` | come sopra, campione con gate BDT | — |
+| `masse_2d_confronto.{png,pdf}` | i due affiancati (`TCanvas::Divide(2,1)`) | — |
 | `istogrammi.root` | tutti gli istogrammi (`TH1F`/`TH2F`), scritti con `Write()` | ristilizzare i plot senza rifare il loop sugli alberi |
+
+I `masse_2d_*` sono le **stesse identiche masse** dei due plot 1D qui sopra,
+incrociate: gli array che riempiono `massa_eta` e `massa_pi0` sono quelli che
+riempiono gli assi X e Y. Per questo condividono le finestre dei plot 1D
+(`_ETA_MASS_MIN/MAX` = 0.3–0.8, `_PI0_MASS_MIN/MAX` = 0.05–0.25, costanti
+proprio per non poter divergere): una figura leggibile contro le altre due solo
+se gli assi coincidono. Due linee rosse tratteggiate si incrociano su
+(m_η, m_π⁰), dove il segnale deve stare.
+
+Su questa vista il gate BDT si legge in modo diverso dai plot 1D: non come una
+mediana che si sposta, ma come la nube che si centra sull'incrocio. Sui dati
+reali lo spostamento è quasi tutto **orizzontale** — il π⁰ era già quasi al
+posto giusto, l'η no. Coerente col fatto che il fondo combinatorio sporcava
+molto più l'η del π⁰.
 
 Ogni figura esce sia in **PNG** (per guardarla) sia in **PDF** (vettoriale,
 per le slide) — `_save` scrive entrambi da uno stesso canvas. Il range
