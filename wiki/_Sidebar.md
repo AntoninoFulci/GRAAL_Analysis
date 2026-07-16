@@ -12,4 +12,5 @@
 - [04 — Simulazione MC](04-mc-simulation)
 - [05 — BDT stage-1](05-analysis-bdt)
     - [Feature stage-1](05-analysis-bdt-features)
+- [06 — Plot](06-plots)
 - [Testing](testing)

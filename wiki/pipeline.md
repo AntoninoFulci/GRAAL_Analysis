@@ -1,8 +1,8 @@
 # Pipeline
 
-`run_pipeline.sh` incatena le sette fasi da dati grezzi a eventi ricostruiti.
-Questa pagina descrive lo script così com'è, non come "dovrebbe" essere:
-ogni comando qui sotto è preso dal parsing reale delle opzioni in
+`run_pipeline.sh` incatena le otto fasi da dati grezzi a eventi ricostruiti
+e plot. Questa pagina descrive lo script così com'è, non come "dovrebbe"
+essere: ogni comando qui sotto è preso dal parsing reale delle opzioni in
 `run_pipeline.sh`.
 
 ## Uso
@@ -14,7 +14,7 @@ ogni comando qui sotto è preso dal parsing reale delle opzioni in
                    [--skip-mc] [--force-mc]
                    [--skip-features] [--skip-grid-search]
                    [--grid-search-niter N] [--skip-train]
-                   [--skip-reco] [--help]
+                   [--skip-reco] [--skip-plots] [--help]
 ```
 
 `--help`/`-h` stampa le righe 2-27 dello script stesso (l'intestazione con
@@ -36,6 +36,7 @@ schema delle fasi) ed esce con codice 0.
 | `--grid-search-niter N` | iterazioni della grid search in fase 5 | `30` |
 | `--skip-train` | salta la fase 6 (training); **salta anche la fase 5**, perché la grid search non ha senso senza un training successivo che ne usi il risultato | disattivo |
 | `--skip-reco` | salta la fase 7 | disattivo |
+| `--skip-plots` | salta la fase 8 | disattivo |
 
 Le variabili `PYTHON` e `ROOT_EXEC` (env, non flag) scelgono l'interprete
 Python e l'eseguibile ROOT da usare; di default sono `python` e `root`.
@@ -224,3 +225,30 @@ addestrato in un run precedente.
 I due run condividono lo stesso `SELECTED_DIR` (albero `h85`) e lo stesso
 taglio chi2; l'unica differenza tra i due output è il gate BDT nel secondo —
 vedi [Formati dati](data-formats) per lo schema degli alberi di output.
+
+## Fase 8 — Plot (Dalitz + masse invarianti)
+
+```bash
+${PYTHON} -u -m plots.dalitz \
+    --chi2    "${ANALYZED_DIR}/reco_eta_pi0_chi2.root" \
+    --bdt     "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
+    --out-dir "06_plots/plots"
+```
+
+**Skip automatico**: se manca almeno uno dei due file ricostruiti in
+`ANALYZED_DIR/`, la fase si salta da sola, senza fermare la pipeline:
+
+```
+[8/8] Plot — saltato: manca almeno un file ricostruito in analyzed/
+    (i plot confrontano le due analisi: servono entrambi)
+```
+
+Deliberato: il plot esiste solo per confrontare le due ricostruzioni, e un
+solo file non basta a produrne uno sensato — per esempio dopo un run con
+`--skip-reco`. Consuma i due alberi della fase 7; produce in `06_plots/plots/`
+i Dalitz (`colz`) per le due ricostruzioni e le due definizioni di protone,
+il confronto a 4 pannelli, le masse invarianti η/π⁰ sovrapposte, e
+`istogrammi.root` con tutti gli istogrammi per poterli ristilizzare senza
+rifare il loop. Dettagli in [06 — Plot](06-plots), inclusa la spiegazione
+di perché le due definizioni di protone (misurato / da `missing`) non sono
+equivalenti.
