@@ -90,9 +90,7 @@ def main():
             # keep events with >1 photon and exactly one recoil baryon
             if (
                 event.gammas.size() > 1 and
-                event.protons.size() +
-                event.neutrons.size() +
-                event.deuterons.size() == 1
+                event.fcharged_theta.size() == 1
             ):
                 selected_tree.Fill()
                 n_selected += 1
