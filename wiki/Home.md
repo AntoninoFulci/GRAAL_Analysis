@@ -54,10 +54,9 @@ analysis_bdt, event_selector`) prima di lanciare qualunque fase e si ferma
 subito, con un messaggio che dice esattamente cosa fare, se l'import fallisce.
 Vedi [Pipeline](pipeline) per il testo esatto.
 
-## Le sette fasi
+## Le otto fasi
 
-`run_pipeline.sh` è stato ricostruito di recente in sette fasi numerate,
-eseguite in quest'ordine:
+`run_pipeline.sh` esegue la catena in otto fasi numerate, in quest'ordine:
 
 | # | Fase | Cartella | Da → a |
 |---|------|----------|--------|
@@ -68,11 +67,13 @@ eseguite in quest'ordine:
 | 5 | Grid search iper-parametri | `05_analysis_bdt/` | → `best_hyperparams.json` |
 | 6 | Training BDT stage-1 | `05_analysis_bdt/` | → modello + soglia |
 | 7 | Ricostruzione | `03_analysis/` | `selected/` → `analyzed/` (chi2 **e** BDT) |
+| 8 | Plot | `06_plots/` | `analyzed/` → `06_plots/plots/` (Dalitz + masse) |
 
-La ricostruzione è l'ultima fase perché il run con gate BDT ha bisogno del
-modello addestrato, che esiste solo dopo la fase 6 — vedi
-[Pipeline](pipeline) per il dettaglio di ogni fase, dei flag e della logica
-di riuso.
+L'ordine non è arbitrario: la ricostruzione sta dopo il training perché il run
+con gate BDT ha bisogno del modello, che esiste solo dopo la fase 6; e i plot
+stanno in fondo perché confrontano le due ricostruzioni, quindi le vogliono
+entrambe. Vedi [Pipeline](pipeline) per il dettaglio di ogni fase, dei flag e
+della logica di riuso.
 
 ## Dove andare da qui
 

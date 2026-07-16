@@ -44,9 +44,11 @@ fatta non vengono rifatti (`--force-mc` e `--force-preanalysis` per forzarli).
 | 5 | Grid search | `05_analysis_bdt/` | iper-parametri |
 | 6 | Training BDT | `05_analysis_bdt/` | → modello + soglia |
 | 7 | Ricostruzione | `03_analysis/` | `selected/` → `analyzed/` (chi2 **e** BDT) |
+| 8 | Plot | `06_plots/` | `analyzed/` → `06_plots/plots/` (Dalitz + masse) |
 
-La ricostruzione è ultima perché il run BDT ha bisogno del modello, che esiste solo
-dopo la fase 6.
+La ricostruzione sta dopo il training perché il run BDT ha bisogno del modello, che
+esiste solo dopo la fase 6; i plot stanno in fondo perché confrontano le due
+ricostruzioni e le vogliono entrambe.
 
 ## Test
 
