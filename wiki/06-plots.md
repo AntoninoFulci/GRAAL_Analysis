@@ -32,16 +32,16 @@ lo stesso motivo: è un guscio di I/O attorno a fisica già testata altrove.
 ## CLI
 
 ```bash
-python -m plots.dalitz --chi2 data/analyzed/reco_eta_pi0_chi2.root \
-                        --bdt  data/analyzed/reco_eta_pi0_bdt.root \
-                        [--out-dir 06_plots/plots]
+python -m plots.dalitz --chi2 results/reco/reco_eta_pi0_chi2.root \
+                        --bdt  results/reco/reco_eta_pi0_bdt.root \
+                        [--out-dir results/plots]
 ```
 
 | Flag | Effetto | Default |
 |---|---|---|
 | `--chi2` | file di `reconstruct_eta_pi0_chi2` (obbligatorio) | — |
 | `--bdt` | file di `reconstruct_eta_pi0_bdt` (obbligatorio) | — |
-| `--out-dir` | cartella di destinazione per figure e `.root` | `06_plots/plots` |
+| `--out-dir` | cartella di destinazione per figure e `.root` | `results/plots` |
 
 Entrambi i file devono avere almeno un evento: `_open_tree` solleva
 `RuntimeError` su un albero vuoto — "un istogramma vuoto si disegna lo
@@ -154,13 +154,13 @@ lasciarlo passare.
 
 ```bash
 python -m plots.dalitz \
-    --chi2    "${ANALYZED_DIR}/reco_eta_pi0_chi2.root" \
-    --bdt     "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
-    --out-dir "06_plots/plots"
+    --chi2    "${RECO_DIR}/reco_eta_pi0_chi2.root" \
+    --bdt     "${RECO_DIR}/reco_eta_pi0_bdt.root" \
+    --out-dir "results/plots"
 ```
 
 Salta con `--skip-plots`. Se anche uno solo dei due file ricostruiti manca
-in `ANALYZED_DIR/`, la fase si salta **automaticamente**, senza errore:
+in `RECO_DIR/`, la fase si salta **automaticamente**, senza errore:
 
 ```
 [8/8] Plot — saltato: manca almeno un file ricostruito in analyzed/

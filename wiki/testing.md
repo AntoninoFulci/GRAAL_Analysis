@@ -65,7 +65,8 @@ stampino lo stesso `Skipped (not exactly 1 proton)`.
 ```
 
 `--test-data` rimappa le quattro cartelle dati del rivelatore
-(`RAW_DIR`, `PRE_DIR`, `SELECTED_DIR`, `ANALYZED_DIR`) sotto `test_data/`,
+(`RAW_DIR`, `PRE_DIR`, `SELECTED_DIR`) e i risultati (`RECO_DIR`,
+`PLOTS_DIR`) sotto `test_data/`,
 con la stessa struttura che hanno sul server — vedi [Pipeline](pipeline)
 per i default esatti. La cartella non è versionata: te la crei e te la
 riempi.

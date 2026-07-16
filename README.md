@@ -43,8 +43,8 @@ fatta non vengono rifatti (`--force-mc` e `--force-preanalysis` per forzarli).
 | 4 | Feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
 | 5 | Grid search | `04_bdt_training/` | iper-parametri |
 | 6 | Training BDT | `04_bdt_training/` | → modello + soglia |
-| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
-| 8 | Plot | `06_plots/` | `data/analyzed/` → `06_plots/plots/` (Dalitz + masse) |
+| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `results/reco/` (chi2 **e** BDT) |
+| 8 | Plot | `06_plots/` | `results/reco/` → `results/plots/` (Dalitz + masse) |
 
 I dati del rivelatore stanno tutti sotto `data/`. Quello su cui le fasi devono
 essere d'accordo — masse dei mesoni, elenco dei canali, sezioni d'urto — sta in

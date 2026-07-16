@@ -29,10 +29,12 @@ test_data/
 # by the *.root and *.npz rules above, not by this one.
 /data/
 
-# Plot output is a result, not source: it is derived from data/analyzed/ by
-# `python -m plots.dalitz` and regenerated whenever the reconstruction changes.
-# Tracking it put binary churn in every diff that touched the analysis, and let
-# the repo carry figures that could silently disagree with the code that drew
-# them. The folder itself stays (.gitkeep) so the stage has somewhere to write.
-06_plots/plots/*
-!06_plots/plots/.gitkeep
+# What the analysis concluded, not what it is: results/reco holds the
+# reconstructed trees, results/plots the figures drawn from them. Both are
+# rebuilt from data/ and the code whenever either changes, so tracking them put
+# binary churn in every diff that touched the analysis and let the repo carry
+# figures that could quietly disagree with the code beside them.
+#
+# 06_plots/ is now only the scripts that draw. Results do not live in a source
+# folder: that is how they got committed in the first place.
+/results/

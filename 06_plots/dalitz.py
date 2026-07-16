@@ -23,8 +23,8 @@ Two proton variants are produced, and they are NOT equivalent:
               but it is not new information.
 
 Run:
-    python -m plots.dalitz --chi2 data/analyzed/reco_eta_pi0_chi2.root \\
-                           --bdt  data/analyzed/reco_eta_pi0_bdt.root
+    python -m plots.dalitz --chi2 results/reco/reco_eta_pi0_chi2.root \\
+                           --bdt  results/reco/reco_eta_pi0_bdt.root
 """
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="output di reconstruct_eta_pi0_chi2")
     p.add_argument("--bdt", type=Path, required=True,
                    help="output di reconstruct_eta_pi0_bdt")
-    p.add_argument("--out-dir", type=Path, default=Path("06_plots/plots"))
+    p.add_argument("--out-dir", type=Path, default=Path("results/plots"))
     args = p.parse_args(argv)
 
     ROOT.gROOT.SetBatch(True)

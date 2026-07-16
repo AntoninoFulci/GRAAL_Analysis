@@ -19,17 +19,18 @@
 #   4. Build features stage-1
 #   5. Grid search iper-parametri
 #   6. Training BDT stage-1
-#   7. Ricostruzione       data/selected/     -> data/analyzed/     (chi2 e BDT)
-#   8. Plot                data/analyzed/     -> 06_plots/plots/    (Dalitz + masse)
+#   7. Ricostruzione       data/selected/     -> results/reco/      (chi2 e BDT)
+#   8. Plot                results/reco/      -> results/plots/    (Dalitz + masse)
 #
 # La ricostruzione e' in fondo perche' il run BDT ha bisogno del modello,
 # che esiste solo dopo lo stage 6.
 #
-# --test-data ridirige su test_data/ le cartelle dei dati del rivelatore
-# (raw, pre_analyzed, selected, analyzed) e i plot. Il Monte Carlo e il
-# modello restano quelli veri.
+# --test-data ridirige su test_data/ sia i dati del rivelatore (raw,
+# pre_analyzed, selected) sia i risultati (results/reco, results/plots). Il
+# Monte Carlo e il modello restano quelli veri.
 #
-# I dati del rivelatore stanno sotto data/ (data/selected, data/analyzed, ...).
+# I dati del rivelatore stanno sotto data/; i risultati sotto results/
+# (results/reco per gli alberi ricostruiti, results/plots per le figure).
 #
 # --input-tree di default e' 'auto': la ricostruzione prende l'albero di
 # preselezione che i file hanno davvero, h85 o il piu' vecchio h80 ereditato
@@ -82,17 +83,22 @@ BEAM_SPECTRUM_FILE="${BDT_DIR}/data/beam_spectrum.npz"
 CUTS_DIR="01_pre_analysis/cuts"
 PREANALYSIS_MACRO="01_pre_analysis/PreAnalysis.C"
 
-# Detector-data directories. --test-data moves all five under test_data/.
-# Everything the detector produced lives under data/. These used to default to
-# a bare selected/ and analyzed/ at the repo root, which is not where the data
-# is: stage 7 died on "input directory not found: selected" for anyone
-# following the README, and analyzed/ only appeared to work because it had been
-# symlinked to data/analyzed/ by hand.
+# Detector data in, results out. --test-data moves them all under test_data/.
+#
+# data/ is what the detector produced and the selection made of it: an input.
+# results/ is what this analysis concluded: reco/ holds the reconstructed trees,
+# plots/ the figures drawn from them. The two are separate because they age
+# differently — data/ is given, results/ is rebuilt whenever the code changes.
+#
+# The reconstruction used to write into data/analyzed/, and the plots into
+# 06_plots/plots/, next to the code that drew them. Results living inside a
+# source folder is how they end up committed, and how a figure ends up
+# disagreeing with the code beside it.
 RAW_DIR="data/graal_data"
 PRE_DIR="data/pre_analyzed"
 SELECTED_DIR="data/selected"
-ANALYZED_DIR="data/analyzed"
-PLOTS_DIR="06_plots/plots"
+RECO_DIR="results/reco"
+PLOTS_DIR="results/plots"
 
 TEST_DATA=0
 SKIP_PREANALYSIS=0
@@ -140,8 +146,8 @@ if [[ $TEST_DATA -eq 1 ]]; then
     RAW_DIR="test_data/raw"
     PRE_DIR="test_data/pre_analyzed"
     SELECTED_DIR="test_data/selected"
-    ANALYZED_DIR="test_data/analyzed"
-    PLOTS_DIR="test_data/plots"
+    RECO_DIR="test_data/results/reco"
+    PLOTS_DIR="test_data/results/plots"
 fi
 
 PYTHON="${PYTHON:-python}"
@@ -372,19 +378,19 @@ fi
 if [[ $SKIP_RECO -eq 0 ]]; then
     stage 7 "Ricostruzione eta pi0 (chi2 + BDT)"
 
-    mkdir -p "${ANALYZED_DIR}"
+    mkdir -p "${RECO_DIR}"
 
     echo "  -> analisi standard (chi2)"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
-        --output-file "${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
+        --output-file "${RECO_DIR}/reco_eta_pi0_chi2.root"
 
     echo "  -> analisi con gate BDT stage-1"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
-        --output-file "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
+        --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
         --model-dir   "${MODEL_DIR}"
 
     stage_done
@@ -394,12 +400,12 @@ fi
 
 # ---- Stage 8: plot (Dalitz + masse invarianti) ----
 if [[ $SKIP_PLOTS -eq 0 ]]; then
-    RECO_CHI2="${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
-    RECO_BDT="${ANALYZED_DIR}/reco_eta_pi0_bdt.root"
+    RECO_CHI2="${RECO_DIR}/reco_eta_pi0_chi2.root"
+    RECO_BDT="${RECO_DIR}/reco_eta_pi0_bdt.root"
 
     if [[ ! -f "${RECO_CHI2}" || ! -f "${RECO_BDT}" ]]; then
         echo ""
-        echo "[8/${TOTAL_STAGES}] Plot — saltato: manca almeno un file ricostruito in ${ANALYZED_DIR}/"
+        echo "[8/${TOTAL_STAGES}] Plot — saltato: manca almeno un file ricostruito in ${RECO_DIR}/"
         echo "    (i plot confrontano le due analisi: servono entrambi)"
     else
         stage 8 "Plot (Dalitz + masse invarianti)"

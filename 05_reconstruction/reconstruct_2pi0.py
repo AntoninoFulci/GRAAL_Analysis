@@ -22,7 +22,7 @@ def main():
     p.add_argument("--input-dir", type=Path, default=Path("data/selected"),
                    help="folder with the preselected ROOT files")
     p.add_argument("--output-file", type=Path,
-                   default=Path("data/analyzed/reco_2pi0.root"))
+                   default=Path("results/reco/reco_2pi0.root"))
     p.add_argument("--input-tree", default=AUTO_TREE,
                    help="tree inside the selected files; 'auto' takes whichever "
                         "known preselection tree is there (h85, or the older h80)")

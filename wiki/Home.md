@@ -10,13 +10,17 @@ dal π⁰. Il codice risolve questo problema in due modi distinti, pensati fin
 dall'inizio per essere confrontati fra loro piuttosto che per sostituirsi
 l'uno all'altro:
 
-- **ricostruzione chi2** (`analysis.reconstruct_eta_pi0_chi2`) — l'analisi
-  standard: prova tutti gli accoppiamenti possibili dei quattro fotoni e
-  tiene quello che minimizza un chi2 contro le masse nominali di η e π⁰;
-- **ricostruzione con gate BDT** (`analysis.reconstruct_eta_pi0_bdt`) —
+- **ricostruzione chi2** (`reconstruction.reconstruct_eta_pi0_chi2`) —
+  l'analisi standard: prova tutti gli accoppiamenti possibili dei quattro
+  fotoni e tiene quello che minimizza un chi2 contro le masse nominali di η
+  e π⁰;
+- **ricostruzione con gate BDT** (`reconstruction.reconstruct_eta_pi0_bdt`) —
   identica alla precedente, ma ogni evento deve prima superare un
   classificatore BDT (stage-1) addestrato a riconoscere il fondo fisico
   (π⁰π⁰, 3π⁰, η2π⁰, ωπ⁰, η′) prima ancora di arrivare al chi2.
+
+Il BDT **non ricostruisce**: non appaia fotoni e non produce masse. Dice solo
+sì o no. A ricostruire è sempre e solo il chi2, in entrambi i rami.
 
 Le due ricostruzioni condividono lo stesso codice di I/O e lo stesso taglio
 chi2 (`05_reconstruction/reco_core.py`): l'unica differenza tra i due file di
@@ -91,8 +95,8 @@ basta — va rifatto `pip install -e .`.
 | 4 | Build feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
 | 5 | Grid search iper-parametri | `04_bdt_training/` | → `best_hyperparams.json` |
 | 6 | Training BDT stage-1 | `04_bdt_training/` | → modello + soglia |
-| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `data/analyzed/` (chi2 **e** BDT) |
-| 8 | Plot | `06_plots/` | `data/analyzed/` → `06_plots/plots/` (Dalitz + masse) |
+| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `results/reco/` (chi2 **e** BDT) |
+| 8 | Plot | `06_plots/` | `results/reco/` → `results/plots/` (Dalitz + masse) |
 
 L'ordine non è arbitrario: la ricostruzione sta dopo il training perché il run
 con gate BDT ha bisogno del modello, che esiste solo dopo la fase 6; e i plot

@@ -64,17 +64,19 @@ immediato e leggibile — vedi [Home](Home) per il perché dei nomi numerati.
 
 ## Cartelle dati del rivelatore e `--test-data`
 
-Quattro cartelle sono, di default, quelle di produzione:
-
 | Variabile | Default | Con `--test-data` |
 |---|---|---|
-| `RAW_DIR` | `graal_data` | `test_data/raw` |
-| `PRE_DIR` | `pre_analyzed` | `test_data/pre_analyzed` |
-| `SELECTED_DIR` | `selected` | `test_data/selected` |
-| `ANALYZED_DIR` | `analyzed` | `test_data/analyzed` |
+| `RAW_DIR` | `data/graal_data` | `test_data/raw` |
+| `PRE_DIR` | `data/pre_analyzed` | `test_data/pre_analyzed` |
+| `SELECTED_DIR` | `data/selected` | `test_data/selected` |
+| `RECO_DIR` | `results/reco` | `test_data/results/reco` |
+| `PLOTS_DIR` | `results/plots` | `test_data/results/plots` |
 
-Nota: il default di produzione per i dati grezzi è `graal_data/`, **non**
-`test_data/raw/` — quella seconda directory esiste solo sotto `--test-data`.
+`data/` è ciò che il rivelatore ha prodotto e che la selezione ne ha fatto: un
+**ingresso**. `results/` è ciò che l'analisi ha concluso: `reco/` gli alberi
+ricostruiti, `plots/` le figure disegnate da quelli. Stanno separati perché
+invecchiano in modo diverso — `data/` è dato, `results/` si rifà ogni volta che
+cambia il codice. Per questo `results/` non è versionata.
 
 Il Monte Carlo (`03_mc_simulation/data`) e il modello BDT
 (`04_bdt_training/model`) **non** vengono rimappati da `--test-data`: restano
@@ -221,11 +223,11 @@ stampa la soglia (`stage1_threshold.txt`) e le metriche
 ```bash
 ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
     --input-dir   "${SELECTED_DIR}" \
-    --output-file "${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
+    --output-file "${RECO_DIR}/reco_eta_pi0_chi2.root"
 
 ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
     --input-dir   "${SELECTED_DIR}" \
-    --output-file "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
+    --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
     --model-dir   "04_bdt_training/model"
 ```
 
@@ -243,13 +245,13 @@ vedi [Formati dati](data-formats) per lo schema degli alberi di output.
 
 ```bash
 ${PYTHON} -u -m plots.dalitz \
-    --chi2    "${ANALYZED_DIR}/reco_eta_pi0_chi2.root" \
-    --bdt     "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
-    --out-dir "06_plots/plots"
+    --chi2    "${RECO_DIR}/reco_eta_pi0_chi2.root" \
+    --bdt     "${RECO_DIR}/reco_eta_pi0_bdt.root" \
+    --out-dir "results/plots"
 ```
 
 **Skip automatico**: se manca almeno uno dei due file ricostruiti in
-`ANALYZED_DIR/`, la fase si salta da sola, senza fermare la pipeline:
+`RECO_DIR/`, la fase si salta da sola, senza fermare la pipeline:
 
 ```
 [8/8] Plot — saltato: manca almeno un file ricostruito in analyzed/
@@ -258,7 +260,7 @@ ${PYTHON} -u -m plots.dalitz \
 
 Deliberato: il plot esiste solo per confrontare le due ricostruzioni, e un
 solo file non basta a produrne uno sensato — per esempio dopo un run con
-`--skip-reco`. Consuma i due alberi della fase 7; produce in `06_plots/plots/`
+`--skip-reco`. Consuma i due alberi della fase 7; produce in `results/plots/`
 i Dalitz (`colz`) per le due ricostruzioni e le due definizioni di protone,
 il confronto a 4 pannelli, le masse invarianti η/π⁰ sovrapposte, e
 `istogrammi.root` con tutti gli istogrammi per poterli ristilizzare senza
