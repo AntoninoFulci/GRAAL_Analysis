@@ -1,12 +1,19 @@
 [build-system]
-requires = ["setuptools>=68"]
+# 64 is where setuptools grew the build_editable hook (PEP 660), which is what
+# `pip install -e .` needs. Asking for more buys nothing and only narrows the
+# machines this installs on.
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "graal-analysis"
 version = "0.1.0"
 description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
-requires-python = ">=3.11"
+# Tied to the Python that PyROOT is built against on the analysis farm (3.10.12).
+# PyROOT only imports from the interpreter ROOT was compiled for, so that
+# interpreter sets the floor — not our preference. The code itself needs nothing
+# newer: modern annotations are all behind `from __future__ import annotations`.
+requires-python = ">=3.10"
 
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.

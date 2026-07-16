@@ -3,7 +3,7 @@
 # GRAAL full pipeline, from raw detector files to reconstructed events.
 #
 # Usage:
-#   ./run_pipeline.sh [--test-data] [--nevents N]
+#   ./run_pipeline.sh [--test-data] [--nevents N] [--input-tree NOME]
 #                     [--skip-preanalysis] [--force-preanalysis]
 #                     [--skip-selection]
 #                     [--skip-mc] [--force-mc]
@@ -25,12 +25,24 @@
 #
 # --test-data ridirige le cartelle dei dati del rivelatore su test_data/.
 # Il Monte Carlo e il modello restano quelli veri.
+#
+# --input-tree serve per una selected/ prodotta da una versione precedente del
+# codice, quando la preselezione lasciava all'albero il nome h80 ereditato dalla
+# pre-analisi. Sui dati nuovi non serve: il default e' gia' h85. Esempio, per
+# ricostruire e basta una selected/ vecchia:
+#   ./run_pipeline.sh --input-tree h80 --skip-preanalysis --skip-selection \
+#                     --skip-mc --skip-features --skip-grid-search --skip-train
 # ============================================================
 
 set -euo pipefail
 
 # ---- defaults ----
 NEVENTS=1000000
+
+# The tree the reconstruction reads out of selected/. The preselection writes
+# h85; an older selected/ may still carry the h80 name it inherited from the
+# pre-analysis, and --input-tree is how you point at it.
+INPUT_TREE="h85"
 
 MC_DIR="04_mc_simulation"
 MC_DATA_DIR="${MC_DIR}/data"
@@ -64,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --test-data)          TEST_DATA=1;            shift   ;;
         --nevents)            NEVENTS="$2";           shift 2 ;;
+        --input-tree)         INPUT_TREE="$2";        shift 2 ;;
         --skip-preanalysis)   SKIP_PREANALYSIS=1;     shift   ;;
         --force-preanalysis)  FORCE_PREANALYSIS=1;    shift   ;;
         --skip-selection)     SKIP_SELECTION=1;       shift   ;;
@@ -75,7 +88,10 @@ while [[ $# -gt 0 ]]; do
         --skip-train)         SKIP_TRAIN=1;           shift   ;;
         --skip-reco)          SKIP_RECO=1;            shift   ;;
         --help|-h)
-            sed -n '2,27p' "$0"
+            # Print the header block between the two ==== delimiters. Bound to the
+            # delimiter rather than a line number, which silently truncated the
+            # help every time the header grew.
+            sed -n '3,/^# =\{10,\}$/{/^# =\{10,\}$/d; p;}' "$0"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -317,11 +333,13 @@ if [[ $SKIP_RECO -eq 0 ]]; then
     echo "  -> analisi standard (chi2)"
     ${PYTHON} -u -m analysis.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
+        --input-tree  "${INPUT_TREE}" \
         --output-file "${ANALYZED_DIR}/reco_eta_pi0_chi2.root"
 
     echo "  -> analisi con gate BDT stage-1"
     ${PYTHON} -u -m analysis.reconstruct_eta_pi0_bdt \
         --input-dir   "${SELECTED_DIR}" \
+        --input-tree  "${INPUT_TREE}" \
         --output-file "${ANALYZED_DIR}/reco_eta_pi0_bdt.root" \
         --model-dir   "${MODEL_DIR}"
 
