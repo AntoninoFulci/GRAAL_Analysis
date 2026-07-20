@@ -10,7 +10,7 @@ carried a comment asking the reader to keep them in sync by hand.
 Two ideas that are easy to confuse, and are deliberately separate here:
 
   Hypothesis — WHICH TWO MESONS the 4 observed photons are being tested against.
-    It sets the mass poles and the chi2 the features are built around. It is a
+    It sets the mass and the chi2 the features are built around. It is a
     question asked of an event, not a property the event has.
 
   MCChannel — WHICH REACTION a Monte Carlo file was generated from: its photon
