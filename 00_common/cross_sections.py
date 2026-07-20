@@ -40,7 +40,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from graal_common.channels import M_PROTON
+from graal_common.channels import M_PROTON, MCChannel
 
 # Points per tabulated curve. The recursion below tabulates Phi_k once as a
 # function of the sub-system mass and interpolates it, rather than nesting a
@@ -148,3 +148,32 @@ def phase_space_volume(
     W_grid, curve = _cached_curve(masses)
     W_arr = np.asarray(W, dtype=np.float64)
     return np.interp(W_arr, W_grid, curve, left=0.0, right=float(curve[-1]))
+
+
+def sigma_at(channel: MCChannel, E: np.ndarray) -> np.ndarray:
+    """Cross-section [ub] of `channel` at beam energies `E`.
+
+        sigma(E) = sigma_ref * min(1, Phi_n(W(E)) / Phi_n(W(E_ref)))
+
+    Zero at and below threshold. Never above sigma_ref.
+    """
+    if channel.sigma_ref_ub is None or channel.e_ref_gev is None:
+        raise ValueError(
+            f"channel {channel.name!r} has no reference cross-section, so it has "
+            f"no sigma(E). Channels weighted by signal_br_ratio (or the signal "
+            f"itself) are weighted without one — see compute_shares."
+        )
+
+    masses = channel.production_masses
+    phi = phase_space_volume(W_of_E(E), masses)
+
+    phi_ref = float(phase_space_volume(W_of_E(channel.e_ref_gev), masses))
+    if phi_ref <= 0.0:
+        raise ValueError(
+            f"channel {channel.name!r}: e_ref_gev {channel.e_ref_gev} is at or "
+            f"below the production threshold "
+            f"{channel.production_threshold_gev:.3f}, so the cross-section has "
+            f"nothing to normalise against"
+        )
+
+    return channel.sigma_ref_ub * np.minimum(1.0, phi / phi_ref)

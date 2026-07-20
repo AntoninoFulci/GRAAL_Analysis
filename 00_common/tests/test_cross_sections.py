@@ -96,3 +96,81 @@ class TestPhaseSpaceVolume:
     def test_refuses_fewer_than_two_bodies(self):
         with pytest.raises(ValueError, match="at least two"):
             phase_space_volume(1.5, (M_PROTON,))
+
+
+from graal_common.channels import M_OMEGA, MCChannel
+from graal_common.cross_sections import sigma_at
+
+
+def _channel(name="probe", sigma=2.0, e_ref=1.5, masses=(M_PROTON, M_ETA, M_PI0)):
+    return MCChannel(
+        name=name, sigma_ref_ub=sigma, e_ref_gev=e_ref, production_masses=masses
+    )
+
+
+class TestSigmaAt:
+    def test_zero_below_threshold(self):
+        c = _channel()  # threshold 0.931
+        assert np.all(sigma_at(c, np.array([0.5, 0.8, 0.93])) == 0.0)
+
+    def test_equals_sigma_ref_at_the_reference_energy(self):
+        c = _channel(sigma=2.0, e_ref=1.5)
+        assert float(sigma_at(c, np.array([1.5]))[0]) == pytest.approx(2.0, rel=1e-6)
+
+    def test_never_exceeds_sigma_ref_above_the_reference_energy(self):
+        # The saturation. Unbounded phase space would scale a channel measured
+        # near its peak UPWARDS at the top of the beam range, inventing
+        # structure from nothing — and it would do it to pi0pi0, the largest
+        # background.
+        c = _channel(sigma=2.0, e_ref=1.0)
+        got = sigma_at(c, np.linspace(1.0, 2.0, 50))
+        assert np.all(got <= 2.0 + 1e-12)
+        assert float(got[-1]) == pytest.approx(2.0, rel=1e-6)
+
+    def test_rises_between_threshold_and_the_reference_energy(self):
+        c = _channel(sigma=2.0, e_ref=1.6)
+        got = sigma_at(c, np.linspace(0.95, 1.6, 40))
+        assert np.all(np.diff(got) > 0)
+        assert float(got[0]) < 0.5  # still far from the plateau just above threshold
+
+    def test_a_near_threshold_channel_is_suppressed_where_the_beam_lives(self):
+        # The bug this whole exercise exists for. omega_pi0 opens at 1.366 and
+        # its sigma_ref of 1.2 ub was measured far above that; flat weighting
+        # handed it the full 1.2 across the few percent of beam range where it
+        # exists at all.
+        omega = MCChannel(
+            name="omega_probe",
+            sigma_ref_ub=1.2,
+            e_ref_gev=1.9,
+            production_masses=(M_PROTON, M_OMEGA, M_PI0),
+        )
+        got = sigma_at(omega, np.array([1.40, 1.50, 1.60]))
+        assert np.all(got < 1.2), "near-threshold sigma must be below sigma_ref"
+        assert np.all(np.diff(got) > 0)
+
+    def test_the_decay_does_not_change_sigma(self):
+        # eta_pi0 and eta_pi0_via_3pi0 share a production state, so any two
+        # channels that do must get identical sigma(E) shapes.
+        a = _channel(name="a", masses=(M_PROTON, M_ETA, M_PI0))
+        b = _channel(name="b", masses=(M_PROTON, M_ETA, M_PI0))
+        E = np.linspace(1.0, 1.7, 20)
+        assert np.allclose(sigma_at(a, E), sigma_at(b, E))
+
+    def test_refuses_a_channel_with_no_cross_section(self):
+        # eta_pi0 and eta_pi0_via_3pi0 have none by construction. Asking for
+        # sigma(E) is a caller bug, and returning zeros would silently drop the
+        # channel from the mixture.
+        c = MCChannel(
+            name="signal_like",
+            sigma_ref_ub=None,
+            e_ref_gev=None,
+            production_masses=(M_PROTON, M_ETA, M_PI0),
+        )
+        with pytest.raises(ValueError, match="no reference cross-section"):
+            sigma_at(c, np.array([1.2]))
+
+    def test_scales_linearly_with_sigma_ref(self):
+        E = np.linspace(1.0, 1.8, 20)
+        one = sigma_at(_channel(sigma=1.0, e_ref=1.5), E)
+        three = sigma_at(_channel(sigma=3.0, e_ref=1.5), E)
+        assert np.allclose(three, 3.0 * one)
