@@ -8,7 +8,7 @@ laser line puts it, and stops. Measured over data/selected: two superimposed
 edges (the green and UV lines used in different run periods), a shoulder near
 0.79, and a tail out to 1.72 that the MC's 1.55 ceiling does not cover at all.
 
-`beam_E` is one of the 24 stage-1 features, and the rest of the event kinematics
+`beam_E` is one of the stage-1 features, and the rest of the event kinematics
 are correlated with it, so a flat MC beam is not a cosmetic mismatch: the
 classifier learns a boundary calibrated to a beam the experiment never had. This
 module measures p_data(E) from the real files and hands back per-event weights

@@ -42,10 +42,10 @@ def _make_beam(rng, N):
 
 class TestFeatureNames:
     def test_count(self):
-        assert len(FEATURE_NAMES_S1) == 24
+        assert len(FEATURE_NAMES_S1) == 26
 
     def test_unique(self):
-        assert len(set(FEATURE_NAMES_S1)) == 24
+        assert len(set(FEATURE_NAMES_S1)) == 26
 
     def test_six_pair_masses(self):
         mass_names = [n for n in FEATURE_NAMES_S1 if n.startswith("m_gg_")]
@@ -58,7 +58,7 @@ class TestComputeStage1Features:
         X = compute_stage1_features(
             _make_photons(rng, 50), _make_proton(rng, 50), _make_beam(rng, 50)
         )
-        assert X.shape == (50, 24)
+        assert X.shape == (50, 26)
 
     def test_dtype_float32(self):
         rng = np.random.default_rng(1)
@@ -123,6 +123,75 @@ class TestComputeStage1Features:
         beam   = np.array([[0, 0, 1.2, 1.2]])
         X = compute_stage1_features(photons, proton, beam)
         assert X[0, 8] < 0.01   # best_chi2
+
+
+class TestMesonCandidateFeatures:
+    """The two features built on the chi2-best pairing (cols 24, 25)."""
+
+    def _perfect(self):
+        # eta pair (g0,g1) and pi0 pair (g2,g3), each back to back on z.
+        meta, mpi0 = 0.547862, 0.134977
+        photons = np.stack([
+            np.array([0.0, 0.0,  meta / 2, meta / 2]),
+            np.array([0.0, 0.0, -meta / 2, meta / 2]),
+            np.array([0.0, 0.0,  mpi0 / 2, mpi0 / 2]),
+            np.array([0.0, 0.0, -mpi0 / 2, mpi0 / 2]),
+        ])[None]
+        proton = np.array([[0, 0, 0.5, np.sqrt(0.5**2 + 0.938272**2)]])
+        beam = np.array([[0, 0, 1.2, 1.2]])
+        return photons, proton, beam
+
+    def test_eta_E_asym_is_in_the_unit_interval(self):
+        rng = np.random.default_rng(20)
+        X = compute_stage1_features(
+            _make_photons(rng, 60), _make_proton(rng, 60), _make_beam(rng, 60)
+        )
+        assert np.all(X[:, 24] >= 0.0) and np.all(X[:, 24] <= 1.0)
+
+    def test_equal_energy_eta_pair_has_zero_asymmetry(self):
+        # The chi2-best heavy pair is the two meta/2 photons — equal energy, so
+        # the normalised asymmetry |E1-E2|/(E1+E2) is exactly 0.
+        photons, proton, beam = self._perfect()
+        X = compute_stage1_features(photons, proton, beam)
+        assert X[0, 24] == pytest.approx(0.0, abs=1e-9)
+
+    def test_meson_angle_is_a_cosine(self):
+        rng = np.random.default_rng(21)
+        X = compute_stage1_features(
+            _make_photons(rng, 60), _make_proton(rng, 60), _make_beam(rng, 60)
+        )
+        assert np.all(X[:, 25] >= -1.0) and np.all(X[:, 25] <= 1.0)
+
+    def test_back_to_back_mesons_give_cos_near_minus_one(self):
+        # eta pair moving +x (mass meta), pi0 pair moving -x (mass mpi0). The
+        # chi2 picks (0,1)=eta and (2,3)=pi0, and the two mesons are back to
+        # back, so the cosine of the angle between them is -1.
+        c, s = np.cos(np.pi / 6), np.sin(np.pi / 6)
+        Ee = 0.547862 / (2 * s)
+        Ep = 0.134977 / (2 * s)
+        photons = np.stack([
+            np.array([ Ee * c,  Ee * s, 0, Ee]),
+            np.array([ Ee * c, -Ee * s, 0, Ee]),
+            np.array([-Ep * c,  Ep * s, 0, Ep]),
+            np.array([-Ep * c, -Ep * s, 0, Ep]),
+        ])[None]
+        proton = np.array([[0, 0, 0.0, 0.938272]])
+        beam = np.array([[0, 0, 1.5, 1.5]])
+        X = compute_stage1_features(photons, proton, beam)
+        assert X[0, 25] == pytest.approx(-1.0, abs=1e-6)
+
+    def test_both_new_features_survive_a_photon_shuffle(self):
+        # The pairing is re-chosen from the chi2, not read off photon order, so
+        # shuffling the four photons must leave cols 24 and 25 unchanged. This
+        # is what makes them safe in the same way the other 24 features are.
+        rng = np.random.default_rng(22)
+        photons = _make_photons(rng, 40)
+        proton, beam = _make_proton(rng, 40), _make_beam(rng, 40)
+        X0 = compute_stage1_features(photons, proton, beam)
+        shuffled = shuffle_photons(photons.copy(), np.random.default_rng(99))
+        X1 = compute_stage1_features(shuffled, proton, beam)
+        np.testing.assert_allclose(X0[:, 24], X1[:, 24], atol=1e-6)
+        np.testing.assert_allclose(X0[:, 25], X1[:, 25], atol=1e-6)
 
 
 class TestHypothesisIsParametric:

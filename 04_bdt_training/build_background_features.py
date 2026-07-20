@@ -81,13 +81,18 @@ from graal_common.channels import (
     resolve_hypothesis,
 )
 from graal_common.cross_sections import sigma_at
-from graal_common.pairing import PAIR_IDX, chi2_per_pairing, pair_masses
+from graal_common.pairing import (
+    PAIR_IDX,
+    best_pairing_indices,
+    chi2_per_pairing,
+    pair_masses,
+)
 from bdt_training.beam_spectrum import BeamSpectrum
 from bdt_training.beam_spectrum import reweight as beam_reweight
 from bdt_training.photon_loss import LossParams, sample_surviving_photons
 
 # ---------------------------------------------------------------------------
-# 24 features — computed on exactly 4 photons, after the loss model
+# 26 features — computed on exactly 4 photons, after the loss model
 # ---------------------------------------------------------------------------
 # 6 invariant masses of the C(4,2) photon pairs
 # + pair counts near the two mass poles of the hypothesis
@@ -96,13 +101,14 @@ from bdt_training.photon_loss import LossParams, sample_surviving_photons
 # + photon energy statistics
 # + proton kinematics
 # ---------------------------------------------------------------------------
-N_FEATURES_S1 = 24
+N_FEATURES_S1 = 26
 
 
 def feature_names(hypothesis: Hypothesis = ETA_PI0_HYP) -> list[str]:
-    """The 24 feature names, in the order compute_stage1_features emits them.
+    """The 26 feature names, in the order compute_stage1_features emits them.
 
-    Two of them are named after the hypothesis, so a model trained against one
+    Several are named after the hypothesis (the two pole counts, the chi2, and
+    the two meson-candidate kinematics), so a model trained against one
     hypothesis carries the fact in its own feature list rather than leaving it
     to be remembered.
     """
@@ -135,6 +141,9 @@ def feature_names(hypothesis: Hypothesis = ETA_PI0_HYP) -> list[str]:
         # proton
         "proton_p",
         "proton_costheta",
+        # kinematics of the chi2-best pairing's two meson candidates
+        f"{hypothesis.heavy_label}_E_asym",
+        f"{hypothesis.heavy_label}_{hypothesis.light_label}_angle",
     ]
     assert len(names) == N_FEATURES_S1, f"Expected {N_FEATURES_S1}, got {len(names)}"
     return names
@@ -189,7 +198,7 @@ def compute_stage1_features(
     beam: np.ndarray,      # (N, 4)
     hypothesis: Hypothesis = ETA_PI0_HYP,
 ) -> np.ndarray:
-    """Compute the 24 stage-1 features — vectorised, no Python loops over events.
+    """Compute the 26 stage-1 features — vectorised, no Python loops over events.
 
     Args:
         photons: shape (N, 4, 4), columns [px, py, pz, E]
@@ -200,7 +209,7 @@ def compute_stage1_features(
             enforces that.
 
     Returns:
-        Feature matrix of shape (N, 24), dtype float32
+        Feature matrix of shape (N, 26), dtype float32
     """
     N = photons.shape[0]
     out = np.zeros((N, N_FEATURES_S1), dtype=np.float32)
@@ -269,6 +278,35 @@ def compute_stage1_features(
     out[:, 22] = p_mom
     out[:, 23] = np.where(p_mom > 0, proton[:, 2] / p_mom, 0.0)
 
+    # -- kinematics of the chi2-best pairing's two meson candidates -----------
+    # Both features name "the eta pair" and "the eta/pi0 candidates". The four
+    # photons carry no parent label (they are shuffled), so the candidates come
+    # from the pairing that minimises the chi2 — the same one best_chi2 (col 8)
+    # scores. heavy = eta candidate, light = pi0 candidate.
+    heavy_idx, light_idx = best_pairing_indices(pair_m, hypothesis)   # (N,2),(N,2)
+    row = np.arange(N)
+    g_h1 = photons[row, heavy_idx[:, 0], :]      # (N, 4) [px,py,pz,E]
+    g_h2 = photons[row, heavy_idx[:, 1], :]
+    g_l1 = photons[row, light_idx[:, 0], :]
+    g_l2 = photons[row, light_idx[:, 1], :]
+
+    # Normalised energy asymmetry of the eta pair. A real eta shares energy more
+    # evenly than a random pair; normalising by the pair energy strips the eta's
+    # lab boost, leaving the decay asymmetry the beam energy would otherwise mask.
+    E_sum = g_h1[:, 3] + g_h2[:, 3]
+    out[:, 24] = np.where(
+        E_sum > 0, np.abs(g_h1[:, 3] - g_h2[:, 3]) / E_sum, 0.0
+    )
+
+    # Cosine of the lab angle between the two reconstructed mesons. A genuine
+    # eta pi0 has the boost-fixed opening angle; a combinatorial fake does not.
+    heavy_p = g_h1[:, :3] + g_h2[:, :3]          # (N, 3)
+    light_p = g_l1[:, :3] + g_l2[:, :3]
+    nh = np.linalg.norm(heavy_p, axis=1)
+    nl = np.linalg.norm(light_p, axis=1)
+    cos_meson = (heavy_p * light_p).sum(axis=1) / np.clip(nh * nl, 1e-9, None)
+    out[:, 25] = np.clip(cos_meson, -1.0, 1.0)
+
     return out
 
 
@@ -291,7 +329,7 @@ def shuffle_photons(photons: np.ndarray, rng: np.random.Generator) -> np.ndarray
 class ChannelSample:
     """One channel's surviving events, and what it took to get them."""
 
-    X: np.ndarray        # (N_surv, 24) features
+    X: np.ndarray        # (N_surv, 26) features
     w_beam: np.ndarray   # (N_surv,) p_data(E)/p_mc(E)
     beam_E: np.ndarray   # (N_surv,) tagged photon energy [GeV]
     p_surv: float        # fraction of generated events that survived

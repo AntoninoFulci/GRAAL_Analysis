@@ -27,6 +27,8 @@
     "max_pair_mass",
     "total_pt_gamma",
     "proton_p",
-    "proton_costheta"
+    "proton_costheta",
+    "eta_E_asym",
+    "eta_pi0_angle"
   ]
 }

@@ -62,7 +62,7 @@ laser. Misurato su `data/selected` (17.15M fotoni taggati, min 0.644, mediana
 1.087, max 1.718): due bordi sovrapposti — le linee verde e UV usate in periodi
 di presa dati diversi — una spalla verso 0.79, e una coda fino a 1.72.
 
-`beam_E` è una delle 24 feature stage-1, e il resto della cinematica è
+`beam_E` è una delle 26 feature stage-1, e il resto della cinematica è
 correlata con essa: un fascio piatto nel MC non è una discrepanza cosmetica, è
 un classificatore calibrato su un fascio che l'esperimento non ha mai avuto.
 

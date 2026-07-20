@@ -20,5 +20,5 @@ def test_stage1_feature_builder_importable():
         compute_stage1_features,
     )
 
-    assert len(FEATURE_NAMES_S1) == 24
+    assert len(FEATURE_NAMES_S1) == 26
     assert callable(compute_stage1_features)

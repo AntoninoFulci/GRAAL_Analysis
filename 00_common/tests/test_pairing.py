@@ -20,6 +20,7 @@ from graal_common.pairing import (
     PARTITIONS,
     best_chi2,
     best_pairing,
+    best_pairing_indices,
     chi2,
     chi2_per_pairing,
     pair_masses,
@@ -182,3 +183,39 @@ class TestOneImplementation:
     def test_chi2_per_pairing_answers_once_per_pairing(self):
         scores = chi2_per_pairing(pair_masses(_eta_then_pi0()), ETA_PI0_HYP)
         assert scores.shape == (len(pairings(ETA_PI0_HYP)),)
+
+
+class TestBestPairingIndices:
+    """The batch form of best_pairing, used by the feature builder."""
+
+    def test_agrees_with_best_pairing_event_by_event(self):
+        # Same choice as the per-event best_pairing, just vectorised. If these
+        # ever disagree, the features are built on a different pairing than the
+        # one best_chi2 (feature 8) scores.
+        rng = np.random.default_rng(7)
+        photons = _random_photons(rng, 40)
+        heavy_idx, light_idx = best_pairing_indices(pair_masses(photons), ETA_PI0_HYP)
+        assert heavy_idx.shape == (40, 2)
+        assert light_idx.shape == (40, 2)
+        for k in range(40):
+            p, _ = best_pairing(photons[k], ETA_PI0_HYP)
+            assert tuple(heavy_idx[k]) == p.heavy
+            assert tuple(light_idx[k]) == p.light
+
+    def test_heavy_and_light_partition_the_four_photons(self):
+        rng = np.random.default_rng(9)
+        heavy_idx, light_idx = best_pairing_indices(
+            pair_masses(_random_photons(rng, 20)), ETA_PI0_HYP
+        )
+        for k in range(20):
+            assert sorted([*heavy_idx[k], *light_idx[k]]) == [0, 1, 2, 3]
+
+    def test_degenerate_hypothesis_still_returns_a_partition(self):
+        # For 2pi0 heavy and light are the same particle, but a partition of the
+        # four photons is still chosen.
+        rng = np.random.default_rng(11)
+        heavy_idx, light_idx = best_pairing_indices(
+            pair_masses(_random_photons(rng, 15)), TWO_PI0_HYP
+        )
+        for k in range(15):
+            assert sorted([*heavy_idx[k], *light_idx[k]]) == [0, 1, 2, 3]

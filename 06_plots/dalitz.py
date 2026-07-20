@@ -183,7 +183,7 @@ def _draw_truth_cross() -> list:
 
 def _save(canvas, out_dir: Path, stem: str) -> None:
     """Every figure goes out as PNG (to look at) and PDF (vector, for talks)."""
-    canvas.SaveAs(str(out_dir / f"{stem}.png"))
+    # canvas.SaveAs(str(out_dir / f"{stem}.png"))
     canvas.SaveAs(str(out_dir / f"{stem}.pdf"))
 
 

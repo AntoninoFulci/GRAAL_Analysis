@@ -216,7 +216,7 @@ formula), e un fascio piatto per costruirli non è un'approssimazione più
 grezza, è un numero senza fondamento — proseguire "con un avviso" nascondeva
 proprio questo.
 
-Produce la matrice di feature a 24 colonne usata dalla fase 5 e
+Produce la matrice di feature a 26 colonne usata dalla fase 5 e
 dalla fase 6 — dettagli in [04-bdt-training-features](04-bdt-training-features).
 
 ## Fase 5 — Grid search iper-parametri
