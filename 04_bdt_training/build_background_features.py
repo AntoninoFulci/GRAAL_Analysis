@@ -4,7 +4,7 @@ Stage-1 is a binary classifier: the signal channel against everything else.
 Every event, of either class, is presented as EXACTLY 4 observed photons.
 
 Which channel plays signal is a free choice (--signal-channel): the registry in
-graal_common.channels knows all six, and any of them can be class 1. What the
+graal_common.channels knows all nine, and any of them can be class 1. What the
 features are built around is a separate choice (--hypothesis) — see that
 module's docstring for why the two are not the same question.
 
@@ -21,19 +21,33 @@ and it learns a signal shape that no GRAAL event can have. Only 28% of the
 signal MC survives the acceptance the backgrounds are held to; the other 72%
 were events the experiment could never have recorded as 4 photons.
 
-Two things about the weights are worth knowing before reading main().
+Three things about the weights are worth knowing before reading main().
 
-The backgrounds are mixed by their measured cross-sections, relative to each
-other: that is real physics and the BDT should have it. The signal's share is
-NOT a cross-section. Measuring sigma(gamma p -> p eta pi0) is what this analysis
-is for, so a number here would be an answer used to weight the events the answer
-is extracted from — circular, and quietly so, since the training would just
-reproduce whatever prior it was handed. --signal-prior names that split as what
-it is: a choice.
+The backgrounds are mixed by their cross-sections integrated over the beam flux
+and the detector acceptance — not by the flat reference numbers in the registry.
+A flat sigma_ref ignores that a channel does not exist below its threshold:
+omega_pi0 opens at 1.366 GeV and etaprime at 1.447, in the last few percent of
+GRAAL's range, and both were weighted at values measured far above it.
+
+A channel's weight divides by its GENERATED count, not by its survivor total.
+Generated count is bookkeeping and must be erased; the survival fraction is the
+detector's acceptance for that topology and must not be. Both live in the same
+survivor count, and normalising onto the survivor total erased them together —
+which weighted the 8-photon channels as though they reconstructed as efficiently
+as the 4-photon ones.
+
+The signal's share is NOT a cross-section. Measuring sigma(gamma p -> p eta pi0)
+is what this analysis is for, so a number here would be an answer used to weight
+the events the answer is extracted from — circular, and quietly so, since the
+training would just reproduce whatever prior it was handed. --signal-prior names
+that split as what it is: a choice. eta_pi0_via_3pi0 is the same reaction with
+the eta decaying to 3pi0; it is slaved to the signal through the PDG branching
+ratios, which cancels the unknown sigma rather than assuming it.
 
 And the beam. The generators draw a flat tagged-photon energy; GRAAL's beam is
 Compton-backscattered laser light with an edge. --beam-spectrum reweights the MC
-onto the beam the experiment really had — see bdt_training.beam_spectrum.
+onto the beam the experiment really had — see bdt_training.beam_spectrum. It is
+required: there is no flux integral without it.
 
 Usage:
     python -m bdt_training.build_background_features \\
@@ -46,7 +60,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -273,23 +287,33 @@ def shuffle_photons(photons: np.ndarray, rng: np.random.Generator) -> np.ndarray
     return photons[np.arange(len(photons))[:, None], idx]
 
 
+@dataclass(frozen=True)
+class ChannelSample:
+    """One channel's surviving events, and what it took to get them."""
+
+    X: np.ndarray        # (N_surv, 24) features
+    w_beam: np.ndarray   # (N_surv,) p_data(E)/p_mc(E)
+    beam_E: np.ndarray   # (N_surv,) tagged photon energy [GeV]
+    p_surv: float        # fraction of generated events that survived
+    n_gen: int           # generated count, before the acceptance
+
+
 def build_channel_features(
     tree,
     channel: MCChannel,
     hypothesis: Hypothesis,
     rng: np.random.Generator,
     params: LossParams,
-    beam_target: BeamSpectrum | None = None,
-) -> tuple[np.ndarray, np.ndarray, float]:
+    beam_target: BeamSpectrum,
+) -> ChannelSample:
     """Features for one channel: load, apply the acceptance, shuffle, compute.
 
-    Identical for signal and background — that is the point. Returns the feature
-    matrix, a per-event weight carrying the beam reweighting (all ones when no
-    target spectrum is given), and the measured survival fraction.
+    Identical for signal and background — that is the point.
     """
     photons_all = load_photons(tree, channel)
     proton_all  = _load_4vec(tree, "proton")
     beam_all    = _load_4vec(tree, "beam")
+    n_gen = len(beam_all)
 
     ph_E, ph_theta = _extract_E_theta(photons_all)
     photons_4, event_mask = sample_surviving_photons(
@@ -301,13 +325,15 @@ def build_channel_features(
     photons_4 = shuffle_photons(photons_4, rng)
 
     X = compute_stage1_features(photons_4, proton_sel, beam_sel, hypothesis)
+    beam_E = beam_sel[:, 3]
 
-    if beam_target is None:
-        w = np.ones(len(X), dtype=np.float64)
-    else:
-        w = beam_reweight(beam_sel[:, 3], beam_target)
-
-    return X, w, float(event_mask.mean())
+    return ChannelSample(
+        X=X,
+        w_beam=beam_reweight(beam_E, beam_target),
+        beam_E=beam_E,
+        p_surv=float(event_mask.mean()),
+        n_gen=n_gen,
+    )
 
 
 @dataclass(frozen=True)
@@ -459,11 +485,11 @@ def main() -> None:
                         help="two mesons the features are built around; "
                              "defaults to the one the signal channel fixes, and "
                              "is required when it fixes none")
-    parser.add_argument("--beam-spectrum", default=None,
-                        help="npz from bdt_training.beam_spectrum: reweight the MC "
-                             "onto the beam the experiment actually had. Without "
-                             "it the training keeps the generators' flat beam, "
-                             "which the data does not have")
+    parser.add_argument("--beam-spectrum", required=True,
+                        help="npz from bdt_training.beam_spectrum. REQUIRED: the "
+                             "channel weights are cross-sections integrated over "
+                             "the measured beam flux, and there is no flux "
+                             "without it")
     parser.add_argument("--signal-prior", type=float, default=0.5,
                         help="fraction of the total training weight given to the "
                              "signal class (default 0.5, balanced). A CHOICE, not "
@@ -495,20 +521,8 @@ def main() -> None:
         )
     backgrounds = [get_channel(name) for name in background_names]
 
-    missing_sigma = [c.name for c in backgrounds if c.sigma_ref_ub is None]
-    if missing_sigma:
-        raise ValueError(
-            f"no reference cross-section for background channel(s) {missing_sigma}. "
-            "Backgrounds are weighted by their measured cross-sections relative to "
-            "each other; a channel without one cannot be mixed in. Either drop it "
-            "from --background-channels or give it a sigma_ref_ub in "
-            "graal_common.channels."
-        )
-
-    beam_target = None
-    if args.beam_spectrum:
-        beam_target = BeamSpectrum.load(args.beam_spectrum)
-        print(f"beam       : reweighting onto {args.beam_spectrum}")
+    beam_target = BeamSpectrum.load(args.beam_spectrum)
+    print(f"beam       : reweighting onto {args.beam_spectrum}")
 
     print(f"signal     : {signal.name}")
     print(f"backgrounds: {', '.join(c.name for c in backgrounds)}")
@@ -519,53 +533,52 @@ def main() -> None:
     params = LossParams()
 
     channels = [signal] + backgrounds
-    sigma_bkg_total = sum(c.sigma_ref_ub for c in backgrounds)
 
-    all_X, all_y, all_w = [], [], []
+    samples: dict[str, ChannelSample] = {}
+    yields: list[ChannelYield] = []
 
     for channel in channels:
         path = mc_dir / channel.mc_filename
         if not path.exists():
             raise FileNotFoundError(f"missing MC file for {channel.name!r}: {path}")
 
-        is_signal = channel is signal
         with uproot.open(path) as f:
-            X, w, p_surv = build_channel_features(
+            sample = build_channel_features(
                 f["mc"], channel, hypothesis, rng, params, beam_target
             )
+        samples[channel.name] = sample
 
-        # How much of the training weight this channel is meant to carry.
-        #
-        # Among the backgrounds this is measured physics: the cross-sections say
-        # how much of the contamination is pi0pi0 rather than etaprime, and the
-        # BDT should know that. Between signal and background it is not. The
-        # signal cross-section is what this analysis exists to measure, so using
-        # one here would feed the answer into the events the answer comes from.
-        # --signal-prior names that split out loud instead, as what it is: a
-        # training choice.
-        if is_signal:
-            share = args.signal_prior
-        else:
-            share = (1.0 - args.signal_prior) * (channel.sigma_ref_ub / sigma_bkg_total)
+        y = channel_yield(channel, sample.beam_E, sample.w_beam, sample.n_gen)
+        if channel is signal:
+            y = replace(y, is_signal=True)
+        yields.append(y)
+
+    shares = compute_shares(yields, args.signal_prior)
+
+    all_X, all_y, all_w = [], [], []
+    for channel in channels:
+        sample = samples[channel.name]
+        is_signal = channel is signal
+        share = shares[channel.name]
 
         # Normalise per channel so the share is exactly what lands, whatever the
-        # generated count and whatever the beam reweighting did to the totals.
-        # Scaling by a bare per-event weight left the real mixture at
-        # sigma x N_events, which only happened to be right while every channel
-        # was generated with the same N.
-        total = w.sum()
+        # beam reweighting did to the totals. Safe here in a way it was not
+        # before: `share` now already carries the flux, the cross-section and
+        # the acceptance, so this only sets a scale rather than erasing physics.
+        total = sample.w_beam.sum()
         if total <= 0:
             raise ValueError(
                 f"channel {channel.name!r} has no weight left after reweighting: "
                 "its beam energies do not overlap the measured spectrum at all"
             )
-        w = w * (share / total)
+        w = sample.w_beam * (share / total)
 
-        print(f"  {channel.name:10s} {'signal' if is_signal else 'bkg':6s} "
-              f"{len(X):8d} events  survival {p_surv:.3f}  share {share:.4f}")
+        print(f"  {channel.name:16s} {'signal' if is_signal else 'bkg':6s} "
+              f"{len(sample.X):8d} events  survival {sample.p_surv:.3f}  "
+              f"share {share:.4f}")
 
-        all_X.append(X)
-        all_y.append(np.full(len(X), 1 if is_signal else 0, dtype=np.int8))
+        all_X.append(sample.X)
+        all_y.append(np.full(len(sample.X), 1 if is_signal else 0, dtype=np.int8))
         all_w.append(w.astype(np.float32))
 
     X_out = np.concatenate(all_X, axis=0)
