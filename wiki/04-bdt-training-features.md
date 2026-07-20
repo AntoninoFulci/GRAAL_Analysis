@@ -1,14 +1,14 @@
 # Feature stage-1
 
 `04_bdt_training/build_background_features.py::compute_stage1_features`
-calcola il vettore a 24 feature che il BDT stage-1 vede, sia in training sia
-in inferenza. Questa pagina elenca le 24 feature nell'ordine reale del
+calcola il vettore a 26 feature che il BDT stage-1 vede, sia in training sia
+in inferenza. Questa pagina elenca le 26 feature nell'ordine reale del
 codice e registra la regola che il bug del gate (vedi
 [Gate BDT](05-reconstruction-bdt-gate)) ha lasciato dietro di sé.
 
 ## `feature_names(hypothesis)`, nell'ordine
 
-Tre nomi su 24 dipendono dall'**ipotesi**: quali due mesoni i 4 fotoni stanno
+Cinque nomi su 26 dipendono dall'**ipotesi**: quali due mesoni i 4 fotoni stanno
 venendo testati contro. Non è una proprietà dell'evento, è la domanda che gli
 si fa, e cambia con `--signal-channel`. Sotto, i nomi per l'ipotesi di default
 `eta_pi0`; con `2pi0` le stesse posizioni diventano `n_pairs_near_pi0_2`,
@@ -46,6 +46,9 @@ def feature_names(hypothesis: Hypothesis = ETA_PI0_HYP) -> list[str]:
         # proton
         "proton_p",
         "proton_costheta",
+        # kinematics of the chi2-best pairing's two meson candidates
+        f"{hypothesis.heavy_label}_E_asym",
+        f"{hypothesis.heavy_label}_{hypothesis.light_label}_angle",
     ]
     assert len(names) == N_FEATURES_S1
     return names
@@ -62,10 +65,11 @@ Raggruppate come le raggruppa il codice:
 | 13-17 | statistiche di energia dei fotoni | `total_gamma_E`, `beam_E`, `max_gamma_E`, `min_gamma_E`, `gamma_E_rms` |
 | 18-21 | statistiche angolari dei fotoni | `sum_opening_angles` (somma dei 6 angoli di apertura), `min_pair_mass`, `max_pair_mass`, `total_pt_gamma` |
 | 22-23 | 2 valori di cinematica del protone | `proton_p`, `proton_costheta` |
+| 24-25 | 2 cinematiche dei candidati mesoni | `eta_E_asym` (asimmetria di energia normalizzata \|E₁−E₂\|/(E₁+E₂) della coppia η candidata), `eta_pi0_angle` (coseno dell'angolo lab fra i due mesoni ricostruiti) — entrambe sul pairing a chi2 minimo |
 
 `compute_stage1_features` è vettorizzata (nessun ciclo Python sugli eventi):
 prende `photons (N,4,4)`, `proton (N,4)`, `beam (N,4)` — sempre esattamente
-4 fotoni per evento, mai di più — e restituisce `(N, 24)` in `float32`. Prende
+4 fotoni per evento, mai di più — e restituisce `(N, 26)` in `float32`. Prende
 anche l'ipotesi, che di default è `eta_pi0`. L'`assert` dentro `feature_names`
 tiene la lista dei nomi e la lunghezza reale del vettore sincronizzate.
 
@@ -80,8 +84,8 @@ gate — cioè esattamente la cosa che il confronto sta misurando.
 
 ## La regola che il bug ha prodotto
 
-Il vecchio `reconstruct_eta_pi0.py` costruiva un secondo vettore a 24
-feature a mano, con un layout diverso (impacchettava fino a 15 masse di
+Il vecchio `reconstruct_eta_pi0.py` costruiva un secondo vettore di feature
+a mano, con un layout diverso (impacchettava fino a 15 masse di
 coppia negli slot 0-14, invece delle 6 reali negli slot 0-5), e il modello
 finiva per essere interrogato su rumore — vedi
 [Gate BDT](05-reconstruction-bdt-gate) per la cronologia completa. La riparazione

@@ -17,7 +17,7 @@ combinatoria chi2 che usa `reconstruct_eta_pi0_chi2.py` (vedi
 ## Dati di addestramento
 
 Costruiti da `build_background_features.py` (vedi
-[Feature stage-1](04-bdt-training-features) per il dettaglio delle 24
+[Feature stage-1](04-bdt-training-features) per il dettaglio delle 26
 feature) a partire dai nove canali Monte Carlo di
 [03 — Simulazione MC](03-mc-simulation): segnale = il canale scelto con
 `--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri otto
@@ -167,7 +167,7 @@ operativa per F1 massimo, e scrive:
 | `stage1_threshold.txt` | soglia operativa (scalare) |
 | `stage1_metrics.txt` | AUC, soglia, precision, recall, F1, N_train, N_val |
 | `stage1_roc.png` | curva ROC |
-| `stage1_feature_importance.png` | importanza delle 24 feature (gain) |
+| `stage1_feature_importance.png` | importanza delle 26 feature (gain) |
 | `stage1_score_dist.png` | distribuzione degli score, segnale vs fondo |
 
 ## Come ri-addestrare
@@ -181,5 +181,5 @@ feature, i due comandi sopra bastano da soli, a patto che
 
 ## Dove andare da qui
 
-- [Feature stage-1](04-bdt-training-features) — le 24 feature nell'ordine
+- [Feature stage-1](04-bdt-training-features) — le 26 feature nell'ordine
   reale del vettore, e la regola contro cui il bug del gate ha reagito.

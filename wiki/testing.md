@@ -37,7 +37,7 @@ nell'import mode di default di pytest.
 | `05_reconstruction/tests/test_stage1_gate.py` | `Stage1Gate.accepts_many` sopra/sotto/esattamente alla soglia, e che ogni evento del blocco riceva il proprio verdetto nell'ordine giusto; che il modello riceva esattamente le feature di `compute_stage1_features` (regressione contro un disallineamento già successo in passato), costruite sull'ipotesi su cui è stato trainato; `Stage1Gate.load` solleva `FileNotFoundError` se mancano modello, soglia o provenance; `check_hypothesis` rifiuta un modello trainato su un altro stato finale |
 | `03_mc_simulation/tests/test_mc_status.py` | stato/staleness dei 9 canali; exit code 0/1/2 della CLI; che `--help` esca con 0 |
 | `04_bdt_training/tests/test_photon_loss.py` | il modello di perdita fotoni (`LossParams`, `p_loss`, `apply_loss_events`, `estimate_survival`) |
-| `04_bdt_training/tests/test_build_background_features.py` | le 24 feature stage-1; che i nomi e il chi2 seguano l'ipotesi passata (gli stessi quattro fotoni sono un η+π⁰ perfetto e un 2π⁰ pessimo); che `shuffle_photons` non faccia migrare fotoni fra eventi e lasci intatte le feature indipendenti dall'ordine |
+| `04_bdt_training/tests/test_build_background_features.py` | le 26 feature stage-1; che i nomi e il chi2 seguano l'ipotesi passata (gli stessi quattro fotoni sono un η+π⁰ perfetto e un 2π⁰ pessimo); che `shuffle_photons` non faccia migrare fotoni fra eventi e lasci intatte le feature indipendenti dall'ordine |
 | `04_bdt_training/tests/test_callbacks.py` | la callback di progress-bar per il training XGBoost |
 
 ### Perché non importa mai ROOT

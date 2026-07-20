@@ -18,7 +18,7 @@ non coincidono.
 > spostando tutto il resto. Il modello veniva interrogato su rumore, quindi
 > ogni decisione del gate era priva di significato.
 
-Il modello stage-1 è addestrato su un vettore a 24 feature il cui layout è
+Il modello stage-1 è addestrato su un vettore a 26 feature il cui layout è
 `FEATURE_NAMES_S1` (vedi [Feature stage-1](04-bdt-training-features)): 6
 masse invariante di coppia negli slot 0-5, poi conteggi di coppie vicine ai
 poli dei mesoni, il miglior chi2, la cinematica mancante, le statistiche sui
@@ -68,7 +68,7 @@ class Stage1Gate:
 usata da `04_bdt_training/build_background_features.py` per costruire il
 set di addestramento (vedi [Feature stage-1](04-bdt-training-features)). Non
 esiste più una seconda implementazione che possa disallinearsi dal training:
-c'è una sola funzione che sa come costruire il vettore a 24 feature, e sia
+c'è una sola funzione che sa come costruire il vettore a 26 feature, e sia
 il training sia l'inferenza la chiamano.
 
 ### Perché a blocchi e non evento per evento
@@ -119,7 +119,7 @@ diverso da quello richiesto.
 
 ## Dove andare da qui
 
-- [Feature stage-1](04-bdt-training-features) — le 24 feature nell'ordine
+- [Feature stage-1](04-bdt-training-features) — le 26 feature nell'ordine
   reale, e la regola che il bug ha lasciato: un solo punto del codice può
   costruire questo vettore.
 - [BDT stage-1](04-bdt-training) — come il modello viene addestrato, le sue
