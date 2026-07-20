@@ -395,3 +395,15 @@ class TestComputeShares:
         bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=0.0, y_unit=1.0, is_signal=False)
         with pytest.raises(ValueError, match="no weight left"):
             compute_shares([sig, bkg], 0.5)
+
+    def test_refuses_a_weightless_ordinary_background_with_a_clear_error(self):
+        # eta_pi0 carries no cross-section by design. When something other than
+        # eta_pi0 is the signal, eta_pi0 becomes an ordinary background with
+        # y_sigma=None. That must raise a legible error naming the channel, not
+        # a bare TypeError when None reaches the yield sum. (Regression: an
+        # earlier version summed the None and crashed with
+        # "unsupported operand type(s) for +: 'int' and 'NoneType'".)
+        signal = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=True)
+        weightless = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=False)
+        with pytest.raises(ValueError, match="no cross-section to be weighted by"):
+            compute_shares([signal, weightless], 0.5)

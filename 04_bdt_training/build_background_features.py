@@ -451,6 +451,25 @@ def compute_shares(
     plain = [
         y for y in yields if not y.is_signal and y.channel.signal_br_ratio is None
     ]
+
+    # An ordinary background is weighted by its cross-section, so it must have
+    # one. A channel with neither a sigma_ref_ub nor a signal_br_ratio has no
+    # weight basis at all, and its y_sigma is None. This is not hypothetical:
+    # eta_pi0 carries no cross-section by design (measuring it is the point of
+    # the analysis), so the moment anything OTHER than eta_pi0 is the signal,
+    # eta_pi0 lands here. Catch it with a message that says what to do, rather
+    # than letting the sum below fail with a bare TypeError on None.
+    weightless = [y.channel.name for y in plain if y.y_sigma is None]
+    if weightless:
+        raise ValueError(
+            f"background channel(s) {weightless} have no cross-section to be "
+            f"weighted by (neither sigma_ref_ub nor signal_br_ratio). This "
+            f"happens when a channel whose cross-section is unknown — eta_pi0, "
+            f"whose measurement is the point of the analysis — is left in the "
+            f"background set while a different channel is the signal. Drop it "
+            f"with --background-channels, or make it the signal."
+        )
+
     budget = 1.0 - signal_prior - slaved_total
     if budget <= 0.0:
         raise ValueError(
