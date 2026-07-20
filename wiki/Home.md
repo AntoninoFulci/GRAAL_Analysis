@@ -91,7 +91,7 @@ basta — va rifatto `pip install -e .`.
 |---|------|----------|--------|
 | 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
 | 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
-| 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 6 canali: segnale + 5 fondi |
+| 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 9 canali: segnale + 8 fondi |
 | 4 | Build feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
 | 5 | Grid search iper-parametri | `04_bdt_training/` | → `best_hyperparams.json` |
 | 6 | Training BDT stage-1 | `04_bdt_training/` | → modello + soglia |

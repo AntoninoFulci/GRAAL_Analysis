@@ -18,13 +18,25 @@ combinatoria chi2 che usa `reconstruct_eta_pi0_chi2.py` (vedi
 
 Costruiti da `build_background_features.py` (vedi
 [Feature stage-1](04-bdt-training-features) per il dettaglio delle 24
-feature) a partire dai sei canali Monte Carlo di
+feature) a partire dai nove canali Monte Carlo di
 [03 — Simulazione MC](03-mc-simulation): segnale = il canale scelto con
-`--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri cinque
-(etichetta 0). Tutti pesati per sezione d'urto di riferimento normalizzata,
-segnale compreso.
+`--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri otto
+(etichetta 0). Fra questi, tre sono stati aggiunti a questo campione:
+`eta_via_3pi0` (un η vero che cade sul minimo del chi2 del segnale, il più
+importante dei tre — vedi [03 — Simulazione MC](03-mc-simulation)),
+`4pi0` e `eta_pi0_via_3pi0` (la reazione di segnale con l'η che decade a
+3π⁰ invece che a 2γ, vincolato al segnale via i branching ratio PDG anziché
+avere una sezione d'urto propria).
 
-**Tutti e sei passano per lo stesso modello di perdita fotoni**, segnale
+Tutti pesati non per la sezione d'urto piatta del registry, ma per quella
+sezione d'urto **integrata sul flusso del fascio misurato**, sulla forma
+`sigma(E)` del canale, e sull'accettanza del rivelatore — vedi
+[03 — Simulazione MC](03-mc-simulation) per la formula e per la ragione di
+dividere per il conteggio generato (`n_gen`) invece che per il totale dei
+sopravvissuti. `--beam-spectrum` è **obbligatorio**: senza uno spettro
+misurato non c'è integrale di flusso su cui basare i pesi.
+
+**Tutti e nove passano per lo stesso modello di perdita fotoni**, segnale
 incluso. Prima il segnale lo saltava, con la motivazione che η→γγ e π⁰→γγ danno
 già esattamente 4 fotoni: ma la perdita non è solo il conteggio, è l'accettanza
 del rivelatore. Saltarla lasciava il 15% dei fotoni di segnale a θ<25°, dentro
