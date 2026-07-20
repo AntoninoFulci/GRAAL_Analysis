@@ -33,6 +33,8 @@ from pathlib import Path
 M_PI0 = 0.134977
 M_ETA = 0.547862
 M_PROTON = 0.938272
+M_OMEGA = 0.78266
+M_ETAPRIME = 0.95778
 
 # The chi2 assumes a mass resolution of 8% of the target mass.
 CHI2_RESOLUTION = 0.08
@@ -100,13 +102,43 @@ class MCChannel:
         file is the authority on how many photons it made, not this table.
 
     sigma_ref_ub:
-        Reference cross-section [ub], used to weight the channel in training.
-        NOT multiplied by any survival fraction: the sample handed to the BDT
-        has already been through the photon-loss model, so folding a survival
-        estimate in here as well would count detector acceptance twice.
+        Reference cross-section [ub] at `e_ref_gev`, from the paper cited below.
+        The channel's weight is NOT this number: it is sigma(E) integrated over
+        the measured beam flux and the detector acceptance — see
+        `cross_sections.sigma_at` and `build_background_features.channel_yield`.
+
+        Acceptance is not double-counted, and the split is worth stating because
+        it was wrong for a long time. A channel's weight divides by the
+        GENERATED count, not by the survivor total: generated count is
+        bookkeeping (an arbitrary choice of how many events to simulate) and
+        must be erased, while the survival fraction is physics (the detector's
+        acceptance for this topology) and must not be. Both live in the same
+        survivor count, and a renormalisation onto the survivor total erased
+        them together — which weighted an 8-photon channel as though it
+        reconstructed as efficiently as a 4-photon one.
 
         None means the cross-section is not known — which for eta_pi0 is not an
         oversight but the point of the experiment. See below.
+
+    e_ref_gev:
+        Beam energy at which `sigma_ref_ub` was measured. Given with it or not
+        at all: sigma_ref alone does not say where on the excitation curve it
+        sits, and the shape needs that to normalise. Must be above threshold.
+
+    production_masses:
+        Masses of the PRODUCTION final state, recoil proton included — what the
+        reaction makes, before anything decays. Sets both the threshold and the
+        phase-space shape of sigma(E). The decay is deliberately absent: how the
+        eta later falls apart does not change how the cross-section turns on,
+        which is why eta_pi0 and eta_pi0_via_3pi0 share this tuple exactly.
+
+    signal_br_ratio:
+        For a background that is the SIGNAL reaction with a different decay:
+        BR(this decay) / BR(the signal's decay). Its weight is slaved to the
+        signal's through this ratio instead of to a cross-section, because its
+        cross-section IS the signal's and putting a number to it would be
+        circular. PDG branching ratios only; no absolute cross-section appears.
+        None for every ordinary background.
 
     hypothesis:
         The two-meson hypothesis this channel determines on its own, or None
@@ -115,12 +147,26 @@ class MCChannel:
 
     name: str
     sigma_ref_ub: float | None
+    e_ref_gev: float | None
+    production_masses: tuple[float, ...]
     photon_branches: tuple[str, ...] | None = None
     hypothesis: Hypothesis | None = None
+    signal_br_ratio: float | None = None
 
     @property
     def mc_filename(self) -> str:
         return f"{self.name}{_MC_FILE_SUFFIX}"
+
+    @property
+    def production_threshold_gev(self) -> float:
+        """Beam energy at which this reaction first becomes possible.
+
+        Derived, never stored: the .C generators compute the same quantity from
+        the same masses to set their Uniform() lower edge, and a second copy
+        here would be free to drift from them.
+        """
+        total = sum(self.production_masses)
+        return (total**2 - M_PROTON**2) / (2.0 * M_PROTON)
 
 
 # eta_pi0 has no cross-section here, and must not be given one. Measuring
@@ -135,27 +181,130 @@ class MCChannel:
 # how much signal there is relative to all of it. That ratio is a training
 # choice, made explicitly in build_background_features, not a measurement.
 #
-# Sources:
-#   pi0pi0   : CB-ELSA/TAPS, Sarantsev et al., EPJ A 25 (2005) 441
-#   3pi0     : CB-ELSA/TAPS, Thoma et al., PLB 659 (2008) 87
-#   eta_2pi0 : CB-ELSA, Kashevarov et al., PRL 118 (2017) 212001
-#   omega_pi0: SAPHIR, Barth et al., EPJ A 18 (2003) 117
-#   etaprime : CB-ELSA, Crede et al., PRC 80 (2009) 055202;
-#              PDG BR(eta' -> eta pi0 pi0) = 0.228
+# Sources (see the per-channel comments above for the reference energy each
+# sigma_ref sits at, and for the estimates that are not measurements):
+#   pi0pi0       : CB-ELSA/TAPS, Sarantsev et al., EPJ A 25 (2005) 441
+#   3pi0         : Kashevarov et al. (A2-MAMI), PRC 85 (2012) 064610,
+#                  arXiv:1101.3744 Table I  [was wrongly cited to Thoma PLB 659
+#                  (2008) 87, which is a 2pi0 paper]
+#   eta_2pi0     : NO dedicated measurement exists; sigma_ref is an estimate
+#                  ceilinged by the eta' total (Crede et al., arXiv:0909.1248)
+#   omega_pi0    : CB-ELSA/TAPS, Junkersfeld et al., EPJ A 31 (2007) 365,
+#                  arXiv:0704.0710 Table 3  [was wrongly cited to Barth EPJ A 18
+#                  (2003) 117, which is single-omega, not omega pi0]
+#   etaprime     : CB-ELSA, Crede et al., PRC 80 (2009) 055202, arXiv:0909.1248;
+#                  PDG BR(eta' -> eta pi0 pi0) = 0.228
+#   eta_via_3pi0 : sigma(gamma p -> p eta) from McNicoll et al. (A2), PRC 82
+#                  (2010) 035208, arXiv:1007.0777; PDG BR(eta -> 3pi0) = 0.327
+#   4pi0         : NO published exclusive cross-section; sigma_ref is an
+#                  order-of-magnitude upper bound scaled from 3pi0
+#   eta_pi0_via_3pi0 : no cross-section by construction — slaved to the signal
+#                  through PDG BR(eta->3pi0)/BR(eta->2gamma)
 CHANNELS: dict[str, MCChannel] = {
     c.name: c
     for c in (
         MCChannel(
             name="eta_pi0",
             sigma_ref_ub=None,  # the measurement, not an input
+            e_ref_gev=None,
+            production_masses=(M_PROTON, M_ETA, M_PI0),
             photon_branches=("eta_gamma1", "eta_gamma2", "pi0_gamma1", "pi0_gamma2"),
             hypothesis=ETA_PI0_HYP,
         ),
-        MCChannel(name="pi0pi0", sigma_ref_ub=4.5, hypothesis=TWO_PI0_HYP),
-        MCChannel(name="3pi0", sigma_ref_ub=1.8),
-        MCChannel(name="eta_2pi0", sigma_ref_ub=0.6),
-        MCChannel(name="omega_pi0", sigma_ref_ub=1.2),
-        MCChannel(name="etaprime", sigma_ref_ub=0.35),
+        MCChannel(
+            name="pi0pi0",
+            sigma_ref_ub=4.5,
+            e_ref_gev=2.2,  # high-E tail; sigma(2pi0) peaks ~10 ub near 0.9 GeV
+            production_masses=(M_PROTON, M_PI0, M_PI0),
+            hypothesis=TWO_PI0_HYP,
+        ),
+        MCChannel(
+            name="3pi0",
+            sigma_ref_ub=1.8,
+            e_ref_gev=1.26,  # Kashevarov arXiv:1101.3744 Table I: 1.808 ub @ 1255 MeV
+            production_masses=(M_PROTON, M_PI0, M_PI0, M_PI0),
+        ),
+        # eta_2pi0: gamma p -> p eta pi0 pi0. NO dedicated total cross-section
+        # exists in the literature (every "eta + pion" measurement is the single
+        # -pi0 channel gamma p -> p pi0 eta, a different final state). 0.3 ub is
+        # an ESTIMATE ceilinged by the eta' total (~1 ub, arXiv:0909.1248),
+        # uncertain by a factor 2-3. It barely opens in GRAAL (threshold 1.174,
+        # beam ~1.5) so its weight is near zero regardless — the imprecision does
+        # not propagate. The old registry carried a made-up 0.6 ub from a wrong-
+        # reaction citation; this is no worse and is now labelled as the estimate
+        # it is.
+        MCChannel(
+            name="eta_2pi0",
+            sigma_ref_ub=0.3,   # ESTIMATE, not a measurement — see comment above
+            e_ref_gev=1.90,
+            production_masses=(M_PROTON, M_ETA, M_PI0, M_PI0),
+        ),
+        # omega_pi0: near-threshold anchor from the real gamma p -> p omega pi0
+        # measurement, Junkersfeld arXiv:0704.0710 Table 3 (0.49 ub in the 1383-
+        # 1817 MeV bin). Not the higher-statistics 1.95 ub @ 1.92: anchoring far
+        # above threshold, where resonances inflate sigma, then rescaling down by
+        # PURE phase space would over-predict near threshold. The channel barely
+        # opens in GRAAL (threshold 1.366, beam ~1.5) so its weight is near zero.
+        # The old registry used Barth's single-omega number (1.2 ub), a different
+        # reaction whose value sat BELOW this threshold — a divide-by-zero.
+        MCChannel(
+            name="omega_pi0",
+            sigma_ref_ub=0.49,
+            e_ref_gev=1.60,
+            production_masses=(M_PROTON, M_OMEGA, M_PI0),
+        ),
+        MCChannel(
+            name="etaprime",
+            sigma_ref_ub=0.35,
+            e_ref_gev=1.6,  # Crede arXiv:0909.1248; opens 1.447, a knife-edge in GRAAL
+            production_masses=(M_PROTON, M_ETAPRIME),
+        ),
+        # gamma p -> p eta with eta -> 3pi0. The largest gap in the old sample,
+        # and the dangerous kind: the event holds a genuine eta, so dropping 2
+        # of its 6 photons leaves 4 with a real eta mass and a real pi0 mass. It
+        # lands on the signal chi2 minimum rather than in the tails. eta_2pi0
+        # and etaprime are here precisely because they carry a real eta; this
+        # has a larger cross-section than either and carried weight zero.
+        #
+        # sigma(gamma p -> p eta) swings ~16x across the GRAAL range (16 ub at
+        # the S11(1535) peak, ~2 ub past it). Anchored at the local-minimum
+        # landmark E_gamma=1.03 (McNicoll A2 arXiv:1007.0777: 2.0 ub) rather than
+        # the peak: the saturating phase-space model plateaus and cannot fall, so
+        # a peak anchor would hold sigma at its maximum across all higher energy,
+        # where real sigma(eta) is dropping. 2.0 x BR(eta->3pi0) 0.327 = 0.65 ub.
+        MCChannel(
+            name="eta_via_3pi0",
+            sigma_ref_ub=0.65,  # 2.0 ub x BR(eta -> 3pi0) 0.327
+            e_ref_gev=1.03,
+            production_masses=(M_PROTON, M_ETA),
+        ),
+        # 4pi0: gamma p -> p 4pi0. NO published exclusive total cross-section
+        # exists (8-photon final state, essentially unmeasured). 0.2 ub is an
+        # order-of-magnitude UPPER BOUND, scaled down from 3pi0 (~2.9 ub at 1.43
+        # GeV). Opens at 0.695 but needs to lose 4 of 8 photons, so its 4-photon
+        # acceptance — and therefore its weight — is small regardless.
+        MCChannel(
+            name="4pi0",
+            sigma_ref_ub=0.2,   # ESTIMATE / upper bound, not a measurement
+            e_ref_gev=1.45,
+            production_masses=(M_PROTON, M_PI0, M_PI0, M_PI0, M_PI0),
+        ),
+        # The signal reaction with the wrong decay. Background, because an
+        # 8-photon event faking 4 reconstructs from the WRONG photons, and
+        # accepting it contaminates the eta -> 2gamma measurement.
+        #
+        # Weighted by a branching ratio, not a cross-section: its cross-section
+        # is sigma(gamma p -> p eta pi0) x 0.327, and that is the number this
+        # analysis exists to produce. Slaving it to the signal through
+        # BR(3pi0)/BR(2gamma) cancels sigma(signal) algebraically — it appears
+        # identically in numerator and denominator and never has to be named.
+        MCChannel(
+            name="eta_pi0_via_3pi0",
+            sigma_ref_ub=None,  # would be sigma(signal) x 0.327 — circular
+            e_ref_gev=None,
+            production_masses=(M_PROTON, M_ETA, M_PI0),
+            signal_br_ratio=0.327 / 0.394,  # PDG BR(eta->3pi0) / BR(eta->2gamma)
+        ),
     )
 }
 
