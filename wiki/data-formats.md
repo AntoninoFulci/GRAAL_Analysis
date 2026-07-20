@@ -9,6 +9,7 @@ contenuto no.
 | `h70` | il rivelatore (DAQ) | dati grezzi, fuori da questo repository |
 | `h80` | `01_pre_analysis/PreAnalysis.C` | un'entry per evento: `beam`, `gammas`, `protons`, `neutrons`, `deuterons` come quadrivettori |
 | `h85` | `02_event_selector/select_events.py` | come `h80`, ma solo gli eventi con più di un fotone ed esattamente un barione ricostruito |
+| `mc` (`<canale>_mc.root`) | `03_mc_simulation/generate_<canale>_dataset.C` | `beam`, `proton`, e i fotoni veri del canale — nome dei rami e conteggio dipendono dal canale, vedi sotto |
 | `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `05_reconstruction/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
 
 ## `h80` — pre-analisi
@@ -61,6 +62,56 @@ descrive un contenuto diverso, descrive lo stesso schema dopo un filtro,
 reso riconoscibile perché altrimenti un file "selezionato" e uno
 "pre-analizzato" conterrebbero entrambi un albero chiamato `h80` e
 sarebbero indistinguibili senza aprire il file.
+
+## `mc` — i nove file `<canale>_mc.root`
+
+Ogni generatore (`03_mc_simulation/generate_<canale>_dataset.C`) scrive un
+albero `mc` con `beam` e `proton` come `TLorentzVector`, più i fotoni veri del
+canale. Il **numero** di fotoni non è lo stesso per tutti i canali — dipende da
+quanti mesoni lo stato finale prodotto contiene e in cosa decadono — e per
+questo il layout dei rami segue due convenzioni diverse:
+
+**Rami nominati.** Solo `eta_pi0` (il segnale): sempre esattamente 4 fotoni,
+con un nome che dice a quale genitore appartengono —
+
+```cpp
+tree->Branch("eta_gamma1", &eta_gamma1);
+tree->Branch("eta_gamma2", &eta_gamma2);
+tree->Branch("pi0_gamma1", &pi0_gamma1);
+tree->Branch("pi0_gamma2", &pi0_gamma2);
+```
+
+`build_background_features.py::load_photons` riconosce questo caso da
+`channel.photon_branches` nel registry, e li carica per nome.
+
+**Rami `g0..gN` + `n_true_gamma`.** Tutti gli altri otto canali: il numero di
+fotoni varia da canale a canale, e il file stesso dichiara quanti ce ne sono
+con un ramo scalare `n_true_gamma/I`, letto a runtime invece che assunto:
+
+```cpp
+int n_true_gamma = 8;
+tree->Branch("g0",&g0); tree->Branch("g1",&g1); /* ... */ tree->Branch("g7",&g7);
+tree->Branch("n_true_gamma", &n_true_gamma, "n_true_gamma/I");
+```
+
+| canale | rami | `n_true_gamma` |
+|---|---|---|
+| `eta_pi0` | `eta_gamma1`, `eta_gamma2`, `pi0_gamma1`, `pi0_gamma2` | (nominati, sempre 4) |
+| `pi0pi0` | `g0..g3` | 4 |
+| `omega_pi0` | `g0..g4` | 5 |
+| `3pi0` | `g0..g5` | 6 |
+| `eta_2pi0` | `g0..g5` | 6 |
+| `etaprime` | `g0..g5` | 6 |
+| `eta_via_3pi0` | `g0..g5` | 6 |
+| `4pi0` | `g0..g7` | **8** |
+| `eta_pi0_via_3pi0` | `g0..g7` | **8** |
+
+`4pi0` ed `eta_pi0_via_3pi0` sono gli unici due file a 8 fotoni — nessun
+canale prima di loro ne aveva più di 6 (`3pi0`, `eta_2pi0`, `etaprime`,
+`eta_via_3pi0`). Prima del gate a 4 fotoni stage-1, ognuno di questi passa
+per il modello di perdita fotoni (`04_bdt_training/photon_loss.py`), che
+tiene solo gli eventi in cui **esattamente 4** dei fotoni veri sopravvivono —
+vedi [03 — Simulazione MC](03-mc-simulation).
 
 ## `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` — ricostruzione
 

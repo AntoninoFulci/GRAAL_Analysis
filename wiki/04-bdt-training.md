@@ -18,13 +18,25 @@ combinatoria chi2 che usa `reconstruct_eta_pi0_chi2.py` (vedi
 
 Costruiti da `build_background_features.py` (vedi
 [Feature stage-1](04-bdt-training-features) per il dettaglio delle 24
-feature) a partire dai sei canali Monte Carlo di
+feature) a partire dai nove canali Monte Carlo di
 [03 — Simulazione MC](03-mc-simulation): segnale = il canale scelto con
-`--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri cinque
-(etichetta 0). Tutti pesati per sezione d'urto di riferimento normalizzata,
-segnale compreso.
+`--signal-channel` (etichetta 1, default `eta_pi0`), fondo = gli altri otto
+(etichetta 0). Fra questi, tre sono stati aggiunti a questo campione:
+`eta_via_3pi0` (un η vero che cade sul minimo del chi2 del segnale, il più
+importante dei tre — vedi [03 — Simulazione MC](03-mc-simulation)),
+`4pi0` e `eta_pi0_via_3pi0` (la reazione di segnale con l'η che decade a
+3π⁰ invece che a 2γ, vincolato al segnale via i branching ratio PDG anziché
+avere una sezione d'urto propria).
 
-**Tutti e sei passano per lo stesso modello di perdita fotoni**, segnale
+Tutti pesati non per la sezione d'urto piatta del registry, ma per quella
+sezione d'urto **integrata sul flusso del fascio misurato**, sulla forma
+`sigma(E)` del canale, e sull'accettanza del rivelatore — vedi
+[03 — Simulazione MC](03-mc-simulation) per la formula e per la ragione di
+dividere per il conteggio generato (`n_gen`) invece che per il totale dei
+sopravvissuti. `--beam-spectrum` è **obbligatorio**: senza uno spettro
+misurato non c'è integrale di flusso su cui basare i pesi.
+
+**Tutti e nove passano per lo stesso modello di perdita fotoni**, segnale
 incluso. Prima il segnale lo saltava, con la motivazione che η→γγ e π⁰→γγ danno
 già esattamente 4 fotoni: ma la perdita non è solo il conteggio, è l'accettanza
 del rivelatore. Saltarla lasciava il 15% dei fotoni di segnale a θ<25°, dentro
@@ -46,13 +58,13 @@ Signal:    eta_pi0
 Hypothesis:eta_pi0
 Prior:     0.5  (a training choice, not a cross-section)
 Beam rewt: True
-AUC:       0.9980
-Threshold: 0.8078
-Precision: 0.9425
-Recall:    0.9579
-F1:        0.9502
-N_train:   1545680
-N_val:     386420
+AUC:       0.9987
+Threshold: 0.9703
+Precision: 0.8339
+Recall:    0.8777
+F1:        0.8553
+N_train:   2112953
+N_val:     528239
 ```
 
 La soglia operativa (`04_bdt_training/model/stage1_threshold.txt`) è scelta
@@ -60,14 +72,17 @@ massimizzando l'F1 su un set di validazione (`_find_best_threshold` in
 `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99) — non è un valore
 fissato a mano, viene ricalcolata a ogni training.
 
-Il campione è più piccolo di prima (1.93M eventi contro 2.65M) perché il
-segnale ora passa per l'accettanza come tutti: 283k eventi invece di 1M.
-
-Vale la pena registrare cosa il fix dell'accettanza **non** ha cambiato: l'AUC
-è rimasta a 0.998. L'asimmetria segnale/fondo nel modello di rivelatore non era
-ciò che rendeva il classificatore così bravo — separava già su fisica vera.
-Quello che è cambiato è che il campione di training ora è fisicamente
-possibile, e che precision e recall si sono spostate.
+Vale la pena registrare cosa il passaggio ai nove canali con pesi integrati
+sul flusso ha fatto alle metriche. L'AUC è rimasta altissima (0.9987), ma
+precision e recall sono **scese** rispetto a prima (0.83/0.88 contro 0.94/0.96),
+e la soglia operativa è salita a 0.97. Non è un peggioramento: è onestà. Il
+nuovo fondo dominante è `eta_pi0_via_3pi0` — la stessa reazione del segnale con
+l'η che decade in 3π⁰ invece che in 2γ — e un suo evento a 8 fotoni che ne
+perde 4 si ricostruisce con una massa η e una massa π⁰ reali, cadendo *sul*
+minimo del χ² del segnale invece che nelle code. Sono eventi genuinamente
+confondibili che il vecchio campione semplicemente non conteneva; le metriche
+di prima erano ottimistiche perché non vedevano mai la contaminazione più
+pericolosa.
 
 ## Dimensione efficace del campione
 
@@ -75,8 +90,8 @@ Il riepilogo della fase 4 stampa la **Kish effective sample size**: quanti
 eventi di peso uguale vale il campione riponderato.
 
 ```
-Effective sample size: 570097 of 1932100 (29.5%)
-Dropped by reweighting: 100051 events (5.18%)
+Effective sample size: 475512 of 2641192 (18.0%)
+Dropped by reweighting: 212726 events (8.05%)
 ```
 
 Non è una curiosità. Riponderare costa sempre un po' di potere statistico, ma

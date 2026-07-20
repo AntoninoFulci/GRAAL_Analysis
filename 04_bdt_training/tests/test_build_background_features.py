@@ -1,9 +1,12 @@
 """Tests for build_background_features module."""
 import numpy as np
 import pytest
-from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from graal_common.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON, MCChannel, TWO_PI0_HYP
 from bdt_training.build_background_features import (
+    ChannelYield,
     FEATURE_NAMES_S1,
+    channel_yield,
+    compute_shares,
     compute_stage1_features,
     feature_names,
     shuffle_photons,
@@ -218,3 +221,189 @@ class TestShufflePhotons:
 
         for col in (8, 19, 20):  # best_chi2, min_pair_mass, max_pair_mass
             np.testing.assert_allclose(X[:, col], X_shuffled[:, col], rtol=1e-5)
+
+
+def _bkg(name, sigma=1.0, e_ref=1.2):
+    return MCChannel(
+        name=name,
+        sigma_ref_ub=sigma,
+        e_ref_gev=e_ref,
+        production_masses=(M_PROTON, M_PI0, M_PI0),
+    )
+
+
+def _signal():
+    return MCChannel(
+        name="eta_pi0",
+        sigma_ref_ub=None,
+        e_ref_gev=None,
+        production_masses=(M_PROTON, M_ETA, M_PI0),
+    )
+
+
+def _slaved(br=0.830):
+    return MCChannel(
+        name="eta_pi0_via_3pi0",
+        sigma_ref_ub=None,
+        e_ref_gev=None,
+        production_masses=(M_PROTON, M_ETA, M_PI0),
+        signal_br_ratio=br,
+    )
+
+
+class TestChannelYield:
+    def test_divides_by_the_generated_count_not_the_survivor_count(self):
+        # Generated count is bookkeeping — an arbitrary choice of how many
+        # events to simulate — and must be erased.
+        c = _bkg("probe")
+        beam_E = np.full(100, 1.3)
+        w = np.ones(100)
+        y_small = channel_yield(c, beam_E, w, n_gen=1000)
+        y_big = channel_yield(c, beam_E, w, n_gen=2000)
+        assert y_big.y_sigma == pytest.approx(y_small.y_sigma / 2.0)
+
+    def test_acceptance_is_not_erased(self):
+        # THE REGRESSION TEST. Fails on the pre-plan code, where every channel
+        # was rescaled to its share regardless of how many events survived.
+        #
+        # Two identical channels, one with half the survivors, same N_gen:
+        # half the yield. Without this, an 8-photon channel that must lose 4 of
+        # its photons is weighted as though it reconstructed as efficiently as
+        # a 4-photon one.
+        c = _bkg("probe")
+        n_gen = 1000
+        full = channel_yield(c, np.full(400, 1.3), np.ones(400), n_gen)
+        half = channel_yield(c, np.full(200, 1.3), np.ones(200), n_gen)
+        assert half.y_sigma == pytest.approx(full.y_sigma / 2.0)
+
+    def test_y_unit_ignores_the_cross_section(self):
+        # y_unit is the sigma=1 yield: flux x acceptance alone. It is what lets
+        # the slaved channel be weighted without naming sigma(signal).
+        c = _bkg("probe", sigma=5.0)
+        y = channel_yield(c, np.full(100, 1.3), np.full(100, 2.0), n_gen=500)
+        assert y.y_unit == pytest.approx(100 * 2.0 / 500)
+
+    def test_y_sigma_is_none_for_a_channel_without_one(self):
+        y = channel_yield(_signal(), np.full(10, 1.3), np.ones(10), n_gen=100)
+        assert y.y_sigma is None
+        assert y.y_unit == pytest.approx(10 / 100)
+
+    def test_zero_weighted_events_do_not_contribute(self):
+        # beam_spectrum.reweight zeroes events the data never produced, and
+        # events in bins where the MC is too thin to give a density. Those must
+        # not buy the channel any weight.
+        c = _bkg("probe")
+        w = np.concatenate([np.ones(50), np.zeros(50)])
+        y_half = channel_yield(c, np.full(100, 1.3), w, n_gen=1000)
+        y_full = channel_yield(c, np.full(50, 1.3), np.ones(50), n_gen=1000)
+        assert y_half.y_sigma == pytest.approx(y_full.y_sigma)
+
+    def test_refuses_a_non_positive_generated_count(self):
+        with pytest.raises(ValueError, match="n_gen must be positive"):
+            channel_yield(_bkg("probe"), np.full(10, 1.3), np.ones(10), n_gen=0)
+
+
+class TestComputeShares:
+    def _yields(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=True)
+        a = ChannelYield(_bkg("pi0pi0"), y_sigma=3.0, y_unit=1.0, is_signal=False)
+        b = ChannelYield(_bkg("3pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        return [sig, a, b]
+
+    def test_the_signal_gets_exactly_its_prior(self):
+        assert compute_shares(self._yields(), 0.5)["eta_pi0"] == pytest.approx(0.5)
+
+    def test_everything_sums_to_one(self):
+        assert sum(compute_shares(self._yields(), 0.5).values()) == pytest.approx(1.0)
+
+    def test_backgrounds_split_by_their_yields(self):
+        # 3:1 in yield is 3:1 in share. This is the real physics the BDT should
+        # know: how much of the contamination is pi0pi0 rather than 3pi0.
+        shares = compute_shares(self._yields(), 0.5)
+        assert shares["pi0pi0"] == pytest.approx(0.5 * 0.75)
+        assert shares["3pi0"] == pytest.approx(0.5 * 0.25)
+
+    def test_a_slaved_channel_is_weighted_by_br_times_acceptance(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=2.0, is_signal=True)
+        slaved = ChannelYield(_slaved(0.830), y_sigma=None, y_unit=0.2, is_signal=False)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        shares = compute_shares([sig, slaved, bkg], 0.5)
+        # 0.5 * 0.830 * (0.2 / 2.0)
+        assert shares["eta_pi0_via_3pi0"] == pytest.approx(0.5 * 0.830 * 0.1)
+
+    def test_the_slaved_share_depends_only_on_the_acceptance_ratio(self):
+        # The point of slaving. sigma(gamma p -> p eta pi0) is the measurement;
+        # it appears identically in numerator and denominator and cancels. No
+        # absolute cross-section may enter this share by any path — so scaling
+        # both yields together (which is what an assumed sigma would do) must
+        # leave the share untouched.
+        base = compute_shares(
+            [
+                ChannelYield(_signal(), y_sigma=None, y_unit=2.0, is_signal=True),
+                ChannelYield(_slaved(), y_sigma=None, y_unit=0.2, is_signal=False),
+                ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False),
+            ],
+            0.5,
+        )
+        doubled = compute_shares(
+            [
+                ChannelYield(_signal(), y_sigma=None, y_unit=4.0, is_signal=True),
+                ChannelYield(_slaved(), y_sigma=None, y_unit=0.4, is_signal=False),
+                ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False),
+            ],
+            0.5,
+        )
+        assert doubled["eta_pi0_via_3pi0"] == pytest.approx(base["eta_pi0_via_3pi0"])
+
+    def test_acceptance_keeps_the_slaved_share_usable(self):
+        # Slaving to the BR alone would hand it 0.5 * 0.830 = 0.415, crushing
+        # every real background into the remaining 8.5%. The acceptance ratio
+        # is not a refinement; it is what makes the slaving usable at all.
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=True)
+        slaved = ChannelYield(_slaved(), y_sigma=None, y_unit=0.1, is_signal=False)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        shares = compute_shares([sig, slaved, bkg], 0.5)
+        assert shares["eta_pi0_via_3pi0"] < 0.1
+        assert shares["pi0pi0"] > 0.4
+
+    def test_refuses_a_prior_that_leaves_no_room_for_backgrounds(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=True)
+        slaved = ChannelYield(_slaved(0.830), y_sigma=None, y_unit=1.0, is_signal=False)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        # 0.9 + 0.9*0.830 > 1: the ordinary backgrounds would need negative weight.
+        with pytest.raises(ValueError, match="no weight left"):
+            compute_shares([sig, slaved, bkg], 0.9)
+
+    def test_refuses_a_prior_outside_zero_to_one(self):
+        with pytest.raises(ValueError, match="strictly between 0 and 1"):
+            compute_shares(self._yields(), 1.0)
+
+    def test_refuses_more_than_one_signal(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=True)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        with pytest.raises(ValueError, match="exactly one signal"):
+            compute_shares([sig, sig, bkg], 0.5)
+
+    def test_refuses_a_signal_with_no_surviving_weight(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=0.0, is_signal=True)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=False)
+        with pytest.raises(ValueError, match="no weight left"):
+            compute_shares([sig, bkg], 0.5)
+
+    def test_refuses_backgrounds_with_no_yield_between_them(self):
+        sig = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=True)
+        bkg = ChannelYield(_bkg("pi0pi0"), y_sigma=0.0, y_unit=1.0, is_signal=False)
+        with pytest.raises(ValueError, match="no weight left"):
+            compute_shares([sig, bkg], 0.5)
+
+    def test_refuses_a_weightless_ordinary_background_with_a_clear_error(self):
+        # eta_pi0 carries no cross-section by design. When something other than
+        # eta_pi0 is the signal, eta_pi0 becomes an ordinary background with
+        # y_sigma=None. That must raise a legible error naming the channel, not
+        # a bare TypeError when None reaches the yield sum. (Regression: an
+        # earlier version summed the None and crashed with
+        # "unsupported operand type(s) for +: 'int' and 'NoneType'".)
+        signal = ChannelYield(_bkg("pi0pi0"), y_sigma=1.0, y_unit=1.0, is_signal=True)
+        weightless = ChannelYield(_signal(), y_sigma=None, y_unit=1.0, is_signal=False)
+        with pytest.raises(ValueError, match="no cross-section to be weighted by"):
+            compute_shares([signal, weightless], 0.5)

@@ -25,12 +25,12 @@ delimitatori `# ====`, con schema delle fasi) ed esce con codice 0.
 | Flag | Effetto | Default |
 |---|---|---|
 | `--test-data` | rimappa le quattro cartelle dati del rivelatore su `test_data/` (vedi sotto) | disattivo |
-| `--nevents N` | eventi generati per ciascuno dei 6 canali MC in fase 3 | `1000000` |
+| `--nevents N` | eventi generati per ciascuno dei 9 canali MC in fase 3 | `1000000` |
 | `--skip-preanalysis` | salta la fase 1 | disattivo |
 | `--force-preanalysis` | rifà la fase 1 anche se `pre_analyzed/` (o l'equivalente `--test-data`) contiene già file | disattivo |
 | `--skip-selection` | salta la fase 2 | disattivo |
 | `--skip-mc` | salta la generazione MC (fase 3), qualunque sia lo stato su disco | disattivo |
-| `--force-mc` | rigenera i 6 canali anche se sono già tutti presenti | disattivo |
+| `--force-mc` | rigenera i 9 canali anche se sono già tutti presenti | disattivo |
 | `--skip-features` | salta la fase 4 (build feature) | disattivo |
 | `--skip-grid-search` | salta la fase 5 (grid search) | disattivo |
 | `--grid-search-niter N` | iterazioni della grid search in fase 5 | `30` |
@@ -121,31 +121,35 @@ dell'albero rinominato in [Formati dati](data-formats).
 ${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"
 ```
 
-`mc_status` controlla se i 6 canali (`eta_pi0`, `pi0pi0`, `3pi0`,
-`eta_2pi0`, `omega_pi0`, `etaprime`) sono tutti presenti in
-`03_mc_simulation/data/`. Il suo exit code guida la decisione:
+`mc_status` controlla se i 9 canali (`eta_pi0`, `pi0pi0`, `3pi0`,
+`eta_2pi0`, `omega_pi0`, `etaprime`, `eta_via_3pi0`, `4pi0`,
+`eta_pi0_via_3pi0` — la lista viene dal registry `00_common/channels.py`, non
+è ripetuta a mano qui) sono tutti presenti in `03_mc_simulation/data/`. Il suo
+exit code guida la decisione:
 
 | Exit | Significato | Azione dello script |
 |---|---|---|
-| 0 | tutti e 6 i canali presenti | non rigenera (salvo `--force-mc`) |
+| 0 | tutti e 9 i canali presenti | non rigenera (salvo `--force-mc`) |
 | 1 | almeno uno manca | rigenera |
 | 2 | errore interno di `mc_status` stesso | **fatale**, la pipeline si ferma |
 
 L'exit 2 è trattato come diverso da "MC mancante" apposta: un interprete
 `python` che non riesce a importare `mc_simulation` (per esempio perché
 manca `pip install -e .`) darebbe anch'esso un errore, e se venisse letto
-come "MC assente" la pipeline partirebbe a rigenerare sei canali — ore di
-calcolo — che in realtà erano già tutti su disco. Per questo `set -e` è
-disattivato solo per questa singola chiamata, quel tanto che basta per
+come "MC assente" la pipeline partirebbe a rigenerare tutti e nove i canali —
+ore di calcolo — che in realtà erano già tutti su disco. Per questo `set -e`
+è disattivato solo per questa singola chiamata, quel tanto che basta per
 ispezionare l'exit code prima di decidere.
 
-**Riuso**: la generazione è saltata di default se tutti e 6 i canali sono
+**Riuso**: la generazione è saltata di default se tutti e 9 i canali sono
 già presenti (rigenerare costa ore). `--skip-mc` la salta sempre;
 `--force-mc` la rifà sempre. La staleness (file più vecchi di 10 giorni) non
 cambia mai la decisione — genera solo un warning, non blocca.
 
-Se serve generare, i 6 macro ROOT girano dalla cartella dati stessa (scrivono
-il `.root` nella directory corrente):
+Se serve generare, i 9 macro ROOT girano dalla cartella dati stessa (scrivono
+il `.root` nella directory corrente); la lista dei canali viene letta dal
+registry (`CHANNEL_NAMES`), così un canale aggiunto lì non può essere
+dimenticato qui:
 
 ```bash
 generate_eta_pi0_dataset.C(NEVENTS)
@@ -154,9 +158,19 @@ generate_3pi0_dataset.C(NEVENTS)
 generate_eta_2pi0_dataset.C(NEVENTS)
 generate_omega_pi0_dataset.C(NEVENTS)
 generate_etaprime_dataset.C(NEVENTS)
+generate_eta_via_3pi0_dataset.C(NEVENTS)
+generate_4pi0_dataset.C(NEVENTS)
+generate_eta_pi0_via_3pi0_dataset.C(NEVENTS)
 ```
 
-Produce: `03_mc_simulation/data/<canale>_mc.root`, uno per canale.
+Produce: `03_mc_simulation/data/<canale>_mc.root`, uno per canale. I
+generatori estraggono l'energia del fascio piatta fino a un tetto di
+**1.75 GeV** (era 1.55; il fascio reale misurato arriva a 1.72, vedi
+[03 — Simulazione MC](03-mc-simulation)).
+
+Un canale deliberatamente **non** generato: `γp → n π⁺ π⁰ π⁰`, escluso finché
+non esiste una misura della leakage dei pioni carichi attraverso il taglio
+dE/dx ("banana") del BGO — vedi [03 — Simulazione MC](03-mc-simulation).
 
 ## Fase 4 — Build feature stage-1
 
@@ -177,15 +191,30 @@ ${PYTHON} -u -m bdt_training.build_background_features \
 
 Quali file servano non è più scritto qui: `--signal-channel` nomina il canale
 che fa da segnale, e il registry `00_common/channels.py` risolve il suo file e
-quelli degli altri cinque, che diventano il fondo. Un canale mancante si ferma
+quelli degli altri otto, che diventano il fondo. Un canale mancante si ferma
 con `missing MC file for '<canale>'`.
 
 La misura dello spettro viene prima perché il MC va riponderato sul fascio che
 l'esperimento ha davvero avuto, non su quello piatto dei generatori (vedi
 [03 — Simulazione MC](03-mc-simulation)). Non è cachata: costa poco rispetto
 alla costruzione delle feature, e si misura da quello che `SELECTED_DIR`
-contiene adesso. Se la cartella non esiste, la fase avverte e prosegue col
-fascio piatto invece di fallire.
+contiene adesso.
+
+**`--beam-spectrum` è obbligatorio, e se `SELECTED_DIR` non esiste la fase
+fallisce**, non prosegue con un fascio piatto come faceva prima:
+
+```
+ERRORE: data/selected/ non esiste.
+        I pesi dei canali sono sezioni d'urto integrate sul flusso
+        del fascio misurato, e senza i dati selezionati non c'e'
+        flusso da misurare. Esegui prima lo stage di selezione.
+```
+
+Non è un irrigidimento cosmetico: i pesi dei canali sono sezioni d'urto
+integrate su quel flusso (vedi [03 — Simulazione MC](03-mc-simulation) per la
+formula), e un fascio piatto per costruirli non è un'approssimazione più
+grezza, è un numero senza fondamento — proseguire "con un avviso" nascondeva
+proprio questo.
 
 Produce la matrice di feature a 24 colonne usata dalla fase 5 e
 dalla fase 6 — dettagli in [04-bdt-training-features](04-bdt-training-features).

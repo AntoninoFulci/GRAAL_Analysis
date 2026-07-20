@@ -15,7 +15,7 @@
 # Stages:
 #   1. Pre-analisi         data/graal_data/   -> data/pre_analyzed/ (albero h80)
 #   2. Selezione eventi    data/pre_analyzed/ -> data/selected/     (albero h85)
-#   3. MC generation       (saltata se i 6 canali esistono gia')
+#   3. MC generation       (saltata se i 9 canali esistono gia')
 #   4. Build features stage-1
 #   5. Grid search iper-parametri
 #   6. Training BDT stage-1
@@ -37,7 +37,7 @@
 # dalla pre-analisi. Passa un nome esplicito solo per forzarne uno.
 #
 # --signal-channel sceglie quale canale il BDT impara a riconoscere; gli altri
-# cinque diventano il suo fondo. Vale per gli stage 4-6 (feature, grid search,
+# otto diventano il suo fondo. Vale per gli stage 4-6 (feature, grid search,
 # training). Lo stage 7 ricostruisce eta+pi0.
 #
 # --signal-prior e' la quota del peso di training che va al segnale (default
@@ -65,7 +65,7 @@ NEVENTS=1000000
 # explicitly to override the detection.
 INPUT_TREE="auto"
 
-# Which channel the stage-1 BDT is trained to pick out. Any of the six in
+# Which channel the stage-1 BDT is trained to pick out. Any of the nine in
 # graal_common.channels can play signal; the rest become its background.
 SIGNAL_CHANNEL="eta_pi0"
 
@@ -236,7 +236,7 @@ fi
 # ---- Stage 3: MC generation ----
 stage 3 "MC generation"
 
-# mc_status exits 0 when all six channels are on disk, 1 when any is missing,
+# mc_status exits 0 when all nine channels are on disk, 1 when any is missing,
 # 2 on an internal error. set -e is guarded off for this one call so we can
 # inspect the exit code; anything outside {0,1} is fatal and must NEVER be
 # silently read as "MC missing" (that would trigger hours of regeneration).
@@ -294,31 +294,37 @@ if [[ $SKIP_FEATURES -eq 0 ]]; then
 
     # The beam the generators drew is flat; the beam GRAAL had is Compton
     # backscattered laser light with an edge. Measure the real one off the
-    # selected data and reweight the MC onto it, or the BDT learns a boundary
-    # calibrated to a beam that never existed. Cheap next to the feature build,
-    # so it is not cached: it is measured from whatever selected/ holds now.
-    BEAM_FLAG=()
-    if [[ -d "${SELECTED_DIR}" ]]; then
-        echo "  -> misuro lo spettro del fascio da ${SELECTED_DIR}/"
-        ${PYTHON} -u -m bdt_training.beam_spectrum \
-            --selected-dir "${SELECTED_DIR}" \
-            --tree         "${INPUT_TREE}" \
-            --output       "${BEAM_SPECTRUM_FILE}"
-        BEAM_FLAG=("--beam-spectrum" "${BEAM_SPECTRUM_FILE}")
-    else
-        echo "  ATTENZIONE: ${SELECTED_DIR}/ non esiste: niente riponderazione del"
-        echo "              fascio. Il training terra' il fascio piatto dei"
-        echo "              generatori, che i dati non hanno."
+    # selected data and reweight the MC onto it. Cheap next to the feature
+    # build, so it is not cached: it is measured from whatever selected/ holds
+    # now.
+    #
+    # Not optional, and it did not used to be a hard error. The channel weights
+    # are cross-sections integrated over this flux — without it omega_pi0 and
+    # etaprime, which open in the last few percent of the beam range, have no
+    # defensible weight at all. Carrying on with a flat beam is how they came to
+    # be overweighted in the first place.
+    if [[ ! -d "${SELECTED_DIR}" ]]; then
+        echo "ERRORE: ${SELECTED_DIR}/ non esiste."
+        echo "        I pesi dei canali sono sezioni d'urto integrate sul flusso"
+        echo "        del fascio misurato, e senza i dati selezionati non c'e'"
+        echo "        flusso da misurare. Esegui prima lo stage di selezione."
+        exit 1
     fi
+
+    echo "  -> misuro lo spettro del fascio da ${SELECTED_DIR}/"
+    ${PYTHON} -u -m bdt_training.beam_spectrum \
+        --selected-dir "${SELECTED_DIR}" \
+        --tree         "${INPUT_TREE}" \
+        --output       "${BEAM_SPECTRUM_FILE}"
 
     # Which files are needed, and which channel is the background, are the
     # registry's business now: it resolves them from --signal-channel, and
-    # stage 3 above has already checked all six are on disk.
+    # stage 3 above has already checked all nine are on disk.
     ${PYTHON} -u -m bdt_training.build_background_features \
         --mc-dir         "$MC_DATA_DIR" \
         --signal-channel "$SIGNAL_CHANNEL" \
         --signal-prior   "$SIGNAL_PRIOR" \
-        "${BEAM_FLAG[@]}" \
+        --beam-spectrum  "${BEAM_SPECTRUM_FILE}" \
         --output         "$FEATURES_FILE"
 
     stage_done
