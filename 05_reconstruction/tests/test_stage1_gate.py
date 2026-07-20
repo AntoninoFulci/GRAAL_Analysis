@@ -76,7 +76,7 @@ def test_the_model_is_scored_on_the_features_it_was_trained_on():
     gate.accepts_many(photons, protons, beams)
 
     expected = compute_stage1_features(photons, protons, beams)
-    assert model.seen.shape == (3, 24)
+    assert model.seen.shape == (3, 26)
     np.testing.assert_allclose(model.seen, expected, rtol=1e-6)
 
 

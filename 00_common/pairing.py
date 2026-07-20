@@ -135,3 +135,26 @@ def best_pairing(photons: np.ndarray, hypothesis: Hypothesis) -> tuple[Pairing, 
 def best_chi2(photons: np.ndarray, hypothesis: Hypothesis) -> np.ndarray:
     """The best pairing's chi2 for each of N events. photons: (N, 4, 4)."""
     return chi2_per_pairing(pair_masses(photons), hypothesis).min(axis=-1)
+
+
+def best_pairing_indices(
+    pair_m: np.ndarray, hypothesis: Hypothesis
+) -> tuple[np.ndarray, np.ndarray]:
+    """Photon indices of the chi2-best pairing, for a whole chunk of events.
+
+    pair_m: (N, 6) from pair_masses. Returns (heavy_idx, light_idx), each an
+    (N, 2) int array — the two photon indices of the heavy (eta) candidate and
+    of the light (pi0) candidate, for the pairing that minimises the hypothesis
+    chi2 in each event.
+
+    The batch form of best_pairing, kept here so the feature builder can gather
+    per-event meson candidates without a Python loop over events. It selects the
+    same pairing best_pairing does and that best_chi2 (feature 8) scores: a
+    feature built on a different pairing than the one the chi2 reports would be
+    answering a different question than it claims.
+    """
+    ps = pairings(hypothesis)
+    heavy_table = np.array([p.heavy for p in ps], dtype=np.intp)   # (n_pairings, 2)
+    light_table = np.array([p.light for p in ps], dtype=np.intp)
+    chosen = np.argmin(chi2_per_pairing(pair_m, hypothesis), axis=-1)  # (N,)
+    return heavy_table[chosen], light_table[chosen]
