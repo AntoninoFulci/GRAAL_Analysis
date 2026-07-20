@@ -6,14 +6,23 @@
 #include <TMath.h>
 #include "smearing.h"
 
-void generate_3pi0_dataset(int Nevents = 1000000) {
+// gamma p -> p eta, eta -> 3pi0 -> 6 gamma.
+//
+// The largest gap in the old background sample, and the dangerous kind: the
+// event holds a genuine eta, so dropping 2 of its 6 photons leaves 4 with a
+// real eta mass and a real pi0 mass. It lands on the signal chi2 minimum rather
+// than in the tails.
+void generate_eta_via_3pi0_dataset(int Nevents = 1000000) {
     const double mp   = 0.938272;
+    const double meta = 0.547862;
     const double mpi0 = 0.134977;
-    const double threshold = (pow(3*mpi0 + mp, 2) - pow(mp, 2)) / (2*mp);
+    // Production threshold: p eta. The DECAY does not enter — the eta is made
+    // on shell and falls apart afterwards.
+    const double threshold = (pow(meta + mp, 2) - pow(mp, 2)) / (2*mp);
 
     TRandom3 rng(0);
-    TFile *fout = new TFile("3pi0_mc.root", "RECREATE");
-    TTree *tree = new TTree("mc", "3pi0 background MC");
+    TFile *fout = new TFile("eta_via_3pi0_mc.root", "RECREATE");
+    TTree *tree = new TTree("mc", "gamma p -> p eta, eta -> 3pi0 background MC");
 
     TLorentzVector beam, proton, g0, g1, g2, g3, g4, g5;
     int n_true_gamma = 6;
@@ -25,32 +34,29 @@ void generate_3pi0_dataset(int Nevents = 1000000) {
     tree->Branch("n_true_gamma", &n_true_gamma, "n_true_gamma/I");
 
     for (int i = 0; i < Nevents; i++) {
-        // 1.75, not 1.55: the real beam runs to 1.72 (see beam_spectrum.py).
-        // Under flux-integrated weighting a channel is credited only with the
-        // flux its MC can populate, so a ceiling below the data's tail is no
-        // longer cosmetic — it would understate every channel by the slice it
-        // cannot reach.
         double Ebeam = rng.Uniform(threshold, 1.75);
         beam.SetPxPyPzE(0, 0, rng.Gaus(Ebeam, 0.016), rng.Gaus(Ebeam, 0.016));
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
 
-        double masses4[4] = {mpi0, mpi0, mpi0, mp};
+        double masses2[2] = {meta, mp};
         TGenPhaseSpace evt;
-        if (!evt.SetDecay(W, 4, masses4)) continue;
+        if (!evt.SetDecay(W, 2, masses2)) continue;
         evt.Generate();
 
-        TLorentzVector pi[3];
-        pi[0] = *evt.GetDecay(0);
-        pi[1] = *evt.GetDecay(1);
-        pi[2] = *evt.GetDecay(2);
-        proton = *evt.GetDecay(3);
+        TLorentzVector eta_v = *evt.GetDecay(0);
+        proton = *evt.GetDecay(1);
+
+        double masses3[3] = {mpi0, mpi0, mpi0};
+        TGenPhaseSpace deta;
+        if (!deta.SetDecay(eta_v, 3, masses3)) continue;
+        deta.Generate();
 
         double m2[2] = {0., 0.};
         TLorentzVector tmp[6];
         TGenPhaseSpace d[3];
         for (int k = 0; k < 3; k++) {
-            d[k].SetDecay(pi[k], 2, m2);
+            d[k].SetDecay(*deta.GetDecay(k), 2, m2);
             d[k].Generate();
             tmp[2*k]   = SmearPhoton(*d[k].GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
             tmp[2*k+1] = SmearPhoton(*d[k].GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
@@ -62,5 +68,5 @@ void generate_3pi0_dataset(int Nevents = 1000000) {
     }
     tree->Write("", TObject::kOverwrite);
     fout->Close();
-    printf("Generated %d 3pi0 events\n", Nevents);
+    printf("Generated %d eta_via_3pi0 events\n", Nevents);
 }

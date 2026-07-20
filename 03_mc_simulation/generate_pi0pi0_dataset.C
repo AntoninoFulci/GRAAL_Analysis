@@ -25,7 +25,12 @@ void generate_pi0pi0_dataset(int Nevents = 1000000) {
     tree->Branch("n_true_gamma", &n_true_gamma, "n_true_gamma/I");
 
     for (int i = 0; i < Nevents; i++) {
-        double Ebeam = rng.Uniform(threshold, 1.55);
+        // 1.75, not 1.55: the real beam runs to 1.72 (see beam_spectrum.py).
+        // Under flux-integrated weighting a channel is credited only with the
+        // flux its MC can populate, so a ceiling below the data's tail is no
+        // longer cosmetic — it would understate every channel by the slice it
+        // cannot reach.
+        double Ebeam = rng.Uniform(threshold, 1.75);
         beam.SetPxPyPzE(0, 0, rng.Gaus(Ebeam, 0.016), rng.Gaus(Ebeam, 0.016));
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
