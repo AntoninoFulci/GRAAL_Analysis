@@ -15,3 +15,8 @@
     - [Fit cinematico](05-reconstruction-kinematic-fit)
 - [06 — Plot](06-plots)
 - [Testing](testing)
+
+### Fisica & pubblicazioni
+
+- [Canali di fisica](physics-channels-survey)
+- [Roadmap articoli](publication-roadmap)
