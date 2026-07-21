@@ -13,6 +13,8 @@ from reconstruction.kinematic_fit import (
     _DEG,
     FitCovariance,
     FitResult,
+    _covariance_diag,
+    _vectors_to_params,
     confidence_level,
     fit_event,
 )
@@ -132,6 +134,24 @@ class TestFitEvent:
         ml = np.sqrt(gl[3] ** 2 - (gl[:3] ** 2).sum())
         assert mh == pytest.approx(M_ETA, abs=1e-3)
         assert ml == pytest.approx(M_PI0, abs=1e-3)
+
+    def test_fitted_cov_is_no_larger_than_the_measured_variance(self):
+        # The fit uses the constraints to reduce, never inflate, the
+        # uncertainty on the fitted parameters -- V_eta <= V, elementwise.
+        photons, proton, beam = _conserving_event()
+        rng = np.random.default_rng(0)
+        smear = photons.copy()
+        smear[:, 3] *= 1.0 + rng.normal(0, 0.05, 4)
+        for i in range(4):
+            n3 = np.sqrt((smear[i, :3] ** 2).sum())
+            smear[i, :3] *= smear[i, 3] / n3
+        res = fit_event(smear, proton, beam, PAIRING, ETA_PI0_HYP)
+        assert res.converged
+        assert res.fitted_cov.shape == (16,)
+
+        measured = _covariance_diag(_vectors_to_params(smear, proton, beam), FitCovariance())
+        assert np.all(res.fitted_cov >= -1e-12)          # allow tiny numerical noise
+        assert np.all(res.fitted_cov <= measured + 1e-12)
 
     def test_non_convergence_is_flagged_not_crashed(self):
         # Mesons carrying far more than the beam: conservation is unsatisfiable,

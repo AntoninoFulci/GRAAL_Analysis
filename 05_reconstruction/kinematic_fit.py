@@ -54,6 +54,7 @@ class FitResult:
     chi2: float
     ndf: int
     converged: bool
+    fitted_cov: np.ndarray       # (16,) diagonal of V_eta, same param order as V
 
 
 def confidence_level(chi2_value: float, ndf: int) -> float:
@@ -159,7 +160,7 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
             Sinv = np.linalg.inv(S)
         except np.linalg.LinAlgError:
             fp, pr, _ = _params_to_vectors(eta)
-            return FitResult(fp, pr, 1e12, 6, False)
+            return FitResult(fp, pr, 1e12, 6, False, V.copy())
         lam = Sinv @ r
         eta = y - V * (F.T @ lam)
         chi2 = float(r @ Sinv @ r)
@@ -170,4 +171,12 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
     fitted_photons, fitted_proton, _ = _params_to_vectors(eta)
     if not converged:
         chi2 = max(chi2, 1e3)          # keep it clear of any sane CL cut
-    return FitResult(fitted_photons, fitted_proton, chi2, 6, converged)
+
+    # Fitted covariance V_eta = V - V F^T S^-1 F V, at the converged eta/F/Sinv.
+    # Store the raw diagonal (may hold tiny numerical negatives); clipping
+    # before any sqrt is the caller's job (the validator does it).
+    VFt = V[:, None] * F.T                          # (16, 6)
+    V_eta = np.diag(V) - VFt @ Sinv @ VFt.T
+    fitted_cov = np.diag(V_eta)
+
+    return FitResult(fitted_photons, fitted_proton, chi2, 6, converged, fitted_cov)
