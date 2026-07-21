@@ -16,9 +16,14 @@ before either the gate or the chi2 pairing run:
     them. Skipping both runs at the source keeps the two samples identical
     except for the gate, which is the entire point of the comparison.
 
-One cut is applied after the pairing, also to both runs: an event where either
-reconstructed meson carries more energy than the tagged beam photon is thrown
-away. See _reconstruct_and_fill.
+Two cuts are applied after the pairing, also to both runs. An event where
+either reconstructed meson carries more energy than the tagged beam photon is
+thrown away. And the missing mass of the two-meson system must sit within a
+window of the recoil partner's mass (RecoConfig.partner_mass /
+missing_mass_window): the reaction recoils against a single partner, so the
+contamination that does not is what pulls the reconstructed meson peak high.
+Both are in _reconstruct_and_fill, so the chi2 run and the BDT run lose the
+same events and the gate stays the only difference between them.
 """
 from __future__ import annotations
 
@@ -66,6 +71,11 @@ class RecoConfig:
     input_tree: str = AUTO_TREE
     output_tree: str = "reco"
     chi2_cut: float = 10.0
+    # Recoil partner of the eta-pi0 system, and the half-width of the window on
+    # its missing mass. The cut centres the reconstructed eta; a window of None
+    # or <= 0 disables it. See reco_physics.passes_missing_mass.
+    partner_mass: float = rp.M_PROTON
+    missing_mass_window: float | None = 0.06
 
 
 def _as_array(v) -> np.ndarray:
@@ -126,7 +136,7 @@ def run_reconstruction(
     light_mass = array("f", [0.0])
 
     beam = ROOT.TLorentzVector()
-    target = ROOT.TLorentzVector(0.0, 0.0, 0.0, rp.M_PROTON)  # proton at rest
+    target = ROOT.TLorentzVector(0.0, 0.0, 0.0, cfg.partner_mass)  # partner at rest
     proton = ROOT.TLorentzVector()
     neutron = ROOT.TLorentzVector()
     heavy = ROOT.TLorentzVector()
@@ -158,11 +168,12 @@ def run_reconstruction(
     n_gated_out = 0
     n_no_proton = 0
     n_impossible = 0
+    n_missing_cut = 0
     print("Starting event loop...")
 
     def _reconstruct_and_fill(photons, proton_v, neutron_v, beam_v) -> None:
         """chi2-pair one accepted event and write it. Identical for both runs."""
-        nonlocal n_impossible
+        nonlocal n_impossible, n_missing_cut
 
         pairing, chi2_val = pr.best_pairing(photons, channel.hypothesis)
         chi2[0] = chi2_val
@@ -201,6 +212,18 @@ def run_reconstruction(
             return
 
         missing_v = (beam + target) - (heavy + light)
+
+        # The reaction recoils the eta-pi0 system against a single partner, so
+        # the missing mass sits at the partner's mass. Requiring it there drops
+        # the contamination that has no such partner -- events that otherwise
+        # pull the reconstructed eta peak high. Shared path: the chi2 run and the
+        # BDT run lose the same events, leaving the gate the only difference.
+        if not rp.passes_missing_mass(
+            missing_v.M(), cfg.partner_mass, cfg.missing_mass_window
+        ):
+            n_missing_cut += 1
+            return
+
         missing.SetPxPyPzE(
             missing_v.Px(), missing_v.Py(), missing_v.Pz(), missing_v.E()
         )
@@ -284,6 +307,9 @@ def run_reconstruction(
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")
     print(f"Cut (meson energy above the beam): {n_impossible}")
+    if cfg.missing_mass_window and cfg.missing_mass_window > 0:
+        print(f"Cut (missing mass off partner {cfg.partner_mass:.3f} "
+              f"by >= {cfg.missing_mass_window}): {n_missing_cut}")
     print(f"Events written: {n_written}")
     print("====================================")
 
