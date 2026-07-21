@@ -16,9 +16,14 @@ before either the gate or the chi2 pairing run:
     them. Skipping both runs at the source keeps the two samples identical
     except for the gate, which is the entire point of the comparison.
 
-One cut is applied after the pairing, also to both runs: an event where either
-reconstructed meson carries more energy than the tagged beam photon is thrown
-away. See _reconstruct_and_fill.
+Two cuts are applied after the pairing, also to both runs. An event where
+either reconstructed meson carries more energy than the tagged beam photon is
+thrown away. And the missing mass of the two-meson system must sit within a
+window of the recoil partner's mass (RecoConfig.partner_mass /
+missing_mass_window): the reaction recoils against a single partner, so the
+contamination that does not is what pulls the reconstructed meson peak high.
+Both are in _reconstruct_and_fill, so the chi2 run and the BDT run lose the
+same events and the gate stays the only difference between them.
 """
 from __future__ import annotations
 
