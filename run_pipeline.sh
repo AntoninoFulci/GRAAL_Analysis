@@ -68,6 +68,8 @@ INPUT_TREE="auto"
 # Which channel the stage-1 BDT is trained to pick out. Any of the nine in
 # graal_common.channels can play signal; the rest become its background.
 SIGNAL_CHANNEL="eta_pi0"
+# Recoil partner for the reconstruction's missing-mass cut (proton|neutron|deuteron).
+PARTNER="proton"
 
 # Share of the training weight given to the signal class. A CHOICE, not physics:
 # the signal cross-section is what this analysis measures, so it cannot also be
@@ -120,6 +122,7 @@ while [[ $# -gt 0 ]]; do
         --nevents)            NEVENTS="$2";           shift 2 ;;
         --input-tree)         INPUT_TREE="$2";        shift 2 ;;
         --signal-channel)     SIGNAL_CHANNEL="$2";    shift 2 ;;
+        --partner)            PARTNER="$2";           shift 2 ;;
         --signal-prior)       SIGNAL_PRIOR="$2";      shift 2 ;;
         --skip-preanalysis)   SKIP_PREANALYSIS=1;     shift   ;;
         --force-preanalysis)  FORCE_PREANALYSIS=1;    shift   ;;
@@ -386,16 +389,18 @@ if [[ $SKIP_RECO -eq 0 ]]; then
 
     mkdir -p "${RECO_DIR}"
 
-    echo "  -> analisi standard (chi2)"
+    echo "  -> analisi standard (chi2)  [partner: ${PARTNER}]"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
+        --partner     "${PARTNER}" \
         --output-file "${RECO_DIR}/reco_eta_pi0_chi2.root"
 
-    echo "  -> analisi con gate BDT stage-1"
+    echo "  -> analisi con gate BDT stage-1  [partner: ${PARTNER}]"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
         --input-dir   "${SELECTED_DIR}" \
         --input-tree  "${INPUT_TREE}" \
+        --partner     "${PARTNER}" \
         --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
         --model-dir   "${MODEL_DIR}"
 

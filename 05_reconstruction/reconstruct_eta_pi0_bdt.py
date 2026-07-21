@@ -12,7 +12,7 @@ import argparse
 from pathlib import Path
 
 from reconstruction.reco_core import AUTO_TREE, RecoConfig, run_reconstruction
-from reconstruction.reco_physics import ETA_PI0
+from reconstruction.reco_physics import ETA_PI0, PARTNER_MASSES, partner_mass
 from reconstruction.stage1_gate import DEFAULT_MODEL_DIR, Stage1Gate
 
 
@@ -26,6 +26,12 @@ def main():
                    help="tree inside the selected files; 'auto' takes whichever "
                         "known preselection tree is there (h85, or the older h80)")
     p.add_argument("--chi2-cut", type=float, default=10.0)
+    p.add_argument("--partner", choices=sorted(PARTNER_MASSES), default="proton",
+                   help="recoil partner of the eta-pi0 system; sets the missing-"
+                        "mass the cut centres on (default proton)")
+    p.add_argument("--missing-mass-window", type=float, default=0.06,
+                   help="half-width [GeV] of the missing-mass window around the "
+                        "partner; <= 0 disables the cut (default 0.06)")
     p.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR,
                    help="folder with bdt_stage1.json and stage1_threshold.txt")
     args = p.parse_args()
@@ -41,6 +47,8 @@ def main():
         input_tree=args.input_tree,
         output_tree="reco_eta_pi0_bdt",
         chi2_cut=args.chi2_cut,
+        partner_mass=partner_mass(args.partner),
+        missing_mass_window=args.missing_mass_window,
     )
     run_reconstruction(cfg, ETA_PI0, gate=gate)
 
