@@ -270,6 +270,13 @@ I due run condividono lo stesso `SELECTED_DIR` (albero `h85`) e lo stesso
 taglio chi2; l'unica differenza tra i due output è il gate BDT nel secondo —
 vedi [Formati dati](data-formats) per lo schema degli alberi di output.
 
+**Il fit cinematico 6C gira di default** su entrambi i run, dopo il chi2 (e
+dopo il gate, per il secondo): la sua confidence level seleziona l'evento
+finale al posto della massa mancante. `--no-fit` lo disattiva e fa tornare
+la selezione alla finestra sulla massa mancante (`--missing-mass-window`,
+default 0.06 GeV); `--fit-cl` cambia la soglia sulla confidence level
+(default 0.01). Vedi [Fit cinematico](05-reconstruction-kinematic-fit).
+
 ## Fase 8 — Plot (Dalitz + masse invarianti)
 
 ```bash

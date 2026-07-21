@@ -84,6 +84,17 @@ tree->Branch("pi0_gamma2", &pi0_gamma2);
 `build_background_features.py::load_photons` riconosce questo caso da
 `channel.photon_branches` nel registry, e li carica per nome.
 
+**Rami `*_true` (solo `eta_pi0`).** `generate_eta_pi0_dataset.C` scrive,
+accanto ai quadrivettori smearati sopra, gli stessi quadrivettori **prima**
+dello smearing: `eta_gamma1_true`, `eta_gamma2_true`, `pi0_gamma1_true`,
+`pi0_gamma2_true`, `proton_true`, `beam_true`. Servono solo alla
+validazione del fit cinematico (`validate_kinematic_fit.py`, vedi
+[Fit cinematico](05-reconstruction-kinematic-fit)): il calcolo degli pull
+richiede di confrontare il fittato con la verità del generatore, che senza
+questi rami non sarebbe recuperabile a partire dal solo MC smearato. Gli
+altri otto canali di fondo non li hanno — non serve la loro verità, solo il
+loro chi2 del fit per lo studio di reiezione.
+
 **Rami `g0..gN` + `n_true_gamma`.** Tutti gli altri otto canali: il numero di
 fotoni varia da canale a canale, e il file stesso dichiara quanti ce ne sono
 con un ramo scalare `n_true_gamma/I`, letto a runtime invece che assunto:
@@ -142,6 +153,28 @@ pi0_gamma2, TLorentzVector
 
 missing, TLorentzVector      // (beam + target) - (eta + pi0)
 ```
+
+**Rami del fit cinematico**, scritti quando il fit è attivo (default; assenti
+di fatto se lanciato con `--no-fit`, dove la selezione torna alla finestra
+sulla massa mancante — vedi [Fit cinematico](05-reconstruction-kinematic-fit)):
+
+```cpp
+eta_fit,        TLorentzVector   // somma dei due fotoni fittati dell'eta
+pi0_fit,        TLorentzVector   // somma dei due fotoni fittati del pi0
+proton_fit,     TLorentzVector   // protone fittato
+
+eta_fit_gamma1, TLorentzVector
+eta_fit_gamma2, TLorentzVector
+pi0_fit_gamma1, TLorentzVector
+pi0_fit_gamma2, TLorentzVector
+
+fit_chi2/F        // chi2 del fit, ndf = 6
+fit_ndf/I         // sempre 6
+fit_converged/I   // 0/1
+```
+
+Con il fit attivo, la selezione finale dell'evento è la sua confidence
+level (`--fit-cl`, default 0.01), non più la massa mancante.
 
 Un evento arriva a questo stadio solo se ha almeno 4 fotoni ricostruiti ed
 esattamente 1 protone (mai 0, mai 2+): un evento senza protone viene

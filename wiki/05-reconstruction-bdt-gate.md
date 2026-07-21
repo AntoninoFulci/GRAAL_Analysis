@@ -117,6 +117,13 @@ esplicitamente `reconstruct_eta_pi0_chi2.py` se l'assenza del gate è
 intenzionale) — non c'è più una via che produca silenziosamente un risultato
 diverso da quello richiesto.
 
+## Dopo il gate: il fit cinematico
+
+Gli eventi che superano il gate e l'accoppiamento chi2 passano poi dal fit
+cinematico 6C, che gira sui sopravvissuti e la cui confidence level — non
+più la massa mancante — seleziona l'evento finale. Vedi
+[Fit cinematico](05-reconstruction-kinematic-fit).
+
 ## Dove andare da qui
 
 - [Feature stage-1](04-bdt-training-features) — le 26 feature nell'ordine
@@ -124,3 +131,5 @@ diverso da quello richiesto.
   costruire questo vettore.
 - [BDT stage-1](04-bdt-training) — come il modello viene addestrato, le sue
   metriche correnti.
+- [Fit cinematico](05-reconstruction-kinematic-fit) — cosa succede dopo il
+  gate, sui sopravvissuti.
