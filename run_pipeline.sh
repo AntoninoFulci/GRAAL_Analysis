@@ -389,6 +389,8 @@ if [[ $SKIP_RECO -eq 0 ]]; then
 
     mkdir -p "${RECO_DIR}"
 
+    # The kinematic fit runs by default; its CL cut selects the events. Pass
+    # --no-fit to fall back to the missing-mass cut.
     echo "  -> analisi standard (chi2)  [partner: ${PARTNER}]"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
