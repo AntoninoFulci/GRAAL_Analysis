@@ -10,6 +10,7 @@ import pytest
 from graal_common.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
 from graal_common.pairing import Pairing
 from reconstruction.kinematic_fit import (
+    _DEG,
     FitCovariance,
     FitResult,
     confidence_level,
@@ -144,3 +145,50 @@ class TestFitEvent:
         res = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP, max_iter=5)
         assert res.converged is False
         assert res.chi2 > 100
+
+
+class TestChi2Calibration:
+    """Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.
+
+    Constraint satisfaction only cares about V^-1 up to direction, so the
+    fitted 4-vectors are scale-invariant under V -> k*V. But chi2 = r^T
+    (F V F^T)^-1 r is NOT scale-invariant: it picks up a factor 1/k. That
+    factor is exactly what turns the chi2(ndf) confidence-level cut into a
+    real background rejection. A regression that plugs in sigma instead of
+    sigma^2 (or drops a square somewhere) would leave every other test in
+    this file green while silently gutting the CL cut -- this test is the
+    only thing standing in its way.
+    """
+
+    def test_doubling_every_sigma_quarters_chi2_but_not_the_fitted_vectors(self):
+        photons, proton, beam = _conserving_event()
+        rng = np.random.default_rng(6)
+        smear = photons.copy()
+        smear[:, 3] *= 1.0 + rng.normal(0, 0.07, 4)   # 7% energy jitter
+        for i in range(4):
+            n3 = np.sqrt((smear[i, :3] ** 2).sum())
+            smear[i, :3] *= smear[i, 3] / n3
+
+        cov_default = FitCovariance()
+        cov_2x = FitCovariance(
+            photon_E_rel=0.20,
+            photon_theta=10 * _DEG,
+            photon_phi=6 * _DEG,
+            proton_P_rel=0.08,
+            proton_theta=6 * _DEG,
+            proton_phi=4 * _DEG,
+            beam_E=0.032,
+        )
+
+        res_default = fit_event(smear, proton, beam, PAIRING, ETA_PI0_HYP, cov=cov_default)
+        res_2x = fit_event(smear, proton, beam, PAIRING, ETA_PI0_HYP, cov=cov_2x)
+
+        assert res_default.converged and res_2x.converged
+        assert res_default.chi2 > 1.0   # guard: non-trivial chi2, not ~0
+
+        # Constraint satisfaction is scale-invariant in V -- same fitted event.
+        np.testing.assert_allclose(res_2x.fitted_photons, res_default.fitted_photons, atol=1e-6)
+        np.testing.assert_allclose(res_2x.fitted_proton, res_default.fitted_proton, atol=1e-6)
+
+        # Every sigma doubled -> every variance x4 -> chi2 / 4.
+        assert res_2x.chi2 == pytest.approx(res_default.chi2 / 4.0, rel=1e-3)
