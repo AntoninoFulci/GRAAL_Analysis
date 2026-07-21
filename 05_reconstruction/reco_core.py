@@ -184,16 +184,17 @@ def run_reconstruction(
     tout.Branch(f"{L}_gamma2", "TLorentzVector", light_g2)
     tout.Branch("missing", "TLorentzVector", missing)
 
-    tout.Branch("eta_fit", "TLorentzVector", eta_fit)
-    tout.Branch("pi0_fit", "TLorentzVector", pi0_fit)
-    tout.Branch("proton_fit", "TLorentzVector", proton_fit)
-    tout.Branch("eta_fit_gamma1", "TLorentzVector", eta_fit_g1)
-    tout.Branch("eta_fit_gamma2", "TLorentzVector", eta_fit_g2)
-    tout.Branch("pi0_fit_gamma1", "TLorentzVector", pi0_fit_g1)
-    tout.Branch("pi0_fit_gamma2", "TLorentzVector", pi0_fit_g2)
-    tout.Branch("fit_chi2", fit_chi2, "fit_chi2/F")
-    tout.Branch("fit_ndf", fit_ndf, "fit_ndf/I")
-    tout.Branch("fit_converged", fit_conv, "fit_converged/I")
+    if cfg.do_fit:
+        tout.Branch("eta_fit", "TLorentzVector", eta_fit)
+        tout.Branch("pi0_fit", "TLorentzVector", pi0_fit)
+        tout.Branch("proton_fit", "TLorentzVector", proton_fit)
+        tout.Branch("eta_fit_gamma1", "TLorentzVector", eta_fit_g1)
+        tout.Branch("eta_fit_gamma2", "TLorentzVector", eta_fit_g2)
+        tout.Branch("pi0_fit_gamma1", "TLorentzVector", pi0_fit_g1)
+        tout.Branch("pi0_fit_gamma2", "TLorentzVector", pi0_fit_g2)
+        tout.Branch("fit_chi2", fit_chi2, "fit_chi2/F")
+        tout.Branch("fit_ndf", fit_ndf, "fit_ndf/I")
+        tout.Branch("fit_converged", fit_conv, "fit_converged/I")
 
     n_gated_out = 0
     n_no_proton = 0

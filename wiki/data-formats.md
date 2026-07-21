@@ -154,8 +154,8 @@ pi0_gamma2, TLorentzVector
 missing, TLorentzVector      // (beam + target) - (eta + pi0)
 ```
 
-**Rami del fit cinematico**, scritti quando il fit è attivo (default; assenti
-di fatto se lanciato con `--no-fit`, dove la selezione torna alla finestra
+**Rami del fit cinematico**, creati solo quando il fit è attivo (default;
+assenti se lanciato con `--no-fit`, dove la selezione torna alla finestra
 sulla massa mancante — vedi [Fit cinematico](05-reconstruction-kinematic-fit)):
 
 ```cpp
