@@ -74,6 +74,13 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
     TLorentzVector eta, pi0, proton;
     TLorentzVector eta_gamma1, eta_gamma2, pi0_gamma1, pi0_gamma2;
 
+    // Pre-smearing truth, saved before the in-place smearing below overwrites
+    // the reconstructed-looking branches. Needed by the kinematic-fit pull
+    // validation.
+    TLorentzVector eta_gamma1_true, eta_gamma2_true;
+    TLorentzVector pi0_gamma1_true, pi0_gamma2_true;
+    TLorentzVector proton_true, beam_true;
+
     tree->Branch("beam", &beam);
     tree->Branch("target", &target);
     tree->Branch("eta", &eta);
@@ -83,6 +90,12 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
     tree->Branch("eta_gamma2", &eta_gamma2);
     tree->Branch("pi0_gamma1", &pi0_gamma1);
     tree->Branch("pi0_gamma2", &pi0_gamma2);
+    tree->Branch("eta_gamma1_true", &eta_gamma1_true);
+    tree->Branch("eta_gamma2_true", &eta_gamma2_true);
+    tree->Branch("pi0_gamma1_true", &pi0_gamma1_true);
+    tree->Branch("pi0_gamma2_true", &pi0_gamma2_true);
+    tree->Branch("proton_true", &proton_true);
+    tree->Branch("beam_true", &beam_true);
 
     for (int i = 0; i < Nevents; i++) {
 
@@ -95,6 +108,7 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         double Ebeam = rng.Uniform(threshold, 1.75); // photon beam energy (GeV)
 
         beam.SetPxPyPzE(0, 0, Ebeam, Ebeam);  // true beam
+        beam_true = beam;
         target.SetPxPyPzE(0, 0, 0, mp);
 
         TLorentzVector W = beam + target;
@@ -136,6 +150,13 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         // =========================
         // Detector smearing
         // =========================
+
+        // Capture the truth right before it gets overwritten in place by smearing.
+        eta_gamma1_true = eta_gamma1;
+        eta_gamma2_true = eta_gamma2;
+        pi0_gamma1_true = pi0_gamma1;
+        pi0_gamma2_true = pi0_gamma2;
+        proton_true = proton;
 
         // Photons: 10% E, 5 deg theta, 3 deg phi
         eta_gamma1 = SmearPhoton(eta_gamma1, rng, 0.10, 5 * TMath::DegToRad(), 3 * TMath::DegToRad());
