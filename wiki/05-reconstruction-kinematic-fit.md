@@ -190,6 +190,34 @@ fattore, da correggere in `FitCovariance` e rivalidare.
   l'effetto reale del fit. Chi guarda questi risultati in futuro non deve
   confondere le due cose: la massa dell'η stretta è un vincolo geometrico, la
   risoluzione del Dalitz è fisica recuperata.
+- **Risoluzione sugli assi del Dalitz** — larghezza del residuo
+  `M_reco − M_true` sul MC di segnale (dove il valore vero cancella lo spread
+  fisico e resta la sola risoluzione):
+
+  | osservabile | σ prima (raw) | σ dopo (fit) | guadagno |
+  |-------------|---------------|--------------|----------|
+  | M(ηp)       | 52 MeV        | **10 MeV**   | 5.0×     |
+  | M(π⁰p)      | 22 MeV        | **10 MeV**   | 2.3×     |
+
+  L'η parte peggio (fotoni più energetici, σ_E = 10%·E) e il fit ne recupera
+  5×; il π⁰ parte già stretto e satura ~10 MeV, limitato dalla risoluzione del
+  **protone** (che il fit muove solo entro σ_P = 4%). Sui dati veri la
+  larghezza della distribuzione mescola risoluzione e fisica, quindi si
+  stringe di meno (M(ηp) 61 → 46 MeV) — ed è giusto così: il fit non deve
+  cancellare la struttura fisica vera.
+
+### Plot di questi risultati
+
+`06_plots/kinfit_resolution.py` (`python -m plots.kinfit_resolution`) rigenera
+le sei figure, ed è nel `run_pipeline.sh` subito dopo il Dalitz:
+
+- `risoluzione_{eta,pi0}_p.pdf` — i residui MC, raw vs fit (la risoluzione pura);
+- `massa_{eta,pi0}_p_mc.pdf` — lo spettro MC con la verità sovrapposta: il fit
+  riporta la curva grezza sulla verità, la soglia cinematica torna netta;
+- `massa_{eta,pi0}_p.pdf` — lo spettro sui dati ricostruiti, raw vs fit.
+
+Fa girare il fit dal vivo sul MC di segnale (stessa chiamata di `reco_core`) e
+legge i rami fittati già scritti nel file ricostruito per le curve sui dati.
 
 ## Dove andare da qui
 

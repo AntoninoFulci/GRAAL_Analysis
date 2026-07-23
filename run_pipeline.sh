@@ -428,6 +428,19 @@ if [[ $SKIP_PLOTS -eq 0 ]]; then
             --bdt     "${RECO_BDT}" \
             --out-dir "${PLOTS_DIR}"
 
+        # Kinematic-fit resolution study (M(eta p)/M(pi0 p), before vs after).
+        # Needs the signal MC to run the fit live against truth; skipped if
+        # it is not there (the data-only figures still come from the reco file).
+        SIGNAL_MC="${MC_DATA_DIR}/${SIGNAL_CHANNEL}_mc.root"
+        if [ -f "${SIGNAL_MC}" ]; then
+            ${PYTHON} -u -m plots.kinfit_resolution \
+                --signal  "${SIGNAL_MC}" \
+                --bdt     "${RECO_BDT}" \
+                --out-dir "${PLOTS_DIR}"
+        else
+            echo "    fit-resolution plots saltati: manca ${SIGNAL_MC}"
+        fi
+
         stage_done
     fi
 else
