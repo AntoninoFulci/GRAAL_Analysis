@@ -389,6 +389,8 @@ if [[ $SKIP_RECO -eq 0 ]]; then
 
     mkdir -p "${RECO_DIR}"
 
+    # The kinematic fit runs by default; its CL cut selects the events. Pass
+    # --no-fit to fall back to the missing-mass cut.
     echo "  -> analisi standard (chi2)  [partner: ${PARTNER}]"
     ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
         --input-dir   "${SELECTED_DIR}" \
@@ -425,6 +427,19 @@ if [[ $SKIP_PLOTS -eq 0 ]]; then
             --chi2    "${RECO_CHI2}" \
             --bdt     "${RECO_BDT}" \
             --out-dir "${PLOTS_DIR}"
+
+        # Kinematic-fit resolution study (M(eta p)/M(pi0 p), before vs after).
+        # Needs the signal MC to run the fit live against truth; skipped if
+        # it is not there (the data-only figures still come from the reco file).
+        SIGNAL_MC="${MC_DATA_DIR}/${SIGNAL_CHANNEL}_mc.root"
+        if [ -f "${SIGNAL_MC}" ]; then
+            ${PYTHON} -u -m plots.kinfit_resolution \
+                --signal  "${SIGNAL_MC}" \
+                --bdt     "${RECO_BDT}" \
+                --out-dir "${PLOTS_DIR}"
+        else
+            echo "    fit-resolution plots saltati: manca ${SIGNAL_MC}"
+        fi
 
         stage_done
     fi

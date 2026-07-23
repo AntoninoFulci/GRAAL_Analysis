@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import os
 from array import array
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -38,7 +38,9 @@ import ROOT
 
 from graal_common import pairing as pr
 from graal_common import trees
+from graal_common.pairing import Pairing
 from reconstruction import reco_physics as rp
+from reconstruction.kinematic_fit import FitCovariance, confidence_level, fit_event
 
 
 # How many events to hold before asking the gate about them. A gate asked one
@@ -76,6 +78,12 @@ class RecoConfig:
     # or <= 0 disables it. See reco_physics.passes_missing_mass.
     partner_mass: float = rp.M_PROTON
     missing_mass_window: float | None = 0.06
+    # Kinematic fit. When on, its confidence-level cut replaces the missing-mass
+    # cut (the fit's 4-momentum constraint subsumes it); when off, the
+    # missing-mass cut above applies. See kinematic_fit.
+    do_fit: bool = True
+    fit_cl: float = 0.01
+    fit_cov: FitCovariance = field(default_factory=FitCovariance)
 
 
 def _as_array(v) -> np.ndarray:
@@ -147,6 +155,17 @@ def run_reconstruction(
     light_g2 = ROOT.TLorentzVector()
     missing = ROOT.TLorentzVector()
 
+    eta_fit = ROOT.TLorentzVector()
+    pi0_fit = ROOT.TLorentzVector()
+    proton_fit = ROOT.TLorentzVector()
+    eta_fit_g1 = ROOT.TLorentzVector()
+    eta_fit_g2 = ROOT.TLorentzVector()
+    pi0_fit_g1 = ROOT.TLorentzVector()
+    pi0_fit_g2 = ROOT.TLorentzVector()
+    fit_chi2 = array("f", [0.0])
+    fit_ndf = array("i", [0])
+    fit_conv = array("i", [0])
+
     H, L = channel.heavy_label, channel.light_label
 
     tout.Branch("chi2", chi2, "chi2/F")
@@ -165,15 +184,28 @@ def run_reconstruction(
     tout.Branch(f"{L}_gamma2", "TLorentzVector", light_g2)
     tout.Branch("missing", "TLorentzVector", missing)
 
+    if cfg.do_fit:
+        tout.Branch("eta_fit", "TLorentzVector", eta_fit)
+        tout.Branch("pi0_fit", "TLorentzVector", pi0_fit)
+        tout.Branch("proton_fit", "TLorentzVector", proton_fit)
+        tout.Branch("eta_fit_gamma1", "TLorentzVector", eta_fit_g1)
+        tout.Branch("eta_fit_gamma2", "TLorentzVector", eta_fit_g2)
+        tout.Branch("pi0_fit_gamma1", "TLorentzVector", pi0_fit_g1)
+        tout.Branch("pi0_fit_gamma2", "TLorentzVector", pi0_fit_g2)
+        tout.Branch("fit_chi2", fit_chi2, "fit_chi2/F")
+        tout.Branch("fit_ndf", fit_ndf, "fit_ndf/I")
+        tout.Branch("fit_converged", fit_conv, "fit_converged/I")
+
     n_gated_out = 0
     n_no_proton = 0
     n_impossible = 0
     n_missing_cut = 0
+    n_fit_cut = 0
     print("Starting event loop...")
 
     def _reconstruct_and_fill(photons, proton_v, neutron_v, beam_v) -> None:
         """chi2-pair one accepted event and write it. Identical for both runs."""
-        nonlocal n_impossible, n_missing_cut
+        nonlocal n_impossible, n_missing_cut, n_fit_cut
 
         pairing, chi2_val = pr.best_pairing(photons, channel.hypothesis)
         chi2[0] = chi2_val
@@ -213,24 +245,41 @@ def run_reconstruction(
 
         missing_v = (beam + target) - (heavy + light)
 
-        # The reaction recoils the eta-pi0 system against a single partner, so
-        # the missing mass sits at the partner's mass. Requiring it there drops
-        # the contamination that has no such partner -- events that otherwise
-        # pull the reconstructed eta peak high. Shared path: the chi2 run and the
-        # BDT run lose the same events, leaving the gate the only difference.
-        if not rp.passes_missing_mass(
-            missing_v.M(), cfg.partner_mass, cfg.missing_mass_window
-        ):
-            n_missing_cut += 1
-            return
+        if cfg.do_fit:
+            # photons stacked heavy-pair-first, so the fit's pairing is fixed:
+            photons_arr = np.stack([hg1, hg2, lg1, lg2])
+            res = fit_event(
+                photons_arr, _as_array(proton), _as_array(beam),
+                Pairing(heavy=(0, 1), light=(2, 3)), channel.hypothesis, cfg.fit_cov,
+            )
+            if not res.converged or confidence_level(res.chi2, res.ndf) < cfg.fit_cl:
+                n_fit_cut += 1
+                return
+            fh = res.fitted_photons
+            eta_fit_g1.SetPxPyPzE(*fh[0]); eta_fit_g2.SetPxPyPzE(*fh[1])
+            pi0_fit_g1.SetPxPyPzE(*fh[2]); pi0_fit_g2.SetPxPyPzE(*fh[3])
+            eta_fit.SetPxPyPzE(*(fh[0] + fh[1]))
+            pi0_fit.SetPxPyPzE(*(fh[2] + fh[3]))
+            proton_fit.SetPxPyPzE(*res.fitted_proton)
+            fit_chi2[0] = res.chi2; fit_ndf[0] = res.ndf; fit_conv[0] = 1
+        else:
+            # The reaction recoils the eta-pi0 system against a single partner,
+            # so the missing mass sits at the partner's mass. Requiring it there
+            # drops the contamination that has no such partner -- events that
+            # otherwise pull the reconstructed eta peak high. Shared path: the
+            # chi2 run and the BDT run lose the same events, leaving the gate the
+            # only difference.
+            if not rp.passes_missing_mass(
+                missing_v.M(), cfg.partner_mass, cfg.missing_mass_window
+            ):
+                n_missing_cut += 1
+                return
 
         missing.SetPxPyPzE(
             missing_v.Px(), missing_v.Py(), missing_v.Pz(), missing_v.E()
         )
-
         heavy_mass[0] = heavy.M()
         light_mass[0] = light.M()
-
         tout.Fill()
 
     def _flush(buf: list) -> None:
@@ -307,7 +356,9 @@ def run_reconstruction(
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")
     print(f"Cut (meson energy above the beam): {n_impossible}")
-    if cfg.missing_mass_window and cfg.missing_mass_window > 0:
+    if cfg.do_fit:
+        print(f"Cut (fit CL < {cfg.fit_cl}): {n_fit_cut}")
+    elif cfg.missing_mass_window and cfg.missing_mass_window > 0:
         print(f"Cut (missing mass off partner {cfg.partner_mass:.3f} "
               f"by >= {cfg.missing_mass_window}): {n_missing_cut}")
     print(f"Events written: {n_written}")

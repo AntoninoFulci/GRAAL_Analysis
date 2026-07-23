@@ -30,6 +30,12 @@ def main():
     p.add_argument("--missing-mass-window", type=float, default=0.06,
                    help="half-width [GeV] of the missing-mass window around the "
                         "partner; <= 0 disables the cut (default 0.06)")
+    p.add_argument("--no-fit", action="store_true",
+                   help="disable the kinematic fit; fall back to the missing-mass "
+                        "cut for selection")
+    p.add_argument("--fit-cl", type=float, default=0.01,
+                   help="keep events whose kinematic-fit confidence level is above "
+                        "this (default 0.01)")
     args = p.parse_args()
 
     cfg = RecoConfig(
@@ -40,6 +46,8 @@ def main():
         chi2_cut=args.chi2_cut,
         partner_mass=partner_mass(args.partner),
         missing_mass_window=args.missing_mass_window,
+        do_fit=not args.no_fit,
+        fit_cl=args.fit_cl,
     )
     run_reconstruction(cfg, ETA_PI0, gate=None)
 

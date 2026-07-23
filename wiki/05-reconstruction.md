@@ -69,6 +69,11 @@ Far passare eventi 2π⁰ attraverso un gate addestrato a respingerli non
 avrebbe senso: il gate esiste per separare η π⁰ dal fondo, e 2π⁰ *è* quel
 fondo.
 
+Dopo il chi2 e il gate, entrambi gli entrypoint `eta_pi0` passano l'evento
+per un fit cinematico 6C, attivo di default, la cui confidence level
+seleziona l'evento finale al posto della massa mancante — vedi
+[Fit cinematico](05-reconstruction-kinematic-fit).
+
 ## Dove andare da qui
 
 - [Ricostruzione chi2](05-reconstruction-chi2) — la tabella delle combinazioni, la
@@ -76,3 +81,6 @@ fondo.
   mancante.
 - [Gate BDT](05-reconstruction-bdt-gate) — come funziona il gate oggi, e il bug
   che ha reso invalidi i risultati BDT prodotti prima del fix.
+- [Fit cinematico](05-reconstruction-kinematic-fit) — le sei costrizioni, la
+  covarianza, il taglio sulla confidence level, i rami fittati, la
+  validazione con gli pull.
