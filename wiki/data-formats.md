@@ -8,7 +8,7 @@ contenuto no.
 |---|---|---|
 | `h70` | il rivelatore (DAQ) | dati grezzi, fuori da questo repository |
 | `h80` | `01_pre_analysis/PreAnalysis.C` | un'entry per evento: `beam`, `gammas`, `protons`, `neutrons`, `deuterons` come quadrivettori |
-| `h85` | `02_event_selector/select_events.py` | come `h80`, ma solo gli eventi con più di un fotone ed esattamente un barione ricostruito |
+| `h85` | `02_event_selector/select_events.py` | come `h80`, ma solo gli eventi con più di un fotone ed esattamente una traccia carica forward |
 | `mc` (`<canale>_mc.root`) | `03_mc_simulation/generate_<canale>_dataset.C` | `beam`, `proton`, e i fotoni veri del canale — nome dei rami e conteggio dipendono dal canale, vedi sotto |
 | `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `05_reconstruction/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
 
@@ -40,11 +40,12 @@ l'albero `h80` (`tree.CloneTree(0)`) e tiene solo gli eventi che soddisfano:
 
 ```python
 event.gammas.size() > 1 and
-event.protons.size() + event.neutrons.size() + event.deuterons.size() == 1
+event.fcharged_theta.size() == 1
 ```
 
 cioè più di un fotone (necessario per ricostruire due mesoni) ed esattamente
-un barione di rinculo, di qualunque specie tra protone/neutrone/deutone.
+una traccia carica forward (il barione di rinculo come lo vede il rivelatore
+forward; un rinculo neutro non produce una traccia carica e non è contato).
 
 Lo schema dei rami è identico a `h80` — nessuna colonna aggiunta o rimossa,
 solo eventi filtrati. Il nome dell'albero cambia comunque: `CloneTree`

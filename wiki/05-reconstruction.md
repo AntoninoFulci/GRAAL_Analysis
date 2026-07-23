@@ -38,8 +38,8 @@ c'è nessun altro punto in cui i due percorsi di codice divergono.
 ## Il requisito "esattamente un protone"
 
 Prima del gate e prima della combinatoria chi2, `run_reconstruction` scarta
-ogni evento che non ha esattamente 4 fotoni ricostruiti e esattamente 1
-protone:
+ogni evento che non ha **almeno** 4 fotoni ricostruiti (ne usa i primi 4:
+`chain.gammas.size() < 4` viene saltato) ed **esattamente** 1 protone:
 
 ```python
 if chain.protons.size() != 1:

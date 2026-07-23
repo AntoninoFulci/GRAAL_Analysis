@@ -8,26 +8,32 @@ solo-chi2 e una per quella con gate BDT — così il confronto fra le due, che
 
 ## Il pacchetto: `kinematics.py` puro, `dalitz.py` con ROOT
 
-La cartella espone due moduli con responsabilità nettamente separate, sullo
+La cartella espone i moduli con responsabilità nettamente separate, sullo
 stesso principio già visto in [05 — Ricostruzione](05-reconstruction) per
 `reco_core.py`/`reco_physics.py`:
 
 - **`kinematics.py`** — nessun `import ROOT`, nessun I/O: aritmetica su
-  array numpy `(4,)` `[px, py, pz, E]`. Espone `invariant_mass`, `sqrt_s`,
-  `dalitz_limit`, e le costanti `M_PI0`, `M_ETA`, `M_PROTON` — che un test
-  (`test_constants_match_the_reconstruction`) verifica essere identiche a
-  quelle di `05_reconstruction/reco_physics.py`, perché un plot in disaccordo con
-  la ricostruzione sulla massa dell'η sarebbe peggio di nessun plot.
+  array numpy `(4,)` `[px, py, pz, E]`. Espone `invariant_mass`,
+  `invariant_masses` (la forma vettoriale, per un albero intero in un'unica
+  operazione), `sqrt_s`, `dalitz_limit`, e le costanti `M_PI0`, `M_ETA`,
+  `M_PROTON` — che un test (`test_constants_match_the_reconstruction`)
+  verifica essere identiche a quelle di `05_reconstruction/reco_physics.py`,
+  perché un plot in disaccordo con la ricostruzione sulla massa dell'η
+  sarebbe peggio di nessun plot.
 - **`dalitz.py`** — apre i file ROOT, riempie gli istogrammi, disegna. Fa
   `import ROOT`.
+- **`kinfit_resolution.py`** — lo studio di risoluzione del fit cinematico
+  (sotto). Legge via `uproot` (nessun `import ROOT`), fa girare il fit dal
+  vivo sul MC di segnale e disegna con matplotlib.
 
 La separazione esiste per lo stesso motivo spiegato in
 [Testing](testing): la suite pytest non deve dipendere da un'installazione
-di ROOT. `06_plots/tests/test_kinematics.py` testa solo `kinematics.py`, ed
-è incluso in `testpaths` di `pyproject.toml` insieme alle altre tre
-cartelle di test. `dalitz.py`, come `reco_core.py` e
-`02_event_selector/select_events.py`, resta fuori da questa copertura per
-lo stesso motivo: è un guscio di I/O attorno a fisica già testata altrove.
+di ROOT. `06_plots/tests/test_kinematics.py` e
+`test_kinfit_resolution.py` testano le parti pure (`kinematics.py` e le
+funzioni numeriche di `kinfit_resolution.py`), e sono in `testpaths` di
+`pyproject.toml` insieme alle altre cartelle di test. `dalitz.py`, come
+`reco_core.py` e `02_event_selector/select_events.py`, resta fuori dalla
+copertura: è un guscio di I/O attorno a fisica già testata altrove.
 
 ## CLI
 
@@ -150,11 +156,41 @@ riepilogo e deve leggere **0**: se non lo fa, quegli alberi sono stati
 ricostruiti prima che il taglio esistesse, e la fase 8 lo dice invece di
 lasciarlo passare.
 
+## Risoluzione del fit cinematico: `kinfit_resolution.py`
+
+Accanto ai Dalitz, `plots.kinfit_resolution` produce sei figure prima/dopo su
+M(η p) e M(π⁰ p), le due osservabili su cui il fit cinematico guadagna
+davvero (la massa dell'η/π⁰ è invece vincolata al polo, quindi inutile come
+prima/dopo — vedi [Fit cinematico](05-reconstruction-kinematic-fit)):
+
+- `risoluzione_{eta,pi0}_p.pdf` — il residuo `M_reco − M_true` sul MC di
+  segnale, raw vs fit: la sua larghezza **è** la risoluzione, perché lo
+  spread fisico si cancella nella sottrazione. M(η p) passa da σ ≈ 52 a
+  10 MeV, M(π⁰ p) da 22 a 10 MeV;
+- `massa_{eta,pi0}_p_mc.pdf` — lo spettro sul MC con la verità sovrapposta:
+  il fit riporta la curva grezza sulla verità e la soglia cinematica torna
+  netta;
+- `massa_{eta,pi0}_p.pdf` — lo spettro sui dati ricostruiti, raw vs fit; qui
+  la larghezza mescola risoluzione e fisica, quindi si stringe meno — ed è
+  giusto così.
+
+Fa girare il fit dal vivo sul MC (stessa chiamata di `reco_core`) usando
+`graal_common.vectors.lorentz_array` per leggere i quadrivettori e
+`kinematics.invariant_masses` per le masse; le curve sui dati leggono i rami
+`eta_fit`/`pi0_fit`/`proton_fit` già scritti dalla ricostruzione. Manca il MC
+di segnale (`--signal`), esce con un errore chiaro.
+
 ## Fase 8 in `run_pipeline.sh`
 
 ```bash
 python -m plots.dalitz \
     --chi2    "${RECO_DIR}/reco_eta_pi0_chi2.root" \
+    --bdt     "${RECO_DIR}/reco_eta_pi0_bdt.root" \
+    --out-dir "results/plots"
+
+# subito dopo, se il MC di segnale e' su disco:
+python -m plots.kinfit_resolution \
+    --signal  "${MC_DATA_DIR}/${SIGNAL_CHANNEL}_mc.root" \
     --bdt     "${RECO_DIR}/reco_eta_pi0_bdt.root" \
     --out-dir "results/plots"
 ```
@@ -163,7 +199,7 @@ Salta con `--skip-plots`. Se anche uno solo dei due file ricostruiti manca
 in `RECO_DIR/`, la fase si salta **automaticamente**, senza errore:
 
 ```
-[8/8] Plot — saltato: manca almeno un file ricostruito in analyzed/
+[8/8] Plot — saltato: manca almeno un file ricostruito in results/reco/
     (i plot confrontano le due analisi: servono entrambi)
 ```
 

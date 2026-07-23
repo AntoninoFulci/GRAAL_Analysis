@@ -17,14 +17,15 @@ Riferimenti ai paper nella cartella dei PDF; riferimenti al codice in-repo.
 - **Rivelatore**: BGO Rugby Ball (calorimetro EM, ottima risoluzione fotoni),
   muro TOF forward per protoni (θ ≤ ~16° a queste energie, momento ~2.5%) e
   shower wall per neutroni (TOF, efficienza bassa, **niente momento**).
-- **Cieco sopra 1.55 GeV**: soglia KΣ, η' oltre soglia, regioni di risonanza
-  alte → fuori o al bordo estremo.
+- **Bordo alto ~1.72 GeV** (il fascio taggato misurato arriva lì): soglia KΣ,
+  η' appena oltre la sua soglia, regioni di risonanza alte → al bordo estremo
+  del range accessibile.
 
 Osservabile-firma: **Σ**, estratta dalla dipendenza cos2φ
 `NV/FV / (NV/FV + NH/FH) = ½[1 + P(Eγ)·Σ·cos2φ]`
 (metodo Ajaka [PhysRevLett.100.052003], Levi Sandri [1407.6991]).
 
-## Stato del codice (branch reco-kinematic-fit)
+## Stato del codice (fit cinematico integrato in `main`)
 
 Canale attuale: **γp → p η π0**, ricostruito da 4 fotoni (η→2γ, π0→2γ), con
 BDT stage-1 + **fit cinematico 6C** e taglio sul CL. Fondi pesati per
@@ -32,8 +33,9 @@ cross-section reale integrata sul flusso.
 
 Punti architetturali rilevanti per l'estensione:
 - Massa del partner di rinculo **già parametrica** (`RecoConfig.partner_mass`,
-  `00_common/reco_physics.py` `PARTNER_MASSES` conosce `proton` e `neutron`);
-  taglio missing-mass sul rinculo già presente (`05_reconstruction/reco_core.py`).
+  `05_reconstruction/reco_physics.py` `PARTNER_MASSES` conosce `proton`,
+  `neutron` e `deuteron`); taglio missing-mass sul rinculo già presente
+  (`05_reconstruction/reco_core.py`).
 - **Nessuna gestione della polarizzazione**: il generatore MC non scrive lo
   stato ⊥/∥, e non esiste codice di estrazione Σ. È il blocco mancante per ogni
   misura di asimmetria.

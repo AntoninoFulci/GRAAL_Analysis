@@ -10,9 +10,7 @@ una possibilità concreta di essere ricostruiti come γp → p η π⁰ (o come
 ```python
 if (
     event.gammas.size() > 1 and
-    event.protons.size() +
-    event.neutrons.size() +
-    event.deuterons.size() == 1
+    event.fcharged_theta.size() == 1
 ):
     selected_tree.Fill()
 ```
@@ -22,15 +20,16 @@ Due condizioni, entrambe necessarie:
 - **più di un fotone** (`gammas.size() > 1`) — un evento con 0 o 1 fotone
   non può fornire i quattro fotoni che la ricostruzione a due mesoni
   richiede;
-- **esattamente un barione di rinculo**, di qualunque specie tra
-  protone/neutrone/deutone (`protons + neutrons + deuterons == 1`) — non
-  zero (nessun rinculo ricostruito) e non due o più (evento ambiguo o
-  doppio conteggio).
+- **esattamente una traccia carica forward** (`fcharged_theta.size() == 1`)
+  — il barione di rinculo così come lo vede il rivelatore forward, contato
+  dalle sue tracce cariche: non zero (nessun rinculo) e non due o più
+  (evento ambiguo o doppio conteggio).
 
-Nota lo schema: la seconda condizione somma le tre categorie prima di
-confrontarle con 1, quindi un evento con un protone e zero neutroni/deutoni
-passa, così come un evento con un solo deutone — ma un evento con un
-protone *e* un neutrone (somma 2) viene scartato.
+`fcharged_theta` è uno dei rami di servizio di `h80` (angoli delle tracce
+cariche forward, vedi [Formati dati](data-formats)). Il taglio è sul numero
+di quelle tracce, non sui rami `protons`/`neutrons`/`deuterons`: un rinculo
+neutro (neutrone) non lascia una traccia carica forward e quindi non entra
+in questo conteggio.
 
 ## Perché `h80` diventa `h85`
 
