@@ -96,8 +96,8 @@ covarianza del fit: V_eta = V - V F^T S^-1 F V
 
 Lo Jacobiano è **numerico** (differenze finite), non analitico: più semplice
 e meno soggetto a errori delle derivate a mano delle sei costrizioni, e
-abbastanza economico sul campione post-gate (~150k eventi, non i 17M
-grezzi). Le iterazioni sono limitate a 10; se non convergono, `converged =
+abbastanza economico sul campione che sopravvive al gate — una frazione dei
+~17M eventi grezzi. Le iterazioni sono limitate a 10; se non convergono, `converged =
 False` e il chi2 resta grande apposta, così l'evento fallisce comunque il
 taglio sulla CL. Una `S` singolare viene intercettata e trattata come non
 convergenza, non come un crash.

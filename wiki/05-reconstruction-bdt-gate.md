@@ -57,7 +57,7 @@ from bdt_training.build_background_features import compute_stage1_features
 
 class Stage1Gate:
     def accepts_many(self, photons, protons, beams):
-        X = compute_stage1_features(photons, protons, beams)
+        X = compute_stage1_features(photons, protons, beams, self.hypothesis)
         scores = self.model.predict_proba(X)[:, 1]
         return scores >= self.threshold
 ```

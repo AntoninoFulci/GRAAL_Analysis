@@ -290,7 +290,7 @@ ${PYTHON} -u -m plots.dalitz \
 `RECO_DIR/`, la fase si salta da sola, senza fermare la pipeline:
 
 ```
-[8/8] Plot — saltato: manca almeno un file ricostruito in analyzed/
+[8/8] Plot — saltato: manca almeno un file ricostruito in results/reco/
     (i plot confrontano le due analisi: servono entrambi)
 ```
 
@@ -303,3 +303,18 @@ il confronto a 4 pannelli, le masse invarianti η/π⁰ sovrapposte, e
 rifare il loop. Dettagli in [06 — Plot](06-plots), inclusa la spiegazione
 di perché le due definizioni di protone (misurato / da `missing`) non sono
 equivalenti.
+
+Subito dopo il Dalitz, se il MC di segnale è su disco, gira anche lo studio
+di risoluzione del fit cinematico:
+
+```bash
+${PYTHON} -u -m plots.kinfit_resolution \
+    --signal  "${MC_DATA_DIR}/${SIGNAL_CHANNEL}_mc.root" \
+    --bdt     "${RECO_DIR}/reco_eta_pi0_bdt.root" \
+    --out-dir "results/plots"
+```
+
+Produce le sei figure prima/dopo su M(ηp) e M(π⁰p) (residui sul MC, spettri
+MC con la verità, spettri sui dati); manca il MC di segnale, si salta con un
+avviso e le altre figure restano. Dettagli in
+[Fit cinematico](05-reconstruction-kinematic-fit).

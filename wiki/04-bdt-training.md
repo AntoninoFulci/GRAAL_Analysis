@@ -58,11 +58,11 @@ Signal:    eta_pi0
 Hypothesis:eta_pi0
 Prior:     0.5  (a training choice, not a cross-section)
 Beam rewt: True
-AUC:       0.9987
-Threshold: 0.9703
-Precision: 0.8339
-Recall:    0.8777
-F1:        0.8553
+AUC:       0.9991
+Threshold: 0.9654
+Precision: 0.8558
+Recall:    0.9073
+F1:        0.8808
 N_train:   2112953
 N_val:     528239
 ```
@@ -73,9 +73,9 @@ massimizzando l'F1 su un set di validazione (`_find_best_threshold` in
 fissato a mano, viene ricalcolata a ogni training.
 
 Vale la pena registrare cosa il passaggio ai nove canali con pesi integrati
-sul flusso ha fatto alle metriche. L'AUC è rimasta altissima (0.9987), ma
-precision e recall sono **scese** rispetto a prima (0.83/0.88 contro 0.94/0.96),
-e la soglia operativa è salita a 0.97. Non è un peggioramento: è onestà. Il
+sul flusso ha fatto alle metriche. L'AUC è rimasta altissima (0.9991), ma
+precision e recall sono **scese** rispetto a prima (0.86/0.91 contro 0.94/0.96),
+e la soglia operativa è salita a 0.965. Non è un peggioramento: è onestà. Il
 nuovo fondo dominante è `eta_pi0_via_3pi0` — la stessa reazione del segnale con
 l'η che decade in 3π⁰ invece che in 2γ — e un suo evento a 8 fotoni che ne
 perde 4 si ricostruisce con una massa η e una massa π⁰ reali, cadendo *sul*
