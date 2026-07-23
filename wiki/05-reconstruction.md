@@ -1,86 +1,59 @@
 # 05 — Ricostruzione
 
-`05_reconstruction/` è dove i quattro fotoni e il barione di rinculo selezionati
-dalla fase 2 (`h85`) diventano un η e un π⁰ ricostruiti. La cartella espone
-tre entrypoint eseguibili sopra un nucleo condiviso:
+`05_reconstruction/` trasforma i quattro fotoni e il barione di rinculo selezionati nella fase 2 (`h85`) in eventi ηπ⁰ o 2π⁰ ricostruiti.
 
-| Entrypoint | Canale | Gate BDT |
-|---|---|---|
-| `reconstruct_eta_pi0_chi2.py` | γp → p η π⁰ | no |
-| `reconstruct_eta_pi0_bdt.py` | γp → p η π⁰ | sì (stage-1) |
-| `reconstruct_2pi0.py` | γp → p π⁰ π⁰ | no — vedi sotto |
+Sono presenti tre entrypoint:
 
-## Il nucleo condiviso
+| Entrypoint                    | Canale       | Gate BDT |
+| ----------------------------- | ------------ | -------- |
+| `reconstruct_eta_pi0_chi2.py` | γp → p η π⁰  | no       |
+| `reconstruct_eta_pi0_bdt.py`  | γp → p η π⁰  | sì       |
+| `reconstruct_2pi0.py`         | γp → p π⁰ π⁰ | no       |
 
-Tutti e tre gli entrypoint chiamano la stessa funzione,
-`reco_core.run_reconstruction(cfg, channel, gate)`, divisa in due moduli con
-responsabilità nettamente separate:
+## Struttura
 
-- **`reco_core.py`** — I/O ROOT: apre la `TChain` di `h85`, applica i
-  requisiti di evento e il gate opzionale, scrive l'albero di output. Non
-  contiene fisica propria.
-- **`reco_physics.py`** — la fisica pura: la combinatoria dei fotoni, il
-  chi2, l'assegnazione η/π⁰. Funzioni su array numpy `(4,)` `[px, py, pz,
-  E]`, senza ROOT — vedi [Ricostruzione chi2](05-reconstruction-chi2) e
-  [Testing](testing) per il perché di questa separazione.
+Tutti gli script usano:
 
-## La regola di design che rende il confronto significativo
+`reco_core.run_reconstruction(cfg, channel, gate)`
 
-`reconstruct_eta_pi0_chi2.py` e `reconstruct_eta_pi0_bdt.py` differiscono
-**solo** per l'argomento `gate` passato a `run_reconstruction`: `None` nel
-primo caso, uno `Stage1Gate` caricato nel secondo (vedi
-[Gate BDT](05-reconstruction-bdt-gate)). Tutto il resto — lettura dell'albero,
-requisiti sull'evento, combinazione chi2, scrittura — passa dalla stessa
-funzione. Questo è deliberato: qualunque differenza tra `reco_eta_pi0_chi2`
-e `reco_eta_pi0_bdt` si può attribuire al gate e a nient'altro, perché non
-c'è nessun altro punto in cui i due percorsi di codice divergono.
+divisa in:
 
-## Il requisito "esattamente un protone"
+* **`reco_core.py`**: gestione ROOT, selezione eventi, applicazione del gate e scrittura dell'output.
+* **`reco_physics.py`**: logica fisica (combinazioni fotoni, chi², assegnazione η/π⁰), indipendente da ROOT e basata su array NumPy.
 
-Prima del gate e prima della combinatoria chi2, `run_reconstruction` scarta
-ogni evento che non ha **almeno** 4 fotoni ricostruiti (ne usa i primi 4:
-`chain.gammas.size() < 4` viene saltato) ed **esattamente** 1 protone:
+Questa separazione permette di mantenere la stessa catena di ricostruzione e confrontare direttamente i risultati con e senza BDT.
+
+## Confronto chi² vs BDT
+
+`reconstruct_eta_pi0_chi2.py` e `reconstruct_eta_pi0_bdt.py` differiscono solo per il gate passato a `run_reconstruction`:
+
+* `None` nel caso chi²;
+* `Stage1Gate` nel caso BDT.
+
+Tutto il resto della ricostruzione è identico, quindi ogni differenza nei risultati è attribuibile esclusivamente al gate.
+
+## Selezione iniziale degli eventi
+
+Prima della combinatoria chi² e del gate vengono richiesti:
+
+* almeno 4 fotoni ricostruiti;
+* esattamente 1 protone.
+
+Gli eventi con un numero diverso di protoni vengono scartati:
 
 ```python
 if chain.protons.size() != 1:
-    n_no_proton += 1
     continue
 ```
 
-Un evento senza protone (0 o 2+) viene scartato, non completato con un
-protone fittizio a `(0,0,0,0)`: un protone a zero produce una massa mancante
-artificiosa (~1.87 GeV, contro i ~0.75 GeV di un protone vero) che porta il
-gate BDT — ma non il taglio chi2 — a scartare quegli eventi in modo diverso
-dal run chi2. Applicare il requisito identicamente a entrambi i run, prima
-di qualunque altra logica, tiene i due campioni identici tranne che per il
-gate — che è l'intero punto del confronto. Il conteggio degli eventi
-scartati (`Skipped (not exactly 1 proton)`) viene sempre stampato a fine
-run, proprio per rendere visibile quanti eventi i due run condividono in
-partenza.
+Non viene creato un protone fittizio, perché altererebbe la massa mancante e renderebbe diverso il campione iniziale tra il run chi² e quello BDT.
 
-## Perché non esiste un `reconstruct_2pi0_bdt.py`
+## Canale 2π⁰
 
-`reconstruct_2pi0.py` gira sullo stesso nucleo (`TWO_PI0` invece di
-`ETA_PI0` in `reco_physics.py`) ma senza gate. Non è un'omissione: il
-modello BDT stage-1 è addestrato usando 2π⁰ **come fondo** (vedi
-[BDT stage-1](04-bdt-training) e [Feature stage-1](04-bdt-training-features)
-— `pi0pi0` è uno dei cinque canali di fondo nel CSV delle sezioni d'urto).
-Far passare eventi 2π⁰ attraverso un gate addestrato a respingerli non
-avrebbe senso: il gate esiste per separare η π⁰ dal fondo, e 2π⁰ *è* quel
-fondo.
+Non esiste un `reconstruct_2pi0_bdt.py` perché il modello BDT stage-1 è addestrato per distinguere ηπ⁰ dal fondo, e il canale 2π⁰ è uno dei fondi usati nell'addestramento.
 
-Dopo il chi2 e il gate, entrambi gli entrypoint `eta_pi0` passano l'evento
-per un fit cinematico 6C, attivo di default, la cui confidence level
-seleziona l'evento finale al posto della massa mancante — vedi
-[Fit cinematico](05-reconstruction-kinematic-fit).
+Applicare il gate BDT al campione 2π⁰ non avrebbe quindi significato fisico.
 
-## Dove andare da qui
+## Fit cinematico
 
-- [Ricostruzione chi2](05-reconstruction-chi2) — la tabella delle combinazioni, la
-  formula del chi2, l'assegnazione η/π⁰, il taglio, il quadrimomento
-  mancante.
-- [Gate BDT](05-reconstruction-bdt-gate) — come funziona il gate oggi, e il bug
-  che ha reso invalidi i risultati BDT prodotti prima del fix.
-- [Fit cinematico](05-reconstruction-kinematic-fit) — le sei costrizioni, la
-  covarianza, il taglio sulla confidence level, i rami fittati, la
-  validazione con gli pull.
+Dopo la ricostruzione chi² (e il gate BDT per il canale ηπ⁰), gli eventi vengono sottoposti al fit cinematico 6C. La selezione finale usa la confidence level del fit invece della finestra sulla massa mancante.

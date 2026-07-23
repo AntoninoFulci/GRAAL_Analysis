@@ -1,19 +1,14 @@
 # Feature stage-1
 
-`04_bdt_training/build_background_features.py::compute_stage1_features`
-calcola il vettore a 26 feature che il BDT stage-1 vede, sia in training sia
-in inferenza. Questa pagina elenca le 26 feature nell'ordine reale del
-codice e registra la regola che il bug del gate (vedi
-[Gate BDT](05-reconstruction-bdt-gate)) ha lasciato dietro di sé.
+`04_bdt_training/build_background_features.py::compute_stage1_features` calcola il vettore a 26 feature che il BDT stage-1 vede, sia in training sia in inferenza. 
+Questa pagina elenca le 26 feature nell'ordine reale del codice e registra la regola che il bug del gate (vedi [Gate BDT](05-reconstruction-bdt-gate)) ha lasciato dietro di sé.
 
 ## `feature_names(hypothesis)`, nell'ordine
 
-Cinque nomi su 26 dipendono dall'**ipotesi**: quali due mesoni i 4 fotoni stanno
-venendo testati contro. Non è una proprietà dell'evento, è la domanda che gli
-si fa, e cambia con `--signal-channel`. Sotto, i nomi per l'ipotesi di default
-`eta_pi0`; con `2pi0` le stesse posizioni diventano `n_pairs_near_pi0_2`,
-`n_pairs_near_pi0_1`, `best_chi2_2pi0`. Il nome si porta dietro l'ipotesi
-proprio perché non vada ricordata a mente.
+Cinque nomi su 26 dipendono dall'**ipotesi**: quali due mesoni i 4 fotoni stanno venendo testati contro.
+Non è una proprietà dell'evento, è la domanda che gli si fa, e cambia con `--signal-channel`.
+Sotto, i nomi per l'ipotesi di default `eta_pi0`; con `2pi0` le stesse posizioni diventano `n_pairs_near_pi0_2`, `n_pairs_near_pi0_1`, `best_chi2_2pi0`.
+Il nome si porta dietro l'ipotesi proprio perché non vada ricordata a mente.
 
 ```python
 def feature_names(hypothesis: Hypothesis = ETA_PI0_HYP) -> list[str]:
@@ -66,40 +61,3 @@ Raggruppate come le raggruppa il codice:
 | 18-21 | statistiche angolari dei fotoni | `sum_opening_angles` (somma dei 6 angoli di apertura), `min_pair_mass`, `max_pair_mass`, `total_pt_gamma` |
 | 22-23 | 2 valori di cinematica del protone | `proton_p`, `proton_costheta` |
 | 24-25 | 2 cinematiche dei candidati mesoni | `eta_E_asym` (asimmetria di energia normalizzata \|E₁−E₂\|/(E₁+E₂) della coppia η candidata), `eta_pi0_angle` (coseno dell'angolo lab fra i due mesoni ricostruiti) — entrambe sul pairing a chi2 minimo |
-
-`compute_stage1_features` è vettorizzata (nessun ciclo Python sugli eventi):
-prende `photons (N,4,4)`, `proton (N,4)`, `beam (N,4)` — sempre esattamente
-4 fotoni per evento, mai di più — e restituisce `(N, 26)` in `float32`. Prende
-anche l'ipotesi, che di default è `eta_pi0`. L'`assert` dentro `feature_names`
-tiene la lista dei nomi e la lunghezza reale del vettore sincronizzate.
-
-Quale ipotesi un modello abbia visto non è lasciato alla memoria di nessuno: il
-training la scrive in `model/stage1_provenance.json`, e `Stage1Gate` la rilegge
-per costruire le sue feature attorno agli stessi due mesoni. Se la
-ricostruzione gli chiede di filtrare uno stato finale diverso, il gate si
-rifiuta invece di rispondere: un modello trainato a cercare η+π⁰ restituisce
-comunque un punteggio per ogni evento di qualunque canale, e quel punteggio
-diventerebbe silenziosamente la differenza fra l'analisi chi2 e quella con il
-gate — cioè esattamente la cosa che il confronto sta misurando.
-
-## La regola che il bug ha prodotto
-
-Il vecchio `reconstruct_eta_pi0.py` costruiva un secondo vettore di feature
-a mano, con un layout diverso (impacchettava fino a 15 masse di
-coppia negli slot 0-14, invece delle 6 reali negli slot 0-5), e il modello
-finiva per essere interrogato su rumore — vedi
-[Gate BDT](05-reconstruction-bdt-gate) per la cronologia completa. La riparazione
-non è stata correggere quella seconda implementazione: è stata eliminarla.
-
-**`compute_stage1_features` è l'unico punto del codice in cui un vettore di
-feature stage-1 può essere costruito.** Sia `build_background_features.py`
-(che costruisce il set di addestramento da MC, vedi
-[BDT stage-1](04-bdt-training)) sia `stage1_gate.py` (che costruisce il
-vettore per un evento in inferenza, vedi [Gate BDT](05-reconstruction-bdt-gate))
-chiamano questa stessa funzione. Non deve mai esistere una seconda
-implementazione, nemmeno temporanea o "equivalente": è esattamente quello
-che ha reso invisibile il bug la prima volta — le due implementazioni
-sembravano fare la stessa cosa finché nessuno le ha confrontate numero per
-numero. Il test di regressione in
-`05_reconstruction/tests/test_stage1_gate.py` esiste per rendere impossibile
-ripetere l'errore senza che un test fallisca.

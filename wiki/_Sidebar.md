@@ -2,7 +2,7 @@
 
 - [Home](Home)
 - [Pipeline](pipeline)
-- [Formati dati](data-formats)
+- [Data Format](data-formats)
 - [01 — Pre-analisi](01-pre-analysis)
     - [Cuts](01-pre-analysis-cuts)
 - [02 — Selezione eventi](02-event-selector)

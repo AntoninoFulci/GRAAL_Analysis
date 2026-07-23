@@ -1,64 +1,36 @@
 # Fit cinematico 6C
 
-`05_reconstruction/kinematic_fit.py` gira **dopo** il gate BDT e dopo
-l'accoppiamento chi2 (vedi [Gate BDT](05-reconstruction-bdt-gate) e
-[Ricostruzione chi2](05-reconstruction-chi2)), su ciascuno dei sopravvissuti.
-Aggiusta le quantità misurate — entro la loro risoluzione — fino a far
-rispettare esattamente all'evento la conservazione del quadrimpulso e le
-masse di η e π⁰. Non è un taglio in più: è un affinamento della fisica
-sull'evento che il chi2 ha già accoppiato.
+Il fit cinematico **6C** viene applicato dopo il gate BDT e l'accoppiamento chi² sugli eventi sopravvissuti. 
+Il suo scopo è correggere le quantità misurate entro le loro risoluzioni per imporre la conservazione del quadrimpulso e le masse note di η e π⁰.
 
-## Perché
+Rispetto al semplice taglio sulla massa mancante, che elimina circa il **45% degli eventi** senza correggere gli errori di misura del calorimetro, il fit migliora sia il centro sia la risoluzione delle variabili cinematiche del Dalitz plot (**M(ηp)** e **M(π⁰p)**).
 
-Il taglio sulla massa mancante (vedi sotto) centra l'η ricostruita ma non la
-restringe — *rimuove* circa il 45% degli eventi invece di correggere quelli
-la cui energia fotonica il BGO ha sovra-misurato. Il fit fa di meglio: dà
+Inoltre fornisce quadrivettori corretti evento per evento e un unico discriminante fisicamente motivato (χ² del fit o confidence level), evitando finestre di massa scelte manualmente e correggendo possibili non linearità del calorimetro.
 
-- un centro **e** una risoluzione migliorata, non sull'η vincolata in sé
-  (vedi sotto perché non è la massa il posto giusto dove guardarla), ma sugli
-  assi del Dalitz plot, M(ηp) e M(π⁰p), che sono la vera resa in risoluzione;
-- quadrivettori aggiustati che alimentano un Dalitz plot più netto;
-- un unico discriminante statisticamente motivato — il chi2 del fit / la sua
-  confidence level — che racchiude sia il vincolo di conservazione sia i due
-  vincoli di massa in un numero con una distribuzione nota, al posto della
-  finestra di massa mancante fatta a mano;
-- una correzione evento per evento della non linearità del calorimetro, senza
-  bisogno di una calibrazione globale.
 
-## Le sei costrizioni
+## I 6 Constraint
 
-`f(η) = 0`, sei equazioni:
+Il fit 6C impone sei vincoli:
 
-- **conservazione del quadrimpulso** (4 equazioni, E, px, py, pz):
-  `(fascio + bersaglio) - (protone + Σ fotoni) = 0`, con il bersaglio un
-  protone fermo, `(0, 0, 0, M_PROTON)`;
-- **massa dell'η**: `m²(γ_a + γ_b) - m_η² = 0`;
-- **massa del π⁰**: `m²(γ_c + γ_d) - m_π0² = 0`.
+* **conservazione del quadrimpulso** (energia e tre componenti dell'impulso): il sistema iniziale (**fotone di fascio + protone fermo**) deve essere uguale al sistema finale (**protone + quattro fotoni**);
+* **massa dell'η** fissata al valore nominale;
+* **massa del π⁰** fissata al valore nominale.
 
-L'accoppiamento (quali due fotoni vanno all'η, quali al π⁰) è quello già
-scelto dal chi2 — il fit non lo rimette in discussione, usa
-`pairing.heavy=(0,1), pairing.light=(2,3)` fissato sull'ordine in cui i
-fotoni arrivano dall'accoppiamento migliore (vedi
-[Ricostruzione chi2](05-reconstruction-chi2)). Fittare tutti e tre gli
-accoppiamenti e tenere il chi2 migliore è fuori scope: sarebbe un
-raffinamento solo se l'accoppiamento si rivelasse il collo di bottiglia.
+L'accoppiamento dei fotoni non viene ricalcolato: il fit utilizza quello già scelto dal chi², con la coppia di fotoni assegnata a η e quella assegnata a π⁰. Considerare tutti i possibili accoppiamenti e scegliere quello con miglior χ² non è incluso, perché avrebbe senso solo se l'associazione dei fotoni fosse il principale limite della ricostruzione.
+
 
 ## Parametrizzazione e covarianza
 
-Le quantità misurate y (16 numeri) sono in **(E, theta, phi)** per ciascun
-fotone e **(P, theta, phi)** per il protone (con `E = sqrt(P² + m_p²)`),
-più l'energia del fascio (direzione fissata lungo z):
+Le quantità misurate usate dal fit sono 16 parametri espressi in coordinate **(energia/momento, angolo)**:
 
-- 4 fotoni × (E, theta, phi) = 12
-- protone × (P, theta, phi) = 3
-- fascio × E = 1
+* 4 fotoni × `(E, θ, φ)` = 12 parametri;
+* protone × `(P, θ, φ)` = 3 parametri;
+* energia del fascio = 1 parametro.
 
-Questa scelta, non cartesiana, mantiene la covarianza **diagonale**: le
-risoluzioni in energia e in angolo sono indipendenti, mentre in coordinate
-cartesiane si mescolerebbero. La covarianza V è presa dal modello di
-smearing del Monte Carlo, `03_mc_simulation/smearing.h` — lo stesso che
-genera gli eventi simulati — e vive in un unico posto, il dataclass
-`FitCovariance` in `kinematic_fit.py`:
+Questa parametrizzazione mantiene la matrice di covarianza **diagonale**, perché le risoluzioni in energia e angolo sono considerate indipendenti; in coordinate cartesiane invece le componenti risulterebbero correlate.
+
+La matrice di covarianza deriva dal modello di smearing del Monte Carlo ed è definita in un unico punto (`FitCovariance` in `kinematic_fit.py`), condividendo lo stesso modello usato per generare gli eventi simulati.
+
 
 ```python
 @dataclass(frozen=True)
@@ -72,13 +44,19 @@ class FitCovariance:
     beam_E: float = 0.016           # assoluto, GeV
 ```
 
-Questo è l'input che regge tutto il fit: se i sigma non riflettono il
-rivelatore vero, il chi2 del fit è mal calibrato. Per questo è validato con
-gli pull (vedi sotto) prima di fidarsene, ed è un dataclass apposta perché
-un eventuale riscalamento resti una modifica di una riga sola, in un unico
-posto.
+`FitCovariance` definisce le risoluzioni sperimentali usate dal fit:
 
-## Il solutore: moltiplicatori di Lagrange, iterativo
+* fotoni: **10% in energia**, **5° in θ**, **3° in φ**;
+* protone: **4% in momento**, **3° in θ**, **2° in φ**;
+* fascio: **σE = 16 MeV**.
+
+Questi parametri determinano la calibrazione del χ² del fit: se le risoluzioni non rappresentano correttamente il rivelatore, anche il risultato del fit risulta mal calibrato.
+
+Per questo vengono verificati tramite i **pull** prima dell'utilizzo definitivo. 
+La struttura `dataclass` centralizza tutti i parametri, rendendo eventuali riscalamenti delle risoluzioni modificabili in un unico punto.
+
+
+## Il risolutore: moltiplicatori di Lagrange, iterativo
 
 ```
 minimizza  chi2 = (y - eta)^T V^-1 (y - eta)   soggetto a   f(eta) = 0
@@ -94,18 +72,14 @@ ripeti (ri-valutando f, F) finché |f| < tol e il chi2 è stabile
 covarianza del fit: V_eta = V - V F^T S^-1 F V
 ```
 
-Lo Jacobiano è **numerico** (differenze finite), non analitico: più semplice
-e meno soggetto a errori delle derivate a mano delle sei costrizioni, e
-abbastanza economico sul campione che sopravvive al gate — una frazione dei
-~17M eventi grezzi. Le iterazioni sono limitate a 10; se non convergono, `converged =
-False` e il chi2 resta grande apposta, così l'evento fallisce comunque il
-taglio sulla CL. Una `S` singolare viene intercettata e trattata come non
-convergenza, non come un crash.
+Il fit utilizza un risolutore iterativo basato sui **moltiplicatori di Lagrange**, che minimizza il χ² delle correzioni applicate alle misure imponendo contemporaneamente i sei vincoli cinematici.
 
-`ndf = 6`: sei costrizioni, nessun parametro non misurato da stimare — ogni
-quantità del vettore y è una misura, nessuna è incognita. Per questo il chi2
-del fit segue una distribuzione chi2(6) sul segnale vero, ed è la base del
-taglio sulla confidence level.
+A ogni iterazione vengono ricalcolati il **Jacobiano** dei vincoli, la matrice di covarianza dei vincoli e la correzione dei parametri fino alla convergenza. Lo Jacobiano è calcolato numericamente tramite differenze finite, evitando derivate analitiche più complesse e mantenendo una precisione sufficiente sul campione già filtrato.
+
+Il fit è limitato a 10 iterazioni: in caso di mancata convergenza o matrice singolare l'evento viene marcato come fallito e il χ² rimane alto, così da essere escluso dal taglio sulla confidence level.
+
+Poiché ci sono **6 vincoli e nessun parametro libero non misurato**, il numero di gradi di libertà è **ndf = 6**. Di conseguenza il χ² del fit segue una distribuzione χ²(6) per gli eventi corretti, permettendo di usare la **confidence level** come discriminante statistico.
+
 
 ## Il taglio in confidence level sostituisce la massa mancante
 
@@ -117,21 +91,16 @@ if not res.converged or confidence_level(res.chi2, res.ndf) < cfg.fit_cl:
     return
 ```
 
-con `cfg.fit_cl` di default **0.01** (configurabile via `--fit-cl` su
-entrambi gli entrypoint). Il vincolo di conservazione del quadrimpulso del
-fit include già l'informazione che il taglio sulla massa mancante
-approssimava (vedi [Ricostruzione chi2](05-reconstruction-chi2) per quel
-taglio) — il fit lo sussume, non lo affianca.
+Il fit utilizza una **confidence level minima di 0,01** come requisito di selezione, configurabile tramite `--fit-cl`.
 
-`--missing-mass-window` (default 0.06 GeV) **resta** per la modalità
-`--no-fit`: con il fit disattivato, la selezione torna a essere la finestra
-sulla massa mancante attorno alla massa del partner (di default il
-protone), esattamente come prima dell'introduzione del fit.
+Il vincolo di conservazione del quadrimpulso incluso nel fit incorpora già l'informazione contenuta nel precedente taglio sulla massa mancante: il fit lo sostituisce, invece di aggiungerlo come ulteriore selezione.
+
+Il parametro `--missing-mass-window` rimane disponibile solo con `--no-fit`: in assenza del fit cinematico, la selezione torna a basarsi sulla finestra della massa mancante attorno alla massa attesa del partner (di default il protone).
+
 
 ## Rami di output
 
-Accanto ai rami grezzi (`eta`, `pi0`, `proton`, ..., vedi
-[Formati dati](data-formats)), il fit scrive:
+Accanto ai rami grezzi (`eta`, `pi0`, `proton`, ..., vedi [Formati dati](data-formats)), il fit scrive:
 
 ```cpp
 eta_fit,        TLorentzVector   // somma dei due fotoni fittati dell'eta
@@ -148,8 +117,7 @@ fit_ndf/I         // sempre 6
 fit_converged/I   // 0/1
 ```
 
-`06_plots/dalitz.py` usa i quadrivettori fittati (più stretti) per il
-Dalitz plot, tenendo quelli grezzi per il confronto prima/dopo.
+`06_plots/dalitz.py` usa i quadrivettori fittati (più stretti) per il Dalitz plot, tenendo quelli grezzi per il confronto prima/dopo.
 
 ## Validazione su MC di segnale
 
@@ -166,65 +134,10 @@ python -m reconstruction.validate_kinematic_fit \
     --signal 03_mc_simulation/data/eta_pi0_mc.root --out-dir results/plots
 ```
 
-Calcola gli **pull**, `(fittato - vero) / sigma_fittato`, che sono il modo
-in cui la covarianza si calibra: attesi N(0, 1) — media 0 se il fit non è
-distorto, larghezza 1 se i sigma in `FitCovariance` sono quelli giusti. Una
-larghezza diversa da 1 direbbe che la covarianza è sbagliata di quel
-fattore, da correggere in `FitCovariance` e rivalidare.
+La validazione del fit 6C viene eseguita su un campione **MC di segnale**, confrontando il risultato del fit con la verità del generatore salvata nei rami `*_true` (prima dello smearing).
 
-### Risultati misurati
+Il controllo principale è sugli **pull**, definiti come:
 
-- **Convergenza del fit: 99.9%** degli eventi di segnale.
-- **chi2 del fit / ndf = 6.12 / 6 = 1.02** — conferma che la covarianza
-  (presa da `smearing.h`) è calibrata correttamente **così com'è**: non è
-  stata riscalata.
-- **Larghezza dello pull** (energia del fotone dell'η, normalizzata sul
-  sigma **fittato**): **1.03**, media **-0.03** — il fit è non distorto e ha
-  larghezza unitaria.
-- **La massa dell'η fittata è esattamente al polo (0.547862)**, per
-  costruzione: è il vincolo di massa a metterla lì, non una misura
-  migliorata — la sua deviazione standard è ~0. Il "restringimento" della
-  massa dell'η visto nei plot non è quindi risoluzione recuperata, è il
-  vincolo stesso. **La risoluzione guadagnata davvero è sugli assi del
-  Dalitz, M(ηp) e M(π⁰p)** — quelle non sono vincolate, e su quelle si vede
-  l'effetto reale del fit. Chi guarda questi risultati in futuro non deve
-  confondere le due cose: la massa dell'η stretta è un vincolo geometrico, la
-  risoluzione del Dalitz è fisica recuperata.
-- **Risoluzione sugli assi del Dalitz** — larghezza del residuo
-  `M_reco − M_true` sul MC di segnale (dove il valore vero cancella lo spread
-  fisico e resta la sola risoluzione):
+$(\text{valore fittato} - \text{valore vero}) / \sigma_{\text{fit}}$
 
-  | osservabile | σ prima (raw) | σ dopo (fit) | guadagno |
-  |-------------|---------------|--------------|----------|
-  | M(ηp)       | 52 MeV        | **10 MeV**   | 5.0×     |
-  | M(π⁰p)      | 22 MeV        | **10 MeV**   | 2.3×     |
-
-  L'η parte peggio (fotoni più energetici, σ_E = 10%·E) e il fit ne recupera
-  5×; il π⁰ parte già stretto e satura ~10 MeV, limitato dalla risoluzione del
-  **protone** (che il fit muove solo entro σ_P = 4%). Sui dati veri la
-  larghezza della distribuzione mescola risoluzione e fisica, quindi si
-  stringe di meno (M(ηp) 61 → 46 MeV) — ed è giusto così: il fit non deve
-  cancellare la struttura fisica vera.
-
-### Plot di questi risultati
-
-`06_plots/kinfit_resolution.py` (`python -m plots.kinfit_resolution`) rigenera
-le sei figure, ed è nel `run_pipeline.sh` subito dopo il Dalitz:
-
-- `risoluzione_{eta,pi0}_p.pdf` — i residui MC, raw vs fit (la risoluzione pura);
-- `massa_{eta,pi0}_p_mc.pdf` — lo spettro MC con la verità sovrapposta: il fit
-  riporta la curva grezza sulla verità, la soglia cinematica torna netta;
-- `massa_{eta,pi0}_p.pdf` — lo spettro sui dati ricostruiti, raw vs fit.
-
-Fa girare il fit dal vivo sul MC di segnale (stessa chiamata di `reco_core`) e
-legge i rami fittati già scritti nel file ricostruito per le curve sui dati.
-
-## Dove andare da qui
-
-- [Ricostruzione chi2](05-reconstruction-chi2) — l'accoppiamento che il fit
-  eredita, il taglio chi2 < 10, il quadrimomento mancante che il fit
-  sostituisce come discriminante.
-- [Gate BDT](05-reconstruction-bdt-gate) — il filtro statistico che gira
-  prima, sul campione grezzo.
-- [Formati dati](data-formats) — schema completo dei rami, grezzi, fittati e
-  `*_true`.
+Per una covarianza correttamente calibrata i pull devono seguire una distribuzione **N(0,1)**: media vicina a zero indica assenza di bias, mentre una larghezza diversa da uno indica che le risoluzioni in `FitCovariance` sono sovra- o sotto-stimate e devono essere corrette.
