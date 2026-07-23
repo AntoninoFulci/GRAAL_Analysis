@@ -13,7 +13,8 @@ import numpy as np
 # is worse than no plot.
 from graal_common.channels import M_ETA, M_PI0, M_PROTON
 
-__all__ = ["M_ETA", "M_PI0", "M_PROTON", "dalitz_limit", "invariant_mass", "sqrt_s"]
+__all__ = ["M_ETA", "M_PI0", "M_PROTON", "dalitz_limit", "invariant_mass",
+           "invariant_masses", "sqrt_s"]
 
 
 def invariant_mass(a: np.ndarray, b: np.ndarray) -> float:
@@ -23,6 +24,17 @@ def invariant_mass(a: np.ndarray, b: np.ndarray) -> float:
     # Resolution can push m^2 marginally negative on a genuinely light system;
     # report 0 rather than NaN.
     return float(np.sqrt(max(m2, 0.0)))
+
+
+def invariant_masses(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Invariant mass of a+b for stacks: a, b are (N, 4), result is (N,).
+
+    The batched form of invariant_mass, same clamp to zero, so a whole tree of
+    events costs one array op instead of a Python loop.
+    """
+    s = a + b
+    m2 = s[:, 3] ** 2 - (s[:, :3] ** 2).sum(axis=1)
+    return np.sqrt(np.clip(m2, 0.0, None))
 
 
 def sqrt_s(beam: np.ndarray, target: np.ndarray) -> float:
