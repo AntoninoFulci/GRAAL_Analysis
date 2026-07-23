@@ -1,12 +1,13 @@
 """Measure the real beam spectrum, and reweight the Monte Carlo onto it.
 
-The generators sample the tagged photon energy as `rng.Uniform(threshold, 1.55)`
+The generators sample the tagged photon energy as `rng.Uniform(threshold, 1.75)`
 — flat between the channel's production threshold and a hard ceiling. GRAAL's
 beam is nothing like that. It is laser light Compton-backscattered off the
 storage ring, so the spectrum rises to a Compton edge that sits wherever the
 laser line puts it, and stops. Measured over data/selected: two superimposed
 edges (the green and UV lines used in different run periods), a shoulder near
-0.79, and a tail out to 1.72 that the MC's 1.55 ceiling does not cover at all.
+0.79, and a tail out to 1.72. The 1.75 ceiling now spans that range, but a flat
+draw across it is still nothing like the shaped real spectrum.
 
 `beam_E` is one of the stage-1 features, and the rest of the event kinematics
 are correlated with it, so a flat MC beam is not a cosmetic mismatch: the
