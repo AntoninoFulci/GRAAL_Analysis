@@ -45,7 +45,8 @@ import uproot
 
 from graal_common.channels import ETA_PI0_HYP
 from graal_common.pairing import Pairing
-from plots.kinematics import invariant_mass
+from graal_common.vectors import lorentz_array
+from plots.kinematics import invariant_mass, invariant_masses
 from reconstruction.kinematic_fit import FitCovariance, fit_event
 
 # The eta is the heavy pair (0, 1), the pi0 the light pair (2, 3): the same
@@ -53,15 +54,13 @@ from reconstruction.kinematic_fit import FitCovariance, fit_event
 PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
 
 
-def _vectors(tree, name: str) -> np.ndarray:
-    """Read a TLorentzVector branch as an (N, 4) [px, py, pz, E] array."""
-    a = tree[name].array()
-    return np.stack([np.asarray(a["fP"]["fX"]), np.asarray(a["fP"]["fY"]),
-                     np.asarray(a["fP"]["fZ"]), np.asarray(a["fE"])], axis=1)
-
-
 def core_sigma(x: np.ndarray, lo: float = -0.3, hi: float = 0.3) -> float:
-    """RMS inside a central window — the resolution core, robust to tails."""
+    """Standard deviation inside a central window — the resolution core.
+
+    The tails (mis-reconstructed events outside +-0.3 GeV) are dropped so a few
+    outliers do not inflate the width; std about the sample mean, so a genuine
+    mean bias would still leave the width honest.
+    """
     c = x[(x > lo) & (x < hi)]
     return float(c.std()) if len(c) else float("nan")
 
@@ -77,8 +76,8 @@ def fit_signal_mc(signal: Path, n: int):
         t = f["mc"]
         names = ["eta_gamma1", "eta_gamma2", "pi0_gamma1", "pi0_gamma2",
                  "proton", "beam"]
-        sm = {nm: _vectors(t, nm) for nm in names}
-        tr = {nm: _vectors(t, nm + "_true") for nm in names}
+        sm = {nm: lorentz_array(t, nm) for nm in names}
+        tr = {nm: lorentz_array(t, nm + "_true") for nm in names}
 
     n = min(n, len(sm["proton"]))
     cov = FitCovariance()
@@ -127,19 +126,16 @@ def data_masses(bdt: Path):
     with uproot.open(bdt) as f:
         tree_name = next(k for k, cls in f.classnames().items() if cls == "TTree")
         t = f[tree_name]
-        eta = _vectors(t, "eta"); pi0 = _vectors(t, "pi0")
-        proton = _vectors(t, "proton")
-        eta_fit = _vectors(t, "eta_fit"); pi0_fit = _vectors(t, "pi0_fit")
-        proton_fit = _vectors(t, "proton_fit")
-
-    def masses(m, p):
-        s = m + p
-        m2 = s[:, 3] ** 2 - (s[:, :3] ** 2).sum(axis=1)
-        return np.sqrt(np.clip(m2, 0.0, None))
+        eta = lorentz_array(t, "eta"); pi0 = lorentz_array(t, "pi0")
+        proton = lorentz_array(t, "proton")
+        eta_fit = lorentz_array(t, "eta_fit"); pi0_fit = lorentz_array(t, "pi0_fit")
+        proton_fit = lorentz_array(t, "proton_fit")
 
     return {
-        "etap_raw": masses(eta, proton), "etap_fit": masses(eta_fit, proton_fit),
-        "pip_raw": masses(pi0, proton), "pip_fit": masses(pi0_fit, proton_fit),
+        "etap_raw": invariant_masses(eta, proton),
+        "etap_fit": invariant_masses(eta_fit, proton_fit),
+        "pip_raw": invariant_masses(pi0, proton),
+        "pip_fit": invariant_masses(pi0_fit, proton_fit),
     }
 
 
@@ -206,6 +202,13 @@ def main() -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
+    if not args.signal.exists():
+        raise SystemExit(
+            f"signal MC {args.signal} not found: the residual and MC-spectrum "
+            f"figures need it to run the fit against truth. Point --signal at "
+            f"the generated file, or generate it first."
+        )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 

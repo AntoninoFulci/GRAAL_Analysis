@@ -42,6 +42,22 @@ def test_invariant_mass_clamps_a_spacelike_sum_to_zero():
     assert kin.invariant_mass(a, b) == 0.0
 
 
+def test_invariant_masses_matches_the_scalar_form_per_row():
+    # the batched form must agree, row by row, with invariant_mass on each pair
+    a = np.array([[0.0, 0.0, 0.5, 0.5], [0.1, 0.2, 0.3, 0.9]])
+    b = np.array([[0.0, 0.0, -0.5, 0.5], [-0.2, 0.1, 0.4, 1.1]])
+    got = kin.invariant_masses(a, b)
+    assert got[0] == pytest.approx(kin.invariant_mass(a[0], b[0]))
+    assert got[1] == pytest.approx(kin.invariant_mass(a[1], b[1]))
+
+
+def test_invariant_masses_clamps_spacelike_rows_to_zero():
+    # a row whose m^2 goes negative reports 0, never NaN — same as the scalar
+    a = np.array([[0.0, 0.0, 1.0, 0.4]])
+    b = np.array([[0.0, 0.0, 1.0, 0.4]])
+    assert kin.invariant_masses(a, b)[0] == 0.0
+
+
 def test_sqrt_s_of_beam_on_a_proton_at_rest():
     # W = sqrt(2 E_beam m_p + m_p^2)
     beam = np.array([0.0, 0.0, 1.5, 1.5])

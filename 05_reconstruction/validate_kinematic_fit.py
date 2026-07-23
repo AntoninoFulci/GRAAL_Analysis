@@ -18,15 +18,10 @@ import uproot
 
 from graal_common.channels import ETA_PI0_HYP, M_ETA
 from graal_common.pairing import Pairing
+from graal_common.vectors import lorentz_array as _vec
 from reconstruction.kinematic_fit import FitCovariance, fit_event
 
 PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
-
-
-def _vec(t, name):
-    arr = t[name].array()
-    return np.stack([np.asarray(arr["fP"]["fX"]), np.asarray(arr["fP"]["fY"]),
-                     np.asarray(arr["fP"]["fZ"]), np.asarray(arr["fE"])], axis=1)
 
 
 def main() -> None:
