@@ -17,24 +17,11 @@ docs/
 .superpowers/
 .vscode/
 
-# Test data: nothing under here is tracked. --test-data redirects the detector
-# directories onto this folder; create it and fill it yourself (see Testing in
-# the wiki). The skeleton and README that used to be tracked were a convenience,
-# not a contract.
+
 test_data/
 
-# Anchored to the repo root: an unanchored `data/` matches at any depth and
-# would also swallow 04_mc_simulation/data/ and 05_analysis_bdt/data/, which
-# hold generated Monte Carlo and feature matrices — untracked for their size,
-# by the *.root and *.npz rules above, not by this one.
 /data/
 
-# What the analysis concluded, not what it is: results/reco holds the
-# reconstructed trees, results/plots the figures drawn from them. Both are
-# rebuilt from data/ and the code whenever either changes, so tracking them put
-# binary churn in every diff that touched the analysis and let the repo carry
-# figures that could quietly disagree with the code beside them.
-#
-# 06_plots/ is now only the scripts that draw. Results do not live in a source
-# folder: that is how they got committed in the first place.
 /results/
+
+tmp/
