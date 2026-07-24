@@ -1,7 +1,7 @@
 {
-  "auc": 0.9990573291380189,
-  "n_estimators": 400,
-  "time_s": 22.1,
+  "auc": 0.9990680425605414,
+  "n_estimators": 322,
+  "time_s": 18.8,
   "max_depth": 6,
   "learning_rate": 0.15,
   "subsample": 0.8,

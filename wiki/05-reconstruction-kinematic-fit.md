@@ -41,16 +41,16 @@ class FitCovariance:
     proton_P_rel: float = 0.04      # sigma_P = 4% * P
     proton_theta: float = 3°
     proton_phi: float = 2°
-    beam_E: float = 0.016           # assoluto, GeV
+    beam_E: float = 0.0067946       # sigma assoluta, GeV
 ```
 
 `FitCovariance` definisce le risoluzioni sperimentali usate dal fit:
 
 * fotoni: **10% in energia**, **5° in θ**, **3° in φ**;
 * protone: **4% in momento**, **3° in θ**, **2° in φ**;
-* fascio: **σE = 16 MeV**.
+* fascio: **FWHM = 16 MeV**, quindi **σE = 6.795 MeV**.
 
-Questi parametri determinano la calibrazione del χ² del fit: se le risoluzioni non rappresentano correttamente il rivelatore, anche il risultato del fit risulta mal calibrato.
+Questi parametri determinano la calibrazione del χ² del fit: se le risoluzioni non rappresentano correttamente il rivelatore, anche il risultato del fit risulta mal calibrato. Le risoluzioni di fotoni, protone e angoli attualmente presenti sono assunzioni legacy non ancora calibrate per energia, angolo, regione del rivelatore e periodo di presa dati.
 
 Per questo vengono verificati tramite i **pull** prima dell'utilizzo definitivo. 
 La struttura `dataclass` centralizza tutti i parametri, rendendo eventuali riscalamenti delle risoluzioni modificabili in un unico punto.
@@ -140,4 +140,17 @@ Il controllo principale è sugli **pull**, definiti come:
 
 $(\text{valore fittato} - \text{valore vero}) / \sigma_{\text{fit}}$
 
-Per una covarianza correttamente calibrata i pull devono seguire una distribuzione **N(0,1)**: media vicina a zero indica assenza di bias, mentre una larghezza diversa da uno indica che le risoluzioni in `FitCovariance` sono sovra- o sotto-stimate e devono essere corrette.
+Per una covarianza correttamente calibrata i pull devono seguire una distribuzione **N(0,1)**: media vicina a zero indica assenza di bias, mentre una larghezza diversa da uno indica che le risoluzioni in `FitCovariance` sono sovra- o sotto-stimate.
+
+Il MC di segnale e il fit condividono oggi lo stesso modello di smearing. Questa
+procedura è quindi una **closure validation**, non una calibrazione indipendente
+del rivelatore. Il comando stampa esplicitamente questo stato e verifica anche
+uniformità della confidence level, condition number e cause dei fallimenti:
+
+```bash
+python -m reconstruction.validate_kinematic_fit --validation-mode closure
+```
+
+`--validation-mode calibration` richiede `--provenance` con identificazione del
+campione indipendente; senza provenance il comando rifiuta di dichiarare una
+calibrazione.

@@ -180,6 +180,13 @@ class TestMesonCandidateFeatures:
         X = compute_stage1_features(photons, proton, beam)
         assert X[0, 25] == pytest.approx(-1.0, abs=1e-6)
 
+    def test_zero_momentum_proton_is_warning_free(self):
+        photons, proton, beam = self._perfect()
+        proton[0] = [0.0, 0.0, 0.0, 0.938272]
+        with np.errstate(all="raise"):
+            X = compute_stage1_features(photons, proton, beam)
+        assert X[0, 23] == 0.0
+
     def test_both_new_features_survive_a_photon_shuffle(self):
         # The pairing is re-chosen from the chi2, not read off photon order, so
         # shuffling the four photons must leave cols 24 and 25 unchanged. This

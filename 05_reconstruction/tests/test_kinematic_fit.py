@@ -7,6 +7,7 @@ masses. Nothing here needs ROOT: the fitter is pure numpy on [px,py,pz,E] arrays
 import numpy as np
 import pytest
 
+import reconstruction.kinematic_fit as kf
 from graal_common.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
 from graal_common.pairing import Pairing
 from reconstruction.kinematic_fit import (
@@ -18,6 +19,7 @@ from reconstruction.kinematic_fit import (
     confidence_level,
     fit_event,
 )
+from reconstruction.validate_kinematic_fit import validation_status
 
 # Photons (0,1) are the eta, (2,3) the pi0 -- the pairing the fit is handed.
 PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
@@ -104,7 +106,63 @@ class TestConfidenceLevel:
         assert confidence_level(0.0, 6) == pytest.approx(1.0)
 
 
+class TestValidationStatus:
+    def test_closure_is_labelled_as_shared_covariance(self):
+        assert "CLOSURE ONLY" in validation_status("closure", None)
+
+    def test_calibration_requires_independent_provenance(self):
+        with pytest.raises(ValueError, match="provenance"):
+            validation_status("calibration", None)
+
+    def test_calibration_reports_provenance(self):
+        status = validation_status("calibration", "run-period control sample")
+        assert "INDEPENDENT CALIBRATION" in status
+        assert "run-period control sample" in status
+
+
 class TestFitEvent:
+    def test_nonpositive_photon_energy_is_rejected(self):
+        photons, proton, beam = _conserving_event()
+        photons[0, 3] = 0.0
+
+        result = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
+
+        assert not result.converged
+        assert result.failure_reason == "invalid_input"
+
+    def test_max_iteration_failure_has_structured_reason(self):
+        photons, proton, beam = _conserving_event()
+        photons[0, 3] *= 1.05
+        photons[0, :3] *= 1.05
+
+        result = fit_event(
+            photons, proton, beam, PAIRING, ETA_PI0_HYP, max_iter=1
+        )
+
+        assert not result.converged
+        assert result.failure_reason == "max_iterations"
+
+    def test_fit_does_not_use_explicit_inverse(self, monkeypatch):
+        photons, proton, beam = _conserving_event()
+        monkeypatch.setattr(
+            np.linalg, "inv", lambda *_: pytest.fail("explicit inverse called")
+        )
+
+        result = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
+
+        assert result.converged
+
+    def test_singular_constraint_matrix_has_structured_reason(self, monkeypatch):
+        photons, proton, beam = _conserving_event()
+        monkeypatch.setattr(
+            kf, "_jacobian", lambda *args: np.zeros((6, 16))
+        )
+
+        result = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
+
+        assert not result.converged
+        assert result.failure_reason == "singular_constraint_matrix"
+
     def test_a_conserving_on_mass_event_barely_moves(self):
         photons, proton, beam = _conserving_event()
         res = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
@@ -197,7 +255,7 @@ class TestChi2Calibration:
             proton_P_rel=0.08,
             proton_theta=6 * _DEG,
             proton_phi=4 * _DEG,
-            beam_E=0.032,
+            beam_E=2 * FitCovariance().beam_E,
         )
 
         res_default = fit_event(smear, proton, beam, PAIRING, ETA_PI0_HYP, cov=cov_default)

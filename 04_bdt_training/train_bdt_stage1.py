@@ -26,6 +26,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from graal_common.channels import TAGGER_FWHM_GEV, TAGGER_SIGMA_GEV
 
 try:
     import xgboost as xgb
@@ -46,7 +47,11 @@ from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 from bdt_training.callbacks import TqdmCallback
 
 
-def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
+def _find_best_threshold(
+    y_true: np.ndarray,
+    scores: np.ndarray,
+    sample_weight: np.ndarray | None = None,
+) -> float:
     """Find threshold maximising F1 on the provided set."""
     thresholds = np.linspace(0.01, 0.99, 200)
     best_f1, best_thr = -1.0, 0.5
@@ -54,6 +59,7 @@ def _find_best_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
         pred = (scores >= thr).astype(int)
         _, _, f1, _ = precision_recall_fscore_support(y_true, pred,
                                                        average="binary",
+                                                       sample_weight=sample_weight,
                                                        zero_division=0)
         if f1 > best_f1:
             best_f1, best_thr = f1, float(thr)
@@ -139,10 +145,11 @@ def train(
 
     scores_val = model.predict_proba(X_val)[:, 1]
     auc = roc_auc_score(y_val, scores_val, sample_weight=w_val)
-    threshold = _find_best_threshold(y_val, scores_val)
+    threshold = _find_best_threshold(y_val, scores_val, sample_weight=w_val)
     pred_val = (scores_val >= threshold).astype(int)
     p, r, f1, _ = precision_recall_fscore_support(y_val, pred_val,
                                                    average="binary",
+                                                   sample_weight=w_val,
                                                    zero_division=0)
 
     out = Path(out_dir)
@@ -161,6 +168,10 @@ def train(
                 "hypothesis": hypothesis,
                 "signal_prior": signal_prior,
                 "beam_reweighted": beam_reweighted,
+                "phase_space_sampling": "accept-reject-unweighted",
+                "tagger_resolution_fwhm_gev": TAGGER_FWHM_GEV,
+                "tagger_resolution_sigma_gev": TAGGER_SIGMA_GEV,
+                "detector_covariance_status": "legacy-uncalibrated",
                 "feature_names": feature_names,
             },
             indent=2,

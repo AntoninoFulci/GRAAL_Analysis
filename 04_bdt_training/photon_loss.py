@@ -18,6 +18,7 @@ import argparse
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.special import expit
 
 
 @dataclass
@@ -41,11 +42,11 @@ def p_loss(E: np.ndarray, theta: np.ndarray, params: LossParams) -> np.ndarray:
     Returns:
         loss probability, same shape as E
     """
-    p_thr = 1.0 / (1.0 + np.exp((E - params.E_thr) / params.sigma_E))
+    p_thr = expit(-(E - params.E_thr) / params.sigma_E)
     # Forward hole (beam): high loss for theta < theta_min_acc
-    p_fwd = 1.0 / (1.0 + np.exp((theta - params.theta_min_acc) / params.sigma_theta))
+    p_fwd = expit(-(theta - params.theta_min_acc) / params.sigma_theta)
     # Backward hole: high loss for theta > theta_max_acc
-    p_bwd = 1.0 / (1.0 + np.exp(-(theta - params.theta_max_acc) / params.sigma_theta))
+    p_bwd = expit((theta - params.theta_max_acc) / params.sigma_theta)
     p_acc = 1.0 - (1.0 - p_fwd) * (1.0 - p_bwd)
     return 1.0 - (1.0 - p_thr) * (1.0 - p_acc)
 

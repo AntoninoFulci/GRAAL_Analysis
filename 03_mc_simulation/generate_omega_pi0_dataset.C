@@ -32,14 +32,14 @@ void generate_omega_pi0_dataset(int Nevents = 1000000) {
         // longer cosmetic — it would understate every channel by the slice it
         // cannot reach.
         double Ebeam = rng.Uniform(threshold, 1.75);
-        beam.SetPxPyPzE(0, 0, rng.Gaus(Ebeam, 0.016), rng.Gaus(Ebeam, 0.016));
+        beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
 
         double masses3[3] = {momega, mpi0, mp};
         TGenPhaseSpace evt;
         if (!evt.SetDecay(W, 3, masses3)) continue;
-        evt.Generate();
+        GenerateUnweighted(evt, rng);
 
         TLorentzVector omega_v   = *evt.GetDecay(0);
         TLorentzVector outer_pi0 = *evt.GetDecay(1);
@@ -49,15 +49,15 @@ void generate_omega_pi0_dataset(int Nevents = 1000000) {
         double m_omega_decay[2] = {0., mpi0};
         TGenPhaseSpace domega;
         domega.SetDecay(omega_v, 2, m_omega_decay);
-        domega.Generate();
+        GenerateUnweighted(domega, rng);
 
         TLorentzVector omega_gamma = *domega.GetDecay(0);
         TLorentzVector omega_pi0  = *domega.GetDecay(1);
 
         double m2[2] = {0., 0.};
         TGenPhaseSpace dopi, dout;
-        dopi.SetDecay(omega_pi0,  2, m2); dopi.Generate();
-        dout.SetDecay(outer_pi0,  2, m2); dout.Generate();
+        dopi.SetDecay(omega_pi0,  2, m2); GenerateUnweighted(dopi, rng);
+        dout.SetDecay(outer_pi0,  2, m2); GenerateUnweighted(dout, rng);
 
         g0 = SmearPhoton(omega_gamma,        rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
         g1 = SmearPhoton(*dopi.GetDecay(0),  rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());

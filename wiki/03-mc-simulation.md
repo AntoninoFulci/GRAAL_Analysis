@@ -40,6 +40,21 @@ double Ebeam = rng.Uniform(threshold, 1.75);
 
 **Flat**, dalla soglia di produzione del canale fino a un limite fissato a **1.75 GeV**.
 
+Il quadrivettore misurato del fascio viene costruito con un solo draw gaussiano:
+`(0, 0, Eγ, Eγ)`. Rimane quindi massless dopo lo smearing. La risoluzione
+pubblicata del tagger, **16 MeV FWHM**, viene convertita nella deviazione standard
+usata dal generatore:
+
+```
+sigma_E = 16 MeV / 2.35482 = 6.795 MeV
+```
+
+Tutte le chiamate a `TGenPhaseSpace::Generate()` passano inoltre attraverso
+accept/reject sul peso normalizzato restituito da ROOT. Questo vale sia per lo
+stato di produzione sia per i decadimenti secondari a più corpi: i file MC
+contengono eventi unweighted, non configurazioni distribuite secondo la
+proposal interna di `TGenPhaseSpace`.
+
 Il fascio di GRAAL, invece, ha una distribuzione completamente diversa: è prodotto tramite **Compton backscattering** di un laser sul fascio di elettroni dell'anello di accumulazione. Lo spettro risultante non è uniforme, ma cresce verso un **Compton edge**, la cui posizione è determinata dalla linea laser utilizzata.
 
 Lo spettro misurato in `data/selected` (17.15M fotoni taggati; energia minima **0.644 GeV**, mediana **1.087 GeV**, massima **1.718 GeV**) mostra due **Compton edges** sovrapposti, corrispondenti alle linee laser **green** e **UV** utilizzate in diversi periodi di presa dati. Sono inoltre visibili una **shoulder** intorno a **0.79 GeV** e una **high-energy tail** che si estende fino a **1.72 GeV**.
@@ -132,3 +147,7 @@ class LossParams:
 
 Ogni canale, segnale compreso, viene passato attraverso `sample_surviving_photons`, che applica la perdita evento per evento e tiene solo gli eventi in cui sopravvivono **esattamente** 4 fotoni — lo stesso numero che il gate stage-1 vede in produzione.
 Il segnale ha 4 fotoni veri, i fondi da 4 a 8 passano per lo stesso filtro, così l'accettanza non diventa una funzione dell'etichetta di classe.
+
+Questo modello resta una **approssimazione non calibrata** della risposta del
+rivelatore. Non sostituisce LAGGEN/GEANT, né include correlazioni tra cluster,
+materiale passivo, trigger o variazioni tra periodi di presa dati.

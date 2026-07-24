@@ -42,6 +42,15 @@ class TestPLoss:
         p = p_loss(Es, thetas, LossParams())
         assert p.shape == (10, 6)
 
+    def test_extreme_photon_energy_probability_is_finite_and_warning_free(self):
+        with np.errstate(all="raise"):
+            p = p_loss(
+                np.array([1e6]),
+                np.array([np.pi / 2]),
+                LossParams(),
+            )
+        assert np.isfinite(p).all()
+
 
 class TestApplyLossEvents:
     def test_all_survive_high_energy(self):

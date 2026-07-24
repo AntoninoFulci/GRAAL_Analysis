@@ -3,9 +3,9 @@ Hypothesis:eta_pi0
 Prior:     0.5  (a training choice, not a cross-section)
 Beam rewt: True
 AUC:       0.9991
-Threshold: 0.9654
-Precision: 0.8558
-Recall:    0.9073
-F1:        0.8808
-N_train:   2112953
-N_val:     528239
+Threshold: 0.2759
+Precision: 0.9860
+Recall:    0.9966
+F1:        0.9912
+N_train:   2120715
+N_val:     530179

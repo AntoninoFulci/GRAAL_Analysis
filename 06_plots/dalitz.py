@@ -220,6 +220,61 @@ def _save(canvas, out_dir: Path, stem: str) -> None:
     canvas.SaveAs(str(out_dir / f"{stem}.pdf"))
 
 
+def _draw_raw_mass_comparison(
+    meson: str,
+    truth: float,
+    chi2: dict[str, np.ndarray],
+    bdt: dict[str, np.ndarray],
+    out_dir: Path,
+    hists: dict,
+) -> None:
+    """Compare chi2 and BDT+chi2 meson masses before the kinematic fit."""
+    label = "#eta" if meson == "eta" else "#pi^{0}"
+    lo, hi = (
+        (_ETA_MASS_MIN, _ETA_MASS_MAX)
+        if meson == "eta"
+        else (_PI0_MASS_MIN, _PI0_MASS_MAX)
+    )
+    chi2_name = f"massa_{meson}_chi2_raw_confronto"
+    bdt_name = f"massa_{meson}_bdt_raw_confronto"
+    hc = _mass_hist(
+        chi2_name, "solo chi2", chi2[f"{meson}_mass_raw"], lo, hi
+    )
+    hb = _mass_hist(
+        bdt_name, "gate BDT + chi2", bdt[f"{meson}_mass_raw"], lo, hi
+    )
+    hists[chi2_name] = hc
+    hists[bdt_name] = hb
+
+    c = ROOT.TCanvas(
+        f"c_massa_{meson}_raw_confronto", f"{meson} raw", 900, 700
+    )
+    c.SetLeftMargin(0.12)
+    hc.SetTitle(
+        f"massa invariante {label} prima del fit;"
+        f"M({label})  [GeV];eventi"
+    )
+    hc.GetYaxis().CenterTitle()
+    hc.GetYaxis().SetTitleOffset(1.45)
+    hc.SetLineColor(ROOT.kGray + 2)
+    hc.SetFillColorAlpha(ROOT.kGray, 0.4)
+    hb.SetLineColor(ROOT.kAzure + 1)
+    hb.SetLineWidth(2)
+    hc.Draw("hist")
+    hb.Draw("hist same")
+
+    leg = ROOT.TLegend(0.58, 0.68, 0.90, 0.88)
+    leg.AddEntry(hc, "solo chi2", "f")
+    leg.AddEntry(hb, "gate BDT + chi2", "l")
+    line = ROOT.TLine(truth, 0, truth, max(hc.GetMaximum(), hb.GetMaximum()) * 1.05)
+    line.SetLineColor(ROOT.kRed + 1)
+    line.SetLineStyle(2)
+    line.Draw()
+    leg.AddEntry(line, "valore vero", "l")
+    leg.Draw()
+    _save(c, out_dir, f"massa_{meson}_raw_confronto")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -366,6 +421,13 @@ def main(argv: list[str] | None = None) -> int:
         leg.AddEntry(line, "valore vero", "l")
         leg.Draw()
         _save(c, args.out_dir, f"massa_{meson}")
+
+    # Raw-only comparison requested separately from the fitted overlays above:
+    # pairing and chi2 selection have run, kinematic fit has not.
+    for meson, truth in (("eta", kin.M_ETA), ("pi0", kin.M_PI0)):
+        _draw_raw_mass_comparison(
+            meson, truth, chi2, bdt, args.out_dir, hists
+        )
 
     # --- the histograms themselves, so they can be restyled without re-looping ---
     fout = ROOT.TFile(str(args.out_dir / "istogrammi.root"), "RECREATE")

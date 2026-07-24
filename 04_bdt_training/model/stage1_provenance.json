@@ -3,6 +3,10 @@
   "hypothesis": "eta_pi0",
   "signal_prior": 0.5,
   "beam_reweighted": true,
+  "phase_space_sampling": "accept-reject-unweighted",
+  "tagger_resolution_fwhm_gev": 0.016,
+  "tagger_resolution_sigma_gev": 0.006794574402304153,
+  "detector_covariance_status": "legacy-uncalibrated",
   "feature_names": [
     "m_gg_01",
     "m_gg_02",

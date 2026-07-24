@@ -40,14 +40,14 @@ void generate_eta_pi0_via_3pi0_dataset(int Nevents = 1000000) {
 
     for (int i = 0; i < Nevents; i++) {
         double Ebeam = rng.Uniform(threshold, 1.75);
-        beam.SetPxPyPzE(0, 0, rng.Gaus(Ebeam, 0.016), rng.Gaus(Ebeam, 0.016));
+        beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
 
         double masses3[3] = {meta, mpi0, mp};
         TGenPhaseSpace evt;
         if (!evt.SetDecay(W, 3, masses3)) continue;
-        evt.Generate();
+        GenerateUnweighted(evt, rng);
 
         TLorentzVector eta_v   = *evt.GetDecay(0);
         TLorentzVector pi0_dir = *evt.GetDecay(1);
@@ -56,7 +56,7 @@ void generate_eta_pi0_via_3pi0_dataset(int Nevents = 1000000) {
         double masses3pi[3] = {mpi0, mpi0, mpi0};
         TGenPhaseSpace deta;
         if (!deta.SetDecay(eta_v, 3, masses3pi)) continue;
-        deta.Generate();
+        GenerateUnweighted(deta, rng);
 
         double m2[2] = {0., 0.};
         TLorentzVector tmp[8];
@@ -65,14 +65,14 @@ void generate_eta_pi0_via_3pi0_dataset(int Nevents = 1000000) {
         TGenPhaseSpace d[3];
         for (int k = 0; k < 3; k++) {
             d[k].SetDecay(*deta.GetDecay(k), 2, m2);
-            d[k].Generate();
+            GenerateUnweighted(d[k], rng);
             tmp[2*k]   = SmearPhoton(*d[k].GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
             tmp[2*k+1] = SmearPhoton(*d[k].GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
         }
         // The directly produced pi0 -> two more.
         TGenPhaseSpace dpi;
         dpi.SetDecay(pi0_dir, 2, m2);
-        dpi.Generate();
+        GenerateUnweighted(dpi, rng);
         tmp[6] = SmearPhoton(*dpi.GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
         tmp[7] = SmearPhoton(*dpi.GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
 

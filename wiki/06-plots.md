@@ -33,9 +33,12 @@ Per entrambi i campioni vengono prodotti:
 * Dalitz plot con protone **misurato**;
 * Dalitz plot con protone **implicito** ottenuto dalla massa mancante;
 * distribuzioni delle masse η e π⁰;
+* confronti raw-only delle masse η e π⁰, dopo il pairing χ² ma prima del fit
+  cinematico:
+  `massa_eta_raw_confronto.pdf` e `massa_pi0_raw_confronto.pdf`;
 * correlazione M(η) vs M(π⁰).
 
-Tutti i plot sono salvati in formato **PNG** e **PDF**. Inoltre gli istogrammi ROOT vengono salvati in `istogrammi.root` per eventuali modifiche successive senza rileggere gli alberi.
+Tutti i plot sono salvati in formato **PDF**. Inoltre gli istogrammi ROOT vengono salvati in `istogrammi.root` per eventuali modifiche successive senza rileggere gli alberi.
 
 ## Protone misurato e protone implicito
 

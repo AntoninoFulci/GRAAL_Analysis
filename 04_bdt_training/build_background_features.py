@@ -276,7 +276,12 @@ def compute_stage1_features(
     # -- proton kinematics ---------------------------------------------------
     p_mom = np.sqrt((proton[:, :3]**2).sum(axis=1))
     out[:, 22] = p_mom
-    out[:, 23] = np.where(p_mom > 0, proton[:, 2] / p_mom, 0.0)
+    out[:, 23] = np.divide(
+        proton[:, 2],
+        p_mom,
+        out=np.zeros_like(p_mom),
+        where=p_mom > 0,
+    )
 
     # -- kinematics of the chi2-best pairing's two meson candidates -----------
     # Both features name "the eta pair" and "the eta/pi0 candidates". The four
@@ -294,8 +299,11 @@ def compute_stage1_features(
     # evenly than a random pair; normalising by the pair energy strips the eta's
     # lab boost, leaving the decay asymmetry the beam energy would otherwise mask.
     E_sum = g_h1[:, 3] + g_h2[:, 3]
-    out[:, 24] = np.where(
-        E_sum > 0, np.abs(g_h1[:, 3] - g_h2[:, 3]) / E_sum, 0.0
+    out[:, 24] = np.divide(
+        np.abs(g_h1[:, 3] - g_h2[:, 3]),
+        E_sum,
+        out=np.zeros_like(E_sum),
+        where=E_sum > 0,
     )
 
     # Cosine of the lab angle between the two reconstructed mesons. A genuine

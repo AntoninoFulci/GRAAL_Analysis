@@ -5,6 +5,7 @@
 #include <TGenPhaseSpace.h>
 #include <cmath>
 #include <TMath.h>
+#include "smearing.h"
 
 // ================================================================
 // Monte Carlo generator for the gamma p -> p eta pi0 reaction,
@@ -17,46 +18,6 @@
 //
 // Run:  root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
 // ================================================================
-
-// =========================
-// Photon smearing
-// =========================
-TLorentzVector SmearPhoton(TLorentzVector p, TRandom3 &rng,
-                           double sE, double sTheta, double sPhi) {
-
-    double E     = p.E();
-    double theta = p.Theta();
-    double phi   = p.Phi();
-
-    double E_s     = rng.Gaus(E, sE * E);     // relative (percentage) smearing
-    double theta_s = rng.Gaus(theta, sTheta); // absolute smearing
-    double phi_s   = rng.Gaus(phi, sPhi);     // absolute smearing
-
-    double px = E_s * sin(theta_s) * cos(phi_s);
-    double py = E_s * sin(theta_s) * sin(phi_s);
-    double pz = E_s * cos(theta_s);
-
-    return TLorentzVector(px, py, pz, E_s);
-}
-
-// =========================
-// Proton smearing
-// =========================
-TLorentzVector SmearProton(TLorentzVector p, TRandom3 &rng, double relRes,
-                           double sTheta, double sPhi) {
-    double Mp = 0.938272;
-
-    double P_s     = rng.Gaus(p.P(), relRes * p.P()); // relative (percentage) smearing
-    double theta_s = rng.Gaus(p.Theta(), sTheta);     // absolute smearing
-    double phi_s   = rng.Gaus(p.Phi(), sPhi);         // absolute smearing
-
-    double px = P_s * sin(theta_s) * cos(phi_s);
-    double py = P_s * sin(theta_s) * sin(phi_s);
-    double pz = P_s * cos(theta_s);
-    double E  = sqrt(P_s * P_s + Mp * Mp);
-
-    return TLorentzVector(px, py, pz, E);
-}
 
 void generate_eta_pi0_dataset(int Nevents = 1000000) {
 
@@ -114,15 +75,14 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         TLorentzVector W = beam + target;
 
         // beam energy stored in the tree, smeared by the tagger resolution (16 MeV)
-        double Ebeam_s = rng.Gaus(Ebeam, 0.016);
-        beam.SetPxPyPzE(0, 0, Ebeam_s, Ebeam_s);
+        beam = SmearTaggedPhoton(Ebeam, rng);
 
         double masses[3] = {meta, mpi0, mp};
 
         TGenPhaseSpace event;
         if (!event.SetDecay(W, 3, masses)) continue;
 
-        event.Generate();
+        GenerateUnweighted(event, rng);
 
         eta    = *event.GetDecay(0);
         pi0    = *event.GetDecay(1);
@@ -134,7 +94,7 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         TGenPhaseSpace decay_eta;
         double m_eta_decay[2] = {0.0, 0.0};
         decay_eta.SetDecay(eta, 2, m_eta_decay);
-        decay_eta.Generate();
+        GenerateUnweighted(decay_eta, rng);
 
         eta_gamma1 = *decay_eta.GetDecay(0);
         eta_gamma2 = *decay_eta.GetDecay(1);
@@ -142,7 +102,7 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         TGenPhaseSpace decay_pi0;
         double m_pi_decay[2] = {0.0, 0.0};
         decay_pi0.SetDecay(pi0, 2, m_pi_decay);
-        decay_pi0.Generate();
+        GenerateUnweighted(decay_pi0, rng);
 
         pi0_gamma1 = *decay_pi0.GetDecay(0);
         pi0_gamma2 = *decay_pi0.GetDecay(1);

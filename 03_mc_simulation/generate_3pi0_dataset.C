@@ -31,14 +31,14 @@ void generate_3pi0_dataset(int Nevents = 1000000) {
         // longer cosmetic — it would understate every channel by the slice it
         // cannot reach.
         double Ebeam = rng.Uniform(threshold, 1.75);
-        beam.SetPxPyPzE(0, 0, rng.Gaus(Ebeam, 0.016), rng.Gaus(Ebeam, 0.016));
+        beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
 
         double masses4[4] = {mpi0, mpi0, mpi0, mp};
         TGenPhaseSpace evt;
         if (!evt.SetDecay(W, 4, masses4)) continue;
-        evt.Generate();
+        GenerateUnweighted(evt, rng);
 
         TLorentzVector pi[3];
         pi[0] = *evt.GetDecay(0);
@@ -51,7 +51,7 @@ void generate_3pi0_dataset(int Nevents = 1000000) {
         TGenPhaseSpace d[3];
         for (int k = 0; k < 3; k++) {
             d[k].SetDecay(pi[k], 2, m2);
-            d[k].Generate();
+            GenerateUnweighted(d[k], rng);
             tmp[2*k]   = SmearPhoton(*d[k].GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
             tmp[2*k+1] = SmearPhoton(*d[k].GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
         }

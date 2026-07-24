@@ -38,6 +38,12 @@ M_DEUTERON = 1.875613
 M_OMEGA = 0.78266
 M_ETAPRIME = 0.95778
 
+# GRAAL tagger resolution. Experimental references quote 16 MeV FWHM, while
+# Gaussian generators and covariance matrices require one standard deviation.
+TAGGER_FWHM_GEV = 0.016
+FWHM_TO_SIGMA = 1.0 / 2.3548200450309493
+TAGGER_SIGMA_GEV = TAGGER_FWHM_GEV * FWHM_TO_SIGMA
+
 # The chi2 assumes a mass resolution of 8% of the target mass.
 CHI2_RESOLUTION = 0.08
 
