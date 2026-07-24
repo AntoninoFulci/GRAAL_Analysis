@@ -76,8 +76,13 @@ per misurare direttamente la risoluzione.
 
 Il fit migliora la risoluzione del Dalitz plot, ad esempio:
 
-* M(ηp): circa **52 → 10 MeV**;
-* M(π⁰p): circa **22 → 10 MeV**.
+* M(ηp): **52.2 → 9.7 MeV**;
+* M(π⁰p): **22.4 → 9.1 MeV**.
+
+Valori riprodotti su 20 000 eventi di `eta_pi0_mc.root` con il modello corrente
+(19 881 fit convergenti), usando `core_sigma` sui residui. Sono risultati di
+**closure MC**: generatore e fit condividono lo stesso modello di risoluzione.
+Non costituiscono una misura indipendente della risoluzione sui dati GRAAL.
 
 Le masse di η e π⁰ non sono usate per valutare il miglioramento perché sono già vincolate dal fit cinematico.
 

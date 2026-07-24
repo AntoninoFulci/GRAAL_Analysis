@@ -12,7 +12,10 @@ dal π⁰.
 - **ricostruzione chi2** (`reconstruction.reconstruct_eta_pi0_chi2`): l'analisi standard: prova tutti gli accoppiamenti possibili dei quattro fotoni e tiene quello che minimizza un chi2 contro le masse nominali di η e π⁰;
 - **ricostruzione con gate BDT** (`reconstruction.reconstruct_eta_pi0_bdt`): identica alla precedente, ma ogni evento deve prima superare un classificatore BDT (stage-1) addestrato a riconoscere il fondo fisico (π⁰π⁰, 3π⁰, η2π⁰, ωπ⁰, η′) prima ancora di arrivare al chi2.
 
-Il BDT **non ricostruisce**: non appaia fotoni e non produce masse. Dice solo se un evento corrisponde alla reazione selezionata con un certo livello di confidenza, superato una determinata soglia questo viene classificato come proveniente dalla rezione selezionata . 
+Il BDT **non ricostruisce**: non appaia fotoni e non produce masse. Restituisce
+uno score di classificazione; il gate accetta l'evento quando lo score supera
+la soglia scelta sul campione di validazione MC. Lo score non è automaticamente
+una probabilità calibrata sui dati reali.
 
 ## Le varie fasi
 

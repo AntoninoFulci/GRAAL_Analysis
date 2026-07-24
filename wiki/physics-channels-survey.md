@@ -2,7 +2,12 @@
 
 Survey dei canali di fotoproduzione accessibili con l'apparato GRAAL/LAGRANγE,
 ordinati per leva (payoff fisico × riuso dell'infrastruttura esistente).
-Riferimenti ai paper nella cartella dei PDF; riferimenti al codice in-repo.
+Riferimenti esterni ai paper e riferimenti al codice in-repo.
+
+> **Stato epistemico:** questa pagina è una survey/roadmap, non un risultato
+> dell'analisi. Percentuali di riuso, rese previste e priorità sono stime di
+> pianificazione. Richiedono feasibility study sui dati e non vanno citate come
+> misure.
 
 ## Vincoli dell'apparato
 
@@ -17,9 +22,10 @@ Riferimenti ai paper nella cartella dei PDF; riferimenti al codice in-repo.
 - **Rivelatore**: BGO Rugby Ball (calorimetro EM, ottima risoluzione fotoni),
   muro TOF forward per protoni (θ ≤ ~16° a queste energie, momento ~2.5%) e
   shower wall per neutroni (TOF, efficienza bassa, **niente momento**).
-- **Bordo alto ~1.72 GeV** (il fascio taggato misurato arriva lì): soglia KΣ,
-  η' appena oltre la sua soglia, regioni di risonanza alte → al bordo estremo
-  del range accessibile.
+- **Bordo UV nominale ~1.49 GeV**. Il massimo numerico ~1.72 GeV visto nel
+  branch `beam` del campione selezionato è una coda/outlier, non prova di
+  copertura fisica fino a 1.72 GeV. Canali vicino a soglia, come η′, hanno
+  quindi spazio di fase molto limitato.
 
 Osservabile-firma: **Σ**, estratta dalla dipendenza cos2φ
 `NV/FV / (NV/FV + NH/FH) = ½[1 + P(Eγ)·Σ·cos2φ]`
@@ -127,9 +133,9 @@ riprodurla) — non deducibile dal repo.
 
 ## Riferimenti
 
-- Ajaka et al., PRL 100, 052003 (2008) — γp→ηπ0p, GRAAL, Σ, Δ(1700) [`PhysRevLett.100.052003.pdf`]
-- Levi Sandri et al. (2015) — prima Σ per γp→pη' a GRAAL [`1407.6991v2.pdf`]
-- Metag et al., EPJ A 57 (2021) — struttura Mpη~1700, triangle singularity a0(980) [`2110.05155v2.pdf`]
-- Döring (2010) — η su neutrone, KΣ, IS/IC in π0η [`1010.2180v1.pdf`]
-- Jaeglé (2009) — η'/π0η quasi-free e coerente su deutone [`I._Jaeglé_2009_Chinese_Phys._C_33_1340.pdf`]
-- Clara Figueiredo et al. (BGOOD, 2024) — coerente γd→π0ηd forward [`2405.09392v1.pdf`]
+- [Ajaka et al., PRL 100, 052003 (2008)](https://doi.org/10.1103/PhysRevLett.100.052003) — γp→ηπ0p, GRAAL, Σ, Δ(1700).
+- [Levi Sandri et al. (2015), arXiv:1407.6991](https://arxiv.org/abs/1407.6991) — prima Σ per γp→pη' a GRAAL.
+- [Metag et al. (2021), arXiv:2110.05155](https://arxiv.org/abs/2110.05155) — struttura Mpη~1700 e interpretazione triangle singularity a0(980).
+- [Döring (2010), arXiv:1010.2180](https://arxiv.org/abs/1010.2180) — η su neutrone, soglia KΣ e isospin breaking.
+- Jaeglé (2009), *Chinese Physics C* 33, 1340 — η'/π0η quasi-free e coerente su deutone; riferimento da verificare prima dell'uso editoriale.
+- [Clara Figueiredo et al. (BGOOD, 2024), arXiv:2405.09392](https://arxiv.org/abs/2405.09392) — coerente γd→π0ηd forward.

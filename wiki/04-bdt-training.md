@@ -20,16 +20,22 @@ Hypothesis:eta_pi0
 Prior:     0.5  (a training choice, not a cross-section)
 Beam rewt: True
 AUC:       0.9991
-Threshold: 0.9654
-Precision: 0.8558
-Recall:    0.9073
-F1:        0.8808
-N_train:   2112953
-N_val:     528239
+Threshold: 0.2759
+Precision: 0.9860
+Recall:    0.9966
+F1:        0.9912
+N_train:   2120715
+N_val:     530179
 ```
 
 La soglia operativa (`04_bdt_training/model/stage1_threshold.txt`) è scelta massimizzando l'F1 su un set di validazione (`_find_best_threshold` in `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99).
 Questo valore viene ricalcolato ad ogni training.
+
+Queste sono metriche di validazione sul Monte Carlo pesato descritto nella
+provenance del modello, non prestazioni misurate su dati reali etichettati.
+L'AUC molto alta non dimostra da sola che il classificatore generalizzi ai dati:
+dipende dal modello di rivelatore, dai fondi inclusi e dai pesi fisici usati nel
+training.
 
 ## Grid search
 

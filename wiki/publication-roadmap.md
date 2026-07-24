@@ -10,6 +10,11 @@ Legenda dipendenze: quali blocchi di codice/dati servono prima di poter
 scrivere. "Pol" = formato dati polarizzazione + estrazione Σ. "Fermi/n" =
 gestione quasi-free su D2 + tag neutrone.
 
+> **Stato epistemico:** documento di pianificazione. Titoli, novità, journal,
+> percentuali di completamento e rese attese non sono risultati verificati.
+> “Scrivibile” significa che esiste parte dell'infrastruttura, non che analisi,
+> sistematiche o confronto con letteratura siano completati.
+
 ---
 
 ## P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*
@@ -47,12 +52,14 @@ riproducibile; benchmark pubblico contro cui misurare P1–P5.
 **Journal**: *Eur. Phys. J. A* (metodi/strumentazione) o *NIM A* se il taglio è
 più strumentale.
 
-**Dipendenze**: nessuna oltre il codice esistente + estrazione Σ per il pezzo di
-asimmetria. **Scrivibile per primo.** Il core (σ, IM, S/B, pull) non richiede
-nemmeno "Pol".
+**Dipendenze**: oltre al codice esistente servono almeno calibrazione indipendente
+del fit, normalizzazione di flusso/accettanza per σ, validazione dei fondi e
+confronto legacy; per l'asimmetria serve anche Pol. **Candidato da affrontare
+per primo**, non ancora pronto per la scrittura dei risultati.
 
-**Stato codice**: ~90% pronto (canale attuale). Manca solo l'estrazione Σ per la
-parte asimmetria, e il tabulato dei guadagni vs legacy.
+**Stato codice**: ricostruzione principale presente. Mancano estrazione Σ,
+normalizzazione fisica della sezione d'urto, sistematiche, calibrazione
+indipendente del fit e benchmark quantitativo contro legacy.
 
 ---
 

@@ -5,7 +5,9 @@
 ## Uso
 
 ```bash
-./run_pipeline.sh [--test-data] [--nevents N]
+./run_pipeline.sh [--test-data] [--nevents N] [--input-tree NOME]
+                   [--signal-channel CANALE] [--signal-prior F]
+                   [--partner proton|neutron|deuteron]
                    [--skip-preanalysis] [--force-preanalysis]
                    [--skip-selection]
                    [--skip-mc] [--force-mc]
@@ -21,6 +23,10 @@
 |---|---|---|
 | `--test-data` | rimappa le quattro cartelle dati del rivelatore su `test_data/` (vedi sotto) | disattivo |
 | `--nevents N` | eventi generati per ciascuno dei 9 canali MC in fase 3 | `1000000` |
+| `--input-tree NOME` | albero letto nelle fasi 4 e 7; `auto` risolve `h85` o il legacy `h80` | `auto` |
+| `--signal-channel CANALE` | canale segnale per feature, grid search e training | `eta_pi0` |
+| `--signal-prior F` | quota del peso di training assegnata al segnale; è un prior, non una sezione d'urto | `0.5` |
+| `--partner NOME` | massa del bersaglio/rinculo usata dalla ricostruzione (`proton`, `neutron`, `deuteron`) | `proton` |
 | `--skip-preanalysis` | salta la fase 1 | disattivo |
 | `--force-preanalysis` | rifà la fase 1 anche se `pre_analyzed/` (o l'equivalente `--test-data`) contiene già file | disattivo |
 | `--skip-selection` | salta la fase 2 | disattivo |
@@ -205,10 +211,14 @@ stampa la soglia migliore trovata (`stage1_threshold.txt`) e le metriche (`stage
 ```bash
 ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_chi2 \
     --input-dir   "${SELECTED_DIR}" \
+    --input-tree  "${INPUT_TREE}" \
+    --partner     "${PARTNER}" \
     --output-file "${RECO_DIR}/reco_eta_pi0_chi2.root"
 
 ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
     --input-dir   "${SELECTED_DIR}" \
+    --input-tree  "${INPUT_TREE}" \
+    --partner     "${PARTNER}" \
     --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
     --model-dir   "04_bdt_training/model"
 ```

@@ -57,11 +57,22 @@ proposal interna di `TGenPhaseSpace`.
 
 Il fascio di GRAAL, invece, ha una distribuzione completamente diversa: è prodotto tramite **Compton backscattering** di un laser sul fascio di elettroni dell'anello di accumulazione. Lo spettro risultante non è uniforme, ma cresce verso un **Compton edge**, la cui posizione è determinata dalla linea laser utilizzata.
 
-Lo spettro misurato in `data/selected` (17.15M fotoni taggati; energia minima **0.644 GeV**, mediana **1.087 GeV**, massima **1.718 GeV**) mostra due **Compton edges** sovrapposti, corrispondenti alle linee laser **green** e **UV** utilizzate in diversi periodi di presa dati. Sono inoltre visibili una **shoulder** intorno a **0.79 GeV** e una **high-energy tail** che si estende fino a **1.72 GeV**.
+Il campione attualmente presente in `data/selected` contiene circa 17 milioni
+di valori del tagger (minimo 0.644 GeV, mediana 1.087 GeV e massimo numerico
+1.718 GeV). Il massimo osservato **non è il Compton edge fisico**: per la linea
+UV a 351 nm e gli elettroni ESRF da 6.03 GeV il bordo nominale è circa
+1.49 GeV. I pochi valori sopra il bordo vanno trattati come coda di
+risoluzione/calibrazione o outlier finché non sono separati per periodo e
+validati. Il codice usa l'istogramma misurato senza interpretare il massimo
+come estensione fisica del fascio.
 
 `beam_E` è una delle 26 feature stage-1, e il resto della cinematica è correlata con essa, quindi un fascio piatto nel MC diventerebbe un classificatore calibrato su un fascio che l'esperimento non ha mai avuto.
 
-La fase 4 misura `p_data(E)` dai file veri e riponderа il MC con `p_data(E) / p_mc(E)` (`04_bdt_training/beam_spectrum.py`). Riponderare la marginale del fascio basta a trascinarsi dietro tutto il resto, perché i generatori estraggono prima l'energia del fascio e costruiscono la cinematica da quella.
+La fase 4 misura `p_data(E)` dai file veri e ripondera il MC con
+`p_data(E) / p_mc(E)` (`04_bdt_training/beam_spectrum.py`). Questo corregge la
+marginale dell'energia del fascio e, nel modello generativo, modifica anche le
+cinematiche correlate. Non garantisce però che tutte le distribuzioni
+condizionate del MC coincidano con quelle dei dati.
 
 
 **Dove il MC non sa rispondere, non si riponderа.** 

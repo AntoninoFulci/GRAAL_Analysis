@@ -3,9 +3,16 @@
 Il fit cinematico **6C** viene applicato dopo il gate BDT e l'accoppiamento chi² sugli eventi sopravvissuti. 
 Il suo scopo è correggere le quantità misurate entro le loro risoluzioni per imporre la conservazione del quadrimpulso e le masse note di η e π⁰.
 
-Rispetto al semplice taglio sulla massa mancante, che elimina circa il **45% degli eventi** senza correggere gli errori di misura del calorimetro, il fit migliora sia il centro sia la risoluzione delle variabili cinematiche del Dalitz plot (**M(ηp)** e **M(π⁰p)**).
+Rispetto al semplice taglio sulla massa mancante, il fit usa tutte le quantità
+misurate e le loro risoluzioni per correggere le variabili cinematiche del
+Dalitz plot (**M(ηp)** e **M(π⁰p)**). La frazione di eventi rimossa dipende dal
+campione e dalla calibrazione; non viene fissata qui perché il repository non
+versiona un cut-flow che supporti un numero universale.
 
-Inoltre fornisce quadrivettori corretti evento per evento e un unico discriminante fisicamente motivato (χ² del fit o confidence level), evitando finestre di massa scelte manualmente e correggendo possibili non linearità del calorimetro.
+Inoltre fornisce quadrivettori corretti evento per evento e un discriminante
+fisicamente motivato (χ² del fit o confidence level). Non corregge da solo
+non-linearità sistematiche del calorimetro: queste devono essere assorbite da
+una calibrazione e da un modello di covarianza validato.
 
 
 ## I 6 Constraint
@@ -78,7 +85,10 @@ A ogni iterazione vengono ricalcolati il **Jacobiano** dei vincoli, la matrice d
 
 Il fit è limitato a 10 iterazioni: in caso di mancata convergenza o matrice singolare l'evento viene marcato come fallito e il χ² rimane alto, così da essere escluso dal taglio sulla confidence level.
 
-Poiché ci sono **6 vincoli e nessun parametro libero non misurato**, il numero di gradi di libertà è **ndf = 6**. Di conseguenza il χ² del fit segue una distribuzione χ²(6) per gli eventi corretti, permettendo di usare la **confidence level** come discriminante statistico.
+Poiché ci sono **6 vincoli indipendenti e nessun parametro libero non
+misurato**, il codice usa **ndf = 6**. Il χ² segue una distribuzione χ²(6) solo
+se modello di misura, covarianza, linearizzazione e associazione dei fotoni sono
+adeguati; l'uniformità della confidence level va quindi verificata, non assunta.
 
 
 ## Il taglio in confidence level sostituisce la massa mancante
