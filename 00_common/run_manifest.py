@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import re
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Sequence
 
 
@@ -124,6 +124,8 @@ def read_manifest(path: Path) -> list[RunRecord]:
             )
         records = []
         for row_number, row in enumerate(reader, start=2):
+            if None in row:
+                raise ManifestError(f"row {row_number}: invalid row width")
             try:
                 run_number = int(row["run_number"])
             except (TypeError, ValueError):
@@ -190,7 +192,7 @@ def validate_manifest(path: Path) -> list[RunRecord]:
                 f"target/beam {expected_group!r}"
             )
         source = Path(record.source_file)
-        if source.is_absolute():
+        if source.is_absolute() or PureWindowsPath(record.source_file).is_absolute():
             raise ManifestError(prefix + "source_file must be relative")
         if source.name != f"run{record.run_number}.root":
             raise ManifestError(

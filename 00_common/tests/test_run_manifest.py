@@ -141,3 +141,27 @@ def test_validate_manifest_rejects_wrong_schema(tmp_path):
     path.write_text("run_number,target\n3,P\n")
     with pytest.raises(ManifestError, match="invalid columns"):
         validate_manifest(path)
+
+
+def test_validate_manifest_rejects_rows_with_surplus_cells(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n"
+        "3,1998_uv,P,UV,P_UV,automatic,1998_uv/run3.root,extra\n"
+    )
+
+    with pytest.raises(ManifestError, match="invalid row width"):
+        validate_manifest(path)
+
+
+def test_validate_manifest_rejects_windows_absolute_source_paths(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n"
+        "3,1998_uv,P,UV,P_UV,automatic,C:/farm/1998_uv/run3.root\n"
+    )
+
+    with pytest.raises(ManifestError, match="must be relative"):
+        validate_manifest(path)
