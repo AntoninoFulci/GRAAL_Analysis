@@ -21,7 +21,7 @@ def test_fig7_operating_constants_are_exact():
     assert fig7.ELECTRON_ENERGY_MEV == 6027.6
     assert fig7.GREEN_WAVELENGTH_NM == 514.0
     assert fig7.UV_WAVELENGTH_NM == 351.0
-    assert fig7.TAGGING_THRESHOLD_MEV == 600.0
+    assert fig7.TAGGING_THRESHOLD_MEV == 550.0
 
 
 def test_edge_polarizations_match_fig7():
