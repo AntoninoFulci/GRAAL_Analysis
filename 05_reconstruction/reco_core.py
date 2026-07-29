@@ -142,6 +142,9 @@ def run_reconstruction(
     chi2 = array("f", [0.0])
     heavy_mass = array("f", [0.0])
     light_mass = array("f", [0.0])
+    run_number = array("i", [0])
+    polarization = array("i", [0])
+    xstrip = array("f", [0.0])
 
     beam = ROOT.TLorentzVector()
     target = ROOT.TLorentzVector(0.0, 0.0, 0.0, cfg.partner_mass)  # partner at rest
@@ -171,6 +174,9 @@ def run_reconstruction(
     tout.Branch("chi2", chi2, "chi2/F")
     tout.Branch(f"{H}_mass", heavy_mass, f"{H}_mass/F")
     tout.Branch(f"{L}_mass", light_mass, f"{L}_mass/F")
+    tout.Branch("RunNumber", run_number, "RunNumber/I")
+    tout.Branch("Polarization", polarization, "Polarization/I")
+    tout.Branch("Xstrip", xstrip, "Xstrip/F")
 
     tout.Branch("beam", "TLorentzVector", beam)
     tout.Branch("target", "TLorentzVector", target)
@@ -203,7 +209,15 @@ def run_reconstruction(
     n_fit_cut = 0
     print("Starting event loop...")
 
-    def _reconstruct_and_fill(photons, proton_v, neutron_v, beam_v) -> None:
+    def _reconstruct_and_fill(
+        photons,
+        proton_v,
+        neutron_v,
+        beam_v,
+        event_run,
+        event_polarization,
+        event_xstrip,
+    ) -> None:
         """chi2-pair one accepted event and write it. Identical for both runs."""
         nonlocal n_impossible, n_missing_cut, n_fit_cut
 
@@ -280,6 +294,9 @@ def run_reconstruction(
         )
         heavy_mass[0] = heavy.M()
         light_mass[0] = light.M()
+        run_number[0] = event_run
+        polarization[0] = event_polarization
+        xstrip[0] = event_xstrip
         tout.Fill()
 
     def _flush(buf: list) -> None:
@@ -338,7 +355,17 @@ def run_reconstruction(
         )
         beam_v = np.array([0.0, 0.0, chain.beam.E(), chain.beam.E()])
 
-        pending.append((photons, proton_v, neutron_v, beam_v))
+        pending.append(
+            (
+                photons,
+                proton_v,
+                neutron_v,
+                beam_v,
+                int(chain.RunNumber),
+                int(chain.Polarization),
+                float(chain.Xstrip),
+            )
+        )
         if len(pending) >= _GATE_CHUNK:
             _flush(pending)
 

@@ -32,6 +32,7 @@ void PreAnalysis::Loop(std::string output_file) {
    double DIST_WALL;
    int Polarization;
    int RunNumber;
+   float tagger_strip;
 
    // Create output file and tree
    TFile *dati = new TFile(output_file.c_str(), "RECREATE");
@@ -86,6 +87,7 @@ void PreAnalysis::Loop(std::string output_file) {
 
    output_tree->Branch("Polarization", &Polarization, "Polarization/I");
    output_tree->Branch("RunNumber", &RunNumber, "RunNumber/I");
+   output_tree->Branch("Xstrip", &tagger_strip, "Xstrip/F");
 
    // Check to see if we have a chain
    if (fChain == nullptr) {
@@ -122,6 +124,7 @@ void PreAnalysis::Loop(std::string output_file) {
       beam.SetPxPyPzE(0., 0., Eg_tag_strip[0], Eg_tag_strip[0]);
       Polarization = int(Ipol);
       RunNumber    = Idrun;
+      tagger_strip = Xstrip[0];
 
       // Fatal if a cut this run needs is not on disk. Checked once per run, so a
       // bad run stops here instead of silently misclassifying every track in it.
@@ -313,7 +316,7 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
    }
 
    // Branches to enable
-   std::vector<std::string> branches{"Eg_tag_strip",
+   std::vector<std::string> branches{"Ncstrip", "Eg_tag_strip", "Xstrip",
       "Idrun","Ipol", 
       "Nass_3", 
       "Thet_centr_track", 

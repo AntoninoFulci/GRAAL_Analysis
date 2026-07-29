@@ -7,6 +7,8 @@ What is left here is the mapping from a channel to the branches it writes.
 import numpy as np
 
 from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from graal_common.pairing import Pairing
+from reconstruction import reco_core
 from reconstruction import reco_physics as rp
 
 
@@ -72,3 +74,81 @@ class TestPassesMissingMass:
     def test_a_non_positive_window_disables_the_cut(self):
         assert rp.passes_missing_mass(0.10, 0.938272, 0.0) is True
         assert rp.passes_missing_mass(5.00, 0.938272, -1.0) is True
+
+
+def test_reconstruction_preserves_event_metadata(tmp_path, monkeypatch):
+    import ROOT
+
+    input_dir = tmp_path / "selected"
+    input_dir.mkdir()
+    input_path = input_dir / "selected.root"
+
+    fout = ROOT.TFile(str(input_path), "RECREATE")
+    tree = ROOT.TTree("h80", "h80")
+    vector_type = "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >"
+    vector = getattr(ROOT, vector_type)
+    vector_list = ROOT.std.vector(vector_type)
+
+    beam = vector()
+    gammas = vector_list()
+    protons = vector_list()
+    neutrons = vector_list()
+    run_number = np.zeros(1, dtype=np.int32)
+    polarization = np.zeros(1, dtype=np.int32)
+    xstrip = np.zeros(1, dtype=np.float32)
+
+    tree.Branch("beam", vector_type, beam)
+    tree.Branch("gammas", vector_list.__cpp_name__, gammas)
+    tree.Branch("protons", vector_list.__cpp_name__, protons)
+    tree.Branch("neutrons", vector_list.__cpp_name__, neutrons)
+    tree.Branch("RunNumber", run_number, "RunNumber/I")
+    tree.Branch("Polarization", polarization, "Polarization/I")
+    tree.Branch("Xstrip", xstrip, "Xstrip/F")
+
+    beam.SetPxPyPzE(0.0, 0.0, 1.5, 1.5)
+    for px, py, pz, energy in (
+        (0.10, 0.00, 0.20, 0.30),
+        (-0.10, 0.00, 0.20, 0.30),
+        (0.00, 0.05, 0.10, 0.15),
+        (0.00, -0.05, 0.10, 0.15),
+    ):
+        photon = vector()
+        photon.SetPxPyPzE(px, py, pz, energy)
+        gammas.push_back(photon)
+    recoil = vector()
+    recoil.SetPxPyPzE(0.0, 0.0, 0.0, rp.M_PROTON)
+    protons.push_back(recoil)
+    run_number[0] = 4242
+    polarization[0] = 2
+    xstrip[0] = 73.0
+    tree.Fill()
+    tree.Write()
+    fout.Close()
+
+    monkeypatch.setattr(
+        reco_core.pr,
+        "best_pairing",
+        lambda photons, hypothesis: (
+            Pairing(heavy=(0, 1), light=(2, 3)),
+            0.0,
+        ),
+    )
+
+    output_path = tmp_path / "reco.root"
+    cfg = reco_core.RecoConfig(
+        input_dir=input_dir,
+        input_tree="h80",
+        output_file=output_path,
+        output_tree="reco",
+        do_fit=False,
+        missing_mass_window=None,
+    )
+    assert reco_core.run_reconstruction(cfg, rp.ETA_PI0) == 1
+
+    result = ROOT.TFile.Open(str(output_path))
+    output = result.Get("reco")
+    output.GetEntry(0)
+    assert output.RunNumber == 4242
+    assert output.Polarization == 2
+    assert output.Xstrip == 73.0
+    result.Close()
