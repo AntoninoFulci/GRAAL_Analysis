@@ -6,8 +6,8 @@ the figure.
 """
 from __future__ import annotations
 
-ELECTRON_ENERGY_MEV = 6030.0
-GREEN_WAVELENGTH_NM = 514.5
+ELECTRON_ENERGY_MEV = 6027.6
+GREEN_WAVELENGTH_NM = 514.0
 UV_WAVELENGTH_NM = 351.0
 TAGGING_THRESHOLD_MEV = 600.0
 
@@ -51,10 +51,8 @@ def linear_polarization_transfer(
     """Return the laser's linear-polarization transfer to a photon."""
     x = compton_x(electron_energy_mev, wavelength_nm)
     y = photon_energy_mev / electron_energy_mev
-    maximum_y = x / (1.0 + x)
-    if y < 0.0 or y > maximum_y and not abs(y - maximum_y) <= 1e-12:
+    if not 0.0 <= y <= x / (1.0 + x):
         raise ValueError("photon energy outside Compton range")
-    y = min(y, maximum_y)
     r = y / (x * (1.0 - y))
     return 2.0 * r * r / (
         1.0 / (1.0 - y) + (1.0 - y) - 4.0 * r * (1.0 - r)
