@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -10,6 +12,9 @@ from graal_common.run_manifest import (
     validate_manifest,
     write_manifest,
 )
+
+
+SCRIPT = Path(__file__).parents[2] / "scripts" / "build_run_manifest.py"
 
 
 @pytest.mark.parametrize(
@@ -32,6 +37,76 @@ def _touch_run(root: Path, period: str, run: int) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()
     return path
+
+
+def test_cli_generates_manifest_from_farm_tree(tmp_path):
+    raw = tmp_path / "raw"
+    _touch_run(raw, "1998_uv", 3)
+    _touch_run(raw, "2002_d1", 20)
+    output = tmp_path / "generated.csv"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--input-dir",
+            str(raw),
+            "--output",
+            str(output),
+        ],
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0
+    assert "Generated 2 runs" in result.stdout
+    assert output.is_file()
+
+
+def test_cli_validates_curated_manifest(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n"
+        "3,1998_uv,P,UV,P_UV,automatic,1998_uv/run3.root\n"
+    )
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--validate", str(path)],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "Valid manifest: 1 runs (P_UV=1)" in result.stdout
+
+
+def test_cli_returns_one_for_duplicate_farm_run(tmp_path):
+    raw = tmp_path / "raw"
+    _touch_run(raw, "1998_uv", 3)
+    _touch_run(raw, "1999_vis", 3)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--input-dir",
+            str(raw),
+            "--output",
+            str(tmp_path / "generated.csv"),
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 1
+    assert "ERROR: duplicate run 3" in result.stdout
+
+
+def test_cli_requires_output_for_generation(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--input-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 2
+    assert "--output is required with --input-dir" in result.stderr
 
 
 def test_scan_runs_sorts_numerically_and_keeps_relative_provenance(tmp_path):
