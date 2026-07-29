@@ -18,6 +18,10 @@ FIELDNAMES = (
 )
 RUN_FILE_RE = re.compile(r"^run([1-9][0-9]*)\.root$")
 DEUTERIUM_PERIOD_RE = re.compile(r"(?:^|_)d[0-9]*$", re.IGNORECASE)
+ALLOWED_TARGETS = {"P", "D", "UNKNOWN"}
+ALLOWED_BEAM_TYPES = {"UV", "VIS", "UNKNOWN"}
+ALLOWED_GROUPS = {"P_UV", "P_VIS", "D_UV", "D_VIS", "UNASSIGNED"}
+ALLOWED_SOURCES = {"automatic", "manual", "unresolved"}
 
 
 class ManifestError(ValueError):
@@ -105,3 +109,91 @@ def write_manifest(records: Sequence[RunRecord], output: Path) -> None:
                     "source_file": record.source_file,
                 }
             )
+
+
+def read_manifest(path: Path) -> list[RunRecord]:
+    manifest = Path(path)
+    if not manifest.is_file():
+        raise ManifestError(f"manifest not found: {manifest}")
+    with manifest.open(encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames != list(FIELDNAMES):
+            raise ManifestError(
+                f"invalid columns: expected {','.join(FIELDNAMES)}, "
+                f"got {','.join(reader.fieldnames or [])}"
+            )
+        records = []
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                run_number = int(row["run_number"])
+            except (TypeError, ValueError):
+                raise ManifestError(
+                    f"row {row_number}: run_number must be a positive integer"
+                ) from None
+            records.append(
+                RunRecord(
+                    run_number,
+                    row["source_period"],
+                    row["target"],
+                    row["beam_type"],
+                    row["group"],
+                    row["classification_source"],
+                    row["source_file"],
+                )
+            )
+    return records
+
+
+def validate_manifest(path: Path) -> list[RunRecord]:
+    records = read_manifest(path)
+    if not records:
+        raise ManifestError("manifest has no data rows")
+
+    expected_run = -1
+    seen: set[int] = set()
+    for row_number, record in enumerate(records, start=2):
+        prefix = f"row {row_number}: "
+        if record.run_number <= 0:
+            raise ManifestError(prefix + "run_number must be a positive integer")
+        if record.run_number in seen:
+            raise ManifestError(prefix + f"duplicate run {record.run_number}")
+        if record.run_number <= expected_run:
+            raise ManifestError(prefix + "rows must be ordered by run_number")
+        seen.add(record.run_number)
+        expected_run = record.run_number
+        if not record.source_period:
+            raise ManifestError(prefix + "source_period is empty")
+        if not record.source_file:
+            raise ManifestError(prefix + "source_file is empty")
+        if record.target not in ALLOWED_TARGETS:
+            raise ManifestError(prefix + f"invalid target {record.target!r}")
+        if record.beam_type not in ALLOWED_BEAM_TYPES:
+            raise ManifestError(prefix + f"invalid beam_type {record.beam_type!r}")
+        if record.group not in ALLOWED_GROUPS:
+            raise ManifestError(prefix + f"invalid group {record.group!r}")
+        if record.classification_source not in ALLOWED_SOURCES:
+            raise ManifestError(
+                prefix + f"invalid classification_source "
+                f"{record.classification_source!r}"
+            )
+        if (
+            record.target == "UNKNOWN"
+            or record.beam_type == "UNKNOWN"
+            or record.group == "UNASSIGNED"
+            or record.classification_source == "unresolved"
+        ):
+            raise ManifestError(prefix + "classification is unresolved")
+        expected_group = f"{record.target}_{record.beam_type}"
+        if record.group != expected_group:
+            raise ManifestError(
+                prefix + f"group {record.group!r} conflicts with "
+                f"target/beam {expected_group!r}"
+            )
+        source = Path(record.source_file)
+        if source.is_absolute():
+            raise ManifestError(prefix + "source_file must be relative")
+        if source.name != f"run{record.run_number}.root":
+            raise ManifestError(
+                prefix + "source_file basename does not match run_number"
+            )
+    return records

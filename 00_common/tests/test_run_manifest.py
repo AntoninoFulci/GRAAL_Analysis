@@ -7,6 +7,7 @@ from graal_common.run_manifest import (
     RunRecord,
     classify_period,
     scan_runs,
+    validate_manifest,
     write_manifest,
 )
 
@@ -80,3 +81,63 @@ def test_write_manifest_uses_fixed_schema_and_stable_order(tmp_path):
         "classification_source,source_file\n"
         "3,1998_uv,P,UV,P_UV,automatic,1998_uv/run3.root\n"
     )
+
+
+def test_validate_manifest_accepts_complete_consistent_rows(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n"
+        "3,1998_uv,P,UV,P_UV,automatic,1998_uv/run3.root\n"
+        "20,2002_d1,D,VIS,D_VIS,manual,2002_d1/run20.root\n"
+    )
+
+    records = validate_manifest(path)
+
+    assert [record.group for record in records] == ["P_UV", "D_VIS"]
+
+
+@pytest.mark.parametrize(
+    ("row", "message"),
+    [
+        ("3,2002_d1,D,UNKNOWN,UNASSIGNED,unresolved,2002_d1/run3.root",
+         "classification is unresolved"),
+        ("3,1998_uv,P,UV,P_VIS,manual,1998_uv/run3.root",
+         "conflicts with target/beam"),
+        ("0,1998_uv,P,UV,P_UV,automatic,1998_uv/run0.root",
+         "positive integer"),
+        ("3,1998_uv,P,BLUE,P_UV,manual,1998_uv/run3.root",
+         "invalid beam_type"),
+        ("3,1998_uv,P,UV,P_UV,automatic,/farm/1998_uv/run3.root",
+         "must be relative"),
+        ("3,1998_uv,P,UV,P_UV,automatic,1998_uv/run4.root",
+         "does not match run_number"),
+    ],
+)
+def test_validate_manifest_rejects_invalid_rows(tmp_path, row, message):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n" + row + "\n"
+    )
+    with pytest.raises(ManifestError, match=message):
+        validate_manifest(path)
+
+
+def test_validate_manifest_rejects_duplicate_and_unsorted_rows(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text(
+        "run_number,source_period,target,beam_type,group,"
+        "classification_source,source_file\n"
+        "20,1999_vis,P,VIS,P_VIS,automatic,1999_vis/run20.root\n"
+        "3,1998_uv,P,UV,P_UV,automatic,1998_uv/run3.root\n"
+    )
+    with pytest.raises(ManifestError, match="ordered by run_number"):
+        validate_manifest(path)
+
+
+def test_validate_manifest_rejects_wrong_schema(tmp_path):
+    path = tmp_path / "manifest.csv"
+    path.write_text("run_number,target\n3,P\n")
+    with pytest.raises(ManifestError, match="invalid columns"):
+        validate_manifest(path)
