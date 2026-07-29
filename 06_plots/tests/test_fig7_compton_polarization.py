@@ -12,6 +12,55 @@ def test_default_output_path_is_pdf():
     assert fig7.DEFAULT_OUTPUT.parent.name == "06_plots"
 
 
+def test_default_root_output_is_root_file():
+    # The ROOT artifact is the machine-readable companion to the PDF figure.
+    assert fig7.DEFAULT_ROOT_OUTPUT.name == "fig7_compton_polarization.root"
+    assert fig7.DEFAULT_ROOT_OUTPUT.parent.name == "06_plots"
+
+
+def test_draw_fig7_persists_named_root_objects(tmp_path):
+    # Omitting a graph, edge marker, threshold, or canvas makes the ROOT
+    # artifact unusable for downstream inspection even if the PDF is drawn.
+    import ROOT
+
+    pdf_path = tmp_path / "fig7.pdf"
+    root_path = tmp_path / "fig7.root"
+    fig7.draw_fig7(pdf_path, root_path)
+    assert pdf_path.is_file()
+
+    root_file = ROOT.TFile.Open(str(root_path))
+    try:
+        assert root_file and not root_file.IsZombie()
+        for object_name in (
+            "fig7",
+            "polarization_514nm",
+            "polarization_351nm",
+            "tagging_threshold",
+            "edge_514nm",
+            "edge_351nm",
+        ):
+            assert root_file.Get(object_name), f"missing ROOT object: {object_name}"
+
+        for object_name, edge_mev, polarization in (
+            ("edge_514nm", 1098.0, 0.980),
+            ("edge_351nm", 1482.4, 0.961),
+        ):
+            edge_line = root_file.Get(object_name)
+            assert edge_line.GetX1() == pytest.approx(edge_mev, abs=0.1)
+            assert edge_line.GetX2() == pytest.approx(edge_mev, abs=0.1)
+            assert edge_line.GetY1() == pytest.approx(0.0)
+            assert edge_line.GetY2() == pytest.approx(polarization, abs=0.002)
+            assert edge_line.GetLineStyle() == 2
+
+        threshold = root_file.Get("tagging_threshold")
+        assert threshold.GetX1() == pytest.approx(550.0)
+        assert threshold.GetX2() == pytest.approx(550.0)
+        assert threshold.GetY2() == pytest.approx(1.05)
+    finally:
+        if root_file:
+            root_file.Close()
+
+
 def test_compton_edges_match_fig7():
     # A broken laser-energy conversion or Compton denominator moves both edges.
     assert fig7.compton_edge_mev(

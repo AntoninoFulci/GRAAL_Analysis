@@ -15,6 +15,9 @@ UV_WAVELENGTH_NM = 351.0
 TAGGING_THRESHOLD_MEV = 550.0
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "fig7_compton_polarization.pdf"
+DEFAULT_ROOT_OUTPUT = (
+    Path(__file__).resolve().parent / "fig7_compton_polarization.root"
+)
 
 _ELECTRON_MASS_MEV = 0.51099895
 _HC_MEV_NM = 1.239841984e-3
@@ -25,6 +28,7 @@ __all__ = [
     "UV_WAVELENGTH_NM",
     "TAGGING_THRESHOLD_MEV",
     "DEFAULT_OUTPUT",
+    "DEFAULT_ROOT_OUTPUT",
     "laser_energy_mev",
     "compton_x",
     "compton_edge_mev",
@@ -66,12 +70,17 @@ def linear_polarization_transfer(
     )
 
 
-def draw_fig7(output_path: Path = DEFAULT_OUTPUT) -> None:
-    """Draw the Figure 7 laser-polarization transfer curves as a PDF."""
+def draw_fig7(
+    output_path: Path = DEFAULT_OUTPUT,
+    root_output_path: Path = DEFAULT_ROOT_OUTPUT,
+) -> None:
+    """Draw the Figure 7 curves as a PDF and persist their ROOT objects."""
     import ROOT
 
     output_path = Path(output_path)
+    root_output_path = Path(root_output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    root_output_path.parent.mkdir(parents=True, exist_ok=True)
     ROOT.gROOT.SetBatch(True)
 
     canvas = ROOT.TCanvas("fig7", "Fig. 7 Compton polarization", 800, 650)
@@ -83,6 +92,7 @@ def draw_fig7(output_path: Path = DEFAULT_OUTPUT) -> None:
     legend.SetFillStyle(0)
 
     graphs = []
+    edge_lines = []
     curves = (
         (GREEN_WAVELENGTH_NM, ROOT.kGreen + 2, "514 nm laser"),
         (UV_WAVELENGTH_NM, ROOT.kBlue + 1, "351 nm laser"),
@@ -99,6 +109,7 @@ def draw_fig7(output_path: Path = DEFAULT_OUTPUT) -> None:
             ),
         )
         graph = ROOT.TGraph(points, energies, polarizations)
+        graph.SetName(f"polarization_{wavelength_nm:.0f}nm")
         graph.SetLineColor(color)
         graph.SetLineWidth(3)
         graph.SetTitle("")
@@ -113,6 +124,15 @@ def draw_fig7(output_path: Path = DEFAULT_OUTPUT) -> None:
         legend.AddEntry(graph, label, "l")
         graphs.append(graph)
 
+        edge_line = ROOT.TLine(
+            edge_mev, 0.0, edge_mev, polarizations[-1]
+        )
+        edge_line.SetLineColor(color)
+        edge_line.SetLineStyle(2)
+        edge_line.SetLineWidth(2)
+        edge_line.Draw()
+        edge_lines.append((f"edge_{wavelength_nm:.0f}nm", edge_line))
+
         print(
             f"{wavelength_nm:.0f} nm: edge = {edge_mev:.1f} MeV, "
             f"polarization = {polarizations[-1]:.3f}"
@@ -126,6 +146,17 @@ def draw_fig7(output_path: Path = DEFAULT_OUTPUT) -> None:
     legend.AddEntry(threshold, "550 MeV tagging threshold", "l")
     legend.Draw()
     canvas.SaveAs(str(output_path))
+
+    root_file = ROOT.TFile(str(root_output_path), "RECREATE")
+    try:
+        for graph in graphs:
+            graph.Write()
+        for edge_name, edge_line in edge_lines:
+            edge_line.Write(edge_name)
+        threshold.Write("tagging_threshold")
+        canvas.Write()
+    finally:
+        root_file.Close()
 
 
 if __name__ == "__main__":
