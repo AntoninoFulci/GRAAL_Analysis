@@ -5,6 +5,13 @@ import pytest
 from plots import fig7_compton_polarization as fig7
 
 
+def test_default_output_path_is_pdf():
+    # Changing the default artifact type or location breaks the reproducible
+    # Figure 7 workflow used by the paper build.
+    assert fig7.DEFAULT_OUTPUT.name == "fig7_compton_polarization.pdf"
+    assert fig7.DEFAULT_OUTPUT.parent.name == "06_plots"
+
+
 def test_compton_edges_match_fig7():
     # A broken laser-energy conversion or Compton denominator moves both edges.
     assert fig7.compton_edge_mev(
