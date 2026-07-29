@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import re
 from dataclasses import dataclass
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Sequence
 
 
@@ -41,11 +41,15 @@ class RunRecord:
 
 def classify_period(period: str) -> tuple[str, str, str, str]:
     name = period.lower()
+    has_uv = "uv" in name
+    has_vis = "vis" in name
+    if has_uv and has_vis:
+        return "UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved"
     if DEUTERIUM_PERIOD_RE.search(name):
         return "D", "UNKNOWN", "UNASSIGNED", "unresolved"
-    if "fuv" in name or "uv" in name:
+    if has_uv:
         return "P", "UV", "P_UV", "automatic"
-    if "vis" in name:
+    if has_vis:
         return "P", "VIS", "P_VIS", "automatic"
     return "UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved"
 
@@ -55,7 +59,7 @@ def scan_runs(input_dir: Path) -> list[RunRecord]:
     if not root.is_dir():
         raise ManifestError(f"input directory not found: {root}")
 
-    candidates = sorted(root.rglob("run*.root"))
+    candidates = sorted(path for path in root.rglob("run*.root") if path.is_file())
     malformed = [path for path in candidates if RUN_FILE_RE.fullmatch(path.name) is None]
     if malformed:
         raise ManifestError(f"malformed run filename: {malformed[0].relative_to(root)}")
@@ -115,34 +119,39 @@ def read_manifest(path: Path) -> list[RunRecord]:
     manifest = Path(path)
     if not manifest.is_file():
         raise ManifestError(f"manifest not found: {manifest}")
-    with manifest.open(encoding="utf-8", newline="") as stream:
-        reader = csv.DictReader(stream)
-        if reader.fieldnames != list(FIELDNAMES):
-            raise ManifestError(
-                f"invalid columns: expected {','.join(FIELDNAMES)}, "
-                f"got {','.join(reader.fieldnames or [])}"
-            )
-        records = []
-        for row_number, row in enumerate(reader, start=2):
-            if None in row:
-                raise ManifestError(f"row {row_number}: invalid row width")
-            try:
-                run_number = int(row["run_number"])
-            except (TypeError, ValueError):
+    try:
+        with manifest.open(encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream, strict=True)
+            if reader.fieldnames != list(FIELDNAMES):
                 raise ManifestError(
-                    f"row {row_number}: run_number must be a positive integer"
-                ) from None
-            records.append(
-                RunRecord(
-                    run_number,
-                    row["source_period"],
-                    row["target"],
-                    row["beam_type"],
-                    row["group"],
-                    row["classification_source"],
-                    row["source_file"],
+                    f"invalid columns: expected {','.join(FIELDNAMES)}, "
+                    f"got {','.join(reader.fieldnames or [])}"
                 )
-            )
+            records = []
+            for row_number, row in enumerate(reader, start=2):
+                if None in row:
+                    raise ManifestError(f"row {row_number}: invalid row width")
+                try:
+                    run_number = int(row["run_number"])
+                except (TypeError, ValueError):
+                    raise ManifestError(
+                        f"row {row_number}: run_number must be a positive integer"
+                    ) from None
+                records.append(
+                    RunRecord(
+                        run_number,
+                        row["source_period"],
+                        row["target"],
+                        row["beam_type"],
+                        row["group"],
+                        row["classification_source"],
+                        row["source_file"],
+                    )
+                )
+    except UnicodeDecodeError:
+        raise ManifestError(f"cannot decode manifest: {manifest}") from None
+    except csv.Error:
+        raise ManifestError(f"invalid CSV: {manifest}") from None
     return records
 
 
@@ -191,9 +200,16 @@ def validate_manifest(path: Path) -> list[RunRecord]:
                 prefix + f"group {record.group!r} conflicts with "
                 f"target/beam {expected_group!r}"
             )
-        source = Path(record.source_file)
-        if source.is_absolute() or PureWindowsPath(record.source_file).is_absolute():
+        source = PurePosixPath(record.source_file)
+        windows_source = PureWindowsPath(record.source_file)
+        if source.is_absolute() or windows_source.is_absolute():
             raise ManifestError(prefix + "source_file must be relative")
+        if (
+            "\\" in record.source_file
+            or windows_source.drive
+            or ".." in source.parts
+        ):
+            raise ManifestError(prefix + "source_file must be a portable relative path")
         if source.name != f"run{record.run_number}.root":
             raise ManifestError(
                 prefix + "source_file basename does not match run_number"

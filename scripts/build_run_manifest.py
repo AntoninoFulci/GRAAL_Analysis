@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from pathlib import Path
+import sys
 
 from graal_common.run_manifest import (
     ManifestError,
@@ -52,7 +53,7 @@ def main() -> int:
         )
         return 0
     except (ManifestError, OSError) as exc:
-        print(f"ERROR: {exc}")
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
 
