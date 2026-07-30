@@ -32,7 +32,13 @@ def _open_root_file(path: Path):
         source = root.TFile.Open(str(path), "READ")
     except OSError as exc:
         raise StripEnergyFluxError(f"zombie ROOT file: {path}") from exc
-    if not source or source.IsZombie():
+    if not source:
+        raise StripEnergyFluxError(f"zombie ROOT file: {path}")
+    if source.IsZombie():
+        try:
+            source.Close()
+        except Exception:
+            pass
         raise StripEnergyFluxError(f"zombie ROOT file: {path}")
     return source
 
@@ -76,30 +82,74 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
     return samples, {"entries": len(samples), "file_count": len(paths)}
 
 
-def _triplet_qa(objects: dict[int, set[str]], requested_runs: set[int]) -> dict[str, object]:
+def _triplet_qa(
+    objects: dict[int, dict[str, list[object]]], requested_runs: set[int]
+) -> dict[str, object]:
     complete_runs = {
-        run for run, suffixes in objects.items() if set(_FLUX_SUFFIXES) == suffixes
+        run
+        for run, suffixes in objects.items()
+        if all(
+            len(suffixes.get(suffix, [])) == 1
+            and suffixes[suffix][0].GetName() == f"run{run}_{suffix}"
+            for suffix in _FLUX_SUFFIXES
+        )
     }
-    malformed = [
-        {
-            "run_number": run,
-            "missing": [suffix for suffix in _FLUX_SUFFIXES if suffix not in suffixes],
-            "present": [suffix for suffix in _FLUX_SUFFIXES if suffix in suffixes],
+    malformed = []
+    matching_keys = []
+    for run, suffixes in sorted(objects.items()):
+        for suffix, keys in suffixes.items():
+            matching_keys.extend(
+                {
+                    "name": key.GetName(),
+                    "cycle": int(key.GetCycle()),
+                    "run_number": run,
+                    "suffix": suffix,
+                }
+                for key in keys
+            )
+        missing = [suffix for suffix in _FLUX_SUFFIXES if suffix not in suffixes]
+        aliases = sorted(
+            key.GetName()
+            for suffix, keys in suffixes.items()
+            for key in keys
+            if key.GetName() != f"run{run}_{suffix}"
+        )
+        duplicates = {
+            suffix: len(keys) for suffix, keys in suffixes.items() if len(keys) != 1
         }
-        for run, suffixes in sorted(objects.items())
-        if suffixes != set(_FLUX_SUFFIXES)
-    ]
+        if missing or aliases or duplicates:
+            problem = {
+                "run_number": run,
+                "missing": missing,
+                "present": [
+                    suffix for suffix in _FLUX_SUFFIXES if suffix in suffixes
+                ],
+            }
+            if aliases:
+                problem["noncanonical"] = aliases
+            if duplicates:
+                problem["key_counts"] = duplicates
+            malformed.append(problem)
     return {
         "run_count": len(requested_runs),
         "extra_runs": sorted(complete_runs - requested_runs),
         "malformed_triplets": malformed,
+        "matching_keys": sorted(
+            matching_keys,
+            key=lambda item: (
+                item["run_number"],
+                item["suffix"],
+                item["name"],
+                item["cycle"],
+            ),
+        ),
         "underflow_overflow": [],
     }
 
 
-def _required_histogram(source, run: int, suffix: str):
+def _required_histogram(key, run: int, suffix: str):
     name = f"run{run}_{suffix}"
-    histogram = source.Get(name)
+    histogram = key.ReadObj()
     if not histogram:
         raise StripEnergyFluxError(f"missing required flux histogram: {name}")
     if not histogram.InheritsFrom("TH1"):
@@ -116,6 +166,10 @@ def _required_histogram(source, run: int, suffix: str):
             if edge_index < 128
             else axis.GetBinUpEdge(128)
         )
+        if not isfinite(float(edge)):
+            raise StripEnergyFluxError(
+                f"{name} x-axis edge {edge_index} is not finite"
+            )
         if abs(edge - edge_index) > 1e-6:
             raise StripEnergyFluxError(
                 f"{name} x-axis edge {edge_index} must be {edge_index}"
@@ -134,28 +188,35 @@ def read_flux_histograms(
     requested_runs = set(run_numbers)
     source = _open_root_file(path)
     try:
-        objects: dict[int, set[str]] = {}
+        objects: dict[int, dict[str, list[object]]] = {}
         for key in source.GetListOfKeys():
             match = _FLUX_NAME.fullmatch(key.GetName())
             if match:
                 run, suffix = match.groups()
-                objects.setdefault(int(run), set()).add(suffix)
+                objects.setdefault(int(run), {}).setdefault(suffix, []).append(key)
         qa = _triplet_qa(objects, requested_runs)
 
         strips: list[StripFlux] = []
         for run in sorted(requested_runs):
-            suffixes = objects.get(run, set())
-            if suffixes != set(_FLUX_SUFFIXES):
-                missing = [suffix for suffix in _FLUX_SUFFIXES if suffix not in suffixes]
-                if not suffixes:
-                    raise StripEnergyFluxError(f"requested flux run {run} is absent")
-                raise StripEnergyFluxError(
-                    f"missing required flux histogram: run{run}_{missing[0]}"
-                )
-            histograms = {
-                suffix: _required_histogram(source, run, suffix)
-                for suffix in _FLUX_SUFFIXES
-            }
+            suffixes = objects.get(run, {})
+            if not suffixes:
+                raise StripEnergyFluxError(f"requested flux run {run} is absent")
+            histograms = {}
+            for suffix in _FLUX_SUFFIXES:
+                name = f"run{run}_{suffix}"
+                keys = suffixes.get(suffix, [])
+                aliases = [key.GetName() for key in keys if key.GetName() != name]
+                if aliases:
+                    raise StripEnergyFluxError(
+                        f"noncanonical flux histogram name: {aliases[0]} "
+                        f"(expected {name})"
+                    )
+                if len(keys) != 1:
+                    raise StripEnergyFluxError(
+                        f"{name} must have exactly one ROOT key "
+                        f"(found {len(keys)})"
+                    )
+                histograms[suffix] = _required_histogram(keys[0], run, suffix)
             for suffix, histogram in histograms.items():
                 underflow = float(histogram.GetBinContent(0))
                 overflow = float(histogram.GetBinContent(129))

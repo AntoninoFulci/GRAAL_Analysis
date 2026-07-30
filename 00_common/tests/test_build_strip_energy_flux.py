@@ -1,13 +1,17 @@
 from array import array
+import importlib.util
 from pathlib import Path
-import sys
+from types import SimpleNamespace
 
 import pytest
 
 from graal_common.strip_energy_flux import StripEnergyFluxError
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
-from scripts import build_strip_energy_flux as cli
+SCRIPT = Path(__file__).parents[2] / "scripts" / "build_strip_energy_flux.py"
+SPEC = importlib.util.spec_from_file_location("build_strip_energy_flux_task4", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+cli = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(cli)
 
 
 def write_h80(path: Path, entries, branches=("beam", "RunNumber", "Xstrip")):
@@ -52,6 +56,26 @@ def write_flux(
             for strip, value in contents.items():
                 histogram.SetBinContent(strip, value)
             histogram.Write()
+    output.Close()
+
+
+def append_histogram(path: Path, name: str):
+    import ROOT
+
+    output = ROOT.TFile(str(path), "UPDATE")
+    histogram = ROOT.TH1D(name, "", 128, 0.0, 128.0)
+    histogram.Write()
+    output.Close()
+
+
+def write_flux_with_edges(path: Path, edges):
+    import ROOT
+
+    output = ROOT.TFile(str(path), "RECREATE")
+    root_edges = array("d", edges)
+    for suffix in ("POL1", "POL2", "BREM"):
+        histogram = ROOT.TH1D(f"run7_{suffix}", "", 128, root_edges)
+        histogram.Write()
     output.Close()
 
 
@@ -196,3 +220,59 @@ def test_flux_reader_reports_complete_extra_run_and_incomplete_triplets(tmp_path
     assert qa["malformed_triplets"] == [
         {"run_number": 9, "missing": ["BREM"], "present": ["POL1", "POL2"]}
     ]
+
+
+def test_flux_reader_rejects_duplicate_root_key_cycles(tmp_path):
+    flux = tmp_path / "flux.root"
+    write_flux(flux, {7: {"POL1": {}, "POL2": {}, "BREM": {}}})
+    append_histogram(flux, "run7_POL1")
+
+    with pytest.raises(
+        StripEnergyFluxError, match=r"run7_POL1.*exactly one.*found 2"
+    ):
+        cli.read_flux_histograms(flux, [7])
+
+
+def test_flux_reader_rejects_noncanonical_run_alias(tmp_path):
+    flux = tmp_path / "flux.root"
+    write_flux(flux, {7: {"POL1": {}, "POL2": {}, "BREM": {}}})
+    append_histogram(flux, "run007_POL1")
+
+    with pytest.raises(
+        StripEnergyFluxError, match=r"noncanonical.*run007_POL1.*run7_POL1"
+    ):
+        cli.read_flux_histograms(flux, [7])
+
+
+def test_flux_reader_rejects_nonfinite_axis_edge(tmp_path):
+    flux = tmp_path / "flux.root"
+    edges = [float(edge) for edge in range(129)]
+    edges[64] = float("nan")
+    write_flux_with_edges(flux, edges)
+
+    with pytest.raises(
+        StripEnergyFluxError, match=r"run7_POL1.*x-axis edge 64.*finite"
+    ):
+        cli.read_flux_histograms(flux, [7])
+
+
+def test_open_root_file_closes_truthy_zombie_before_raising(monkeypatch, tmp_path):
+    class TruthyZombie:
+        closed = False
+
+        def IsZombie(self):
+            return True
+
+        def Close(self):
+            self.closed = True
+
+    zombie = TruthyZombie()
+    root = SimpleNamespace(
+        TFile=SimpleNamespace(Open=lambda path, mode: zombie),
+    )
+    monkeypatch.setattr(cli, "_import_root", lambda: root)
+
+    with pytest.raises(StripEnergyFluxError, match="zombie"):
+        cli._open_root_file(tmp_path / "broken.root")
+
+    assert zombie.closed is True
