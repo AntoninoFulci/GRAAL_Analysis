@@ -8,6 +8,113 @@
 | `mc` (`<canale>_mc.root`) | `03_mc_simulation/generate_<canale>_dataset.C` | `beam`, `proton`, e i fotoni veri del canale — nome dei rami e conteggio dipendono dal canale, vedi sotto |
 | `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `05_reconstruction/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
 
+## Lookup strip→Eγ e flussi integrati
+
+`scripts/build_strip_energy_flux.py` crea una cartella portabile dalla farm
+con quattro artefatti. La sorgente del lookup è l'albero inclusivo `h80`: per
+ogni coppia osservata `(run_number, Xstrip)`, `energy_median_gev` è la mediana
+di `beam.E()`; non viene fatto pooling tra run, target, tipo di fascio o
+gruppo. Le informazioni manifest sono riportate in ogni CSV per mantenere la
+separazione: le somme di gruppo non mescolano mai `P`/`D` né `UV`/`VIS`.
+
+Le energie e tutti i bordi energetici sono in **GeV**. `Xstrip` deve essere un
+intero nel dominio fisico **1–128**. Un bin energetico usa `[low, high)`;
+soltanto il bin finale include anche il proprio bordo destro. Una strip con
+lookup sotto o sopra il dominio del binning non viene assegnata implicitamente
+al primo o all'ultimo bin.
+
+### `strip_energy_lookup.csv`
+
+Una riga per `(run, strip)` osservata in `h80`, con schema fisso:
+
+```text
+run_number,source_period,target,beam_type,group,xstrip,event_count,
+energy_median_gev,energy_mad_gev,energy_min_gev,energy_max_gev,provenance
+```
+
+`provenance` è attualmente `observed`. Le quantità di energia descrivono le
+entry di quella singola `(run, strip)`; `energy_mad_gev` è
+`median(abs(E - median(E)))`.
+
+### `flux_by_run_energy.csv`
+
+Una riga per `(binning, run, bin energetico)`:
+
+```text
+binning,run_number,source_period,target,beam_type,group,
+energy_low_gev,energy_high_gev,pol1,brem,pol2,
+pol1_net,pol2_net,total_net,status
+```
+
+Le tre colonne raw sono somme dei rispettivi istogrammi ROOT `POL1`, `BREM` e
+`POL2` delle strip assegnate al bin. La convenzione fisica corrente è:
+
+```text
+pol1_net = pol1 - brem
+pol2_net = pol2 - brem
+total_net = pol1_net + pol2_net
+```
+
+`status` è `invalid` se uno dei due flussi netti è negativo; la riga raw e i
+valori netti negativi restano nel CSV per diagnosi.
+
+### `flux_by_group_energy.csv`
+
+Una riga per `(binning, target, beam_type, group, bin energetico)`:
+
+```text
+binning,target,beam_type,group,energy_low_gev,energy_high_gev,
+pol1,brem,pol2,pol1_net,pol2_net,total_net,status
+```
+
+È la somma dei valori per run, senza medie. Se una run contribuente è
+`invalid`, anche la corrispondente riga di gruppo rimane `invalid`, persino se
+la somma finale netta risultasse positiva.
+
+### `strip_energy_flux_qa.json` (schema v1)
+
+Il report completo ha `schema_version: 1` e queste chiavi top-level:
+
+```text
+schema_version, inputs, thresholds, binnings,
+manifest_run_count, h80_run_count, flux_run_count, lookup_strip_count,
+h80, flux, missing_h80_runs, extra_h80_runs, extra_flux_runs,
+malformed_flux_triplets, empty_strips, nonzero_unmapped_strips,
+monotonic_inversions, mad_warnings, low_stat_warnings,
+underflow_overflow, out_of_range, negative_net_errors,
+run_flux_bin_count, errors, valid
+```
+
+- `inputs` riporta `preanalysis_dir`, `manifest`, `flux` e `output_dir`;
+  `thresholds` riporta `min_events_per_strip`, `max_mad_gev` e
+  `monotonic_tolerance_gev`; `binnings` mappa ogni nome ai suoi bordi in GeV.
+- `h80` contiene `entries` e `file_count`. `flux` contiene `run_count`,
+  `extra_runs`, `malformed_triplets`, `matching_keys` e
+  `underflow_overflow`; le liste diagnostiche pertinenti sono replicate anche
+  nelle chiavi top-level nominate sopra.
+- `out_of_range` è una mappa **per binning**. Ogni valore contiene
+  `below_lookup_count`, `above_lookup_count`, `below_lookup_strips`,
+  `above_lookup_strips` e `raw_flux_excluded` (`pol1`, `brem`, `pol2`). È
+  diagnostico: queste strip non rendono da sole `valid` falso.
+- `underflow_overflow` riporta, per ogni istogramma non nullo,
+  `histogram`, `underflow` e `overflow`. Anche questo è soltanto un warning:
+  i due bin ROOT non entrano nelle somme e non rendono da soli `valid` falso.
+- `mad_warnings` (`run_number`, `xstrip`, `energy_mad_gev`) e
+  `low_stat_warnings` (`run_number`, `xstrip`, `event_count`) sono warning
+  soltanto. `empty_strips`, `nonzero_unmapped_strips`,
+  `monotonic_inversions` e le discrepanze di run documentano i controlli;
+  gli errori strutturali sono elencati in `errors`.
+- `negative_net_errors` conserva una riga diagnostica per ogni bin non valido:
+  `binning`, `run_number`, `bin_index`, `energy_low_gev`, `energy_high_gev`,
+  `pol1_net`, `pol2_net`. Un flusso netto negativo imposta `valid: false`,
+  ma non elimina le righe CSV necessarie a investigarlo.
+
+`valid` è vero solo quando `errors` è vuota. Il comando termina con exit `0`
+in quel caso e con exit `1` altrimenti; una QA non valida dopo l'elaborazione
+conserva tutti e quattro gli artefatti. Se il fallimento avviene prima di poter
+costruire il report completo, il QA minimo contiene solo
+`schema_version`, `inputs`, `valid: false` ed `errors`.
+
 ## `h80` — pre-analisi
 
 Scritto da `PreAnalysis::Loop` in `01_pre_analysis/PreAnalysis.C`. 

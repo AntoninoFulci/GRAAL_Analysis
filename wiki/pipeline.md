@@ -89,6 +89,38 @@ Se `RAW_DIR` non esiste, lo script si ferma con un errore che, sotto `--test-dat
 **Questa fase usa**: `RAW_DIR/<run>/*.root` (una cartella per run). 
 **Produce**: `PRE_DIR/pre_analisi_<run>.root`, un file per run, ciascuno con TTree `h80`.
 
+## Lookup strip→Eγ e integrazione flussi
+
+Questo passaggio usa tutti gli `h80` inclusivi, quindi va eseguito sui file di
+pre-analisi e non sugli `h85` selezionati. Prima della farm, il manifest deve
+essere valido (`python scripts/build_run_manifest.py --validate
+config/run_manifest.csv`).
+
+```bash
+python scripts/build_strip_energy_flux.py \
+  --preanalysis-dir data/pre_analyzed \
+  --manifest config/run_manifest.csv \
+  --flux data/flux/flux.root \
+  --output-dir results/strip_energy_flux
+```
+
+I preset `ajaka_cross_section` e `ajaka_sigma` sono sempre prodotti. Per
+aggiungere uno schema ripetibile, si può ripetere `--binning` con
+`NOME:BORDO,BORDO,...`, per esempio:
+
+```bash
+  --binning fine:1.00,1.05,1.10,1.15
+```
+
+Exit `0` significa QA valida. Exit `1` lascia comunque un report diagnostico
+in `strip_energy_flux_qa.json`; non usare i CSV per l'estrazione fisica finché
+`valid` non è `true`. Quando l'analisi ha completato la lettura degli input, la
+cartella contiene sempre i quattro artefatti descritti in [Formati dati](data-formats),
+anche con QA non valida, così i bin problematici restano ispezionabili. Un
+errore anticipato di input (per esempio ROOT illeggibile) produce invece il
+solo QA minimo diagnostico. Riportare dalla farm tutta la cartella
+`results/strip_energy_flux/`.
+
 ## Fase 2 — Selezione eventi (h80 → h85)
 
 ```bash
