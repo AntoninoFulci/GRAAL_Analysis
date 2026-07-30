@@ -24,6 +24,7 @@ SCRIPT = Path(__file__).parents[2] / "scripts" / "build_run_manifest.py"
         ("2000_fuv", ("P", "UV", "P_UV", "automatic")),
         ("1999_vis", ("P", "VIS", "P_VIS", "automatic")),
         ("1998_uv_vis", ("UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved")),
+        ("2002_uv_vis_d1", ("D", "UNKNOWN", "UNASSIGNED", "unresolved")),
         ("2002_d1", ("D", "UNKNOWN", "UNASSIGNED", "unresolved")),
         ("2005_d2", ("D", "UNKNOWN", "UNASSIGNED", "unresolved")),
         ("mystery", ("UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved")),

@@ -43,10 +43,10 @@ def classify_period(period: str) -> tuple[str, str, str, str]:
     name = period.lower()
     has_uv = "uv" in name
     has_vis = "vis" in name
-    if has_uv and has_vis:
-        return "UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved"
     if DEUTERIUM_PERIOD_RE.search(name):
         return "D", "UNKNOWN", "UNASSIGNED", "unresolved"
+    if has_uv and has_vis:
+        return "UNKNOWN", "UNKNOWN", "UNASSIGNED", "unresolved"
     if has_uv:
         return "P", "UV", "P_UV", "automatic"
     if has_vis:
