@@ -34,8 +34,17 @@ then run CLI against real miniature ROOT files.
 - Ajaka cross-section preset is 15 uniform bins from 0.95 to 1.50 GeV.
 - Ajaka Sigma preset edges are 1.10, 1.20, 1.30, 1.40, 1.50 GeV.
 - Output must be deterministic and atomically replaced.
+- Reject an output directory when either its normalized lexical path or its
+  resolved target equals or contains any supplied input path.
 - Structural invalidity, unmapped nonzero flux, or negative net flux must
   produce QA output and nonzero CLI exit.
+- Negative-net bins are diagnostic, not raise-first: preserve every raw/net
+  run and group row, mark affected rows `status=invalid`, list their exact
+  `(binning, run, bin)` coordinates in QA, and keep completed artifacts
+  available. A group row remains invalid if any contributing run row is
+  invalid, even when other runs offset its aggregate net value.
+- Nonzero ROOT histogram underflow/overflow is warning-only QA and is never
+  included in physical strip sums.
 
 ## File Map
 
@@ -381,13 +390,15 @@ def test_nonzero_flux_without_lookup_is_fatal():
         )
 
 
-def test_negative_net_flux_is_fatal():
-    with pytest.raises(StripEnergyFluxError, match="negative net flux"):
-        integrate_run_flux(
-            manifest(7), [lookup(7, 1, 1.2)],
-            [StripFlux(7, 1, 2.0, 3.0, 4.0)],
-            EnergyBinning("one", (1.0, 1.5)),
-        )
+def test_negative_net_flux_preserves_raw_bin_with_invalid_status():
+    result = integrate_run_flux(
+        manifest(7), [lookup(7, 1, 1.2)],
+        [StripFlux(7, 1, 2.0, 3.0, 4.0)],
+        EnergyBinning("one", (1.0, 1.5)),
+    )
+    assert (result[0].pol1, result[0].brem, result[0].pol2) == (2.0, 3.0, 4.0)
+    assert (result[0].pol1_net, result[0].pol2_net) == (-1.0, 1.0)
+    assert result[0].status == "invalid"
 ```
 
 - [ ] **Step 2: Run focused tests and verify RED**
@@ -469,10 +480,7 @@ def integrate_run_flux(
         pol1, brem, pol2 = sums[index]
         pol1_net = pol1 - brem
         pol2_net = pol2 - brem
-        if pol1_net < 0 or pol2_net < 0:
-            raise StripEnergyFluxError(
-                f"run {manifest.run_number} bin {index}: negative net flux"
-            )
+        status = "invalid" if pol1_net < 0 or pol2_net < 0 else "valid"
         result.append(FluxBinRecord(
             binning.name,
             manifest.run_number,
@@ -488,13 +496,17 @@ def integrate_run_flux(
             pol1_net,
             pol2_net,
             pol1_net + pol2_net,
-            "valid",
+            status,
         ))
     return tuple(result)
 ```
 
-`FluxBinRecord.status` is `"valid"` for records returned by this function.
-Errors carry run, strip or bin context.
+`FluxBinRecord.status` is `"invalid"` when either net component is negative
+and `"valid"` otherwise. Negative-net rows are returned rather than raised so
+the CLI can serialize their raw values and report exact bin coordinates.
+`aggregate_group_flux` recomputes raw/net sums and propagates `"invalid"` from
+any contributing run row even if the aggregate net is nonnegative. Structural
+errors still carry run and strip context.
 
 - [ ] **Step 4: Add aggregation separation test**
 
@@ -794,7 +806,10 @@ is 0.5; strip 128 maps to ROOT bin 128 although its center is 127.5. Parse every
 key matching
 `run<N>_(POL1|POL2|BREM)` before selecting requested runs; QA records complete
 run triplets absent from manifest and malformed/incomplete triplets. Create one
-`StripFlux` per physical strip. Record nonzero underflow/overflow in QA.
+`StripFlux` per physical strip. Record nonzero underflow/overflow as
+warning-only QA and exclude it from physical strip sums. Wrap branch-value
+conversion failures, including a `beam` object without `E()`, in a
+path-and-entry-contextual `StripEnergyFluxError`.
 
 - [ ] **Step 4: Add malformed ROOT tests**
 
@@ -1007,6 +1022,11 @@ missing/extra runs, empty strips, nonzero unmapped strips, inversions above
 tolerance, MAD warnings, low-stat warnings, under/overflow, negative net
 errors, and sorted error strings.
 
+Negative-net QA entries identify every affected row by binning name, run
+number, and zero-based bin index. Those rows and their group aggregates remain
+in the completed CSV artifacts with `status=invalid`; QA is invalid and the CLI
+returns `1`. Underflow/overflow entries do not invalidate QA by themselves.
+
 For each binning, `build_qa_payload` also records lookup energies below/above
 range and total raw flux excluded with them. Out-of-range strips are valid and
 diagnostic; no flux is folded into boundary bins.
@@ -1039,6 +1059,10 @@ assert result.returncode == 1
 qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
 assert qa["valid"] is False
 assert any("negative net flux" in error for error in qa["errors"])
+assert [
+    (item["binning"], item["run_number"], item["bin_index"])
+    for item in qa["negative_net_errors"]
+] == [("ajaka_cross_section", 7, 1)]
 ```
 
 Exact custom-binning assertions:

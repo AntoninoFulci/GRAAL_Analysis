@@ -297,13 +297,17 @@ def test_nonzero_flux_without_lookup_is_fatal():
         )
 
 
-def test_negative_net_flux_is_fatal():
-    with pytest.raises(StripEnergyFluxError, match="negative net flux"):
-        integrate_run_flux(
-            manifest(7), [lookup(7, 1, 1.2)],
-            [StripFlux(7, 1, 2.0, 3.0, 4.0)],
-            EnergyBinning("one", (1.0, 1.5)),
-        )
+def test_negative_net_flux_preserves_raw_bin_with_invalid_status():
+    result = integrate_run_flux(
+        manifest(7), [lookup(7, 1, 1.2)],
+        [StripFlux(7, 1, 2.0, 3.0, 4.0)],
+        EnergyBinning("one", (1.0, 1.5)),
+    )
+
+    assert len(result) == 1
+    assert (result[0].pol1, result[0].brem, result[0].pol2) == (2.0, 3.0, 4.0)
+    assert (result[0].pol1_net, result[0].pol2_net) == (-1.0, 1.0)
+    assert result[0].status == "invalid"
 
 
 def test_group_aggregation_never_mixes_manifest_groups():
@@ -346,16 +350,36 @@ def test_group_aggregation_recomputes_net_flux_from_raw_sums():
     )
 
 
-def test_group_aggregation_rejects_negative_net_flux_from_raw_sums():
-    with pytest.raises(StripEnergyFluxError, match="negative net flux"):
-        aggregate_group_flux(
-            (
-                FluxBinRecord(
-                    "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                    1.0, 2.0, 3.0, 99.0, 99.0, 198.0, "valid",
-                ),
-            )
+def test_group_aggregation_preserves_negative_net_flux_as_invalid():
+    grouped = aggregate_group_flux(
+        (
+            FluxBinRecord(
+                "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                1.0, 2.0, 3.0, 999.0, 999.0, 1998.0, "valid",
+            ),
         )
+    )
+
+    assert (grouped[0].pol1_net, grouped[0].pol2_net) == (-1.0, 1.0)
+    assert grouped[0].status == "invalid"
+
+
+def test_group_status_keeps_invalid_contributing_run_visible_after_offset():
+    grouped = aggregate_group_flux(
+        (
+            FluxBinRecord(
+                "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                1.0, 2.0, 3.0, -1.0, 1.0, 0.0, "invalid",
+            ),
+            FluxBinRecord(
+                "one", 8, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                10.0, 0.0, 8.0, 10.0, 8.0, 18.0, "valid",
+            ),
+        )
+    )
+
+    assert (grouped[0].pol1_net, grouped[0].pol2_net) == (9.0, 9.0)
+    assert grouped[0].status == "invalid"
 
 
 def test_flux_run_conflict_error_includes_manifest_run_and_flux_strip():

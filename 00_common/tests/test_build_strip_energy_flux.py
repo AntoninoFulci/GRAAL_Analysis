@@ -44,6 +44,22 @@ def write_h80(path: Path, entries, branches=("beam", "RunNumber", "Xstrip")):
     output.Close()
 
 
+def write_h80_with_scalar_beam(path: Path):
+    import ROOT
+
+    output = ROOT.TFile(str(path), "RECREATE")
+    tree = ROOT.TTree("h80", "h80")
+    beam = array("d", [1.2])
+    run_number = array("i", [7])
+    xstrip = array("f", [1.0])
+    tree.Branch("beam", beam, "beam/D")
+    tree.Branch("RunNumber", run_number, "RunNumber/I")
+    tree.Branch("Xstrip", xstrip, "Xstrip/F")
+    tree.Fill()
+    tree.Write()
+    output.Close()
+
+
 def write_flux(
     path: Path,
     runs: dict[int, dict[str, dict[int, float]]],
@@ -248,7 +264,38 @@ def test_cli_negative_net_flux_is_diagnostic(tmp_path):
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
     assert qa["valid"] is False
     assert any("negative net flux" in error for error in qa["errors"])
-    assert qa["negative_net_errors"]
+    assert [
+        (item["binning"], item["run_number"], item["bin_index"])
+        for item in qa["negative_net_errors"]
+    ] == [("ajaka_cross_section", 7, 1)]
+    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
+        run_rows = list(csv.DictReader(stream))
+    with (output / "flux_by_group_energy.csv").open(newline="") as stream:
+        group_rows = list(csv.DictReader(stream))
+    assert len(run_rows) == 38
+    invalid_run_rows = [row for row in run_rows if row["status"] == "invalid"]
+    assert len(invalid_run_rows) == 1
+    invalid = invalid_run_rows[0]
+    assert (invalid["binning"], invalid["run_number"]) == (
+        "ajaka_cross_section",
+        "7",
+    )
+    assert (
+        float(invalid["pol1"]),
+        float(invalid["brem"]),
+        float(invalid["pol2"]),
+    ) == (-950.0, 6.0, 48.0)
+    assert (
+        float(invalid["pol1_net"]),
+        float(invalid["pol2_net"]),
+        float(invalid["total_net"]),
+    ) == (-956.0, 42.0, -914.0)
+    assert any(
+        row["binning"] == "ajaka_cross_section"
+        and row["group"] == "P_UV"
+        and row["status"] == "invalid"
+        for row in group_rows
+    )
 
 
 def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):
@@ -351,6 +398,25 @@ def test_cli_malformed_root_writes_minimal_atomic_diagnostic_qa(tmp_path):
     assert qa["errors"] == [f"zombie ROOT file: {pre / 'pre_7.root'}"]
 
 
+def test_cli_h80_beam_without_energy_method_writes_contextual_minimal_qa(
+    tmp_path,
+):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    malformed = pre / "pre_7.root"
+    write_h80_with_scalar_beam(malformed)
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 1
+    assert sorted(path.name for path in output.iterdir()) == [
+        "strip_energy_flux_qa.json"
+    ]
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["errors"] == [
+        f"{malformed}: h80 entry 0: cannot convert RunNumber/Xstrip/beam.E()"
+    ]
+
+
 def test_cli_duplicate_custom_binning_writes_diagnostic_qa(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
 
@@ -438,6 +504,41 @@ def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path)
     }
 
 
+def test_cli_reports_underflow_overflow_as_warning_without_folding(tmp_path):
+    flux_by_run = {
+        run: {
+            "POL1": {
+                **{strip: 10.0 for strip in range(1, 129)},
+                **({0: 50.0, 129: 60.0} if run == 7 else {}),
+            },
+            "POL2": {strip: 8.0 for strip in range(1, 129)},
+            "BREM": {strip: 1.0 for strip in range(1, 129)},
+        }
+        for run in (7, 8)
+    }
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path, flux_by_run=flux_by_run
+    )
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["valid"] is True
+    assert qa["errors"] == []
+    assert qa["underflow_overflow"] == [
+        {"histogram": "run7_POL1", "underflow": 50.0, "overflow": 60.0}
+    ]
+    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert sum(
+        float(row["pol1"])
+        for row in rows
+        if row["binning"] == "ajaka_cross_section"
+        and row["run_number"] == "7"
+    ) == pytest.approx(1280.0)
+
+
 def test_cli_argument_syntax_error_exits_two_without_qa(tmp_path):
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--output-dir", str(tmp_path / "out")],
@@ -460,6 +561,22 @@ def test_cli_rejects_output_containing_inputs_without_deleting_them(tmp_path):
     assert flux.is_file()
     assert manifest_path.is_file()
     assert not (tmp_path / "strip_energy_flux_qa.json").exists()
+
+
+def test_cli_rejects_lexical_input_symlink_inside_output_without_deleting_it(
+    tmp_path,
+):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    output.mkdir()
+    supplied_pre = output / "preanalysis-link"
+    supplied_pre.symlink_to(pre, target_is_directory=True)
+
+    result = run_cli(supplied_pre, flux, manifest_path, output)
+
+    assert result.returncode == 1
+    assert "output directory contains input path" in result.stderr
+    assert supplied_pre.is_symlink()
+    assert pre.is_dir()
 
 
 def test_root_adapters_read_h80_and_flux_triplet(tmp_path):

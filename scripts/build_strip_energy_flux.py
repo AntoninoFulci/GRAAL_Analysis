@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict
 from math import isfinite
+import os
 from pathlib import Path
 import re
 import sys
@@ -88,14 +89,19 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
                     active = pending.pop()
                     active.SetStatus(1)
                     pending.extend(active.GetListOfBranches())
-            for entry in tree:
-                samples.append(
-                    EnergySample(
+            for entry_index, entry in enumerate(tree):
+                try:
+                    sample = EnergySample(
                         int(entry.RunNumber),
                         float(entry.Xstrip),
                         float(entry.beam.E()),
                     )
-                )
+                except Exception as exc:
+                    raise StripEnergyFluxError(
+                        f"{path}: h80 entry {entry_index}: "
+                        "cannot convert RunNumber/Xstrip/beam.E()"
+                    ) from exc
+                samples.append(sample)
         finally:
             source.Close()
 
@@ -296,14 +302,24 @@ def _input_paths(args: argparse.Namespace) -> dict[str, str]:
 
 
 def _validate_output_location(args: argparse.Namespace) -> None:
-    output = args.output_dir.resolve(strict=False)
+    lexical_output = Path(os.path.abspath(args.output_dir))
+    resolved_output = args.output_dir.resolve(strict=False)
     for input_path in (
         args.preanalysis_dir,
         args.manifest,
         args.flux,
     ):
+        lexical_input = Path(os.path.abspath(input_path))
         resolved_input = input_path.resolve(strict=False)
-        if resolved_input == output or output in resolved_input.parents:
+        lexical_collision = (
+            lexical_input == lexical_output
+            or lexical_output in lexical_input.parents
+        )
+        resolved_collision = (
+            resolved_input == resolved_output
+            or resolved_output in resolved_input.parents
+        )
+        if lexical_collision or resolved_collision:
             raise StripEnergyFluxError(
                 f"output directory contains input path: {input_path}"
             )
@@ -346,6 +362,7 @@ def build_qa_payload(
                 "mad_warnings",
                 "missing_h80_runs",
                 "monotonic_inversions",
+                "negative_net_errors",
                 "nonzero_unmapped_strips",
                 "out_of_range",
             }
@@ -361,9 +378,7 @@ def build_qa_payload(
         "low_stat_warnings": flux_qa["low_stat_warnings"],
         "underflow_overflow": flux_qa["underflow_overflow"],
         "out_of_range": flux_qa["out_of_range"],
-        "negative_net_errors": [
-            error for error in unique_errors if "negative net flux" in error
-        ],
+        "negative_net_errors": flux_qa["negative_net_errors"],
         "run_flux_bin_count": len(run_flux),
         "errors": unique_errors,
         "valid": not unique_errors,
@@ -417,10 +432,6 @@ def run(args: argparse.Namespace) -> int:
     for problem in flux_qa["malformed_triplets"]:
         errors.append(
             f"malformed flux triplet for run {problem['run_number']}"
-        )
-    for problem in flux_qa["underflow_overflow"]:
-        errors.append(
-            f"nonzero underflow/overflow in {problem['histogram']}"
         )
 
     binnings = (
@@ -529,19 +540,38 @@ def run(args: argparse.Namespace) -> int:
         }
 
     run_flux = []
+    negative_net_errors = []
     for binning in binnings:
         for run_number in sorted(manifest_runs & sample_runs):
             try:
-                run_flux.extend(
-                    integrate_run_flux(
-                        manifest_by_run[run_number],
-                        lookup_by_run[run_number],
-                        flux_by_run[run_number],
-                        binning,
-                    )
+                integrated = integrate_run_flux(
+                    manifest_by_run[run_number],
+                    lookup_by_run[run_number],
+                    flux_by_run[run_number],
+                    binning,
                 )
             except StripEnergyFluxError as exc:
                 errors.append(str(exc))
+                continue
+            run_flux.extend(integrated)
+            for bin_index, row in enumerate(integrated):
+                if row.status == "valid":
+                    continue
+                negative_net_errors.append(
+                    {
+                        "binning": row.binning,
+                        "run_number": row.run_number,
+                        "bin_index": bin_index,
+                        "energy_low_gev": row.energy_low_gev,
+                        "energy_high_gev": row.energy_high_gev,
+                        "pol1_net": row.pol1_net,
+                        "pol2_net": row.pol2_net,
+                    }
+                )
+                errors.append(
+                    f"run {row.run_number} binning {row.binning} "
+                    f"bin {bin_index}: negative net flux"
+                )
 
     flux_qa.update(
         {
@@ -555,6 +585,7 @@ def run(args: argparse.Namespace) -> int:
             "monotonic_inversions": inversions,
             "mad_warnings": mad_warnings,
             "low_stat_warnings": low_stat_warnings,
+            "negative_net_errors": negative_net_errors,
             "out_of_range": out_of_range,
         }
     )

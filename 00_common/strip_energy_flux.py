@@ -369,10 +369,7 @@ def integrate_run_flux(
         pol1, brem, pol2 = sums[index]
         pol1_net = pol1 - brem
         pol2_net = pol2 - brem
-        if pol1_net < 0 or pol2_net < 0:
-            raise StripEnergyFluxError(
-                f"run {manifest.run_number} bin {index}: negative net flux"
-            )
+        status = "invalid" if pol1_net < 0 or pol2_net < 0 else "valid"
         result.append(
             FluxBinRecord(
                 binning.name,
@@ -389,7 +386,7 @@ def integrate_run_flux(
                 pol1_net,
                 pol2_net,
                 pol1_net + pol2_net,
-                "valid",
+                status,
             )
         )
     return tuple(result)
@@ -401,6 +398,7 @@ def aggregate_group_flux(
     sums: dict[tuple[str, str, str, str, float, float], list[float]] = defaultdict(
         lambda: [0.0, 0.0, 0.0]
     )
+    invalid_keys: set[tuple[str, str, str, str, float, float]] = set()
     for record in records:
         key = (
             record.binning,
@@ -413,16 +411,20 @@ def aggregate_group_flux(
         values = sums[key]
         for index, value in enumerate((record.pol1, record.brem, record.pol2)):
             values[index] += value
+        if record.status != "valid":
+            invalid_keys.add(key)
 
     grouped = []
     for (binning, target, beam_type, group, low, high), values in sorted(sums.items()):
         pol1, brem, pol2 = values
         pol1_net = pol1 - brem
         pol2_net = pol2 - brem
-        if pol1_net < 0 or pol2_net < 0:
-            raise StripEnergyFluxError(
-                f"group {group} bin {binning} ({low}, {high}): negative net flux"
-            )
+        key = (binning, target, beam_type, group, low, high)
+        status = (
+            "invalid"
+            if key in invalid_keys or pol1_net < 0 or pol2_net < 0
+            else "valid"
+        )
         grouped.append(
             GroupFluxBinRecord(
                 binning,
@@ -437,7 +439,7 @@ def aggregate_group_flux(
                 pol1_net,
                 pol2_net,
                 pol1_net + pol2_net,
-                "valid",
+                status,
             )
         )
     return tuple(grouped)
