@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from contextlib import contextmanager
+import csv
+from dataclasses import asdict, dataclass
+import json
 from math import isfinite
+from pathlib import Path
+import shutil
 from statistics import median
-from typing import Iterable, Sequence
+import tempfile
+from typing import Iterable, Iterator, Sequence
 
 from .run_manifest import RunRecord
 
@@ -34,6 +40,53 @@ AJAKA_CROSS_SECTION = EnergyBinning(
     tuple(0.95 + index * (1.50 - 0.95) / 15 for index in range(16)),
 )
 AJAKA_SIGMA = EnergyBinning("ajaka_sigma", (1.10, 1.20, 1.30, 1.40, 1.50))
+
+LOOKUP_FIELDS = (
+    "run_number",
+    "source_period",
+    "target",
+    "beam_type",
+    "group",
+    "xstrip",
+    "event_count",
+    "energy_median_gev",
+    "energy_mad_gev",
+    "energy_min_gev",
+    "energy_max_gev",
+    "provenance",
+)
+RUN_FLUX_FIELDS = (
+    "binning",
+    "run_number",
+    "source_period",
+    "target",
+    "beam_type",
+    "group",
+    "energy_low_gev",
+    "energy_high_gev",
+    "pol1",
+    "brem",
+    "pol2",
+    "pol1_net",
+    "pol2_net",
+    "total_net",
+    "status",
+)
+GROUP_FLUX_FIELDS = (
+    "binning",
+    "target",
+    "beam_type",
+    "group",
+    "energy_low_gev",
+    "energy_high_gev",
+    "pol1",
+    "brem",
+    "pol2",
+    "pol1_net",
+    "pol2_net",
+    "total_net",
+    "status",
+)
 
 
 @dataclass(frozen=True)
@@ -98,6 +151,119 @@ class GroupFluxBinRecord:
     pol2_net: float
     total_net: float
     status: str
+
+
+def _write_csv(
+    path: Path,
+    fields: tuple[str, ...],
+    rows: Iterable[dict[str, object]],
+) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_lookup_csv(
+    path: Path,
+    records: Sequence[StripEnergyRecord],
+    manifest_by_run: dict[int, RunRecord],
+) -> None:
+    rows = []
+    for record in sorted(records, key=lambda record: (record.run_number, record.xstrip)):
+        manifest = manifest_by_run[record.run_number]
+        rows.append(
+            {
+                "run_number": record.run_number,
+                "source_period": manifest.source_period,
+                "target": manifest.target,
+                "beam_type": manifest.beam_type,
+                "group": manifest.group,
+                **asdict(record),
+            }
+        )
+    _write_csv(path, LOOKUP_FIELDS, rows)
+
+
+def write_run_flux_csv(path: Path, records: Sequence[FluxBinRecord]) -> None:
+    _write_csv(
+        path,
+        RUN_FLUX_FIELDS,
+        (
+            asdict(record)
+            for record in sorted(
+                records,
+                key=lambda record: (
+                    record.binning,
+                    record.run_number,
+                    record.energy_low_gev,
+                    record.energy_high_gev,
+                    record.source_period,
+                    record.target,
+                    record.beam_type,
+                    record.group,
+                ),
+            )
+        ),
+    )
+
+
+def write_group_flux_csv(path: Path, records: Sequence[GroupFluxBinRecord]) -> None:
+    _write_csv(
+        path,
+        GROUP_FLUX_FIELDS,
+        (
+            asdict(record)
+            for record in sorted(
+                records,
+                key=lambda record: (
+                    record.binning,
+                    record.target,
+                    record.beam_type,
+                    record.group,
+                    record.energy_low_gev,
+                    record.energy_high_gev,
+                ),
+            )
+        ),
+    )
+
+
+def write_qa_json(path: Path, qa: object) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(qa, indent=2, sort_keys=True) + "\n")
+
+
+@contextmanager
+def atomic_output_directory(destination: Path) -> Iterator[Path]:
+    destination = Path(destination)
+    if destination.exists() and not destination.is_dir():
+        raise StripEnergyFluxError(f"destination is not a directory: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent)
+    )
+    backup = destination.with_name(f".{destination.name}.previous")
+    try:
+        yield staging
+        if backup.exists():
+            shutil.rmtree(backup)
+        if destination.exists():
+            destination.replace(backup)
+        try:
+            staging.replace(destination)
+        except BaseException:
+            if backup.exists() and not destination.exists():
+                backup.replace(destination)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
 
 def normalize_xstrip(value: float) -> int:

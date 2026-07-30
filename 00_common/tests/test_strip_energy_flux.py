@@ -1,4 +1,7 @@
+import csv
+import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -9,15 +12,24 @@ from graal_common.strip_energy_flux import (
     EnergySample,
     EnergyBinning,
     FluxBinRecord,
+    GROUP_FLUX_FIELDS,
+    GroupFluxBinRecord,
+    LOOKUP_FIELDS,
+    RUN_FLUX_FIELDS,
     StripEnergyFluxError,
     StripEnergyRecord,
     StripFlux,
     aggregate_group_flux,
+    atomic_output_directory,
     build_strip_energy_lookup,
     energy_bin_index,
     find_monotonic_inversions,
     integrate_run_flux,
     normalize_xstrip,
+    write_group_flux_csv,
+    write_lookup_csv,
+    write_qa_json,
+    write_run_flux_csv,
 )
 
 
@@ -30,6 +42,120 @@ def manifest(run, group="P_UV"):
     return RunRecord(
         run, "period", target, beam, group, "manual", f"period/run{run}.root"
     )
+
+
+def test_lookup_csv_has_fixed_schema_and_numeric_order(tmp_path):
+    output = tmp_path / "lookup.csv"
+    records = [lookup(20, 2, 1.2), lookup(3, 12, 1.3), lookup(3, 1, 1.1)]
+    manifests = {3: manifest(3), 20: manifest(20, "D_VIS")}
+
+    write_lookup_csv(output, records, manifests)
+
+    with output.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows[0]["run_number"] == "3"
+    assert rows[0]["xstrip"] == "1"
+    assert tuple(rows[0]) == LOOKUP_FIELDS
+
+
+def test_run_flux_csv_has_fixed_schema_and_numeric_order(tmp_path):
+    output = tmp_path / "run-flux.csv"
+    records = (
+        FluxBinRecord(
+            "one", 20, "period", "D", "VIS", "D_VIS", 1.2, 1.3,
+            2.0, 0.2, 1.8, 1.8, 1.6, 3.4, "valid",
+        ),
+        FluxBinRecord(
+            "one", 3, "period", "P", "UV", "P_UV", 1.2, 1.3,
+            3.0, 0.3, 2.7, 2.7, 2.4, 5.1, "valid",
+        ),
+        FluxBinRecord(
+            "one", 3, "period", "P", "UV", "P_UV", 1.1, 1.2,
+            4.0, 0.4, 3.6, 3.6, 3.2, 6.8, "valid",
+        ),
+    )
+
+    write_run_flux_csv(output, records)
+
+    with output.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [(row["run_number"], row["energy_low_gev"]) for row in rows] == [
+        ("3", "1.1"),
+        ("3", "1.2"),
+        ("20", "1.2"),
+    ]
+    assert tuple(rows[0]) == RUN_FLUX_FIELDS
+
+
+def test_group_flux_csv_has_fixed_schema_and_numeric_order(tmp_path):
+    output = tmp_path / "group-flux.csv"
+    records = (
+        GroupFluxBinRecord(
+            "one", "P", "UV", "P_UV", 1.2, 1.3,
+            2.0, 0.2, 1.8, 1.8, 1.6, 3.4, "valid",
+        ),
+        GroupFluxBinRecord(
+            "one", "D", "VIS", "D_VIS", 1.1, 1.2,
+            3.0, 0.3, 2.7, 2.7, 2.4, 5.1, "valid",
+        ),
+    )
+
+    write_group_flux_csv(output, records)
+
+    with output.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [row["group"] for row in rows] == ["D_VIS", "P_UV"]
+    assert tuple(rows[0]) == GROUP_FLUX_FIELDS
+
+
+def test_qa_json_is_stable_and_ends_with_newline(tmp_path):
+    output = tmp_path / "qa.json"
+
+    write_qa_json(output, {"valid": True, "schema_version": 1})
+
+    assert output.read_text() == (
+        '{\n  "schema_version": 1,\n  "valid": true\n}\n'
+    )
+    assert json.loads(output.read_text()) == {"schema_version": 1, "valid": True}
+
+
+def test_atomic_output_does_not_replace_destination_on_failure(tmp_path):
+    destination = tmp_path / "result"
+    destination.mkdir()
+    (destination / "sentinel").write_text("old")
+
+    with pytest.raises(RuntimeError):
+        with atomic_output_directory(destination) as staging:
+            (staging / "new").write_text("partial")
+            raise RuntimeError("stop")
+
+    assert (destination / "sentinel").read_text() == "old"
+    assert not (destination / "new").exists()
+
+
+def test_atomic_output_restores_destination_if_staging_replace_fails(
+    tmp_path, monkeypatch
+):
+    destination = tmp_path / "result"
+    backup = destination.with_name(".result.previous")
+    destination.mkdir()
+    (destination / "sentinel").write_text("old")
+    original_replace = Path.replace
+
+    def fail_staging_replace(self, target):
+        if self != backup and Path(target) == destination and self.parent == tmp_path:
+            raise OSError("cannot replace destination")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_staging_replace)
+
+    with pytest.raises(OSError, match="cannot replace destination"):
+        with atomic_output_directory(destination) as staging:
+            (staging / "new").write_text("partial")
+
+    assert (destination / "sentinel").read_text() == "old"
+    assert not (destination / "new").exists()
+    assert not backup.exists()
 
 
 def test_ajaka_binning_presets_are_exact():
