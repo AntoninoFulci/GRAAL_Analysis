@@ -126,6 +126,9 @@ def find_monotonic_inversions(
             for record in ordered
         )
         if covariance == 0:
+            inversions.append(
+                {"run_number": run_number, "direction": "undetermined"}
+            )
             continue
         direction = "increasing" if covariance > 0 else "decreasing"
 

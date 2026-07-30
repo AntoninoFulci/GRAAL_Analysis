@@ -65,3 +65,16 @@ def test_monotonicity_accepts_decreasing_map_and_reports_local_inversion():
     assert inversions[0]["left_strip"] == 2
     assert inversions[0]["right_strip"] == 3
     assert inversions[0]["delta_gev"] == pytest.approx(0.05)
+
+
+def test_monotonicity_marks_zero_covariance_direction_as_undetermined():
+    records = build_strip_energy_lookup(
+        [
+            EnergySample(7, 1, 1.40),
+            EnergySample(7, 2, 1.50),
+            EnergySample(7, 3, 1.40),
+        ]
+    )
+    assert find_monotonic_inversions(records) == (
+        {"run_number": 7, "direction": "undetermined"},
+    )
