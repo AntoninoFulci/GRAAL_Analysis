@@ -110,10 +110,13 @@ run_flux_bin_count, errors, valid
   ma non elimina le righe CSV necessarie a investigarlo.
 
 `valid` è vero solo quando `errors` è vuota. Il comando termina con exit `0`
-in quel caso e con exit `1` altrimenti; una QA non valida dopo l'elaborazione
-conserva tutti e quattro gli artefatti. Se il fallimento avviene prima di poter
-costruire il report completo, il QA minimo contiene solo
-`schema_version`, `inputs`, `valid: false` ed `errors`.
+per una QA valida. Exit `1` segnala una QA non valida dopo l'elaborazione
+(conserva tutti e quattro gli artefatti) oppure un errore runtime: se può
+scrivere nell'output richiesto, quest'ultimo lascia il QA minimo con
+`schema_version`, `inputs`, `valid: false` ed `errors`. Exit `2` è invece un
+errore di sintassi/uso rilevato da `argparse` (per esempio argomenti
+obbligatori mancanti): avviene prima dell'elaborazione e non crea artefatti né
+QA.
 
 ## `h80` — pre-analisi
 
