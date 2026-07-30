@@ -2,16 +2,33 @@ import math
 
 import pytest
 
+from graal_common.run_manifest import RunRecord
 from graal_common.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
     EnergySample,
+    EnergyBinning,
     StripEnergyFluxError,
+    StripEnergyRecord,
+    StripFlux,
+    aggregate_group_flux,
     build_strip_energy_lookup,
     energy_bin_index,
     find_monotonic_inversions,
+    integrate_run_flux,
     normalize_xstrip,
 )
+
+
+def lookup(run, strip, energy):
+    return StripEnergyRecord(run, strip, 10, energy, 0.0, energy, energy)
+
+
+def manifest(run, group="P_UV"):
+    target, beam = group.split("_")
+    return RunRecord(
+        run, "period", target, beam, group, "manual", f"period/run{run}.root"
+    )
 
 
 def test_ajaka_binning_presets_are_exact():
@@ -78,3 +95,57 @@ def test_monotonicity_marks_zero_covariance_direction_as_undetermined():
     assert find_monotonic_inversions(records) == (
         {"run_number": 7, "direction": "undetermined"},
     )
+
+
+def test_flux_integration_sums_whole_strips_and_subtracts_brem_twice():
+    bins = EnergyBinning("two_bins", (1.0, 1.2, 1.4))
+    result = integrate_run_flux(
+        manifest(7),
+        [lookup(7, 1, 1.10), lookup(7, 2, 1.19), lookup(7, 3, 1.30)],
+        [
+            StripFlux(7, 1, 100.0, 10.0, 80.0),
+            StripFlux(7, 2, 50.0, 5.0, 40.0),
+            StripFlux(7, 3, 20.0, 2.0, 16.0),
+        ],
+        bins,
+    )
+    assert (result[0].pol1, result[0].brem, result[0].pol2) == (
+        150.0,
+        15.0,
+        120.0,
+    )
+    assert result[0].pol1_net == 135.0
+    assert result[0].pol2_net == 105.0
+    assert result[0].total_net == 240.0
+
+
+def test_nonzero_flux_without_lookup_is_fatal():
+    with pytest.raises(StripEnergyFluxError, match="nonzero flux"):
+        integrate_run_flux(
+            manifest(7), [], [StripFlux(7, 12, 1.0, 0.0, 1.0)],
+            EnergyBinning("one", (1.0, 1.5)),
+        )
+
+
+def test_negative_net_flux_is_fatal():
+    with pytest.raises(StripEnergyFluxError, match="negative net flux"):
+        integrate_run_flux(
+            manifest(7), [lookup(7, 1, 1.2)],
+            [StripFlux(7, 1, 2.0, 3.0, 4.0)],
+            EnergyBinning("one", (1.0, 1.5)),
+        )
+
+
+def test_group_aggregation_never_mixes_manifest_groups():
+    bins = EnergyBinning("one", (1.0, 1.5))
+    p = integrate_run_flux(
+        manifest(7, "P_UV"), [lookup(7, 1, 1.2)],
+        [StripFlux(7, 1, 10.0, 1.0, 8.0)], bins,
+    )
+    d = integrate_run_flux(
+        manifest(8, "D_UV"), [lookup(8, 1, 1.2)],
+        [StripFlux(8, 1, 20.0, 2.0, 16.0)], bins,
+    )
+    grouped = aggregate_group_flux((*p, *d))
+    assert [row.group for row in grouped] == ["D_UV", "P_UV"]
+    assert [row.total_net for row in grouped] == [32.0, 16.0]

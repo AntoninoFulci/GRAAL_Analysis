@@ -6,6 +6,8 @@ from math import isfinite
 from statistics import median
 from typing import Iterable, Sequence
 
+from .run_manifest import RunRecord
+
 
 class StripEnergyFluxError(ValueError):
     pass
@@ -51,6 +53,51 @@ class StripEnergyRecord:
     energy_min_gev: float
     energy_max_gev: float
     provenance: str = "observed"
+
+
+@dataclass(frozen=True)
+class StripFlux:
+    run_number: int
+    xstrip: int
+    pol1: float
+    brem: float
+    pol2: float
+
+
+@dataclass(frozen=True)
+class FluxBinRecord:
+    binning: str
+    run_number: int
+    source_period: str
+    target: str
+    beam_type: str
+    group: str
+    energy_low_gev: float
+    energy_high_gev: float
+    pol1: float
+    brem: float
+    pol2: float
+    pol1_net: float
+    pol2_net: float
+    total_net: float
+    status: str
+
+
+@dataclass(frozen=True)
+class GroupFluxBinRecord:
+    binning: str
+    target: str
+    beam_type: str
+    group: str
+    energy_low_gev: float
+    energy_high_gev: float
+    pol1: float
+    brem: float
+    pol2: float
+    pol1_net: float
+    pol2_net: float
+    total_net: float
+    status: str
 
 
 def normalize_xstrip(value: float) -> int:
@@ -103,6 +150,114 @@ def build_strip_energy_lookup(
             )
         )
     return tuple(records)
+
+
+def integrate_run_flux(
+    manifest: RunRecord,
+    lookup: Sequence[StripEnergyRecord],
+    strips: Sequence[StripFlux],
+    binning: EnergyBinning,
+) -> tuple[FluxBinRecord, ...]:
+    energy_by_strip = {
+        record.xstrip: record.energy_median_gev
+        for record in lookup
+        if record.run_number == manifest.run_number
+    }
+    sums = [[0.0, 0.0, 0.0] for _ in binning.edges_gev[:-1]]
+    for strip in strips:
+        if strip.run_number != manifest.run_number:
+            raise StripEnergyFluxError("flux run conflicts with manifest")
+        values = (strip.pol1, strip.brem, strip.pol2)
+        if not all(isfinite(value) for value in values):
+            raise StripEnergyFluxError("flux contents must be finite")
+        if strip.xstrip not in energy_by_strip:
+            if any(value != 0.0 for value in values):
+                raise StripEnergyFluxError(
+                    f"run {manifest.run_number} strip {strip.xstrip}: "
+                    "nonzero flux without lookup"
+                )
+            continue
+        index = energy_bin_index(energy_by_strip[strip.xstrip], binning)
+        if index is not None:
+            for state, value in enumerate(values):
+                sums[index][state] += value
+
+    result = []
+    for index, (low, high) in enumerate(
+        zip(binning.edges_gev, binning.edges_gev[1:])
+    ):
+        pol1, brem, pol2 = sums[index]
+        pol1_net = pol1 - brem
+        pol2_net = pol2 - brem
+        if pol1_net < 0 or pol2_net < 0:
+            raise StripEnergyFluxError(
+                f"run {manifest.run_number} bin {index}: negative net flux"
+            )
+        result.append(
+            FluxBinRecord(
+                binning.name,
+                manifest.run_number,
+                manifest.source_period,
+                manifest.target,
+                manifest.beam_type,
+                manifest.group,
+                low,
+                high,
+                pol1,
+                brem,
+                pol2,
+                pol1_net,
+                pol2_net,
+                pol1_net + pol2_net,
+                "valid",
+            )
+        )
+    return tuple(result)
+
+
+def aggregate_group_flux(
+    records: Sequence[FluxBinRecord],
+) -> tuple[GroupFluxBinRecord, ...]:
+    sums: dict[tuple[str, str, str, str, float, float], list[float]] = defaultdict(
+        lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    )
+    for record in records:
+        key = (
+            record.binning,
+            record.target,
+            record.beam_type,
+            record.group,
+            record.energy_low_gev,
+            record.energy_high_gev,
+        )
+        values = sums[key]
+        for index, value in enumerate(
+            (
+                record.pol1,
+                record.brem,
+                record.pol2,
+                record.pol1_net,
+                record.pol2_net,
+                record.total_net,
+            )
+        ):
+            values[index] += value
+
+    grouped = []
+    for (binning, target, beam_type, group, low, high), values in sorted(sums.items()):
+        grouped.append(
+            GroupFluxBinRecord(
+                binning,
+                target,
+                beam_type,
+                group,
+                low,
+                high,
+                *values,
+                "valid",
+            )
+        )
+    return tuple(grouped)
 
 
 def find_monotonic_inversions(
