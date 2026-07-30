@@ -2,6 +2,7 @@ import csv
 import json
 import math
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -137,13 +138,17 @@ def test_atomic_output_restores_destination_if_staging_replace_fails(
     tmp_path, monkeypatch
 ):
     destination = tmp_path / "result"
-    backup = destination.with_name(".result.previous")
     destination.mkdir()
     (destination / "sentinel").write_text("old")
     original_replace = Path.replace
 
     def fail_staging_replace(self, target):
-        if self != backup and Path(target) == destination and self.parent == tmp_path:
+        if (
+            self.name.startswith(".result.")
+            and not self.name.startswith(".result.previous")
+            and Path(target) == destination
+            and self.parent == tmp_path
+        ):
             raise OSError("cannot replace destination")
         return original_replace(self, target)
 
@@ -155,7 +160,45 @@ def test_atomic_output_restores_destination_if_staging_replace_fails(
 
     assert (destination / "sentinel").read_text() == "old"
     assert not (destination / "new").exists()
-    assert not backup.exists()
+
+
+def test_atomic_output_keeps_preexisting_backup_collision(tmp_path):
+    destination = tmp_path / "result"
+    collision = destination.with_name(".result.previous")
+    destination.mkdir()
+    collision.mkdir()
+    (destination / "sentinel").write_text("old")
+    (collision / "recovery").write_text("preserve")
+
+    with atomic_output_directory(destination) as staging:
+        (staging / "new").write_text("published")
+
+    assert (destination / "new").read_text() == "published"
+    assert (collision / "recovery").read_text() == "preserve"
+
+
+def test_atomic_output_ignores_post_publish_backup_cleanup_failure(
+    tmp_path, monkeypatch
+):
+    destination = tmp_path / "result"
+    destination.mkdir()
+    (destination / "sentinel").write_text("old")
+    original_rmtree = shutil.rmtree
+    cleanup_attempts = []
+
+    def fail_backup_cleanup(path, *args, **kwargs):
+        if Path(path).name.startswith(".result.previous."):
+            cleanup_attempts.append(Path(path))
+            raise OSError("cannot remove old result")
+        return original_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", fail_backup_cleanup)
+
+    with atomic_output_directory(destination) as staging:
+        (staging / "new").write_text("published")
+
+    assert (destination / "new").read_text() == "published"
+    assert len(cleanup_attempts) == 1
 
 
 def test_ajaka_binning_presets_are_exact():

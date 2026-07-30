@@ -246,24 +246,32 @@ def atomic_output_directory(destination: Path) -> Iterator[Path]:
     staging = Path(
         tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent)
     )
-    backup = destination.with_name(f".{destination.name}.previous")
+    backup: Path | None = None
     try:
         yield staging
-        if backup.exists():
-            shutil.rmtree(backup)
         if destination.exists():
+            backup = Path(
+                tempfile.mkdtemp(
+                    prefix=f".{destination.name}.previous.",
+                    dir=destination.parent,
+                )
+            )
+            backup.rmdir()
             destination.replace(backup)
         try:
             staging.replace(destination)
         except BaseException:
-            if backup.exists() and not destination.exists():
+            if backup is not None and backup.exists() and not destination.exists():
                 backup.replace(destination)
             raise
-        if backup.exists():
-            shutil.rmtree(backup)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    if backup is not None:
+        try:
+            shutil.rmtree(backup)
+        except OSError:
+            pass
 
 
 def normalize_xstrip(value: float) -> int:

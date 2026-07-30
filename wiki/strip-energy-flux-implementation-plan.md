@@ -621,32 +621,43 @@ Atomic context behavior:
 @contextmanager
 def atomic_output_directory(destination: Path) -> Iterator[Path]:
     destination = Path(destination)
+    if destination.exists() and not destination.is_dir():
+        raise StripEnergyFluxError(f"destination is not a directory: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(
         prefix=f".{destination.name}.", dir=destination.parent
     ))
-    backup = destination.with_name(f".{destination.name}.previous")
+    backup: Path | None = None
     try:
         yield staging
-        if backup.exists():
-            shutil.rmtree(backup)
         if destination.exists():
+            backup = Path(tempfile.mkdtemp(
+                prefix=f".{destination.name}.previous.",
+                dir=destination.parent,
+            ))
+            backup.rmdir()
             destination.replace(backup)
         try:
             staging.replace(destination)
         except BaseException:
-            if backup.exists() and not destination.exists():
+            if backup is not None and backup.exists() and not destination.exists():
                 backup.replace(destination)
             raise
-        if backup.exists():
-            shutil.rmtree(backup)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    if backup is not None:
+        try:
+            shutil.rmtree(backup)
+        except OSError:
+            pass
 ```
 
 Before creating staging, reject destination when it exists but is not a
-directory.
+directory. Allocate a unique invocation-owned backup only when replacing an
+existing destination; never delete or reuse a pre-existing sibling. After the
+staging directory has replaced the destination, backup cleanup is best-effort:
+cleanup failure must not make the already-published output fail.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 
