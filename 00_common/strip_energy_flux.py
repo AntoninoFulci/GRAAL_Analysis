@@ -166,10 +166,16 @@ def integrate_run_flux(
     sums = [[0.0, 0.0, 0.0] for _ in binning.edges_gev[:-1]]
     for strip in strips:
         if strip.run_number != manifest.run_number:
-            raise StripEnergyFluxError("flux run conflicts with manifest")
+            raise StripEnergyFluxError(
+                f"run {manifest.run_number} strip {strip.xstrip}: "
+                "flux run conflicts with manifest"
+            )
         values = (strip.pol1, strip.brem, strip.pol2)
         if not all(isfinite(value) for value in values):
-            raise StripEnergyFluxError("flux contents must be finite")
+            raise StripEnergyFluxError(
+                f"run {manifest.run_number} strip {strip.xstrip}: "
+                "flux contents must be finite"
+            )
         if strip.xstrip not in energy_by_strip:
             if any(value != 0.0 for value in values):
                 raise StripEnergyFluxError(
@@ -219,7 +225,7 @@ def aggregate_group_flux(
     records: Sequence[FluxBinRecord],
 ) -> tuple[GroupFluxBinRecord, ...]:
     sums: dict[tuple[str, str, str, str, float, float], list[float]] = defaultdict(
-        lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        lambda: [0.0, 0.0, 0.0]
     )
     for record in records:
         key = (
@@ -231,20 +237,18 @@ def aggregate_group_flux(
             record.energy_high_gev,
         )
         values = sums[key]
-        for index, value in enumerate(
-            (
-                record.pol1,
-                record.brem,
-                record.pol2,
-                record.pol1_net,
-                record.pol2_net,
-                record.total_net,
-            )
-        ):
+        for index, value in enumerate((record.pol1, record.brem, record.pol2)):
             values[index] += value
 
     grouped = []
     for (binning, target, beam_type, group, low, high), values in sorted(sums.items()):
+        pol1, brem, pol2 = values
+        pol1_net = pol1 - brem
+        pol2_net = pol2 - brem
+        if pol1_net < 0 or pol2_net < 0:
+            raise StripEnergyFluxError(
+                f"group {group} bin {binning} ({low}, {high}): negative net flux"
+            )
         grouped.append(
             GroupFluxBinRecord(
                 binning,
@@ -253,7 +257,12 @@ def aggregate_group_flux(
                 group,
                 low,
                 high,
-                *values,
+                pol1,
+                brem,
+                pol2,
+                pol1_net,
+                pol2_net,
+                pol1_net + pol2_net,
                 "valid",
             )
         )

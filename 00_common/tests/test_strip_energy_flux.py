@@ -8,6 +8,7 @@ from graal_common.strip_energy_flux import (
     AJAKA_SIGMA,
     EnergySample,
     EnergyBinning,
+    FluxBinRecord,
     StripEnergyFluxError,
     StripEnergyRecord,
     StripFlux,
@@ -149,3 +150,57 @@ def test_group_aggregation_never_mixes_manifest_groups():
     grouped = aggregate_group_flux((*p, *d))
     assert [row.group for row in grouped] == ["D_UV", "P_UV"]
     assert [row.total_net for row in grouped] == [32.0, 16.0]
+
+
+def test_group_aggregation_recomputes_net_flux_from_raw_sums():
+    grouped = aggregate_group_flux(
+        (
+            FluxBinRecord(
+                "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                10.0, 3.0, 8.0, 999.0, 999.0, 999.0, "valid",
+            ),
+            FluxBinRecord(
+                "one", 8, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                5.0, 1.0, 4.0, -999.0, -999.0, -999.0, "valid",
+            ),
+        )
+    )
+    assert (grouped[0].pol1, grouped[0].brem, grouped[0].pol2) == (
+        15.0,
+        4.0,
+        12.0,
+    )
+    assert (grouped[0].pol1_net, grouped[0].pol2_net, grouped[0].total_net) == (
+        11.0,
+        8.0,
+        19.0,
+    )
+
+
+def test_group_aggregation_rejects_negative_net_flux_from_raw_sums():
+    with pytest.raises(StripEnergyFluxError, match="negative net flux"):
+        aggregate_group_flux(
+            (
+                FluxBinRecord(
+                    "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
+                    1.0, 2.0, 3.0, 99.0, 99.0, 198.0, "valid",
+                ),
+            )
+        )
+
+
+def test_flux_run_conflict_error_includes_manifest_run_and_flux_strip():
+    with pytest.raises(StripEnergyFluxError, match=r"run 7 strip 12"):
+        integrate_run_flux(
+            manifest(7), [], [StripFlux(8, 12, 1.0, 0.0, 1.0)],
+            EnergyBinning("one", (1.0, 1.5)),
+        )
+
+
+def test_nonfinite_flux_error_includes_manifest_run_and_flux_strip():
+    with pytest.raises(StripEnergyFluxError, match=r"run 7 strip 12"):
+        integrate_run_flux(
+            manifest(7), [lookup(7, 12, 1.2)],
+            [StripFlux(7, 12, math.nan, 0.0, 1.0)],
+            EnergyBinning("one", (1.0, 1.5)),
+        )
