@@ -2,15 +2,31 @@
 """Read inclusive h80 energies and tagger-flux ROOT histograms."""
 from __future__ import annotations
 
+import argparse
+from collections import defaultdict
 from math import isfinite
 from pathlib import Path
 import re
+import sys
 from typing import Sequence
 
+from graal_common.run_manifest import ManifestError, validate_manifest
 from graal_common.strip_energy_flux import (
+    AJAKA_CROSS_SECTION,
+    AJAKA_SIGMA,
+    EnergyBinning,
     EnergySample,
     StripEnergyFluxError,
     StripFlux,
+    aggregate_group_flux,
+    atomic_output_directory,
+    build_strip_energy_lookup,
+    find_monotonic_inversions,
+    integrate_run_flux,
+    write_group_flux_csv,
+    write_lookup_csv,
+    write_qa_json,
+    write_run_flux_csv,
 )
 
 
@@ -67,7 +83,11 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
 
             tree.SetBranchStatus("*", 0)
             for branch in ("RunNumber", "Xstrip", "beam"):
-                tree.SetBranchStatus(branch, 1)
+                pending = [tree.GetBranch(branch)]
+                while pending:
+                    active = pending.pop()
+                    active.SetStatus(1)
+                    pending.extend(active.GetListOfBranches())
             for entry in tree:
                 samples.append(
                     EnergySample(
@@ -242,3 +262,372 @@ def read_flux_histograms(
         source.Close()
 
     return strips, qa
+
+
+def parse_custom_binnings(values: Sequence[str]) -> tuple[EnergyBinning, ...]:
+    result = []
+    seen = {AJAKA_CROSS_SECTION.name, AJAKA_SIGMA.name}
+    for value in values:
+        name, separator, raw_edges = value.partition(":")
+        if not separator or not name or not raw_edges:
+            raise StripEnergyFluxError(
+                "custom binning must use NAME:EDGE,EDGE,..."
+            )
+        if name in seen:
+            raise StripEnergyFluxError(f"duplicate binning name: {name}")
+        try:
+            edges = tuple(float(edge) for edge in raw_edges.split(","))
+        except ValueError:
+            raise StripEnergyFluxError(
+                f"custom binning {name}: edges must be numeric"
+            ) from None
+        result.append(EnergyBinning(name, edges))
+        seen.add(name)
+    return tuple(result)
+
+
+def _input_paths(args: argparse.Namespace) -> dict[str, str]:
+    return {
+        "preanalysis_dir": str(args.preanalysis_dir),
+        "manifest": str(args.manifest),
+        "flux": str(args.flux),
+        "output_dir": str(args.output_dir),
+    }
+
+
+def _validate_output_location(args: argparse.Namespace) -> None:
+    output = args.output_dir.resolve(strict=False)
+    for input_path in (
+        args.preanalysis_dir,
+        args.manifest,
+        args.flux,
+    ):
+        resolved_input = input_path.resolve(strict=False)
+        if resolved_input == output or output in resolved_input.parents:
+            raise StripEnergyFluxError(
+                f"output directory contains input path: {input_path}"
+            )
+
+
+def build_qa_payload(
+    args: argparse.Namespace,
+    manifest,
+    lookup,
+    run_flux,
+    h80_qa,
+    flux_qa,
+    errors,
+) -> dict[str, object]:
+    manifest_runs = {record.run_number for record in manifest}
+    h80_runs = {record.run_number for record in lookup}
+    unique_errors = sorted(set(errors))
+    return {
+        "schema_version": 1,
+        "inputs": _input_paths(args),
+        "thresholds": {
+            "min_events_per_strip": args.min_events_per_strip,
+            "max_mad_gev": args.max_mad_gev,
+            "monotonic_tolerance_gev": args.monotonic_tolerance_gev,
+        },
+        "binnings": flux_qa["analysis_binnings"],
+        "manifest_run_count": len(manifest_runs),
+        "h80_run_count": len(h80_runs),
+        "flux_run_count": flux_qa["run_count"],
+        "lookup_strip_count": len(lookup),
+        "h80": h80_qa,
+        "flux": {
+            key: value
+            for key, value in flux_qa.items()
+            if key not in {
+                "analysis_binnings",
+                "empty_strips",
+                "extra_h80_runs",
+                "low_stat_warnings",
+                "mad_warnings",
+                "missing_h80_runs",
+                "monotonic_inversions",
+                "nonzero_unmapped_strips",
+                "out_of_range",
+            }
+        },
+        "missing_h80_runs": flux_qa["missing_h80_runs"],
+        "extra_h80_runs": flux_qa["extra_h80_runs"],
+        "extra_flux_runs": flux_qa["extra_runs"],
+        "malformed_flux_triplets": flux_qa["malformed_triplets"],
+        "empty_strips": flux_qa["empty_strips"],
+        "nonzero_unmapped_strips": flux_qa["nonzero_unmapped_strips"],
+        "monotonic_inversions": flux_qa["monotonic_inversions"],
+        "mad_warnings": flux_qa["mad_warnings"],
+        "low_stat_warnings": flux_qa["low_stat_warnings"],
+        "underflow_overflow": flux_qa["underflow_overflow"],
+        "out_of_range": flux_qa["out_of_range"],
+        "negative_net_errors": [
+            error for error in unique_errors if "negative net flux" in error
+        ],
+        "run_flux_bin_count": len(run_flux),
+        "errors": unique_errors,
+        "valid": not unique_errors,
+    }
+
+
+def run(args: argparse.Namespace) -> int:
+    _validate_output_location(args)
+    if args.min_events_per_strip < 1:
+        raise StripEnergyFluxError("min-events-per-strip must be at least 1")
+    if not isfinite(args.max_mad_gev) or args.max_mad_gev < 0:
+        raise StripEnergyFluxError("max-mad-gev must be finite and nonnegative")
+    if (
+        not isfinite(args.monotonic_tolerance_gev)
+        or args.monotonic_tolerance_gev < 0
+    ):
+        raise StripEnergyFluxError(
+            "monotonic-tolerance-gev must be finite and nonnegative"
+        )
+
+    records = validate_manifest(args.manifest)
+    manifest_by_run = {record.run_number: record for record in records}
+    samples, h80_qa = read_h80_samples(args.preanalysis_dir)
+    lookup = build_strip_energy_lookup(samples)
+    del samples
+
+    lookup_by_run = defaultdict(list)
+    for row in lookup:
+        lookup_by_run[row.run_number].append(row)
+    manifest_runs = set(manifest_by_run)
+    sample_runs = set(lookup_by_run)
+
+    strips, flux_qa = read_flux_histograms(args.flux, sorted(manifest_runs))
+    flux_by_run = defaultdict(list)
+    for row in strips:
+        flux_by_run[row.run_number].append(row)
+    flux_by_run_strip = {
+        run_number: {row.xstrip: row for row in rows}
+        for run_number, rows in flux_by_run.items()
+    }
+
+    errors = []
+    extra_h80 = sorted(sample_runs - manifest_runs)
+    missing_h80 = sorted(manifest_runs - sample_runs)
+    if extra_h80:
+        errors.append(f"h80 runs absent from manifest: {extra_h80}")
+    if missing_h80:
+        errors.append(f"manifest runs absent from h80: {missing_h80}")
+    if flux_qa["extra_runs"]:
+        errors.append(f"flux runs absent from manifest: {flux_qa['extra_runs']}")
+    for problem in flux_qa["malformed_triplets"]:
+        errors.append(
+            f"malformed flux triplet for run {problem['run_number']}"
+        )
+    for problem in flux_qa["underflow_overflow"]:
+        errors.append(
+            f"nonzero underflow/overflow in {problem['histogram']}"
+        )
+
+    binnings = (
+        AJAKA_CROSS_SECTION,
+        AJAKA_SIGMA,
+        *parse_custom_binnings(args.binning),
+    )
+
+    empty_strips = []
+    nonzero_unmapped = []
+    for run_number in sorted(manifest_runs):
+        mapped = {row.xstrip for row in lookup_by_run[run_number]}
+        for xstrip in range(1, 129):
+            if xstrip in mapped:
+                continue
+            empty_strips.append({"run_number": run_number, "xstrip": xstrip})
+            strip = flux_by_run_strip.get(run_number, {}).get(xstrip)
+            if strip is not None and any(
+                value != 0.0 for value in (strip.pol1, strip.brem, strip.pol2)
+            ):
+                nonzero_unmapped.append(
+                    {
+                        "run_number": run_number,
+                        "xstrip": xstrip,
+                        "pol1": strip.pol1,
+                        "brem": strip.brem,
+                        "pol2": strip.pol2,
+                    }
+                )
+                errors.append(
+                    f"run {run_number} strip {xstrip}: "
+                    "nonzero flux without lookup"
+                )
+
+    inversions = []
+    for inversion in find_monotonic_inversions(lookup):
+        delta = inversion.get("delta_gev")
+        if delta is None or abs(delta) > args.monotonic_tolerance_gev:
+            inversions.append(inversion)
+            if delta is None:
+                errors.append(
+                    f"run {inversion['run_number']}: "
+                    "monotonic direction is undetermined"
+                )
+            else:
+                errors.append(
+                    f"run {inversion['run_number']} strips "
+                    f"{inversion['left_strip']}-{inversion['right_strip']}: "
+                    f"monotonic inversion {delta} GeV"
+                )
+
+    mad_warnings = [
+        {
+            "run_number": row.run_number,
+            "xstrip": row.xstrip,
+            "energy_mad_gev": row.energy_mad_gev,
+        }
+        for row in lookup
+        if row.energy_mad_gev > args.max_mad_gev
+    ]
+    low_stat_warnings = [
+        {
+            "run_number": row.run_number,
+            "xstrip": row.xstrip,
+            "event_count": row.event_count,
+        }
+        for row in lookup
+        if row.event_count < args.min_events_per_strip
+    ]
+
+    out_of_range = {}
+    for binning in binnings:
+        below = []
+        above = []
+        excluded = [0.0, 0.0, 0.0]
+        for run_number in sorted(manifest_runs & sample_runs):
+            flux_by_strip = flux_by_run_strip[run_number]
+            for row in lookup_by_run[run_number]:
+                if row.energy_median_gev < binning.edges_gev[0]:
+                    below.append((run_number, row.xstrip))
+                elif row.energy_median_gev > binning.edges_gev[-1]:
+                    above.append((run_number, row.xstrip))
+                else:
+                    continue
+                strip = flux_by_strip[row.xstrip]
+                for index, value in enumerate(
+                    (strip.pol1, strip.brem, strip.pol2)
+                ):
+                    excluded[index] += value
+        out_of_range[binning.name] = {
+            "below_lookup_count": len(below),
+            "above_lookup_count": len(above),
+            "below_lookup_strips": [
+                {"run_number": run_number, "xstrip": xstrip}
+                for run_number, xstrip in below
+            ],
+            "above_lookup_strips": [
+                {"run_number": run_number, "xstrip": xstrip}
+                for run_number, xstrip in above
+            ],
+            "raw_flux_excluded": {
+                "pol1": excluded[0],
+                "brem": excluded[1],
+                "pol2": excluded[2],
+            },
+        }
+
+    run_flux = []
+    for binning in binnings:
+        for run_number in sorted(manifest_runs & sample_runs):
+            try:
+                run_flux.extend(
+                    integrate_run_flux(
+                        manifest_by_run[run_number],
+                        lookup_by_run[run_number],
+                        flux_by_run[run_number],
+                        binning,
+                    )
+                )
+            except StripEnergyFluxError as exc:
+                errors.append(str(exc))
+
+    flux_qa.update(
+        {
+            "analysis_binnings": {
+                binning.name: list(binning.edges_gev) for binning in binnings
+            },
+            "missing_h80_runs": missing_h80,
+            "extra_h80_runs": extra_h80,
+            "empty_strips": empty_strips,
+            "nonzero_unmapped_strips": nonzero_unmapped,
+            "monotonic_inversions": inversions,
+            "mad_warnings": mad_warnings,
+            "low_stat_warnings": low_stat_warnings,
+            "out_of_range": out_of_range,
+        }
+    )
+
+    qa = build_qa_payload(
+        args,
+        records,
+        lookup,
+        run_flux,
+        h80_qa,
+        flux_qa,
+        errors,
+    )
+    with atomic_output_directory(args.output_dir) as staging:
+        write_lookup_csv(
+            staging / "strip_energy_lookup.csv",
+            [row for row in lookup if row.run_number in manifest_by_run],
+            manifest_by_run,
+        )
+        write_run_flux_csv(staging / "flux_by_run_energy.csv", run_flux)
+        write_group_flux_csv(
+            staging / "flux_by_group_energy.csv",
+            aggregate_group_flux(run_flux),
+        )
+        write_qa_json(staging / "strip_energy_flux_qa.json", qa)
+    if qa["valid"]:
+        print(
+            f"Wrote {len(records)}-run strip-energy flux analysis "
+            f"to {args.output_dir}"
+        )
+        return 0
+    return 1
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Build run-specific strip-energy and integrated flux artifacts."
+    )
+    parser.add_argument("--preanalysis-dir", required=True, type=Path)
+    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--flux", required=True, type=Path)
+    parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--min-events-per-strip", type=int, default=1)
+    parser.add_argument("--max-mad-gev", type=float, default=0.005)
+    parser.add_argument("--monotonic-tolerance-gev", type=float, default=0.002)
+    parser.add_argument("--binning", action="append", default=[])
+    return parser.parse_args()
+
+
+def _write_failure_qa(args: argparse.Namespace, error: str) -> None:
+    _validate_output_location(args)
+    payload = {
+        "schema_version": 1,
+        "inputs": _input_paths(args),
+        "valid": False,
+        "errors": [error],
+    }
+    with atomic_output_directory(args.output_dir) as staging:
+        write_qa_json(staging / "strip_energy_flux_qa.json", payload)
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        return run(args)
+    except (ManifestError, StripEnergyFluxError, OSError, RuntimeError) as exc:
+        try:
+            _write_failure_qa(args, str(exc))
+        except (StripEnergyFluxError, OSError):
+            pass
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
