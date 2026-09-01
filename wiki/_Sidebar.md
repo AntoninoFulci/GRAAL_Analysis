@@ -1,6 +1,7 @@
 ### GRAAL Analysis
 
 - [Home](Home)
+- [Current Status](Current-Status)
 - [Pipeline](pipeline)
 - [Data Format](data-formats)
 - [Strip-energy flux](strip-energy-flux-maintenance)

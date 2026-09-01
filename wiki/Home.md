@@ -34,6 +34,8 @@ una probabilità calibrata sui dati reali.
 
 ## NEXT
 
+- [Current Status](Current-Status) — riepilogo verbale del lavoro completato,
+  assunzioni provvisorie, stato della validazione e prossimi passi sulla farm.
 - [Pipeline](pipeline) — `run_pipeline.sh` fase per fase, tutti i flag, la logica di riuso di MC e pre-analisi.
 - [Formati dati](data-formats) — la lineage degli alberi ROOT, da `h70` grezzo fino a `reco_eta_pi0_chi2`/`reco_eta_pi0_bdt`.
 - [Manutenzione strip-energy flux](strip-energy-flux-maintenance) — assunzioni
