@@ -1,11 +1,15 @@
 import csv
+from dataclasses import replace
 import json
 import math
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 
 import pytest
 
+import graal_common.strip_energy_flux as strip_energy_flux
 from graal_common.run_manifest import RunRecord
 from graal_common.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
@@ -23,10 +27,12 @@ from graal_common.strip_energy_flux import (
     aggregate_group_flux,
     atomic_output_directory,
     build_strip_energy_lookup,
+    build_strip_energy_lookup_on_disk,
     energy_bin_index,
     find_monotonic_inversions,
     integrate_run_flux,
     normalize_xstrip,
+    validate_energy_sample,
     write_group_flux_csv,
     write_lookup_csv,
     write_qa_json,
@@ -232,6 +238,198 @@ def test_lookup_uses_median_and_mad_per_run_strip():
     assert first.energy_max_gev == pytest.approx(1.80)
 
 
+def test_energy_sample_preserves_large_integer_run_number():
+    run_number = 2**53 + 1
+
+    normalized = validate_energy_sample(EnergySample(run_number, 1, 1.25))
+
+    assert normalized.run_number == run_number
+
+
+def test_disk_backed_lookup_matches_exact_in_memory_reference(tmp_path):
+    samples = (
+        EnergySample(7, 12.0, 1.00),
+        EnergySample(7, 12.0, 1.25),
+        EnergySample(7, 12.0, 1.50),
+        EnergySample(7, 12.0, 2.00),
+        EnergySample(7, 13.0, 1.125),
+        EnergySample(7, 13.0, 1.375),
+        EnergySample(8, 1.0, 1.00),
+        EnergySample(99, 1.0, 1.75),
+    )
+    expected = (
+        StripEnergyRecord(7, 12, 4, 1.375, 0.25, 1.0, 2.0),
+        StripEnergyRecord(7, 13, 2, 1.25, 0.125, 1.125, 1.375),
+        StripEnergyRecord(8, 1, 1, 1.0, 0.0, 1.0, 1.0),
+    )
+
+    result = build_strip_energy_lookup_on_disk(
+        iter(samples),
+        tmp_path / "energy-spool.sqlite3",
+        run_numbers=(7, 8),
+        batch_size=2,
+    )
+
+    assert result.records == expected
+    assert result.observed_runs == (7, 8)
+    assert result.observed_run_count == 3
+    assert result.unrequested_runs == (99,)
+    assert result.unrequested_run_count == 1
+    assert result.unrequested_runs_truncated is False
+    assert result.event_count == len(samples)
+
+
+def _measure_disk_lookup(tmp_path, event_count):
+    program = """
+import json
+from pathlib import Path
+import sys
+import time
+import tracemalloc
+
+from graal_common.strip_energy_flux import (
+    EnergySample,
+    build_strip_energy_lookup_on_disk,
+)
+
+event_count = int(sys.argv[1])
+database = Path(sys.argv[2])
+
+def samples():
+    for index in range(event_count):
+        strip = index % 128 + 1
+        yield EnergySample(
+            7,
+            strip,
+            1.0 + strip / 256.0 + (index % 5) / 1024.0,
+        )
+
+tracemalloc.start()
+started = time.perf_counter()
+result = build_strip_energy_lookup_on_disk(
+    samples(),
+    database,
+    run_numbers=(7,),
+    batch_size=512,
+)
+elapsed = time.perf_counter() - started
+_, peak = tracemalloc.get_traced_memory()
+print(json.dumps({
+    "elapsed_seconds": elapsed,
+    "event_count": result.event_count,
+    "peak_bytes": peak,
+    "record_count": len(result.records),
+}))
+"""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            program,
+            str(event_count),
+            str(tmp_path / f"spool-{event_count}.sqlite3"),
+        ],
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+def test_disk_backed_lookup_python_memory_is_event_count_bounded(tmp_path):
+    small = _measure_disk_lookup(tmp_path, 20_000)
+    large = _measure_disk_lookup(tmp_path, 200_000)
+
+    assert small["event_count"] == 20_000
+    assert large["event_count"] == 200_000
+    assert small["record_count"] == large["record_count"] == 128
+    assert large["peak_bytes"] < small["peak_bytes"] * 4
+    print(
+        "disk lookup evidence: "
+        f"20k peak={small['peak_bytes']}B elapsed={small['elapsed_seconds']:.3f}s; "
+        f"200k peak={large['peak_bytes']}B elapsed={large['elapsed_seconds']:.3f}s"
+    )
+
+
+def _measure_high_cardinality_extra_runs(tmp_path, extra_run_count):
+    program = """
+import json
+from pathlib import Path
+import sys
+import tracemalloc
+
+from graal_common.strip_energy_flux import (
+    EnergySample,
+    build_strip_energy_lookup_on_disk,
+)
+
+extra_run_count = int(sys.argv[1])
+database = Path(sys.argv[2])
+
+def samples():
+    yield EnergySample(7, 1, 1.25)
+    for index in range(extra_run_count):
+        yield EnergySample(10_000 + index, 1, 1.25)
+
+tracemalloc.start()
+result = build_strip_energy_lookup_on_disk(
+    samples(),
+    database,
+    run_numbers=(7,),
+    batch_size=512,
+)
+_, peak = tracemalloc.get_traced_memory()
+print(json.dumps({
+    "event_count": result.event_count,
+    "observed_run_count": result.observed_run_count,
+    "observed_runs": len(result.observed_runs),
+    "peak_bytes": peak,
+    "record_count": len(result.records),
+    "unrequested_run_count": result.unrequested_run_count,
+    "unrequested_runs": len(result.unrequested_runs),
+    "unrequested_runs_truncated": result.unrequested_runs_truncated,
+}))
+"""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            program,
+            str(extra_run_count),
+            str(tmp_path / f"extra-runs-{extra_run_count}.sqlite3"),
+        ],
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+def test_disk_lookup_caps_high_cardinality_extra_run_diagnostics(tmp_path):
+    small = _measure_high_cardinality_extra_runs(tmp_path, 10_000)
+    large = _measure_high_cardinality_extra_runs(tmp_path, 100_000)
+
+    assert small["event_count"] == 10_001
+    assert large["event_count"] == 100_001
+    assert small["observed_run_count"] == 10_001
+    assert large["observed_run_count"] == 100_001
+    assert small["observed_runs"] == large["observed_runs"] == 1
+    assert small["record_count"] == large["record_count"] == 1
+    assert small["unrequested_run_count"] == 10_000
+    assert large["unrequested_run_count"] == 100_000
+    assert small["unrequested_runs"] == large["unrequested_runs"] == 100
+    assert small["unrequested_runs_truncated"] is True
+    assert large["unrequested_runs_truncated"] is True
+    assert large["peak_bytes"] < small["peak_bytes"] * 4
+    print(
+        "high-cardinality extra-run evidence: "
+        f"10k peak={small['peak_bytes']}B; "
+        f"100k peak={large['peak_bytes']}B"
+    )
+
+
 @pytest.mark.parametrize("value", [0.0, 129.0, 12.25, math.nan, math.inf])
 def test_xstrip_rejects_out_of_domain_or_nonintegral_values(value):
     with pytest.raises(StripEnergyFluxError):
@@ -397,3 +595,82 @@ def test_nonfinite_flux_error_includes_manifest_run_and_flux_strip():
             [StripFlux(7, 12, math.nan, 0.0, 1.0)],
             EnergyBinning("one", (1.0, 1.5)),
         )
+
+
+def test_conservation_checks_included_plus_out_of_range_and_group_raw_totals():
+    check_flux_conservation = getattr(
+        strip_energy_flux, "check_flux_conservation", None
+    )
+    assert check_flux_conservation is not None, (
+        "strip-energy flux production needs explicit conservation checks"
+    )
+    binning = EnergyBinning("one", (1.0, 1.5))
+    strips = (
+        StripFlux(7, 1, 10.0, 1.0, 8.0),
+        StripFlux(7, 2, 5.0, 0.5, 4.0),
+        StripFlux(8, 1, 20.0, 2.0, 16.0),
+        StripFlux(8, 2, 3.0, 0.25, 2.0),
+    )
+    run_rows = (
+        *integrate_run_flux(
+            manifest(7),
+            [lookup(7, 1, 1.2), lookup(7, 2, 1.6)],
+            strips[:2],
+            binning,
+        ),
+        *integrate_run_flux(
+            manifest(8),
+            [lookup(8, 1, 1.2), lookup(8, 2, 1.6)],
+            strips[2:],
+            binning,
+        ),
+    )
+
+    result = check_flux_conservation(
+        run_rows,
+        aggregate_group_flux(run_rows),
+        strips,
+        {
+            ("one", 7): (5.0, 0.5, 4.0),
+            ("one", 8): (3.0, 0.25, 2.0),
+        },
+    )
+
+    assert result["valid"] is True
+    assert result["run_state_check_count"] == 6
+    assert result["group_bin_state_check_count"] == 3
+    assert result["failures"] == []
+
+
+def test_conservation_reports_run_and_group_raw_flux_mismatches():
+    check_flux_conservation = getattr(
+        strip_energy_flux, "check_flux_conservation", None
+    )
+    assert check_flux_conservation is not None, (
+        "strip-energy flux production needs explicit conservation checks"
+    )
+    binning = EnergyBinning("one", (1.0, 1.5))
+    strips = (
+        StripFlux(7, 1, 10.0, 1.0, 8.0),
+        StripFlux(7, 2, 5.0, 0.5, 4.0),
+    )
+    run_rows = integrate_run_flux(
+        manifest(7),
+        [lookup(7, 1, 1.2), lookup(7, 2, 1.6)],
+        strips,
+        binning,
+    )
+    good_group = aggregate_group_flux(run_rows)[0]
+
+    result = check_flux_conservation(
+        run_rows,
+        (replace(good_group, pol1=good_group.pol1 + 1.0),),
+        strips,
+        {("one", 7): (0.0, 0.0, 0.0)},
+    )
+
+    assert result["valid"] is False
+    assert {failure["scope"] for failure in result["failures"]} == {
+        "run",
+        "group",
+    }

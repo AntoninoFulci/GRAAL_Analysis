@@ -82,13 +82,13 @@ h80, flux, missing_h80_runs, extra_h80_runs, extra_flux_runs,
 malformed_flux_triplets, empty_strips, nonzero_unmapped_strips,
 monotonic_inversions, mad_warnings, low_stat_warnings,
 underflow_overflow, out_of_range, negative_net_errors,
-run_flux_bin_count, errors, valid
+conservation, run_flux_bin_count, errors, valid
 ```
 
 - `inputs` riporta `preanalysis_dir`, `manifest`, `flux` e `output_dir`;
   `thresholds` riporta `min_events_per_strip`, `max_mad_gev` e
   `monotonic_tolerance_gev`; `binnings` mappa ogni nome ai suoi bordi in GeV.
-- `h80` contiene `entries` e `file_count`. `flux` contiene `run_count`,
+- `h80` contiene `entries`, `file_count` e `run_count`. `flux` contiene `run_count`,
   `extra_runs`, `malformed_triplets`, `matching_keys` e
   `underflow_overflow`; le liste diagnostiche pertinenti sono replicate anche
   nelle chiavi top-level nominate sopra.
@@ -99,6 +99,9 @@ run_flux_bin_count, errors, valid
 - `underflow_overflow` riporta, per ogni istogramma non nullo,
   `histogram`, `underflow` e `overflow`. Anche questo è soltanto un warning:
   i due bin ROOT non entrano nelle somme e non rendono da soli `valid` falso.
+- `extra_flux_runs` e `malformed_flux_triplets` sono warning per run non
+  richieste dal manifest. Le run richieste restano strette: una e una sola
+  chiave canonica valida per `POL1`, `POL2` e `BREM`.
 - `mad_warnings` (`run_number`, `xstrip`, `energy_mad_gev`) e
   `low_stat_warnings` (`run_number`, `xstrip`, `event_count`) sono warning
   soltanto. `empty_strips`, `nonzero_unmapped_strips`,
@@ -108,15 +111,25 @@ run_flux_bin_count, errors, valid
   `binning`, `run_number`, `bin_index`, `energy_low_gev`, `energy_high_gev`,
   `pol1_net`, `pol2_net`. Un flusso netto negativo imposta `valid: false`,
   ma non elimina le righe CSV necessarie a investigarlo.
+- `conservation` verifica per ogni `(binning, run, stato raw)` che flusso
+  incluso più flusso escluso fuori range uguagli il totale delle 128 strip e,
+  per ogni bin di gruppo, che la somma coincida con le run contribuenti.
+  Contiene tolleranze, numero di controlli, `failures` e `valid`; un mismatch
+  strutturale entra in `errors` e rende il QA non valido.
 
 `valid` è vero solo quando `errors` è vuota. Il comando termina con exit `0`
 per una QA valida. Exit `1` segnala una QA non valida dopo l'elaborazione
 (conserva tutti e quattro gli artefatti) oppure un errore runtime: se può
-scrivere nell'output richiesto, quest'ultimo lascia il QA minimo con
-`schema_version`, `inputs`, `valid: false` ed `errors`. Exit `2` è invece un
-errore di sintassi/uso rilevato da `argparse` (per esempio argomenti
-obbligatori mancanti): avviene prima dell'elaborazione e non crea artefatti né
-QA.
+scrivere e la destinazione non esiste, quest'ultimo lascia lì il QA minimo con
+`schema_version`, `inputs`, `valid: false` ed `errors`. Se la destinazione
+esiste già, resta byte-per-byte invariata e il QA minimo viene scritto in una
+sibling univoca `<output>.failure.<token>/`, il cui percorso assoluto compare
+su stderr. Exit `2` è invece un errore di sintassi/uso rilevato da `argparse`
+(per esempio argomenti obbligatori mancanti): avviene prima
+dell'elaborazione e non crea artefatti né QA.
+
+Per assunzioni provvisorie, severità complete e guida alle correzioni vedere
+[Manutenzione strip-energy flux](strip-energy-flux-maintenance).
 
 ## `h80` — pre-analisi
 

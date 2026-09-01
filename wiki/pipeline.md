@@ -112,20 +112,33 @@ aggiungere uno schema ripetibile, si può ripetere `--binning` con
   --binning fine:1.00,1.05,1.10,1.15
 ```
 
+Le run ROOT di flusso non presenti nel manifest, complete o incomplete, sono
+warning QA e non contribuiscono ai CSV. Le run richieste restano strette:
+servono esattamente le tre chiavi canoniche valide. Una run extra negli `h80`
+è invece fatale, perché il lookup inclusivo e il manifest non descrivono lo
+stesso corpus autorevole.
+
 Exit `0` significa QA valida. Exit `1` indica un'analisi completata ma QA non
-valida, oppure un errore runtime: con una destinazione output valida lascia il
-QA diagnostico in `strip_energy_flux_qa.json`; non usare i CSV per l'estrazione fisica finché
-`valid` non è `true`. Quando l'analisi ha completato la lettura degli input, la
-cartella contiene sempre i quattro artefatti descritti in [Formati dati](data-formats),
-anche con QA non valida, così i bin problematici restano ispezionabili. Un
-errore anticipato di input (per esempio ROOT illeggibile) produce invece il
-solo QA minimo diagnostico.
+valida, oppure un errore runtime. Non usare i CSV per l'estrazione fisica
+finché `valid` non è `true`. Quando l'analisi ha completato la lettura degli
+input, la cartella contiene sempre i quattro artefatti descritti in
+[Formati dati](data-formats), anche con QA non valida, così i bin problematici
+restano ispezionabili. Un errore anticipato di input (per esempio ROOT
+illeggibile) produce invece il solo QA minimo diagnostico. Se la destinazione
+non esiste, quel QA può usare
+`results/strip_energy_flux/`. Se esiste già un output, il rerun fallito lo
+lascia byte-per-byte invariato e scrive il QA in una sibling univoca
+`strip_energy_flux.failure.<token>/`; stderr stampa il percorso assoluto dopo
+`Failure QA:`. Dalla farm va riportata anche quella directory.
 
 Exit `2` è un errore di sintassi/uso del comando (per esempio un flag
 obbligatorio mancante), rilevato prima dell'elaborazione: non produce artefatti
 né QA. L'automazione farm deve quindi correggere il comando, non tentare di
 recuperare l'output. Con exit `0` o `1`, riportare dalla farm tutta la cartella
 `results/strip_energy_flux/`.
+
+Assunzioni provvisorie, matrice warning/fatale e guida alle future correzioni
+sono in [Manutenzione strip-energy flux](strip-energy-flux-maintenance).
 
 ## Fase 2 — Selezione eventi (h80 → h85)
 

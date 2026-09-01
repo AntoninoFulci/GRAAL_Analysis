@@ -1,7 +1,22 @@
 # Design: lookup strip→Eγ e integrazione dei flussi
 
 **Data:** 2026-07-30
-**Stato:** design approvato; implementazione non ancora iniziata
+**Stato:** implemented; farm production validation pending
+
+La manutenzione operativa e scientifica è descritta in
+[Strip-energy flux: manutenzione e correzioni](strip-energy-flux-maintenance).
+Le decisioni umane consolidate dalla revisione finale sono:
+
+- mediana e MAD restano esatte, con eventi `h80` spostati su spool SQLite
+  temporaneo invece che materializzati in memoria Python;
+- un rerun che fallisce prima della pubblicazione non sostituisce un output
+  precedente: il QA minimo va in una cartella sibling univoca;
+- run di flusso non richieste dal manifest, complete o malformate, sono
+  warning QA; le run richieste restano validate in modo stretto;
+- errori semantici di `RunNumber`, `Xstrip` ed energia nominano file ROOT e
+  indice dell'entry;
+- underflow/overflow sono warning, mentre righe a flusso netto negativo
+  restano pubblicate con `status=invalid` e rendono il QA non valido.
 
 ## Obiettivo
 
@@ -107,6 +122,16 @@ Per ogni coppia `(run, strip)` osservata in `h80`:
 E_lookup(run, strip) = median(beam.E())
 ```
 
+In produzione le entry vengono validate e inserite a batch limitato in un
+database SQLite temporaneo appartenente alla singola invocazione. Un indice
+`(run, strip, energy)` permette di estrarre statistiche d'ordine esatte;
+anche la MAD usa tutti gli scarti assoluti, ordinati su storage temporaneo su
+disco. Non vengono usati campionamento, istogrammi approssimati,
+interpolazione o fit di calibrazione. In memoria Python restano al massimo i
+record `(run, strip)` delle run richieste dal manifest, oltre ai record di
+flusso di dimensione analogamente limitata. Lo spool viene rimosso alla fine,
+anche in caso di eccezione.
+
 Vengono inoltre calcolati:
 
 - numero di eventi;
@@ -117,6 +142,10 @@ Vengono inoltre calcolati:
 `Xstrip` deve essere finito, compreso tra 1 e 128 e compatibile con un intero.
 Il valore viene convertito a intero soltanto dopo questo controllo.
 `beam.E()` deve essere finito e positivo.
+`RunNumber` deve essere un intero positivo. Tutti e tre i controlli vengono
+eseguiti mentre si legge l'entry ROOT, così l'errore conserva file sorgente e
+indice dell'entry; la validazione pura viene comunque ripetuta in modo
+difensivo prima dell'inserimento nello spool.
 
 Nessun pooling tra run o periodi. Nessun riempimento silenzioso delle strip
 vuote. Se una strip ha flusso non nullo ma manca dal lookup della run, output
@@ -229,14 +258,27 @@ Contiene:
 - dispersioni oltre soglia;
 - underflow/overflow;
 - flussi netti negativi;
+- conservazione raw run→bin e run→gruppo;
 - stato finale `valid` o `invalid`.
 
 Scrittura atomica: file temporanei, poi sostituzione soltanto a elaborazione
 completata. Output deterministico, ordinato numericamente per run, strip e bin.
 
-## Interfaccia prevista
+Run di flusso complete o malformate che non appartengono al manifest
+autorevole vengono elencate nel QA ma non rendono `valid` falso. Per ogni run
+richiesta servono invece esattamente tre chiavi canoniche `POL1`, `POL2` e
+`BREM`, con oggetto, asse e contenuto validi.
 
-Nuovo comando:
+Se esiste già una cartella di output e il rerun fallisce prima di pubblicare i
+quattro artefatti completi, quella cartella non viene toccata: il QA minimo
+non valido viene scritto in una sibling univoca
+`<output>.failure.<token>/` e il percorso esatto viene stampato su stderr. Se
+la destinazione non esiste ancora ed è sicura, il QA minimo può usare la
+destinazione richiesta.
+
+## Interfaccia implementata
+
+Comando:
 
 ```bash
 python scripts/build_strip_energy_flux.py \
@@ -262,14 +304,19 @@ CLI termina non-zero per:
 - strip o energia non valida;
 - strip con flusso non nullo e lookup assente;
 - flusso netto negativo;
+- violazione degli invarianti di conservazione raw;
 - collisione o output parziale non atomico.
 
 Run presenti nel manifest ma senza file `h80` sono fatali per estrazione
 completa, ma elencate nel QA prima dell'uscita.
 
+Run presenti soltanto nel file di flusso non sono fatali: triplette complete,
+incomplete, duplicate o non canoniche restano warning QA finché la run non è
+richiesta dal manifest.
+
 ## Organizzazione codice
 
-Logica pura e testabile in nuovo modulo `00_common/strip_energy_flux.py`:
+Logica pura e testabile in `00_common/strip_energy_flux.py`:
 
 - validazione binning;
 - statistiche lookup;
@@ -293,7 +340,10 @@ deve dipendere da PyROOT; CLI adatta alberi e istogrammi ROOT ai record puri.
 - sottrazione `BREM`;
 - flusso netto negativo;
 - somma per gruppo senza mescolare P/D o UV/VIS;
-- ordinamento deterministico.
+- ordinamento deterministico;
+- esattezza dello spool SQLite rispetto al riferimento in memoria;
+- memoria Python limitata rispetto al numero di eventi, con tempo misurato;
+- conservazione del flusso raw incluso/escluso e delle somme di gruppo.
 
 ### Integration test ROOT
 
@@ -305,7 +355,8 @@ Mini-file reali creati nel test:
 - manifest coerente.
 
 Il test esegue CLI e verifica lookup, somme per run, somme per gruppo, QA e
-codice di uscita.
+codice di uscita. Copre inoltre il rerun fallito su output completo, le run di
+flusso extra warning-only e il contesto `file: entry` degli errori semantici.
 
 ### Verifica farm
 

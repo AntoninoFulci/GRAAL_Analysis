@@ -1,8 +1,10 @@
 from array import array
 import csv
+from dataclasses import replace
 import json
 import importlib.util
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -164,6 +166,17 @@ def run_cli(pre, flux, manifest_path, output, *extra):
     )
 
 
+def complete_flux_runs(*run_numbers):
+    return {
+        run: {
+            "POL1": {strip: 10.0 for strip in range(1, 129)},
+            "POL2": {strip: 8.0 for strip in range(1, 129)},
+            "BREM": {strip: 1.0 for strip in range(1, 129)},
+        }
+        for run in run_numbers
+    }
+
+
 def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
 
@@ -181,6 +194,8 @@ def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
     assert qa["manifest_run_count"] == 2
     assert qa["h80_run_count"] == 2
     assert qa["flux_run_count"] == 2
+    assert qa["conservation"]["valid"] is True
+    assert qa["conservation"]["failures"] == []
     assert "Wrote 2-run strip-energy flux analysis" in result.stdout
 
 
@@ -380,6 +395,115 @@ def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
 
     assert (output / "sentinel").read_text() == "old"
     assert not (output / "strip_energy_flux_qa.json").exists()
+    assert not list(tmp_path.glob(".output.energy-spool.*"))
+
+
+def test_cli_failed_rerun_preserves_completed_output_and_writes_sibling_qa(
+    tmp_path,
+):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    completed = run_cli(pre, flux, manifest_path, output)
+    assert completed.returncode == 0, completed.stderr
+    previous_bytes = {
+        path.name: path.read_bytes()
+        for path in output.iterdir()
+        if path.is_file()
+    }
+    assert sorted(previous_bytes) == [
+        "flux_by_group_energy.csv",
+        "flux_by_run_energy.csv",
+        "strip_energy_flux_qa.json",
+        "strip_energy_lookup.csv",
+    ]
+    (pre / "pre_7.root").write_text("not a ROOT file")
+
+    failed = run_cli(pre, flux, manifest_path, output)
+
+    assert failed.returncode == 1
+    assert {
+        path.name: path.read_bytes()
+        for path in output.iterdir()
+        if path.is_file()
+    } == previous_bytes
+    failure_directories = sorted(
+        path
+        for path in tmp_path.iterdir()
+        if path.is_dir() and path.name.startswith("output.failure.")
+    )
+    assert len(failure_directories) == 1
+    failure_directory = failure_directories[0]
+    assert str(failure_directory.resolve()) in failed.stderr
+    assert sorted(path.name for path in failure_directory.iterdir()) == [
+        "strip_energy_flux_qa.json"
+    ]
+    failure_qa = json.loads(
+        (failure_directory / "strip_energy_flux_qa.json").read_text()
+    )
+    assert failure_qa["valid"] is False
+    assert failure_qa["errors"] == [
+        f"zombie ROOT file: {pre / 'pre_7.root'}"
+    ]
+
+    failed_again = run_cli(pre, flux, manifest_path, output)
+
+    assert failed_again.returncode == 1
+    second_directories = sorted(
+        path
+        for path in tmp_path.iterdir()
+        if path.is_dir() and path.name.startswith("output.failure.")
+    )
+    assert len(second_directories) == 2
+    assert failure_directory in second_directories
+    second_directory = next(
+        path for path in second_directories if path != failure_directory
+    )
+    assert str(second_directory.resolve()) in failed_again.stderr
+    assert {
+        path.name: path.read_bytes()
+        for path in output.iterdir()
+        if path.is_file()
+    } == previous_bytes
+
+
+def test_main_sqlite_failure_preserves_existing_output_and_writes_sibling_qa(
+    tmp_path, monkeypatch, capsys
+):
+    output = tmp_path / "output"
+    output.mkdir()
+    sentinel = output / "sentinel"
+    sentinel.write_bytes(b"completed output")
+    args = SimpleNamespace(
+        preanalysis_dir=tmp_path / "pre",
+        manifest=tmp_path / "manifest.csv",
+        flux=tmp_path / "flux.root",
+        output_dir=output,
+        min_events_per_strip=1,
+        max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002,
+        binning=[],
+    )
+    monkeypatch.setattr(cli, "parse_args", lambda: args)
+
+    def fail_with_sqlite_error(_args):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(cli, "run", fail_with_sqlite_error)
+
+    result = cli.main()
+
+    assert result == 1
+    assert sentinel.read_bytes() == b"completed output"
+    failure_directories = list(tmp_path.glob("output.failure.*"))
+    assert len(failure_directories) == 1
+    failure_directory = failure_directories[0]
+    qa = json.loads(
+        (failure_directory / "strip_energy_flux_qa.json").read_text()
+    )
+    assert qa["valid"] is False
+    assert qa["errors"] == ["database is locked"]
+    stderr = capsys.readouterr().err
+    assert "ERROR: database is locked" in stderr
+    assert f"Failure QA: {failure_directory.resolve()}" in stderr
 
 
 def test_cli_malformed_root_writes_minimal_atomic_diagnostic_qa(tmp_path):
@@ -600,6 +724,102 @@ def test_root_adapters_read_h80_and_flux_triplet(tmp_path):
     assert flux_qa["run_count"] == 1
 
 
+def test_cli_bounded_lookup_is_exact_for_runs_spanning_multi_run_files(
+    tmp_path,
+):
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path,
+        entries_by_run={},
+        flux_by_run=complete_flux_runs(7, 8),
+    )
+    write_h80(
+        pre / "a.root",
+        [
+            (7, 1, 1.0),
+            (8, 1, 1.2),
+            (7, 2, 1.1),
+            (8, 2, 1.3),
+        ],
+    )
+    write_h80(
+        pre / "b.root",
+        [
+            (8, 1, 1.4),
+            (7, 1, 1.4),
+            (8, 2, 1.5),
+            (7, 2, 1.5),
+        ],
+    )
+    write_flux(
+        flux,
+        {
+            7: {"POL1": {}, "POL2": {}, "BREM": {}},
+            8: {"POL1": {}, "POL2": {}, "BREM": {}},
+        },
+    )
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    with (output / "strip_energy_lookup.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    expected = [
+        (7, 1, 2, 1.2, 0.2, 1.0, 1.4),
+        (7, 2, 2, 1.3, 0.2, 1.1, 1.5),
+        (8, 1, 2, 1.3, 0.1, 1.2, 1.4),
+        (8, 2, 2, 1.4, 0.1, 1.3, 1.5),
+    ]
+    assert [
+        (
+            int(row["run_number"]),
+            int(row["xstrip"]),
+            int(row["event_count"]),
+        )
+        for row in rows
+    ] == [item[:3] for item in expected]
+    for row, item in zip(rows, expected):
+        assert (
+            float(row["energy_median_gev"]),
+            float(row["energy_mad_gev"]),
+            float(row["energy_min_gev"]),
+            float(row["energy_max_gev"]),
+        ) == pytest.approx(item[3:])
+    assert not list(tmp_path.glob(".output.energy-spool.*"))
+
+
+def test_run_streams_h80_into_disk_lookup_without_event_list(
+    tmp_path, monkeypatch
+):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    build_on_disk = cli.build_strip_energy_lookup_on_disk
+    observed = {}
+
+    def require_stream(samples, database, **kwargs):
+        observed["is_materialized"] = isinstance(samples, (list, tuple))
+        return build_on_disk(samples, database, **kwargs)
+
+    monkeypatch.setattr(
+        cli,
+        "build_strip_energy_lookup_on_disk",
+        require_stream,
+    )
+    args = SimpleNamespace(
+        preanalysis_dir=pre,
+        manifest=manifest_path,
+        flux=flux,
+        output_dir=output,
+        min_events_per_strip=1,
+        max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002,
+        binning=[],
+    )
+
+    result = cli.run(args)
+
+    assert result == 0
+    assert observed == {"is_materialized": False}
+
+
 def test_h80_reader_recursively_sorts_root_files(tmp_path):
     pre = tmp_path / "pre"
     (pre / "b").mkdir(parents=True)
@@ -610,6 +830,17 @@ def test_h80_reader_recursively_sorts_root_files(tmp_path):
     samples, _ = cli.read_h80_samples(pre)
 
     assert [row.run_number for row in samples] == [7, 8]
+
+
+def test_h80_path_discovery_is_lazy(tmp_path):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80(pre / "one.root", [(7, 1, 1.3)])
+
+    paths = cli._h80_paths(pre)
+
+    assert not isinstance(paths, (list, tuple))
+    assert list(paths) == [pre / "one.root"]
 
 
 def test_h80_reader_rejects_no_root_files(tmp_path):
@@ -649,6 +880,31 @@ def test_h80_reader_rejects_missing_required_branch(tmp_path):
 
     with pytest.raises(StripEnergyFluxError, match="missing branch beam"):
         cli.read_h80_samples(pre)
+
+
+@pytest.mark.parametrize(
+    ("invalid_entry", "message"),
+    [
+        ((0, 2, 1.2), "run_number must be positive"),
+        ((7, 12.25, 1.2), "Xstrip is not integral"),
+        ((7, 129, 1.2), "Xstrip outside 1..128"),
+        ((7, 2, 0.0), "beam energy must be finite and positive"),
+        ((7, 2, float("nan")), "beam energy must be finite and positive"),
+    ],
+)
+def test_h80_reader_semantic_errors_include_file_and_entry(
+    tmp_path, invalid_entry, message
+):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    source = pre / "semantic_error.root"
+    write_h80(source, [(7, 1, 1.1), invalid_entry])
+
+    with pytest.raises(StripEnergyFluxError) as caught:
+        cli.read_h80_samples(pre)
+
+    assert f"{source}: h80 entry 1:" in str(caught.value)
+    assert message in str(caught.value)
 
 
 def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):
@@ -722,6 +978,44 @@ def test_flux_reader_reports_complete_extra_run_and_incomplete_triplets(tmp_path
     ]
 
 
+def test_cli_complete_extra_flux_run_is_warning_only(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path,
+        flux_by_run=complete_flux_runs(7, 8, 99),
+    )
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["valid"] is True
+    assert qa["errors"] == []
+    assert qa["extra_flux_runs"] == [99]
+    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert {int(row["run_number"]) for row in rows} == {7, 8}
+    assert len(rows) == 38
+
+
+def test_cli_incomplete_extra_flux_run_is_warning_only(tmp_path):
+    flux_by_run = complete_flux_runs(7, 8)
+    flux_by_run[99] = {"POL1": {}, "POL2": {}}
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path,
+        flux_by_run=flux_by_run,
+    )
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["valid"] is True
+    assert qa["errors"] == []
+    assert qa["malformed_flux_triplets"] == [
+        {"run_number": 99, "missing": ["BREM"], "present": ["POL1", "POL2"]}
+    ]
+
+
 def test_flux_reader_rejects_duplicate_root_key_cycles(tmp_path):
     flux = tmp_path / "flux.root"
     write_flux(flux, {7: {"POL1": {}, "POL2": {}, "BREM": {}}})
@@ -776,3 +1070,75 @@ def test_open_root_file_closes_truthy_zombie_before_raising(monkeypatch, tmp_pat
         cli._open_root_file(tmp_path / "broken.root")
 
     assert zombie.closed is True
+
+
+def test_group_conservation_failure_is_fatal_in_full_qa(tmp_path, monkeypatch):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    aggregate = cli.aggregate_group_flux
+
+    def corrupt_group_total(records):
+        result = aggregate(records)
+        return (replace(result[0], pol1=result[0].pol1 + 1.0), *result[1:])
+
+    monkeypatch.setattr(cli, "aggregate_group_flux", corrupt_group_total)
+    args = SimpleNamespace(
+        preanalysis_dir=pre,
+        manifest=manifest_path,
+        flux=flux,
+        output_dir=output,
+        min_events_per_strip=1,
+        max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002,
+        binning=[],
+    )
+
+    result = cli.run(args)
+
+    assert result == 1
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["conservation"]["valid"] is False
+    assert any(
+        failure["scope"] == "group"
+        for failure in qa["conservation"]["failures"]
+    )
+    assert any(
+        "group raw-flux conservation failure" in error
+        for error in qa["errors"]
+    )
+
+
+def test_run_conservation_failure_is_fatal_in_full_qa(tmp_path, monkeypatch):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    integrate = cli.integrate_run_flux
+
+    def corrupt_run_total(manifest, lookup, strips, binning):
+        result = integrate(manifest, lookup, strips, binning)
+        if manifest.run_number == 7 and binning.name == "ajaka_cross_section":
+            return (replace(result[0], pol1=result[0].pol1 + 1.0), *result[1:])
+        return result
+
+    monkeypatch.setattr(cli, "integrate_run_flux", corrupt_run_total)
+    args = SimpleNamespace(
+        preanalysis_dir=pre,
+        manifest=manifest_path,
+        flux=flux,
+        output_dir=output,
+        min_events_per_strip=1,
+        max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002,
+        binning=[],
+    )
+
+    result = cli.run(args)
+
+    assert result == 1
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["conservation"]["valid"] is False
+    assert any(
+        failure["scope"] == "run"
+        for failure in qa["conservation"]["failures"]
+    )
+    assert any(
+        "run raw-flux conservation failure" in error
+        for error in qa["errors"]
+    )

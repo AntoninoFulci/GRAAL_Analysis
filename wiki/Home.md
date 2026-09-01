@@ -36,4 +36,7 @@ una probabilità calibrata sui dati reali.
 
 - [Pipeline](pipeline) — `run_pipeline.sh` fase per fase, tutti i flag, la logica di riuso di MC e pre-analisi.
 - [Formati dati](data-formats) — la lineage degli alberi ROOT, da `h70` grezzo fino a `reco_eta_pi0_chi2`/`reco_eta_pi0_bdt`.
+- [Manutenzione strip-energy flux](strip-energy-flux-maintenance) — assunzioni
+  provvisorie, matrice warning/fatale, policy atomica e punti esatti da
+  modificare quando arrivano correzioni di normalizzazione.
 - Le pagine `01_`…`06_` — una per cartella, con il dettaglio dei cut, della fisica di ricostruzione, delle feature BDT e dei plot.

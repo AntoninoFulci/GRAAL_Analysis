@@ -5,9 +5,11 @@ from contextlib import contextmanager
 import csv
 from dataclasses import asdict, dataclass
 import json
-from math import isfinite
+from math import fsum, isclose, isfinite
+from numbers import Integral
 from pathlib import Path
 import shutil
+import sqlite3
 from statistics import median
 import tempfile
 from typing import Iterable, Iterator, Sequence
@@ -40,6 +42,7 @@ AJAKA_CROSS_SECTION = EnergyBinning(
     tuple(0.95 + index * (1.50 - 0.95) / 15 for index in range(16)),
 )
 AJAKA_SIGMA = EnergyBinning("ajaka_sigma", (1.10, 1.20, 1.30, 1.40, 1.50))
+MAX_UNREQUESTED_RUN_DIAGNOSTICS = 100
 
 LOOKUP_FIELDS = (
     "run_number",
@@ -109,6 +112,25 @@ class StripEnergyRecord:
 
 
 @dataclass(frozen=True)
+class StripEnergyLookupBuild:
+    """Bounded production lookup result plus exact run-count QA metadata.
+
+    When ``run_numbers`` is supplied to the disk builder, ``observed_runs``
+    contains only requested runs that were observed. Unrequested run numbers
+    are retained only up to ``MAX_UNREQUESTED_RUN_DIAGNOSTICS``; the exact
+    count and truncation state remain available separately.
+    """
+
+    records: tuple[StripEnergyRecord, ...]
+    observed_runs: tuple[int, ...]
+    event_count: int
+    observed_run_count: int
+    unrequested_runs: tuple[int, ...]
+    unrequested_run_count: int
+    unrequested_runs_truncated: bool
+
+
+@dataclass(frozen=True)
 class StripFlux:
     run_number: int
     xstrip: int
@@ -171,11 +193,13 @@ def write_lookup_csv(
     records: Sequence[StripEnergyRecord],
     manifest_by_run: dict[int, RunRecord],
 ) -> None:
-    rows = []
-    for record in sorted(records, key=lambda record: (record.run_number, record.xstrip)):
-        manifest = manifest_by_run[record.run_number]
-        rows.append(
-            {
+    def rows() -> Iterator[dict[str, object]]:
+        for record in sorted(
+            records,
+            key=lambda record: (record.run_number, record.xstrip),
+        ):
+            manifest = manifest_by_run[record.run_number]
+            yield {
                 "run_number": record.run_number,
                 "source_period": manifest.source_period,
                 "target": manifest.target,
@@ -183,8 +207,8 @@ def write_lookup_csv(
                 "group": manifest.group,
                 **asdict(record),
             }
-        )
-    _write_csv(path, LOOKUP_FIELDS, rows)
+
+    _write_csv(path, LOOKUP_FIELDS, rows())
 
 
 def write_run_flux_csv(path: Path, records: Sequence[FluxBinRecord]) -> None:
@@ -285,6 +309,45 @@ def normalize_xstrip(value: float) -> int:
     return strip
 
 
+def _validated_energy_sample(sample: EnergySample) -> tuple[int, int, float]:
+    if isinstance(sample.run_number, Integral) and not isinstance(
+        sample.run_number, bool
+    ):
+        run_number = int(sample.run_number)
+    else:
+        try:
+            run_value = float(sample.run_number)
+        except (TypeError, ValueError, OverflowError):
+            raise StripEnergyFluxError("run_number must be an integer") from None
+        if not isfinite(run_value) or not run_value.is_integer():
+            raise StripEnergyFluxError("run_number must be an integer")
+        run_number = int(run_value)
+    if run_number <= 0:
+        raise StripEnergyFluxError("run_number must be positive")
+
+    try:
+        xstrip = normalize_xstrip(float(sample.xstrip))
+    except StripEnergyFluxError:
+        raise
+    except (TypeError, ValueError, OverflowError):
+        raise StripEnergyFluxError("Xstrip must be numeric") from None
+    try:
+        energy_gev = float(sample.energy_gev)
+    except (TypeError, ValueError, OverflowError):
+        raise StripEnergyFluxError(
+            "beam energy must be finite and positive"
+        ) from None
+    if not isfinite(energy_gev) or energy_gev <= 0:
+        raise StripEnergyFluxError("beam energy must be finite and positive")
+    return run_number, xstrip, energy_gev
+
+
+def validate_energy_sample(sample: EnergySample) -> EnergySample:
+    """Return a normalized sample or raise a semantic validation error."""
+    run_number, xstrip, energy_gev = _validated_energy_sample(sample)
+    return EnergySample(run_number, xstrip, energy_gev)
+
+
 def energy_bin_index(energy_gev: float, binning: EnergyBinning) -> int | None:
     if not isfinite(energy_gev):
         raise StripEnergyFluxError("energy must be finite")
@@ -301,13 +364,8 @@ def build_strip_energy_lookup(
 ) -> tuple[StripEnergyRecord, ...]:
     grouped: dict[tuple[int, int], list[float]] = defaultdict(list)
     for sample in samples:
-        if sample.run_number <= 0:
-            raise StripEnergyFluxError("run_number must be positive")
-        if not isfinite(sample.energy_gev) or sample.energy_gev <= 0:
-            raise StripEnergyFluxError("beam energy must be finite and positive")
-        grouped[(sample.run_number, normalize_xstrip(sample.xstrip))].append(
-            sample.energy_gev
-        )
+        run_number, xstrip, energy_gev = _validated_energy_sample(sample)
+        grouped[(run_number, xstrip)].append(energy_gev)
 
     records = []
     for (run_number, strip), energies in sorted(grouped.items()):
@@ -324,6 +382,230 @@ def build_strip_energy_lookup(
             )
         )
     return tuple(records)
+
+
+def _spooled_order_statistic(
+    connection: sqlite3.Connection,
+    run_number: int,
+    xstrip: int,
+    event_count: int,
+    *,
+    center: float | None = None,
+) -> float:
+    limit = 1 if event_count % 2 else 2
+    offset = (event_count - 1) // 2
+    if center is None:
+        rows = connection.execute(
+            """
+            SELECT energy_gev
+            FROM energy_samples
+            WHERE run_number = ? AND xstrip = ?
+            ORDER BY energy_gev
+            LIMIT ? OFFSET ?
+            """,
+            (run_number, xstrip, limit, offset),
+        )
+    else:
+        rows = connection.execute(
+            """
+            SELECT ABS(energy_gev - ?) AS deviation
+            FROM energy_samples
+            WHERE run_number = ? AND xstrip = ?
+            ORDER BY deviation
+            LIMIT ? OFFSET ?
+            """,
+            (center, run_number, xstrip, limit, offset),
+        )
+    middle = tuple(float(row[0]) for row in rows)
+    if len(middle) != limit:
+        raise StripEnergyFluxError(
+            f"run {run_number} strip {xstrip}: incomplete energy spool"
+        )
+    return float(median(middle))
+
+
+def build_strip_energy_lookup_on_disk(
+    samples: Iterable[EnergySample],
+    database: Path,
+    *,
+    run_numbers: Iterable[int] | None = None,
+    batch_size: int = 4096,
+) -> StripEnergyLookupBuild:
+    """Build exact per-strip statistics with event rows held in SQLite."""
+    if batch_size < 1:
+        raise StripEnergyFluxError("energy spool batch size must be at least 1")
+    database = Path(database)
+    if database.exists():
+        raise StripEnergyFluxError(f"energy spool already exists: {database}")
+    database.parent.mkdir(parents=True, exist_ok=True)
+
+    requested_runs = None
+    if run_numbers is not None:
+        requested_runs = tuple(sorted(set(run_numbers)))
+        if any(run_number <= 0 for run_number in requested_runs):
+            raise StripEnergyFluxError("requested run_number must be positive")
+
+    connection = sqlite3.connect(str(database))
+    try:
+        connection.execute("PRAGMA journal_mode = OFF")
+        connection.execute("PRAGMA synchronous = OFF")
+        connection.execute("PRAGMA temp_store = FILE")
+        connection.execute(
+            """
+            CREATE TABLE energy_samples (
+                run_number INTEGER NOT NULL,
+                xstrip INTEGER NOT NULL,
+                energy_gev REAL NOT NULL
+            )
+            """
+        )
+        pending: list[tuple[int, int, float]] = []
+        event_count = 0
+        for sample in samples:
+            pending.append(_validated_energy_sample(sample))
+            event_count += 1
+            if len(pending) >= batch_size:
+                connection.executemany(
+                    "INSERT INTO energy_samples VALUES (?, ?, ?)",
+                    pending,
+                )
+                pending.clear()
+        if pending:
+            connection.executemany(
+                "INSERT INTO energy_samples VALUES (?, ?, ?)",
+                pending,
+            )
+        connection.execute(
+            """
+            CREATE INDEX energy_samples_order
+            ON energy_samples (run_number, xstrip, energy_gev)
+            """
+        )
+
+        if requested_runs is None:
+            observed_runs = tuple(
+                int(row[0])
+                for row in connection.execute(
+                    """
+                    SELECT DISTINCT run_number
+                    FROM energy_samples
+                    ORDER BY run_number
+                    """
+                )
+            )
+            observed_run_count = len(observed_runs)
+            unrequested_runs: tuple[int, ...] = ()
+            unrequested_run_count = 0
+            group_query = """
+                SELECT run_number, xstrip, COUNT(*), MIN(energy_gev), MAX(energy_gev)
+                FROM energy_samples
+                GROUP BY run_number, xstrip
+                ORDER BY run_number, xstrip
+            """
+        else:
+            connection.execute(
+                "CREATE TEMP TABLE requested_runs (run_number INTEGER PRIMARY KEY)"
+            )
+            connection.executemany(
+                "INSERT INTO requested_runs VALUES (?)",
+                ((run_number,) for run_number in requested_runs),
+            )
+            observed_runs = tuple(
+                int(row[0])
+                for row in connection.execute(
+                    """
+                    SELECT DISTINCT samples.run_number
+                    FROM energy_samples AS samples
+                    JOIN requested_runs USING (run_number)
+                    ORDER BY samples.run_number
+                    """
+                )
+            )
+            unrequested_run_count = int(
+                connection.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM (
+                        SELECT DISTINCT samples.run_number
+                        FROM energy_samples AS samples
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM requested_runs
+                            WHERE requested_runs.run_number =
+                                  samples.run_number
+                        )
+                    )
+                    """
+                ).fetchone()[0]
+            )
+            unrequested_runs = tuple(
+                int(row[0])
+                for row in connection.execute(
+                    """
+                    SELECT DISTINCT samples.run_number
+                    FROM energy_samples AS samples
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM requested_runs
+                        WHERE requested_runs.run_number =
+                              samples.run_number
+                    )
+                    ORDER BY samples.run_number
+                    LIMIT ?
+                    """,
+                    (MAX_UNREQUESTED_RUN_DIAGNOSTICS,),
+                )
+            )
+            observed_run_count = len(observed_runs) + unrequested_run_count
+            group_query = """
+                SELECT samples.run_number,
+                       samples.xstrip,
+                       COUNT(*),
+                       MIN(samples.energy_gev),
+                       MAX(samples.energy_gev)
+                FROM energy_samples AS samples
+                JOIN requested_runs USING (run_number)
+                GROUP BY samples.run_number, samples.xstrip
+                ORDER BY samples.run_number, samples.xstrip
+            """
+
+        groups = connection.execute(group_query)
+        records = []
+        for run_number, xstrip, count, minimum, maximum in groups:
+            center = _spooled_order_statistic(
+                connection,
+                int(run_number),
+                int(xstrip),
+                int(count),
+            )
+            records.append(
+                StripEnergyRecord(
+                    int(run_number),
+                    int(xstrip),
+                    int(count),
+                    center,
+                    _spooled_order_statistic(
+                        connection,
+                        int(run_number),
+                        int(xstrip),
+                        int(count),
+                        center=center,
+                    ),
+                    float(minimum),
+                    float(maximum),
+                )
+            )
+        return StripEnergyLookupBuild(
+            tuple(records),
+            observed_runs,
+            event_count,
+            observed_run_count,
+            unrequested_runs,
+            unrequested_run_count,
+            unrequested_run_count > len(unrequested_runs),
+        )
+    finally:
+        connection.close()
 
 
 def integrate_run_flux(
@@ -443,6 +725,151 @@ def aggregate_group_flux(
             )
         )
     return tuple(grouped)
+
+
+def check_flux_conservation(
+    run_records: Sequence[FluxBinRecord],
+    group_records: Sequence[GroupFluxBinRecord],
+    strips: Sequence[StripFlux],
+    out_of_range_raw: dict[tuple[str, int], tuple[float, float, float]],
+    *,
+    relative_tolerance: float = 1e-12,
+    absolute_tolerance: float = 1e-9,
+) -> dict[str, object]:
+    """Check raw-flux conservation at run and manifest-group boundaries."""
+    if relative_tolerance < 0 or absolute_tolerance < 0:
+        raise StripEnergyFluxError("conservation tolerances must be nonnegative")
+
+    states = ("pol1", "brem", "pol2")
+    physical_parts: dict[int, list[list[float]]] = defaultdict(
+        lambda: [[], [], []]
+    )
+    for strip in strips:
+        for index, value in enumerate((strip.pol1, strip.brem, strip.pol2)):
+            physical_parts[strip.run_number][index].append(value)
+    physical_totals = {
+        run_number: tuple(fsum(parts) for parts in state_parts)
+        for run_number, state_parts in physical_parts.items()
+    }
+
+    included_parts: dict[tuple[str, int], list[list[float]]] = defaultdict(
+        lambda: [[], [], []]
+    )
+    for record in run_records:
+        key = (record.binning, record.run_number)
+        for index, value in enumerate((record.pol1, record.brem, record.pol2)):
+            included_parts[key][index].append(value)
+    included_totals = {
+        key: tuple(fsum(parts) for parts in state_parts)
+        for key, state_parts in included_parts.items()
+    }
+
+    failures: list[dict[str, object]] = []
+    run_keys = sorted(set(out_of_range_raw) | set(included_totals))
+    for binning, run_number in run_keys:
+        included = included_totals.get((binning, run_number), (0.0, 0.0, 0.0))
+        excluded = out_of_range_raw.get(
+            (binning, run_number), (0.0, 0.0, 0.0)
+        )
+        physical = physical_totals.get(run_number, (0.0, 0.0, 0.0))
+        for index, state in enumerate(states):
+            observed = fsum((included[index], excluded[index]))
+            expected = physical[index]
+            if isclose(
+                observed,
+                expected,
+                rel_tol=relative_tolerance,
+                abs_tol=absolute_tolerance,
+            ):
+                continue
+            failures.append(
+                {
+                    "scope": "run",
+                    "binning": binning,
+                    "run_number": run_number,
+                    "state": state,
+                    "included": included[index],
+                    "out_of_range": excluded[index],
+                    "physical_total": expected,
+                    "difference": observed - expected,
+                }
+            )
+
+    expected_group_parts: dict[
+        tuple[str, str, str, str, float, float], list[list[float]]
+    ] = defaultdict(lambda: [[], [], []])
+    for record in run_records:
+        key = (
+            record.binning,
+            record.target,
+            record.beam_type,
+            record.group,
+            record.energy_low_gev,
+            record.energy_high_gev,
+        )
+        for index, value in enumerate((record.pol1, record.brem, record.pol2)):
+            expected_group_parts[key][index].append(value)
+    expected_group_totals = {
+        key: tuple(fsum(parts) for parts in state_parts)
+        for key, state_parts in expected_group_parts.items()
+    }
+
+    observed_group_parts: dict[
+        tuple[str, str, str, str, float, float], list[list[float]]
+    ] = defaultdict(lambda: [[], [], []])
+    for record in group_records:
+        key = (
+            record.binning,
+            record.target,
+            record.beam_type,
+            record.group,
+            record.energy_low_gev,
+            record.energy_high_gev,
+        )
+        for index, value in enumerate((record.pol1, record.brem, record.pol2)):
+            observed_group_parts[key][index].append(value)
+    observed_group_totals = {
+        key: tuple(fsum(parts) for parts in state_parts)
+        for key, state_parts in observed_group_parts.items()
+    }
+
+    group_keys = sorted(set(expected_group_totals) | set(observed_group_totals))
+    for key in group_keys:
+        expected = expected_group_totals.get(key, (0.0, 0.0, 0.0))
+        observed = observed_group_totals.get(key, (0.0, 0.0, 0.0))
+        binning, target, beam_type, group, low, high = key
+        for index, state in enumerate(states):
+            if isclose(
+                observed[index],
+                expected[index],
+                rel_tol=relative_tolerance,
+                abs_tol=absolute_tolerance,
+            ):
+                continue
+            failures.append(
+                {
+                    "scope": "group",
+                    "binning": binning,
+                    "target": target,
+                    "beam_type": beam_type,
+                    "group": group,
+                    "energy_low_gev": low,
+                    "energy_high_gev": high,
+                    "state": state,
+                    "group_total": observed[index],
+                    "contributing_run_total": expected[index],
+                    "difference": observed[index] - expected[index],
+                }
+            )
+
+    return {
+        "relative_tolerance": relative_tolerance,
+        "absolute_tolerance": absolute_tolerance,
+        "run_state_check_count": len(run_keys) * len(states),
+        "group_bin_state_check_count": len(group_keys) * len(states),
+        "failures": failures,
+        "valid": not failures,
+    }
 
 
 def find_monotonic_inversions(

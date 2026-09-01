@@ -13,10 +13,28 @@
 and serialization logic lives in `graal_common.strip_energy_flux`. ROOT input
 adaptation and command orchestration live in
 `scripts/build_strip_energy_flux.py`. Tests first exercise pure functions,
-then run CLI against real miniature ROOT files.
+then run CLI against real miniature ROOT files. The production h80 path
+streams validated entries into an invocation-owned SQLite spool and computes
+exact median/MAD with disk-backed order statistics; it never materializes the
+event corpus in Python.
 
 **Tech Stack:** Python 3.10+, standard library, PyROOT, pytest, existing
 `graal_common.run_manifest`.
+
+## Implementation Status
+
+**Status:** implemented; farm production validation pending.
+
+Tasks 1–6 and the final-review fix wave are implemented as of 2026-07-30.
+All 37 task checkboxes are marked complete; their original RED snippets remain
+as the historical execution recipe, not live open work. Local final-fix
+evidence is recorded in
+`.superpowers/sdd/strip-energy-flux-implementation-plan/final-fix-report.md`.
+The authoritative status ledger is
+`.superpowers/sdd/strip-energy-flux-implementation-plan/progress.md`; it maps
+Tasks 1–6 and the final-review rulings to their commit ranges. Current
+operating and correction guidance is in
+[Strip-energy flux: maintenance](strip-energy-flux-maintenance).
 
 ## Global Constraints
 
@@ -34,17 +52,26 @@ then run CLI against real miniature ROOT files.
 - Ajaka cross-section preset is 15 uniform bins from 0.95 to 1.50 GeV.
 - Ajaka Sigma preset edges are 1.10, 1.20, 1.30, 1.40, 1.50 GeV.
 - Output must be deterministic and atomically replaced.
+- A runtime failure before completed publication must preserve an existing
+  output byte-for-byte and write minimal invalid QA to a unique sibling whose
+  exact path is printed on stderr.
 - Reject an output directory when either its normalized lexical path or its
   resolved target equals or contains any supplied input path.
 - Structural invalidity, unmapped nonzero flux, or negative net flux must
   produce QA output and nonzero CLI exit.
-- Negative-net bins are diagnostic, not raise-first: preserve every raw/net
-  run and group row, mark affected rows `status=invalid`, list their exact
+- Negative-net bins are diagnosed after complete integration: preserve every
+  raw/net run and group row, mark affected rows `status=invalid`, list exact
   `(binning, run, bin)` coordinates in QA, and keep completed artifacts
   available. A group row remains invalid if any contributing run row is
   invalid, even when other runs offset its aggregate net value.
 - Nonzero ROOT histogram underflow/overflow is warning-only QA and is never
   included in physical strip sums.
+- Complete or malformed flux keys outside the authoritative manifest are
+  warning-only QA. Requested runs still require exactly one valid canonical
+  `POL1`, `POL2`, and `BREM`.
+- QA must enforce raw-flux conservation: included plus out-of-range equals
+  physical-strip totals per run/state, and group rows equal contributing run
+  rows.
 
 ## File Map
 
@@ -57,6 +84,9 @@ then run CLI against real miniature ROOT files.
   integration and failure tests.
 - Modify `wiki/pipeline.md`: farm command, inputs, outputs, validation flow.
 - Modify `wiki/data-formats.md`: document lookup, flux CSV, and QA schemas.
+- Create `wiki/strip-energy-flux-maintenance.md`: provisional assumptions,
+  operations, provenance, and future-correction map.
+- Modify `wiki/Home.md`: link the maintenance handoff.
 
 ---
 
@@ -81,11 +111,18 @@ then run CLI against real miniature ROOT files.
   - `normalize_xstrip(value: float) -> int`
   - `energy_bin_index(energy_gev: float, binning: EnergyBinning) -> int | None`
   - `build_strip_energy_lookup(samples: Iterable[EnergySample])
-    -> tuple[StripEnergyRecord, ...]`
+    -> tuple[StripEnergyRecord, ...]` (small/reference inputs only)
+  - `build_strip_energy_lookup_on_disk(samples: Iterable[EnergySample],
+    database: Path, *, run_numbers: Iterable[int], batch_size: int = 4096)
+    -> StripEnergyLookupBuild` (production exact path)
   - `find_monotonic_inversions(records: Sequence[StripEnergyRecord])
     -> tuple[dict[str, object], ...]`
 
-- [ ] **Step 1: Write failing preset, boundary, and lookup tests**
+`StripEnergyLookupBuild.records` is bounded by requested manifest runs × 128;
+`observed_runs` and `event_count` carry QA facts. SQLite holds validated event
+rows and uses indexed exact median/MAD queries with `temp_store=FILE`.
+
+- [x] **Step 1: Write failing preset, boundary, and lookup tests**
 
 ```python
 import math
@@ -140,7 +177,7 @@ def test_xstrip_rejects_out_of_domain_or_nonintegral_values(value):
         normalize_xstrip(value)
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -151,7 +188,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 Expected: collection error because `graal_common.strip_energy_flux` does not
 exist.
 
-- [ ] **Step 3: Implement immutable records, preset validation, bin lookup,
+- [x] **Step 3: Implement immutable records, preset validation, bin lookup,
   median, and MAD**
 
 Core implementation:
@@ -277,7 +314,7 @@ step whose signed change contradicts it. Dictionary keys must be `run_number`,
 `direction`, `left_strip`, `right_strip`, `left_energy_gev`,
 `right_energy_gev`, and `delta_gev`.
 
-- [ ] **Step 4: Add monotonicity tests**
+- [x] **Step 4: Add monotonicity tests**
 
 ```python
 def test_monotonicity_accepts_decreasing_map_and_reports_local_inversion():
@@ -296,7 +333,7 @@ def test_monotonicity_accepts_decreasing_map_and_reports_local_inversion():
     assert inversions[0]["delta_gev"] == pytest.approx(0.05)
 ```
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [x] **Step 5: Run focused tests and verify GREEN**
 
 Run:
 
@@ -306,7 +343,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 
 Expected: all Task 1 tests pass.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```bash
 git add 00_common/strip_energy_flux.py \
@@ -337,7 +374,7 @@ git commit -m "feat: derive run strip energy lookup"
   - `integrate_run_flux(...) -> tuple[FluxBinRecord, ...]`
   - `aggregate_group_flux(...) -> tuple[GroupFluxBinRecord, ...]`
 
-- [ ] **Step 1: Write failing integration tests**
+- [x] **Step 1: Write failing integration tests**
 
 ```python
 from graal_common.run_manifest import RunRecord
@@ -401,7 +438,7 @@ def test_negative_net_flux_preserves_raw_bin_with_invalid_status():
     assert result[0].status == "invalid"
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -411,7 +448,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 
 Expected: import failure for `StripFlux`.
 
-- [ ] **Step 3: Implement flux records and integration**
+- [x] **Step 3: Implement flux records and integration**
 
 Implementation rules:
 
@@ -508,7 +545,7 @@ the CLI can serialize their raw values and report exact bin coordinates.
 any contributing run row even if the aggregate net is nonnegative. Structural
 errors still carry run and strip context.
 
-- [ ] **Step 4: Add aggregation separation test**
+- [x] **Step 4: Add aggregation separation test**
 
 ```python
 def test_group_aggregation_never_mixes_manifest_groups():
@@ -526,7 +563,7 @@ def test_group_aggregation_never_mixes_manifest_groups():
     assert [row.total_net for row in grouped] == [32.0, 16.0]
 ```
 
-- [ ] **Step 5: Run tests and verify GREEN**
+- [x] **Step 5: Run tests and verify GREEN**
 
 Run:
 
@@ -536,7 +573,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 
 Expected: all Task 1 and Task 2 tests pass.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add 00_common/strip_energy_flux.py \
@@ -571,7 +608,7 @@ git commit -m "feat: integrate flux by energy and group"
   - `write_qa_json(path, qa)`
   - `atomic_output_directory(destination: Path)` context manager
 
-- [ ] **Step 1: Write failing schema, ordering, and atomicity tests**
+- [x] **Step 1: Write failing schema, ordering, and atomicity tests**
 
 ```python
 import csv
@@ -610,7 +647,7 @@ def test_atomic_output_does_not_replace_destination_on_failure(tmp_path):
     assert not (destination / "new").exists()
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -620,7 +657,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 
 Expected: import failure for serialization interfaces.
 
-- [ ] **Step 3: Implement fixed schemas and atomic output**
+- [x] **Step 3: Implement fixed schemas and atomic output**
 
 Use `csv.DictWriter(..., lineterminator="\n")`, `dataclasses.asdict`,
 `json.dumps(qa, indent=2, sort_keys=True) + "\n"`, and a sibling staging
@@ -671,7 +708,7 @@ existing destination; never delete or reuse a pre-existing sibling. After the
 staging directory has replaced the destination, backup cleanup is best-effort:
 cleanup failure must not make the already-published output fail.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run:
 
@@ -681,7 +718,7 @@ pytest -q 00_common/tests/test_strip_energy_flux.py
 
 Expected: all serialization tests pass.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```bash
 git add 00_common/strip_energy_flux.py \
@@ -702,12 +739,14 @@ git commit -m "feat: serialize strip energy flux artifacts"
 
 - Consumes: Task 1 `EnergySample`; Task 2 `StripFlux`.
 - Produces:
-  - `read_h80_samples(preanalysis_dir: Path)
-    -> tuple[list[EnergySample], dict[str, object]]`
+  - `iter_h80_samples(preanalysis_dir: Path)
+    -> tuple[Iterator[EnergySample], dict[str, object]]` for production
+  - `read_h80_samples(preanalysis_dir: Path)` only as a small-fixture
+    compatibility adapter that consumes the stream
   - `read_flux_histograms(path: Path, run_numbers: Sequence[int])
     -> tuple[list[StripFlux], dict[str, object]]`
 
-- [ ] **Step 1: Write real ROOT fixtures and failing adapter test**
+- [x] **Step 1: Write real ROOT fixtures and failing adapter test**
 
 Create helpers in test:
 
@@ -771,7 +810,7 @@ def test_root_adapters_read_h80_and_flux_triplet(tmp_path):
     assert flux_qa["run_count"] == 1
 ```
 
-- [ ] **Step 2: Run adapter test and verify RED**
+- [x] **Step 2: Run adapter test and verify RED**
 
 Run:
 
@@ -782,19 +821,20 @@ pytest -q \
 
 Expected: import error because script does not exist.
 
-- [ ] **Step 3: Implement guarded ROOT readers**
+- [x] **Step 3: Implement guarded ROOT readers**
 
-`read_h80_samples` must recursively sort `*.root`, reject empty input, zombie
+`iter_h80_samples` must recursively sort `*.root`, reject empty input, zombie
 files, missing `h80`, and missing `RunNumber/Xstrip/beam`. Read only those
-branches:
+branches and yield one validated sample at a time. The list-building example
+below is historical fixture code and is not the production interface:
 
 ```python
 tree.SetBranchStatus("*", 0)
 for branch in ("RunNumber", "Xstrip", "beam"):
     tree.SetBranchStatus(branch, 1)
-for entry in tree:
-    samples.append(EnergySample(
-        int(entry.RunNumber), float(entry.Xstrip), float(entry.beam.E())
+for entry_index, entry in enumerate(tree):
+    yield validate_energy_sample(EnergySample(
+        float(entry.RunNumber), float(entry.Xstrip), float(entry.beam.E())
     ))
 ```
 
@@ -809,9 +849,10 @@ run triplets absent from manifest and malformed/incomplete triplets. Create one
 `StripFlux` per physical strip. Record nonzero underflow/overflow as
 warning-only QA and exclude it from physical strip sums. Wrap branch-value
 conversion failures, including a `beam` object without `E()`, in a
-path-and-entry-contextual `StripEnergyFluxError`.
+path-and-entry-contextual `StripEnergyFluxError`. Semantic validation failures
+for run, strip, and energy carry the same source context.
 
-- [ ] **Step 4: Add malformed ROOT tests**
+- [x] **Step 4: Add malformed ROOT tests**
 
 Cover:
 
@@ -831,7 +872,7 @@ with pytest.raises(StripEnergyFluxError, match="run7_BREM"):
     cli.read_flux_histograms(flux, [7])
 ```
 
-- [ ] **Step 5: Run adapter tests and verify GREEN**
+- [x] **Step 5: Run adapter tests and verify GREEN**
 
 Run:
 
@@ -841,7 +882,7 @@ pytest -q 00_common/tests/test_build_strip_energy_flux.py
 
 Expected: all ROOT adapter tests pass.
 
-- [ ] **Step 6: Commit Task 4**
+- [x] **Step 6: Commit Task 4**
 
 ```bash
 git add scripts/build_strip_energy_flux.py \
@@ -912,7 +953,7 @@ def parse_custom_binnings(values: Sequence[str]) -> tuple[EnergyBinning, ...]:
     return tuple(result)
 ```
 
-- [ ] **Step 1: Write failing end-to-end success test**
+- [x] **Step 1: Write failing end-to-end success test**
 
 ```python
 def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
@@ -946,7 +987,7 @@ def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
 `make_complete_fixture` creates one `P_UV` run and one `D_VIS` run, all 128
 strip lookup entries, exact flux triplets, and a validator-compatible manifest.
 
-- [ ] **Step 2: Run end-to-end test and verify RED**
+- [x] **Step 2: Run end-to-end test and verify RED**
 
 Run:
 
@@ -957,17 +998,26 @@ pytest -q \
 
 Expected: CLI argument parsing or missing `main` failure.
 
-- [ ] **Step 3: Implement CLI and orchestration**
+- [x] **Step 3: Implement CLI and orchestration**
 
 Implementation sequence inside `main()`:
 
 ```python
 records = validate_manifest(args.manifest)
 manifest_by_run = {record.run_number: record for record in records}
-samples, h80_qa = read_h80_samples(args.preanalysis_dir)
-lookup = build_strip_energy_lookup(samples)
-sample_runs = {row.run_number for row in lookup}
 manifest_runs = set(manifest_by_run)
+with tempfile.TemporaryDirectory(
+    prefix=f".{args.output_dir.name}.energy-spool.",
+    dir=args.output_dir.parent,
+) as spool:
+    samples, h80_qa = iter_h80_samples(args.preanalysis_dir)
+    lookup_build = build_strip_energy_lookup_on_disk(
+        samples,
+        Path(spool) / "h80-energy.sqlite3",
+        run_numbers=manifest_runs,
+    )
+lookup = lookup_build.records
+sample_runs = set(lookup_build.observed_runs)
 extra_h80 = sorted(sample_runs - manifest_runs)
 missing_h80 = sorted(manifest_runs - sample_runs)
 strips, flux_qa = read_flux_histograms(args.flux, sorted(manifest_runs))
@@ -1016,16 +1066,21 @@ with atomic_output_directory(args.output_dir) as staging:
 return 0 if qa["valid"] else 1
 ```
 
-Pre-index lookup and flux by run before production implementation to avoid
-quadratic scans. QA must include threshold values, preset edges, counts,
+The spool is unique to the invocation and cleaned by the context manager.
+Pre-index the manifest-bounded lookup and flux by run to avoid quadratic
+scans. CSV serializers stream row dictionaries rather than allocating a
+second row list. QA must include threshold values, preset edges, counts,
 missing/extra runs, empty strips, nonzero unmapped strips, inversions above
 tolerance, MAD warnings, low-stat warnings, under/overflow, negative net
-errors, and sorted error strings.
+errors, conservation failures, and sorted error strings.
 
 Negative-net QA entries identify every affected row by binning name, run
 number, and zero-based bin index. Those rows and their group aggregates remain
 in the completed CSV artifacts with `status=invalid`; QA is invalid and the CLI
 returns `1`. Underflow/overflow entries do not invalidate QA by themselves.
+Complete and malformed flux runs outside `manifest_runs` are likewise
+warning-only; `read_flux_histograms` still raises for any requested run that
+lacks exactly one canonical valid triplet.
 
 For each binning, `build_qa_payload` also records lookup energies below/above
 range and total raw flux excluded with them. Out-of-range strips are valid and
@@ -1033,11 +1088,14 @@ diagnostic; no flux is folded into boundary bins.
 
 Wrap orchestration in `run(args)`. `main()` catches
 `ManifestError`, `StripEnergyFluxError`, `OSError`, and ROOT adapter failures.
-When `--output-dir` is usable, catch path writes a minimal atomic QA containing
-`schema_version`, input paths, `"valid": false`, and exact error text before
-returning `1`. Argument syntax errors remain argparse exit `2`.
+When `--output-dir` does not exist and is usable, the catch path may write a
+minimal atomic QA there containing `schema_version`, input paths,
+`"valid": false`, and exact error text. If the destination already exists, it
+must remain byte-for-byte untouched; write that QA to a unique
+`<output>.failure.<token>/` sibling and print its absolute path to stderr
+before returning `1`. Argument syntax errors remain argparse exit `2`.
 
-- [ ] **Step 4: Add invalid-but-diagnostic CLI tests**
+- [x] **Step 4: Add invalid-but-diagnostic CLI tests**
 
 Test independently:
 
@@ -1046,11 +1104,15 @@ Test independently:
 - one negative `POL1-BREM`;
 - local monotonic inversion;
 - MAD and low-stat warnings do not fail alone;
-- existing output remains untouched if ROOT reading raises before staging;
+- real subprocess rerun preserves all four existing artifact bytes when ROOT
+  reading fails and publishes minimal invalid QA to a unique sibling;
 - invalid completed analysis writes QA with `"valid": false` and exits 1.
 - malformed ROOT input writes minimal invalid QA and exits 1.
 - repeated custom binning name exits 1 with diagnostic QA.
 - custom bin edges appear in run/group CSV and QA.
+- complete and incomplete extra flux runs are warning-only while requested
+  run triplets remain strict.
+- semantic run/strip/energy errors include ROOT file and entry index.
 
 Exact negative-flux assertion:
 
@@ -1074,7 +1136,7 @@ with pytest.raises(StripEnergyFluxError, match="duplicate binning name"):
     parse_custom_binnings(["fine:1.0,1.1", "fine:1.1,1.2"])
 ```
 
-- [ ] **Step 5: Run integration tests and verify GREEN**
+- [x] **Step 5: Run integration tests and verify GREEN**
 
 Run:
 
@@ -1084,7 +1146,7 @@ pytest -q 00_common/tests/test_build_strip_energy_flux.py
 
 Expected: all CLI and ROOT integration tests pass.
 
-- [ ] **Step 6: Run whole suite**
+- [x] **Step 6: Run whole suite**
 
 Run:
 
@@ -1094,7 +1156,7 @@ pytest -q
 
 Expected: all repository tests pass.
 
-- [ ] **Step 7: Commit Task 5**
+- [x] **Step 7: Commit Task 5**
 
 ```bash
 git add scripts/build_strip_energy_flux.py \
@@ -1117,7 +1179,7 @@ git commit -m "feat: build farm strip energy flux artifacts"
 - Consumes final CLI and schemas.
 - Produces exact operator instructions for farm run and returned artifacts.
 
-- [ ] **Step 1: Add pipeline command**
+- [x] **Step 1: Add pipeline command**
 
 Add section after pre-analysis:
 
@@ -1139,7 +1201,7 @@ Exit `0` significa QA valida. Exit `1` lascia comunque report diagnostico in
 Riportare dalla farm tutta la cartella `results/strip_energy_flux/`.
 ````
 
-- [ ] **Step 2: Document exact schemas and physical convention**
+- [x] **Step 2: Document exact schemas and physical convention**
 
 In `wiki/data-formats.md`, copy field lists from design and state:
 
@@ -1152,7 +1214,7 @@ total_net = pol1_net + pol2_net
 Document energy units GeV, strip domain 1–128, `[low, high)` semantics, final
 right-edge inclusion, and group separation.
 
-- [ ] **Step 3: Run documentation and code checks**
+- [x] **Step 3: Run documentation and code checks**
 
 Run:
 
@@ -1165,7 +1227,7 @@ pytest -q
 
 Expected: all three terms found, no whitespace errors, all tests pass.
 
-- [ ] **Step 4: Run CLI help smoke test**
+- [x] **Step 4: Run CLI help smoke test**
 
 Run:
 
@@ -1176,7 +1238,7 @@ python scripts/build_strip_energy_flux.py --help
 Expected: exit 0 and all four required path flags, three QA threshold flags,
 and repeatable custom binning flag listed.
 
-- [ ] **Step 5: Inspect final diff and commits**
+- [x] **Step 5: Inspect final diff and commits**
 
 Run:
 
@@ -1188,14 +1250,14 @@ git log --oneline -8
 Expected: only intended documentation changes remain before final commit;
 history contains one focused commit for each prior task.
 
-- [ ] **Step 6: Commit Task 6**
+- [x] **Step 6: Commit Task 6**
 
 ```bash
 git add wiki/pipeline.md wiki/data-formats.md
 git commit -m "docs: add farm strip energy flux workflow"
 ```
 
-- [ ] **Step 7: Final fresh verification**
+- [x] **Step 7: Final fresh verification**
 
 Run:
 

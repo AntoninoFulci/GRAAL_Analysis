@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
-from math import isfinite
+from math import fsum, isfinite
 import os
 from pathlib import Path
 import re
+import shutil
+import sqlite3
 import sys
-from typing import Sequence
+import tempfile
+from typing import Iterator, Sequence
 
 from graal_common.run_manifest import ManifestError, validate_manifest
 from graal_common.strip_energy_flux import (
@@ -21,9 +24,11 @@ from graal_common.strip_energy_flux import (
     StripFlux,
     aggregate_group_flux,
     atomic_output_directory,
-    build_strip_energy_lookup,
+    build_strip_energy_lookup_on_disk,
+    check_flux_conservation,
     find_monotonic_inversions,
     integrate_run_flux,
+    validate_energy_sample,
     write_group_flux_csv,
     write_lookup_csv,
     write_qa_json,
@@ -60,52 +65,82 @@ def _open_root_file(path: Path):
     return source
 
 
-def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[str, object]]:
-    """Read the required h80 branches from every ROOT file below a directory."""
+def _h80_paths(preanalysis_dir: Path) -> Iterator[Path]:
     preanalysis_dir = Path(preanalysis_dir)
     if not preanalysis_dir.is_dir():
         raise StripEnergyFluxError(f"preanalysis directory not found: {preanalysis_dir}")
-    paths = sorted(path for path in preanalysis_dir.rglob("*.root") if path.is_file())
-    if not paths:
+    found = False
+    for directory, child_directories, filenames in os.walk(preanalysis_dir):
+        child_directories.sort()
+        for filename in sorted(filenames):
+            if not filename.endswith(".root"):
+                continue
+            path = Path(directory) / filename
+            if path.is_file():
+                found = True
+                yield path
+    if not found:
         raise StripEnergyFluxError(f"no ROOT files below: {preanalysis_dir}")
 
-    samples: list[EnergySample] = []
-    for path in paths:
-        source = _open_root_file(path)
-        try:
-            tree = source.Get("h80")
-            if not tree:
-                raise StripEnergyFluxError(f"{path}: missing h80 tree")
-            if not tree.InheritsFrom("TTree"):
-                raise StripEnergyFluxError(f"{path}: h80 is not a TTree")
-            for branch in ("RunNumber", "Xstrip", "beam"):
-                if not tree.GetBranch(branch):
-                    raise StripEnergyFluxError(f"{path}: missing branch {branch}")
 
-            tree.SetBranchStatus("*", 0)
-            for branch in ("RunNumber", "Xstrip", "beam"):
-                pending = [tree.GetBranch(branch)]
-                while pending:
-                    active = pending.pop()
-                    active.SetStatus(1)
-                    pending.extend(active.GetListOfBranches())
-            for entry_index, entry in enumerate(tree):
-                try:
-                    sample = EnergySample(
-                        int(entry.RunNumber),
-                        float(entry.Xstrip),
-                        float(entry.beam.E()),
-                    )
-                except Exception as exc:
-                    raise StripEnergyFluxError(
-                        f"{path}: h80 entry {entry_index}: "
-                        "cannot convert RunNumber/Xstrip/beam.E()"
-                    ) from exc
-                samples.append(sample)
-        finally:
-            source.Close()
+def iter_h80_samples(
+    preanalysis_dir: Path,
+) -> tuple[Iterator[EnergySample], dict[str, object]]:
+    """Stream validated h80 samples and update QA as entries are consumed."""
+    paths = _h80_paths(preanalysis_dir)
+    qa: dict[str, object] = {"entries": 0, "file_count": 0}
 
-    return samples, {"entries": len(samples), "file_count": len(paths)}
+    def samples():
+        for path in paths:
+            qa["file_count"] = int(qa["file_count"]) + 1
+            source = _open_root_file(path)
+            try:
+                tree = source.Get("h80")
+                if not tree:
+                    raise StripEnergyFluxError(f"{path}: missing h80 tree")
+                if not tree.InheritsFrom("TTree"):
+                    raise StripEnergyFluxError(f"{path}: h80 is not a TTree")
+                for branch in ("RunNumber", "Xstrip", "beam"):
+                    if not tree.GetBranch(branch):
+                        raise StripEnergyFluxError(f"{path}: missing branch {branch}")
+
+                tree.SetBranchStatus("*", 0)
+                for branch in ("RunNumber", "Xstrip", "beam"):
+                    pending = [tree.GetBranch(branch)]
+                    while pending:
+                        active = pending.pop()
+                        active.SetStatus(1)
+                        pending.extend(active.GetListOfBranches())
+                for entry_index, entry in enumerate(tree):
+                    try:
+                        sample = EnergySample(
+                            entry.RunNumber,
+                            float(entry.Xstrip),
+                            float(entry.beam.E()),
+                        )
+                    except Exception as exc:
+                        raise StripEnergyFluxError(
+                            f"{path}: h80 entry {entry_index}: "
+                            "cannot convert RunNumber/Xstrip/beam.E()"
+                        ) from exc
+                    try:
+                        sample = validate_energy_sample(sample)
+                    except StripEnergyFluxError as exc:
+                        raise StripEnergyFluxError(
+                            f"{path}: h80 entry {entry_index}: {exc}"
+                        ) from exc
+                    qa["entries"] = int(qa["entries"]) + 1
+                    yield sample
+            finally:
+                source.Close()
+
+    return samples(), qa
+
+
+def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[str, object]]:
+    """Materialize the h80 stream for adapter callers and small tests."""
+    samples, qa = iter_h80_samples(preanalysis_dir)
+    return list(samples), qa
 
 
 def _triplet_qa(
@@ -347,7 +382,7 @@ def build_qa_payload(
         },
         "binnings": flux_qa["analysis_binnings"],
         "manifest_run_count": len(manifest_runs),
-        "h80_run_count": len(h80_runs),
+        "h80_run_count": h80_qa.get("run_count", len(h80_runs)),
         "flux_run_count": flux_qa["run_count"],
         "lookup_strip_count": len(lookup),
         "h80": h80_qa,
@@ -356,6 +391,7 @@ def build_qa_payload(
             for key, value in flux_qa.items()
             if key not in {
                 "analysis_binnings",
+                "conservation",
                 "empty_strips",
                 "extra_h80_runs",
                 "low_stat_warnings",
@@ -369,6 +405,8 @@ def build_qa_payload(
         },
         "missing_h80_runs": flux_qa["missing_h80_runs"],
         "extra_h80_runs": flux_qa["extra_h80_runs"],
+        "extra_h80_run_count": flux_qa["extra_h80_run_count"],
+        "extra_h80_runs_truncated": flux_qa["extra_h80_runs_truncated"],
         "extra_flux_runs": flux_qa["extra_runs"],
         "malformed_flux_triplets": flux_qa["malformed_triplets"],
         "empty_strips": flux_qa["empty_strips"],
@@ -379,6 +417,7 @@ def build_qa_payload(
         "underflow_overflow": flux_qa["underflow_overflow"],
         "out_of_range": flux_qa["out_of_range"],
         "negative_net_errors": flux_qa["negative_net_errors"],
+        "conservation": flux_qa["conservation"],
         "run_flux_bin_count": len(run_flux),
         "errors": unique_errors,
         "valid": not unique_errors,
@@ -401,15 +440,33 @@ def run(args: argparse.Namespace) -> int:
 
     records = validate_manifest(args.manifest)
     manifest_by_run = {record.run_number: record for record in records}
-    samples, h80_qa = read_h80_samples(args.preanalysis_dir)
-    lookup = build_strip_energy_lookup(samples)
-    del samples
+    manifest_runs = set(manifest_by_run)
+    args.output_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=f".{args.output_dir.name}.energy-spool.",
+        dir=args.output_dir.parent,
+    ) as spool_directory:
+        samples, h80_qa = iter_h80_samples(args.preanalysis_dir)
+        lookup_build = build_strip_energy_lookup_on_disk(
+            samples,
+            Path(spool_directory) / "h80-energy.sqlite3",
+            run_numbers=manifest_runs,
+        )
+    lookup = lookup_build.records
+    sample_runs = set(lookup_build.observed_runs)
+    h80_qa.update(
+        {
+            "run_count": lookup_build.observed_run_count,
+            "unrequested_run_count": lookup_build.unrequested_run_count,
+            "unrequested_runs_truncated": (
+                lookup_build.unrequested_runs_truncated
+            ),
+        }
+    )
 
     lookup_by_run = defaultdict(list)
     for row in lookup:
         lookup_by_run[row.run_number].append(row)
-    manifest_runs = set(manifest_by_run)
-    sample_runs = set(lookup_by_run)
 
     strips, flux_qa = read_flux_histograms(args.flux, sorted(manifest_runs))
     flux_by_run = defaultdict(list)
@@ -421,18 +478,19 @@ def run(args: argparse.Namespace) -> int:
     }
 
     errors = []
-    extra_h80 = sorted(sample_runs - manifest_runs)
+    extra_h80 = list(lookup_build.unrequested_runs)
     missing_h80 = sorted(manifest_runs - sample_runs)
-    if extra_h80:
-        errors.append(f"h80 runs absent from manifest: {extra_h80}")
+    if lookup_build.unrequested_run_count:
+        if lookup_build.unrequested_runs_truncated:
+            errors.append(
+                "h80 runs absent from manifest "
+                f"(showing first {len(extra_h80)} of "
+                f"{lookup_build.unrequested_run_count}): {extra_h80}"
+            )
+        else:
+            errors.append(f"h80 runs absent from manifest: {extra_h80}")
     if missing_h80:
         errors.append(f"manifest runs absent from h80: {missing_h80}")
-    if flux_qa["extra_runs"]:
-        errors.append(f"flux runs absent from manifest: {flux_qa['extra_runs']}")
-    for problem in flux_qa["malformed_triplets"]:
-        errors.append(
-            f"malformed flux triplet for run {problem['run_number']}"
-        )
 
     binnings = (
         AJAKA_CROSS_SECTION,
@@ -503,11 +561,18 @@ def run(args: argparse.Namespace) -> int:
     ]
 
     out_of_range = {}
+    out_of_range_raw: dict[
+        tuple[str, int], tuple[float, float, float]
+    ] = {}
     for binning in binnings:
         below = []
         above = []
-        excluded = [0.0, 0.0, 0.0]
-        for run_number in sorted(manifest_runs & sample_runs):
+        excluded_parts: list[list[float]] = [[], [], []]
+        for run_number in sorted(manifest_runs):
+            run_excluded_parts: list[list[float]] = [[], [], []]
+            if run_number not in sample_runs:
+                out_of_range_raw[(binning.name, run_number)] = (0.0, 0.0, 0.0)
+                continue
             flux_by_strip = flux_by_run_strip[run_number]
             for row in lookup_by_run[run_number]:
                 if row.energy_median_gev < binning.edges_gev[0]:
@@ -520,7 +585,12 @@ def run(args: argparse.Namespace) -> int:
                 for index, value in enumerate(
                     (strip.pol1, strip.brem, strip.pol2)
                 ):
-                    excluded[index] += value
+                    run_excluded_parts[index].append(value)
+            run_excluded = tuple(fsum(parts) for parts in run_excluded_parts)
+            out_of_range_raw[(binning.name, run_number)] = run_excluded
+            for index, value in enumerate(run_excluded):
+                excluded_parts[index].append(value)
+        excluded = tuple(fsum(parts) for parts in excluded_parts)
         out_of_range[binning.name] = {
             "below_lookup_count": len(below),
             "above_lookup_count": len(above),
@@ -573,13 +643,40 @@ def run(args: argparse.Namespace) -> int:
                     f"bin {bin_index}: negative net flux"
                 )
 
+    group_flux = aggregate_group_flux(run_flux)
+    conservation = check_flux_conservation(
+        run_flux,
+        group_flux,
+        strips,
+        out_of_range_raw,
+    )
+    for failure in conservation["failures"]:
+        if failure["scope"] == "run":
+            errors.append(
+                "structural run raw-flux conservation failure: "
+                f"binning {failure['binning']} run {failure['run_number']} "
+                f"state {failure['state']}"
+            )
+        else:
+            errors.append(
+                "structural group raw-flux conservation failure: "
+                f"binning {failure['binning']} group {failure['group']} "
+                f"bin [{failure['energy_low_gev']}, "
+                f"{failure['energy_high_gev']}] state {failure['state']}"
+            )
+
     flux_qa.update(
         {
             "analysis_binnings": {
                 binning.name: list(binning.edges_gev) for binning in binnings
             },
+            "conservation": conservation,
             "missing_h80_runs": missing_h80,
             "extra_h80_runs": extra_h80,
+            "extra_h80_run_count": lookup_build.unrequested_run_count,
+            "extra_h80_runs_truncated": (
+                lookup_build.unrequested_runs_truncated
+            ),
             "empty_strips": empty_strips,
             "nonzero_unmapped_strips": nonzero_unmapped,
             "monotonic_inversions": inversions,
@@ -602,13 +699,13 @@ def run(args: argparse.Namespace) -> int:
     with atomic_output_directory(args.output_dir) as staging:
         write_lookup_csv(
             staging / "strip_energy_lookup.csv",
-            [row for row in lookup if row.run_number in manifest_by_run],
+            lookup,
             manifest_by_run,
         )
         write_run_flux_csv(staging / "flux_by_run_energy.csv", run_flux)
         write_group_flux_csv(
             staging / "flux_by_group_energy.csv",
-            aggregate_group_flux(run_flux),
+            group_flux,
         )
         write_qa_json(staging / "strip_energy_flux_qa.json", qa)
     if qa["valid"]:
@@ -635,7 +732,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _write_failure_qa(args: argparse.Namespace, error: str) -> None:
+def _write_failure_qa(args: argparse.Namespace, error: str) -> Path:
     _validate_output_location(args)
     payload = {
         "schema_version": 1,
@@ -643,20 +740,48 @@ def _write_failure_qa(args: argparse.Namespace, error: str) -> None:
         "valid": False,
         "errors": [error],
     }
+    if args.output_dir.exists():
+        args.output_dir.parent.mkdir(parents=True, exist_ok=True)
+        failure_directory = Path(
+            tempfile.mkdtemp(
+                prefix=f"{args.output_dir.name}.failure.",
+                dir=args.output_dir.parent,
+            )
+        ).resolve()
+        try:
+            write_qa_json(
+                failure_directory / "strip_energy_flux_qa.json",
+                payload,
+            )
+        except BaseException:
+            shutil.rmtree(failure_directory, ignore_errors=True)
+            raise
+        return failure_directory
+
     with atomic_output_directory(args.output_dir) as staging:
         write_qa_json(staging / "strip_energy_flux_qa.json", payload)
+    return args.output_dir.resolve()
 
 
 def main() -> int:
     args = parse_args()
     try:
         return run(args)
-    except (ManifestError, StripEnergyFluxError, OSError, RuntimeError) as exc:
+    except (
+        ManifestError,
+        StripEnergyFluxError,
+        OSError,
+        RuntimeError,
+        sqlite3.Error,
+    ) as exc:
+        failure_directory = None
         try:
-            _write_failure_qa(args, str(exc))
+            failure_directory = _write_failure_qa(args, str(exc))
         except (StripEnergyFluxError, OSError):
             pass
         print(f"ERROR: {exc}", file=sys.stderr)
+        if failure_directory is not None:
+            print(f"Failure QA: {failure_directory}", file=sys.stderr)
         return 1
 
 
