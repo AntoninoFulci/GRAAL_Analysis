@@ -203,13 +203,13 @@ dopo `Failure QA:`.
 
 Piattaforma: macOS 26.5.2 arm64, Python 3.14.6, ROOT 6.38.04, SQLite 3.53.3.
 Il generatore riproducibile è
-`.superpowers/sdd/strip-energy-flux-implementation-plan/benchmark_fixture.py`.
+`scripts/benchmark_strip_energy_flux.py`.
 Entrambi i dataset hanno quattro file ROOT, quattro run, tutte le 128 strip;
 ogni file contiene più run e ogni run attraversa tutti i file. I due comandi
 misurati sono stati:
 
 ```bash
-python .superpowers/sdd/strip-energy-flux-implementation-plan/benchmark_fixture.py \
+python scripts/benchmark_strip_energy_flux.py \
   /private/tmp/graal-strip-bench.fVeRPu/events-200k 50000
 /usr/bin/time -l python scripts/build_strip_energy_flux.py \
   --preanalysis-dir /private/tmp/graal-strip-bench.fVeRPu/events-200k/pre \
@@ -217,7 +217,7 @@ python .superpowers/sdd/strip-energy-flux-implementation-plan/benchmark_fixture.
   --flux /private/tmp/graal-strip-bench.fVeRPu/events-200k/flux.root \
   --output-dir /private/tmp/graal-strip-bench.fVeRPu/events-200k/output
 
-python .superpowers/sdd/strip-energy-flux-implementation-plan/benchmark_fixture.py \
+python scripts/benchmark_strip_energy_flux.py \
   /private/tmp/graal-strip-bench.fVeRPu/events-1m 250000
 /usr/bin/time -l python scripts/build_strip_energy_flux.py \
   --preanalysis-dir /private/tmp/graal-strip-bench.fVeRPu/events-1m/pre \
