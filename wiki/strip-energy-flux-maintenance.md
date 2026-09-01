@@ -397,8 +397,9 @@ aggiornare entrambi i digest qui senza attribuire fonti non presenti.
 
 - Implementazione strip-energy flux: commit range `529cad8..HEAD`; la fix wave
   finale è il commit contenente questa pagina e segue il baseline `5179a2a`.
-- Ledger autorevole:
-  `.superpowers/sdd/strip-energy-flux-implementation-plan/progress.md`.
+- Decisioni, verifiche e istruzioni correnti sono consolidate in questa pagina,
+  nel design, nel piano di implementazione e in `Current-Status.md`; la cronologia
+  Git conserva il dettaglio delle modifiche.
 
 ## Non-obiettivi ancora aperti
 

@@ -1,10 +1,5 @@
 # Strip→Eγ Lookup and Flux Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` (recommended) or
-> `superpowers:executing-plans` to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build deterministic farm tooling that derives run-specific
 `Xstrip → Eγ` lookups from inclusive `h80` trees and integrates
 `POL1/POL2/BREM` flux into publication energy bins and manifest groups.
@@ -27,14 +22,12 @@ event corpus in Python.
 
 Tasks 1–6 and the final-review fix wave are implemented as of 2026-07-30.
 All 37 task checkboxes are marked complete; their original RED snippets remain
-as the historical execution recipe, not live open work. Local final-fix
-evidence is recorded in
-`.superpowers/sdd/strip-energy-flux-implementation-plan/final-fix-report.md`.
-The authoritative status ledger is
-`.superpowers/sdd/strip-energy-flux-implementation-plan/progress.md`; it maps
-Tasks 1–6 and the final-review rulings to their commit ranges. Current
-operating and correction guidance is in
-[Strip-energy flux: maintenance](strip-energy-flux-maintenance).
+as the historical execution recipe, not live open work. Final-review rulings
+and operational evidence are consolidated in
+[Strip-energy flux: maintenance](strip-energy-flux-maintenance),
+[Design strip-energy flux](strip-energy-flux-design) and
+[Current Status](Current-Status). Git history preserves the task-level audit
+trail.
 
 ## Global Constraints
 

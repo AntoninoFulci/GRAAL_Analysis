@@ -2,26 +2,22 @@
 *.npz
 graal_data/
 .DS_Store
-**.DS_Store**
-
+**/.DS_Store
 
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
 
 .venv/
 *.egg-info/
 .vscode/
-*cache*
 
 docs/
 .superpowers/
-.vscode/
-
 
 test_data/
 
 /data/
-
 /results/
 
 tmp/

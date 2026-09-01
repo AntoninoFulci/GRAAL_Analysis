@@ -7,7 +7,9 @@ L'η e il π⁰ decadono ciascuno in due fotoni: il rivelatore vede quattro foto
 Il primo problema è capire quali due fotoni vengono dall'η e quali dal π⁰. 
 Il codice lo risolve in due modi pensati per essere confrontati — la **minimizzazione del chi2** (l'analisi standard) e la stessa minimizzazione preceduta da un **gate BDT** che scarta il fondo — e su entrambi applica poi un **fit cinematico** che aggiusta le quantità misurate entro la loro risoluzione.
 
-Per una spiegazione pià completa rifarsi alla 📖 **[Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)**.
+Per stato corrente, formati e dettagli della pipeline consultare la
+📖 **[wiki del progetto](wiki/Current-Status.md)**, pubblicata anche nella
+**[GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)**.
 
 ## Installazione
 
@@ -15,9 +17,11 @@ Per una spiegazione pià completa rifarsi alla 📖 **[Wiki](https://github.com/
 pip install -e .
 ```
 
-Le cartelle sono numerate (`01_`, `02_`, …) in modo da rendere più chiaro l'ordine l'ordine della pipeline. l'installazione mappa quei nomi su package importabili (`00_common` → `graal_common`, e così via).
+Le cartelle sono numerate (`01_`, `02_`, …) per rendere visibile l'ordine
+della pipeline. L'installazione mappa questi nomi su package importabili
+(`00_common` → `graal_common`, e così via).
 
-## How to
+## Uso
 
 ```bash
 ./run_pipeline.sh                # catena completa sui dati veri
@@ -30,7 +34,7 @@ Vedere la wiki per la lista completa di opzioni.
 
 | # | Fase | Cartella | Da → a |
 |---|------|----------|--------|
-| 0 | Common block | `01_common/` | Vocabolario condiviso dalle varie fasi|
+| 0 | Codice condiviso | `00_common/` | Vocabolario e logica comuni alle varie fasi |
 | 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
 | 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
 | 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 9 canali: segnale + 8 fondi |
