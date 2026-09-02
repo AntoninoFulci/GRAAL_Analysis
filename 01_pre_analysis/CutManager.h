@@ -343,7 +343,7 @@ bool IsDeuteriumRun(int runID) {
 // skips the whole forward block there, so none of its cuts are required — and
 // indeed ProtonFwd and DeuteronFwd do not exist for it.
 bool IsForwardExcluded(int runID) {
-    return runID > 4577 && runID < 4606;   // 2005_d1
+    return GetRunFolder(runID) == "2005_d1";
 }
 
 // Fetch a cut the analysis genuinely requires. A miss is fatal: carrying on

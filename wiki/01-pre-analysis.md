@@ -21,7 +21,7 @@ Per le particelle massive (protoni, neutroni, deutoni) l'impulso si ricava dal t
 
 > Un dettaglio del codice degno di nota: se il quadrato dell'impulso viene negativo (`Ppro_sq < 0`, ecc.) la candidata viene scartata silenziosamente — non c'è controllo aggregato su quante candidate vengono perse così.
 
-> Da notare anche una regione esclusa a mano: per le run `2005_d1` (`4577 < Idrun < 4606`) le tracce cariche in avanti non vengono processate affatto (non entra nel blocco che le classifica come protone/pione/deutone), un'eccezione specifica per quella run scritta direttamente nel codice.
+> Da notare anche una regione esclusa a mano: per tutte le run della cartella `2005_d1`, inclusi gli estremi 4577 e 4606, le tracce cariche in avanti non vengono processate affatto (non entra nel blocco che le classifica come protone/pione/deutone), perché il rivelatore forward era inutilizzabile in quel periodo.
 
 ## Rami del `h80`
 
