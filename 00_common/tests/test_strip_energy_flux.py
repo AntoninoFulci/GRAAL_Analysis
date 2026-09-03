@@ -430,8 +430,22 @@ def test_disk_lookup_caps_high_cardinality_extra_run_diagnostics(tmp_path):
     )
 
 
-@pytest.mark.parametrize("value", [0.0, 129.0, 12.25, math.nan, math.inf])
-def test_xstrip_rejects_out_of_domain_or_nonintegral_values(value):
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (69.49, 69),
+        (69.5, 70),
+        (69.50387573242188, 70),
+        (1.49, 1),
+        (127.5, 128),
+    ],
+)
+def test_xstrip_rounds_to_nearest_integer_half_up(value, expected):
+    assert normalize_xstrip(value) == expected
+
+
+@pytest.mark.parametrize("value", [0.0, 0.49, 128.5, 129.0, math.nan, math.inf])
+def test_xstrip_rejects_values_that_round_outside_domain(value):
     with pytest.raises(StripEnergyFluxError):
         normalize_xstrip(value)
 

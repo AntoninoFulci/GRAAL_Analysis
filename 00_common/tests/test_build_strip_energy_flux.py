@@ -886,7 +886,6 @@ def test_h80_reader_rejects_missing_required_branch(tmp_path):
     ("invalid_entry", "message"),
     [
         ((0, 2, 1.2), "run_number must be positive"),
-        ((7, 12.25, 1.2), "Xstrip is not integral"),
         ((7, 129, 1.2), "Xstrip outside 1..128"),
         ((7, 2, 0.0), "beam energy must be finite and positive"),
         ((7, 2, float("nan")), "beam energy must be finite and positive"),
@@ -905,6 +904,16 @@ def test_h80_reader_semantic_errors_include_file_and_entry(
 
     assert f"{source}: h80 entry 1:" in str(caught.value)
     assert message in str(caught.value)
+
+
+def test_h80_reader_rounds_fractional_xstrip_to_nearest_integer(tmp_path):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80(pre / "fractional.root", [(1321, 69.50387573242188, 1.3195386)])
+
+    samples, _ = cli.read_h80_samples(pre)
+
+    assert samples[0].xstrip == 70
 
 
 def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):

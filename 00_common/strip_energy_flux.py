@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import csv
 from dataclasses import asdict, dataclass
 import json
-from math import fsum, isclose, isfinite
+from math import floor, fsum, isclose, isfinite
 from numbers import Integral
 from pathlib import Path
 import shutil
@@ -301,9 +301,7 @@ def atomic_output_directory(destination: Path) -> Iterator[Path]:
 def normalize_xstrip(value: float) -> int:
     if not isfinite(value):
         raise StripEnergyFluxError("Xstrip must be finite")
-    strip = round(value)
-    if abs(value - strip) > 1e-6:
-        raise StripEnergyFluxError(f"Xstrip is not integral: {value}")
+    strip = floor(value + 0.5)
     if not 1 <= strip <= 128:
         raise StripEnergyFluxError(f"Xstrip outside 1..128: {value}")
     return strip

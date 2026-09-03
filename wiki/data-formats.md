@@ -17,8 +17,11 @@ di `beam.E()`; non viene fatto pooling tra run, target, tipo di fascio o
 gruppo. Le informazioni manifest sono riportate in ogni CSV per mantenere la
 separazione: le somme di gruppo non mescolano mai `P`/`D` né `UV`/`VIS`.
 
-Le energie e tutti i bordi energetici sono in **GeV**. `Xstrip` deve essere un
-intero nel dominio fisico **1–128**. Un bin energetico usa `[low, high)`;
+Le energie e tutti i bordi energetici sono in **GeV**. `Xstrip` può essere una
+coordinata frazionaria prodotta dalla ricostruzione del tagger: viene
+arrotondata alla strip intera più vicina con convenzione half-up (`n + 0.5`
+va a `n + 1`). La strip risultante deve appartenere al dominio fisico
+**1–128**. Un bin energetico usa `[low, high)`;
 soltanto il bin finale include anche il proprio bordo destro. Una strip con
 lookup sotto o sopra il dominio del binning non viene assegnata implicitamente
 al primo o all'ultimo bin.

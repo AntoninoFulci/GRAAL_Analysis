@@ -139,8 +139,10 @@ Vengono inoltre calcolati:
 - MAD, `median(abs(E - median(E)))`;
 - provenienza `observed`.
 
-`Xstrip` deve essere finito, compreso tra 1 e 128 e compatibile con un intero.
-Il valore viene convertito a intero soltanto dopo questo controllo.
+`Xstrip` deve essere finito. Poiché la ricostruzione del tagger può produrre
+coordinate frazionarie, il valore viene arrotondato alla strip più vicina con
+convenzione half-up (`floor(Xstrip + 0.5)`). La strip risultante deve essere
+compresa tra 1 e 128.
 `beam.E()` deve essere finito e positivo.
 `RunNumber` deve essere un intero positivo. Tutti e tre i controlli vengono
 eseguiti mentre si legge l'entry ROOT, così l'errore conserva file sorgente e
