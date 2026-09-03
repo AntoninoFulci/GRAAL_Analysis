@@ -916,6 +916,36 @@ def test_h80_reader_rounds_fractional_xstrip_to_nearest_integer(tmp_path):
     assert samples[0].xstrip == 70
 
 
+def test_h80_reader_uses_bound_buffers_instead_of_dynamic_tree_access(
+    tmp_path, monkeypatch
+):
+    import ROOT
+
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80(
+        pre / "bound.root",
+        [(1321, 69.50387573242188, 1.3195386)],
+    )
+    original_getattr = ROOT.TTree.__getattr__
+
+    def reject_dynamic_branch_access(tree, name):
+        if name in {"RunNumber", "Xstrip", "beam"}:
+            raise AssertionError(f"dynamic branch access: {name}")
+        return original_getattr(tree, name)
+
+    def reject_dynamic_iteration(tree):
+        raise AssertionError("dynamic TTree iteration")
+
+    monkeypatch.setattr(ROOT.TTree, "__getattr__", reject_dynamic_branch_access)
+    monkeypatch.setattr(ROOT.TTree, "__iter__", reject_dynamic_iteration)
+
+    samples, qa = cli.read_h80_samples(pre)
+
+    assert samples == [cli.EnergySample(1321, 70, pytest.approx(1.3195386))]
+    assert qa == {"entries": 1, "file_count": 1}
+
+
 def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):
     flux = tmp_path / "flux.root"
     write_flux(flux, {7: {"POL1": {}, "POL2": {}}})

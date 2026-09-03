@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from array import array
 from collections import defaultdict
 from math import fsum, isfinite
 import os
@@ -111,12 +112,44 @@ def iter_h80_samples(
                         active = pending.pop()
                         active.SetStatus(1)
                         pending.extend(active.GetListOfBranches())
-                for entry_index, entry in enumerate(tree):
+
+                entry_count = int(tree.GetEntries())
+                beam_branch = tree.GetBranch("beam")
+                beam_class = beam_branch.GetClassName()
+                if entry_count and not beam_class:
+                    raise StripEnergyFluxError(
+                        f"{path}: h80 entry 0: "
+                        "cannot convert RunNumber/Xstrip/beam.E()"
+                    )
+                run_number = array("i", [0])
+                xstrip = array("f", [0.0])
+                beam = (
+                    getattr(_import_root(), beam_class)()
+                    if beam_class
+                    else None
+                )
+                bindings = (
+                    ("RunNumber", run_number),
+                    ("Xstrip", xstrip),
+                    ("beam", beam),
+                )
+                for branch, buffer in bindings:
+                    if buffer is None:
+                        continue
+                    status = tree.SetBranchAddress(branch, buffer)
+                    if status < 0:
+                        raise StripEnergyFluxError(
+                            f"{path}: cannot bind branch {branch} "
+                            f"(ROOT status {status})"
+                        )
+
+                for entry_index in range(entry_count):
+                    tree.GetEntry(entry_index)
                     try:
                         sample = EnergySample(
-                            entry.RunNumber,
-                            float(entry.Xstrip),
-                            float(entry.beam.E()),
+                            run_number[0],
+                            float(xstrip[0]),
+                            float(beam.E()),
                         )
                     except Exception as exc:
                         raise StripEnergyFluxError(
