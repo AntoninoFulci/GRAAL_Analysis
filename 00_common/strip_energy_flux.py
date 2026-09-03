@@ -1,3 +1,5 @@
+"""Build strip-energy lookups and energy-binned flux products."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -18,11 +20,15 @@ from .run_manifest import RunRecord
 
 
 class StripEnergyFluxError(ValueError):
+    """Report invalid strip-energy or flux input."""
+
     pass
 
 
 @dataclass(frozen=True)
 class EnergyBinning:
+    """Define named, strictly increasing energy-bin edges in GeV."""
+
     name: str
     edges_gev: tuple[float, ...]
 
@@ -94,6 +100,8 @@ GROUP_FLUX_FIELDS = (
 
 @dataclass(frozen=True)
 class EnergySample:
+    """Store one run, strip, and measured beam-energy sample."""
+
     run_number: int
     xstrip: float
     energy_gev: float
@@ -101,6 +109,8 @@ class EnergySample:
 
 @dataclass(frozen=True)
 class StripEnergyRecord:
+    """Store robust energy statistics for one run and strip."""
+
     run_number: int
     xstrip: int
     event_count: int
@@ -113,13 +123,7 @@ class StripEnergyRecord:
 
 @dataclass(frozen=True)
 class StripEnergyLookupBuild:
-    """Bounded production lookup result plus exact run-count QA metadata.
-
-    When ``run_numbers`` is supplied to the disk builder, ``observed_runs``
-    contains only requested runs that were observed. Unrequested run numbers
-    are retained only up to ``MAX_UNREQUESTED_RUN_DIAGNOSTICS``; the exact
-    count and truncation state remain available separately.
-    """
+    """Return a lookup and run-count QA metadata from the disk builder."""
 
     records: tuple[StripEnergyRecord, ...]
     observed_runs: tuple[int, ...]
@@ -132,6 +136,8 @@ class StripEnergyLookupBuild:
 
 @dataclass(frozen=True)
 class StripFlux:
+    """Store three raw flux components for one run and strip."""
+
     run_number: int
     xstrip: int
     pol1: float
@@ -141,6 +147,8 @@ class StripFlux:
 
 @dataclass(frozen=True)
 class FluxBinRecord:
+    """Store raw and net flux for one run and energy bin."""
+
     binning: str
     run_number: int
     source_period: str
@@ -160,6 +168,8 @@ class FluxBinRecord:
 
 @dataclass(frozen=True)
 class GroupFluxBinRecord:
+    """Store aggregated raw and net flux for one group and energy bin."""
+
     binning: str
     target: str
     beam_type: str
@@ -180,6 +190,7 @@ def _write_csv(
     fields: tuple[str, ...],
     rows: Iterable[dict[str, object]],
 ) -> None:
+    """Write dictionaries to a CSV file with a fixed schema."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as stream:
@@ -193,6 +204,7 @@ def write_lookup_csv(
     records: Sequence[StripEnergyRecord],
     manifest_by_run: dict[int, RunRecord],
 ) -> None:
+    """Write strip-energy records with manifest metadata."""
     def rows() -> Iterator[dict[str, object]]:
         for record in sorted(
             records,
@@ -212,6 +224,7 @@ def write_lookup_csv(
 
 
 def write_run_flux_csv(path: Path, records: Sequence[FluxBinRecord]) -> None:
+    """Write sorted per-run flux-bin records."""
     _write_csv(
         path,
         RUN_FLUX_FIELDS,
@@ -235,6 +248,7 @@ def write_run_flux_csv(path: Path, records: Sequence[FluxBinRecord]) -> None:
 
 
 def write_group_flux_csv(path: Path, records: Sequence[GroupFluxBinRecord]) -> None:
+    """Write sorted group-level flux-bin records."""
     _write_csv(
         path,
         GROUP_FLUX_FIELDS,
@@ -256,6 +270,7 @@ def write_group_flux_csv(path: Path, records: Sequence[GroupFluxBinRecord]) -> N
 
 
 def write_qa_json(path: Path, qa: object) -> None:
+    """Write JSON QA data with stable indentation and a trailing newline."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(qa, indent=2, sort_keys=True) + "\n")
@@ -263,6 +278,7 @@ def write_qa_json(path: Path, qa: object) -> None:
 
 @contextmanager
 def atomic_output_directory(destination: Path) -> Iterator[Path]:
+    """Yield a staging directory and publish it atomically on success."""
     destination = Path(destination)
     if destination.exists() and not destination.is_dir():
         raise StripEnergyFluxError(f"destination is not a directory: {destination}")
@@ -274,6 +290,7 @@ def atomic_output_directory(destination: Path) -> Iterator[Path]:
     try:
         yield staging
         if destination.exists():
+            # Move the previous output aside before publishing the new tree.
             backup = Path(
                 tempfile.mkdtemp(
                     prefix=f".{destination.name}.previous.",
@@ -285,6 +302,7 @@ def atomic_output_directory(destination: Path) -> Iterator[Path]:
         try:
             staging.replace(destination)
         except BaseException:
+            # Restore the previous output if publication fails.
             if backup is not None and backup.exists() and not destination.exists():
                 backup.replace(destination)
             raise
@@ -299,6 +317,7 @@ def atomic_output_directory(destination: Path) -> Iterator[Path]:
 
 
 def normalize_xstrip(value: float) -> int:
+    """Round and validate a detector strip number."""
     if not isfinite(value):
         raise StripEnergyFluxError("Xstrip must be finite")
     strip = floor(value + 0.5)
@@ -308,6 +327,7 @@ def normalize_xstrip(value: float) -> int:
 
 
 def _validated_energy_sample(sample: EnergySample) -> tuple[int, int, float]:
+    """Normalize and validate one energy sample."""
     if isinstance(sample.run_number, Integral) and not isinstance(
         sample.run_number, bool
     ):
@@ -341,12 +361,13 @@ def _validated_energy_sample(sample: EnergySample) -> tuple[int, int, float]:
 
 
 def validate_energy_sample(sample: EnergySample) -> EnergySample:
-    """Return a normalized sample or raise a semantic validation error."""
+    """Return a normalized sample or raise ``StripEnergyFluxError``."""
     run_number, xstrip, energy_gev = _validated_energy_sample(sample)
     return EnergySample(run_number, xstrip, energy_gev)
 
 
 def energy_bin_index(energy_gev: float, binning: EnergyBinning) -> int | None:
+    """Return the bin containing an energy, or ``None`` when out of range."""
     if not isfinite(energy_gev):
         raise StripEnergyFluxError("energy must be finite")
     if energy_gev < binning.edges_gev[0] or energy_gev > binning.edges_gev[-1]:
@@ -360,6 +381,7 @@ def energy_bin_index(energy_gev: float, binning: EnergyBinning) -> int | None:
 def build_strip_energy_lookup(
     samples: Iterable[EnergySample],
 ) -> tuple[StripEnergyRecord, ...]:
+    """Build in-memory median and MAD statistics per run and strip."""
     grouped: dict[tuple[int, int], list[float]] = defaultdict(list)
     for sample in samples:
         run_number, xstrip, energy_gev = _validated_energy_sample(sample)
@@ -390,6 +412,7 @@ def _spooled_order_statistic(
     *,
     center: float | None = None,
 ) -> float:
+    """Read a median or median absolute deviation from SQLite."""
     limit = 1 if event_count % 2 else 2
     offset = (event_count - 1) // 2
     if center is None:
@@ -429,7 +452,11 @@ def build_strip_energy_lookup_on_disk(
     run_numbers: Iterable[int] | None = None,
     batch_size: int = 4096,
 ) -> StripEnergyLookupBuild:
-    """Build exact per-strip statistics with event rows held in SQLite."""
+    """Build exact per-strip statistics while spooling samples to SQLite.
+
+    ``run_numbers`` limits the returned records to requested runs while still
+    reporting all observed runs in the QA counts.
+    """
     if batch_size < 1:
         raise StripEnergyFluxError("energy spool batch size must be at least 1")
     database = Path(database)
@@ -481,6 +508,7 @@ def build_strip_energy_lookup_on_disk(
         )
 
         if requested_runs is None:
+            # Without a filter, every distinct run contributes to the lookup.
             observed_runs = tuple(
                 int(row[0])
                 for row in connection.execute(
@@ -501,6 +529,7 @@ def build_strip_energy_lookup_on_disk(
                 ORDER BY run_number, xstrip
             """
         else:
+            # Keep the full input spool for QA, but join only requested runs.
             connection.execute(
                 "CREATE TEMP TABLE requested_runs (run_number INTEGER PRIMARY KEY)"
             )
@@ -570,6 +599,8 @@ def build_strip_energy_lookup_on_disk(
         groups = connection.execute(group_query)
         records = []
         for run_number, xstrip, count, minimum, maximum in groups:
+            # Two ordered queries yield the exact median and MAD without loading
+            # all samples for a strip into Python.
             center = _spooled_order_statistic(
                 connection,
                 int(run_number),
@@ -612,6 +643,7 @@ def integrate_run_flux(
     strips: Sequence[StripFlux],
     binning: EnergyBinning,
 ) -> tuple[FluxBinRecord, ...]:
+    """Assign strip flux to energy bins and compute net polarization flux."""
     energy_by_strip = {
         record.xstrip: record.energy_median_gev
         for record in lookup
@@ -649,6 +681,7 @@ def integrate_run_flux(
         pol1, brem, pol2 = sums[index]
         pol1_net = pol1 - brem
         pol2_net = pol2 - brem
+        # Negative net components mark a bin whose raw fluxes are inconsistent.
         status = "invalid" if pol1_net < 0 or pol2_net < 0 else "valid"
         result.append(
             FluxBinRecord(
@@ -675,6 +708,7 @@ def integrate_run_flux(
 def aggregate_group_flux(
     records: Sequence[FluxBinRecord],
 ) -> tuple[GroupFluxBinRecord, ...]:
+    """Sum run-level flux records by group and energy bin."""
     sums: dict[tuple[str, str, str, str, float, float], list[float]] = defaultdict(
         lambda: [0.0, 0.0, 0.0]
     )
@@ -734,7 +768,7 @@ def check_flux_conservation(
     relative_tolerance: float = 1e-12,
     absolute_tolerance: float = 1e-9,
 ) -> dict[str, object]:
-    """Check raw-flux conservation at run and manifest-group boundaries."""
+    """Check raw-flux conservation for runs and manifest groups."""
     if relative_tolerance < 0 or absolute_tolerance < 0:
         raise StripEnergyFluxError("conservation tolerances must be nonnegative")
 
@@ -750,6 +784,7 @@ def check_flux_conservation(
         for run_number, state_parts in physical_parts.items()
     }
 
+    # Compare binned flux plus out-of-range flux with the physical strip total.
     included_parts: dict[tuple[str, int], list[list[float]]] = defaultdict(
         lambda: [[], [], []]
     )
@@ -812,6 +847,7 @@ def check_flux_conservation(
         for key, state_parts in expected_group_parts.items()
     }
 
+    # Compare aggregated output with the sum of its contributing run records.
     observed_group_parts: dict[
         tuple[str, str, str, str, float, float], list[list[float]]
     ] = defaultdict(lambda: [[], [], []])
@@ -873,7 +909,7 @@ def check_flux_conservation(
 def find_monotonic_inversions(
     records: Sequence[StripEnergyRecord],
 ) -> tuple[dict[str, object], ...]:
-    """Return adjacent run-strip steps that contradict the run's global slope."""
+    """Find adjacent strip steps that contradict each run's global slope."""
     by_run: dict[int, list[StripEnergyRecord]] = defaultdict(list)
     for record in records:
         by_run[record.run_number].append(record)
@@ -886,6 +922,7 @@ def find_monotonic_inversions(
 
         mean_strip = sum(record.xstrip for record in ordered) / len(ordered)
         mean_energy = sum(record.energy_median_gev for record in ordered) / len(ordered)
+        # Covariance gives the least-squares slope sign without fitting a model.
         covariance = sum(
             (record.xstrip - mean_strip) * (record.energy_median_gev - mean_energy)
             for record in ordered

@@ -1,26 +1,4 @@
-"""Assigning four observed photons to two mesons, and scoring the assignment.
-
-The one chi2 in the project. The reconstruction uses it to pick a pairing; the
-stage-1 features use it as a discriminant. Those were two separate
-implementations of the same formula — a table-driven loop there, a vectorised
-expression here — agreeing by inspection and free to drift. That is the shape of
-the bug that once had the gate scoring its model on a feature vector built by a
-second, drifted copy of the feature builder.
-
-The enumeration used to live in `05_reconstruction/data/combinations_*.txt`, a file
-per channel listing rows like
-
-    0 1 2 3 0.547862 0.134977      # photons (0,1) are the eta, (2,3) the pi0
-    0 1 2 3 0.134977 0.547862      # ...or the other way round
-
-Those files carried no information: they were exactly the three ways to split
-four photons into two pairs, times the two ways to assign the mesons to them
-(times one, not two, when the mesons are the same particle). Every row was
-derivable from the hypothesis, and the meson masses were copied into the table
-where they were free to disagree with the registry. `pairings()` derives them
-instead — which is also what lets a new hypothesis be reconstructed without
-anyone writing it a table first.
-"""
+"""Enumerate photon pairings and score them against a meson hypothesis."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,11 +7,11 @@ import numpy as np
 
 from graal_common.channels import CHI2_RESOLUTION, Hypothesis
 
-# The C(4,2)=6 photon pairs, and the slot each occupies in a pair-mass array.
+# Photon pairs and their positions in a pair-mass array.
 PAIR_IDX: list[tuple[int, int]] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
 _PAIR_SLOT: dict[tuple[int, int], int] = {pair: k for k, pair in enumerate(PAIR_IDX)}
 
-# The 3 ways to split 4 photons into two disjoint pairs.
+# The three partitions of four photons into disjoint pairs.
 PARTITIONS: list[tuple[tuple[int, int], tuple[int, int]]] = [
     ((0, 1), (2, 3)),
     ((0, 2), (1, 3)),
@@ -50,32 +28,26 @@ class Pairing:
 
 
 def pair_slot(i: int, j: int) -> int:
-    """Where the (i, j) photon pair sits in a pair_masses array."""
+    """Return the pair-mass index for photons ``i`` and ``j``."""
     return _PAIR_SLOT[(min(i, j), max(i, j))]
 
 
 def pairings(hypothesis: Hypothesis) -> list[Pairing]:
-    """Every way the four photons could be this hypothesis's two mesons.
-
-    Six for two different mesons, three when they are the same particle: with a
-    degenerate hypothesis, swapping "heavy" and "light" relabels the pairs
-    without asking a different question, and scoring both would be the same chi2
-    twice.
-    """
+    """Generate all photon pairings for ``hypothesis``."""
     out: list[Pairing] = []
     for a, b in PARTITIONS:
         out.append(Pairing(heavy=a, light=b))
+        # Swapping identical mesons would duplicate the same score.
         if not hypothesis.is_degenerate:
             out.append(Pairing(heavy=b, light=a))
     return out
 
 
 def pair_masses(photons: np.ndarray) -> np.ndarray:
-    """Invariant masses of the 6 photon pairs.
+    """Compute the six photon-pair invariant masses.
 
-    photons: (..., 4, 4), last axis [px, py, pz, E]. Returns (..., 6) in
-    PAIR_IDX order. Broadcasts, so one event (4,4) -> (6,) and a whole chunk
-    (N,4,4) -> (N,6) go through the same code.
+    Accepts ``(..., 4, 4)`` with the last axis ordered as ``[px, py, pz, E]``;
+    returns ``(..., 6)`` in ``PAIR_IDX`` order.
     """
     out = []
     for i, j in PAIR_IDX:
@@ -92,11 +64,7 @@ def chi2(
     m_light_measured: np.ndarray | float,
     hypothesis: Hypothesis,
 ) -> np.ndarray | float:
-    """How badly two measured masses miss the hypothesis's two poles.
-
-    Each term is the miss in units of the mass resolution, which the analysis
-    takes as a fixed fraction (CHI2_RESOLUTION) of the target mass. Broadcasts.
-    """
+    """Compute the mass-pole chi2 for a hypothesis."""
     d_heavy = (m_heavy_measured - hypothesis.heavy_mass) / (
         CHI2_RESOLUTION * hypothesis.heavy_mass
     )
@@ -107,11 +75,7 @@ def chi2(
 
 
 def chi2_per_pairing(pair_m: np.ndarray, hypothesis: Hypothesis) -> np.ndarray:
-    """chi2 of every pairing, given the 6 pair masses.
-
-    pair_m: (..., 6) from pair_masses. Returns (..., n_pairings), in the order
-    pairings() gives them.
-    """
+    """Score every pairing from pair masses shaped ``(..., 6)``."""
     return np.stack(
         [
             chi2(
@@ -126,35 +90,23 @@ def chi2_per_pairing(pair_m: np.ndarray, hypothesis: Hypothesis) -> np.ndarray:
 
 
 def best_pairing(photons: np.ndarray, hypothesis: Hypothesis) -> tuple[Pairing, float]:
-    """The pairing that best fits the hypothesis, and its chi2. One event."""
+    """Select the best pairing for one event."""
     scores = chi2_per_pairing(pair_masses(photons), hypothesis)
     idx = int(np.argmin(scores))
     return pairings(hypothesis)[idx], float(scores[idx])
 
 
 def best_chi2(photons: np.ndarray, hypothesis: Hypothesis) -> np.ndarray:
-    """The best pairing's chi2 for each of N events. photons: (N, 4, 4)."""
+    """Compute the minimum pairing chi2 for each event."""
     return chi2_per_pairing(pair_masses(photons), hypothesis).min(axis=-1)
 
 
 def best_pairing_indices(
     pair_m: np.ndarray, hypothesis: Hypothesis
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Photon indices of the chi2-best pairing, for a whole chunk of events.
-
-    pair_m: (N, 6) from pair_masses. Returns (heavy_idx, light_idx), each an
-    (N, 2) int array — the two photon indices of the heavy (eta) candidate and
-    of the light (pi0) candidate, for the pairing that minimises the hypothesis
-    chi2 in each event.
-
-    The batch form of best_pairing, kept here so the feature builder can gather
-    per-event meson candidates without a Python loop over events. It selects the
-    same pairing best_pairing does and that best_chi2 (feature 8) scores: a
-    feature built on a different pairing than the one the chi2 reports would be
-    answering a different question than it claims.
-    """
+    """Select best-pairing photon indices for a batch of pair masses."""
     ps = pairings(hypothesis)
-    heavy_table = np.array([p.heavy for p in ps], dtype=np.intp)   # (n_pairings, 2)
+    heavy_table = np.array([p.heavy for p in ps], dtype=np.intp)  # (n_pairings, 2)
     light_table = np.array([p.light for p in ps], dtype=np.intp)
     chosen = np.argmin(chi2_per_pairing(pair_m, hypothesis), axis=-1)  # (N,)
     return heavy_table[chosen], light_table[chosen]

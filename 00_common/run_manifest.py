@@ -1,3 +1,5 @@
+"""Scan, serialize, read, and validate run manifests."""
+
 from __future__ import annotations
 
 import csv
@@ -25,11 +27,15 @@ ALLOWED_SOURCES = {"automatic", "manual", "unresolved"}
 
 
 class ManifestError(ValueError):
+    """Report an invalid or unusable manifest."""
+
     pass
 
 
 @dataclass(frozen=True)
 class RunRecord:
+    """Store the normalized metadata for one run."""
+
     run_number: int
     source_period: str
     target: str
@@ -40,6 +46,7 @@ class RunRecord:
 
 
 def classify_period(period: str) -> tuple[str, str, str, str]:
+    """Classify a source-period name into target, beam, group, and source."""
     name = period.lower()
     has_uv = "uv" in name
     has_vis = "vis" in name
@@ -55,6 +62,7 @@ def classify_period(period: str) -> tuple[str, str, str, str]:
 
 
 def scan_runs(input_dir: Path) -> list[RunRecord]:
+    """Discover and classify run files below ``input_dir``."""
     root = Path(input_dir)
     if not root.is_dir():
         raise ManifestError(f"input directory not found: {root}")
@@ -67,10 +75,12 @@ def scan_runs(input_dir: Path) -> list[RunRecord]:
     records: list[RunRecord] = []
     seen: dict[int, Path] = {}
     for path in candidates:
+        # Validate the name before extracting its numeric run identifier.
         match = RUN_FILE_RE.fullmatch(path.name)
         assert match is not None
         run_number = int(match.group(1))
         if run_number in seen:
+            # Keep both paths in the error to make duplicate discovery actionable.
             raise ManifestError(
                 f"duplicate run {run_number}: "
                 f"{seen[run_number].relative_to(root)} and {path.relative_to(root)}"
@@ -96,6 +106,7 @@ def scan_runs(input_dir: Path) -> list[RunRecord]:
 
 
 def write_manifest(records: Sequence[RunRecord], output: Path) -> None:
+    """Write records to a manifest with the canonical schema."""
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as stream:
@@ -116,6 +127,7 @@ def write_manifest(records: Sequence[RunRecord], output: Path) -> None:
 
 
 def read_manifest(path: Path) -> list[RunRecord]:
+    """Read manifest rows without applying semantic validation."""
     manifest = Path(path)
     if not manifest.is_file():
         raise ManifestError(f"manifest not found: {manifest}")
@@ -156,6 +168,7 @@ def read_manifest(path: Path) -> list[RunRecord]:
 
 
 def validate_manifest(path: Path) -> list[RunRecord]:
+    """Read and validate every row in a manifest."""
     records = read_manifest(path)
     if not records:
         raise ManifestError("manifest has no data rows")
@@ -164,6 +177,7 @@ def validate_manifest(path: Path) -> list[RunRecord]:
     seen: set[int] = set()
     for row_number, record in enumerate(records, start=2):
         prefix = f"row {row_number}: "
+        # Check ordering and uniqueness together while walking the file once.
         if record.run_number <= 0:
             raise ManifestError(prefix + "run_number must be a positive integer")
         if record.run_number in seen:
@@ -200,6 +214,7 @@ def validate_manifest(path: Path) -> list[RunRecord]:
                 prefix + f"group {record.group!r} conflicts with "
                 f"target/beam {expected_group!r}"
             )
+        # Compare both path syntaxes so manifests remain portable across hosts.
         source = PurePosixPath(record.source_file)
         windows_source = PureWindowsPath(record.source_file)
         if source.is_absolute() or windows_source.is_absolute():
