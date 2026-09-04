@@ -39,6 +39,7 @@ from graal_common.strip_energy_flux import (
 
 _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
+_MAX_H80_SKIP_DETAILS = 100
 _ROOT_SCALAR_ARRAY_CODES = {
     "Char_t": "b",
     "UChar_t": "B",
@@ -120,17 +121,63 @@ def _scalar_branch_buffer(path: Path, tree, branch_name: str):
     return array(type_code, [0])
 
 
+def _record_h80_skip(
+    qa: dict[str, object],
+    category: str,
+    detail: dict[str, object],
+    warning: str,
+) -> None:
+    if category == "entry":
+        count_key, details_key = "skipped_entry_count", "skipped_entries"
+    else:
+        count_key, details_key = "skipped_file_count", "skipped_files"
+    truncated_key = f"{details_key}_truncated"
+    count = int(qa[count_key]) + 1
+    qa[count_key] = count
+    details = qa[details_key]
+    if not isinstance(details, list):
+        raise AssertionError(f"{details_key} must be a list")
+    if len(details) < _MAX_H80_SKIP_DETAILS:
+        details.append(detail)
+        print(f"WARNING: {warning}", file=sys.stderr)
+    else:
+        qa[truncated_key] = True
+        if count == _MAX_H80_SKIP_DETAILS + 1:
+            print(
+                f"WARNING: additional skipped h80 {category} warnings suppressed",
+                file=sys.stderr,
+            )
+
+
 def iter_h80_samples(
     preanalysis_dir: Path,
 ) -> tuple[Iterator[EnergySample], dict[str, object]]:
     """Stream validated h80 samples and update QA as entries are consumed."""
     paths = _h80_paths(preanalysis_dir)
-    qa: dict[str, object] = {"entries": 0, "file_count": 0}
+    qa: dict[str, object] = {
+        "entries": 0,
+        "file_count": 0,
+        "skipped_entry_count": 0,
+        "skipped_entries": [],
+        "skipped_entries_truncated": False,
+        "skipped_file_count": 0,
+        "skipped_files": [],
+        "skipped_files_truncated": False,
+    }
 
     def samples():
         for path in paths:
             qa["file_count"] = int(qa["file_count"]) + 1
-            source = _open_root_file(path)
+            try:
+                source = _open_root_file(path)
+            except StripEnergyFluxError as exc:
+                _record_h80_skip(
+                    qa,
+                    "file",
+                    {"path": str(path), "error": str(exc)},
+                    str(exc),
+                )
+                continue
             try:
                 tree = source.Get("h80")
                 if not tree:
@@ -180,26 +227,44 @@ def iter_h80_samples(
                         )
 
                 for entry_index in range(entry_count):
-                    tree.GetEntry(entry_index)
+                    if tree.GetEntry(entry_index) <= 0:
+                        error = "cannot read entry"
+                        _record_h80_skip(
+                            qa,
+                            "entry",
+                            {
+                                "path": str(path),
+                                "entry": entry_index,
+                                "error": error,
+                            },
+                            f"{path}: h80 entry {entry_index}: {error}",
+                        )
+                        continue
                     try:
                         sample = EnergySample(
                             run_number[0],
                             float(xstrip[0]),
                             float(beam.E()),
                         )
-                    except Exception as exc:
-                        raise StripEnergyFluxError(
-                            f"{path}: h80 entry {entry_index}: "
-                            "cannot convert RunNumber/Xstrip/beam.E()"
-                        ) from exc
-                    try:
                         sample = validate_energy_sample(sample)
                     except StripEnergyFluxError as exc:
-                        raise StripEnergyFluxError(
-                            f"{path}: h80 entry {entry_index}: {exc}"
-                        ) from exc
-                    qa["entries"] = int(qa["entries"]) + 1
-                    yield sample
+                        error = str(exc)
+                    except Exception:
+                        error = "cannot convert RunNumber/Xstrip/beam.E()"
+                    else:
+                        qa["entries"] = int(qa["entries"]) + 1
+                        yield sample
+                        continue
+                    _record_h80_skip(
+                        qa,
+                        "entry",
+                        {
+                            "path": str(path),
+                            "entry": entry_index,
+                            "error": error,
+                        },
+                        f"{path}: h80 entry {entry_index}: {error}",
+                    )
             finally:
                 source.Close()
 

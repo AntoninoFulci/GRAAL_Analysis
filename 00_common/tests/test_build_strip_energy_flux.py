@@ -392,7 +392,7 @@ def test_cli_mad_and_low_stat_findings_are_warnings_only(tmp_path):
     assert qa["errors"] == []
 
 
-def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
+def test_run_completes_invalid_analysis_when_root_file_is_unreadable(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
     (pre / "pre_7.root").write_text("not a ROOT file")
     output.mkdir()
@@ -408,15 +408,18 @@ def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
         binning=[],
     )
 
-    with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli.run(args)
+    result = cli.run(args)
 
-    assert (output / "sentinel").read_text() == "old"
-    assert not (output / "strip_energy_flux_qa.json").exists()
+    assert result == 1
+    assert not (output / "sentinel").exists()
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["missing_h80_runs"] == [7]
+    assert qa["h80"]["skipped_file_count"] == 1
+    assert qa["h80"]["skipped_files"][0]["path"] == str(pre / "pre_7.root")
     assert not list(tmp_path.glob(".output.energy-spool.*"))
 
 
-def test_cli_failed_rerun_preserves_completed_output_and_writes_sibling_qa(
+def test_cli_unreadable_root_replaces_previous_output_with_completed_qa(
     tmp_path,
 ):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
@@ -435,52 +438,22 @@ def test_cli_failed_rerun_preserves_completed_output_and_writes_sibling_qa(
     ]
     (pre / "pre_7.root").write_text("not a ROOT file")
 
-    failed = run_cli(pre, flux, manifest_path, output)
+    rerun = run_cli(pre, flux, manifest_path, output)
 
-    assert failed.returncode == 1
-    assert {
+    assert rerun.returncode == 1
+    current_bytes = {
         path.name: path.read_bytes()
         for path in output.iterdir()
         if path.is_file()
-    } == previous_bytes
-    failure_directories = sorted(
-        path
-        for path in tmp_path.iterdir()
-        if path.is_dir() and path.name.startswith("output.failure.")
-    )
-    assert len(failure_directories) == 1
-    failure_directory = failure_directories[0]
-    assert str(failure_directory.resolve()) in failed.stderr
-    assert sorted(path.name for path in failure_directory.iterdir()) == [
-        "strip_energy_flux_qa.json"
-    ]
-    failure_qa = json.loads(
-        (failure_directory / "strip_energy_flux_qa.json").read_text()
-    )
-    assert failure_qa["valid"] is False
-    assert failure_qa["errors"] == [
-        f"zombie ROOT file: {pre / 'pre_7.root'}"
-    ]
-
-    failed_again = run_cli(pre, flux, manifest_path, output)
-
-    assert failed_again.returncode == 1
-    second_directories = sorted(
-        path
-        for path in tmp_path.iterdir()
-        if path.is_dir() and path.name.startswith("output.failure.")
-    )
-    assert len(second_directories) == 2
-    assert failure_directory in second_directories
-    second_directory = next(
-        path for path in second_directories if path != failure_directory
-    )
-    assert str(second_directory.resolve()) in failed_again.stderr
-    assert {
-        path.name: path.read_bytes()
-        for path in output.iterdir()
-        if path.is_file()
-    } == previous_bytes
+    }
+    assert sorted(current_bytes) == sorted(previous_bytes)
+    assert current_bytes != previous_bytes
+    qa = json.loads(current_bytes["strip_energy_flux_qa.json"])
+    assert qa["valid"] is False
+    assert qa["missing_h80_runs"] == [7]
+    assert qa["h80"]["skipped_file_count"] == 1
+    assert f"WARNING: zombie ROOT file: {pre / 'pre_7.root'}" in rerun.stderr
+    assert not list(tmp_path.glob("output.failure.*"))
 
 
 def test_main_sqlite_failure_preserves_existing_output_and_writes_sibling_qa(
@@ -522,22 +495,6 @@ def test_main_sqlite_failure_preserves_existing_output_and_writes_sibling_qa(
     stderr = capsys.readouterr().err
     assert "ERROR: database is locked" in stderr
     assert f"Failure QA: {failure_directory.resolve()}" in stderr
-
-
-def test_cli_malformed_root_writes_minimal_atomic_diagnostic_qa(tmp_path):
-    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
-    (pre / "pre_7.root").write_text("not a ROOT file")
-
-    result = run_cli(pre, flux, manifest_path, output)
-
-    assert result.returncode == 1
-    assert sorted(path.name for path in output.iterdir()) == [
-        "strip_energy_flux_qa.json"
-    ]
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is False
-    assert qa["inputs"]["preanalysis_dir"] == str(pre)
-    assert qa["errors"] == [f"zombie ROOT file: {pre / 'pre_7.root'}"]
 
 
 def test_cli_h80_beam_without_energy_method_writes_contextual_minimal_qa(
@@ -869,15 +826,6 @@ def test_h80_reader_rejects_no_root_files(tmp_path):
         cli.read_h80_samples(pre)
 
 
-def test_h80_reader_rejects_zombie_file(tmp_path):
-    pre = tmp_path / "pre"
-    pre.mkdir()
-    (pre / "broken.root").write_text("not a ROOT file")
-
-    with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli.read_h80_samples(pre)
-
-
 def test_h80_reader_rejects_missing_tree(tmp_path):
     import ROOT
 
@@ -909,19 +857,21 @@ def test_h80_reader_rejects_missing_required_branch(tmp_path):
         ((7, 2, float("nan")), "beam energy must be finite and positive"),
     ],
 )
-def test_h80_reader_semantic_errors_include_file_and_entry(
-    tmp_path, invalid_entry, message
+def test_h80_reader_semantic_warnings_include_file_and_entry(
+    tmp_path, invalid_entry, message, capsys
 ):
     pre = tmp_path / "pre"
     pre.mkdir()
     source = pre / "semantic_error.root"
     write_h80(source, [(7, 1, 1.1), invalid_entry])
 
-    with pytest.raises(StripEnergyFluxError) as caught:
-        cli.read_h80_samples(pre)
+    samples, qa = cli.read_h80_samples(pre)
 
-    assert f"{source}: h80 entry 1:" in str(caught.value)
-    assert message in str(caught.value)
+    assert len(samples) == 1
+    assert qa["skipped_entry_count"] == 1
+    warning = capsys.readouterr().err
+    assert f"WARNING: {source}: h80 entry 1:" in warning
+    assert message in warning
 
 
 def test_h80_reader_rounds_fractional_xstrip_to_nearest_integer(tmp_path):
@@ -932,6 +882,52 @@ def test_h80_reader_rounds_fractional_xstrip_to_nearest_integer(tmp_path):
     samples, _ = cli.read_h80_samples(pre)
 
     assert samples[0].xstrip == 70
+
+
+def test_h80_reader_warns_and_skips_invalid_entries(tmp_path, capsys):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    source = pre / "entries.root"
+    write_h80(source, [(7, 1, 1.1), (7, 129, 1.2), (7, 2, 1.3)])
+
+    samples, qa = cli.read_h80_samples(pre)
+
+    assert [sample.xstrip for sample in samples] == [1, 2]
+    assert qa["entries"] == 2
+    assert qa["skipped_entry_count"] == 1
+    assert qa["skipped_entries"] == [
+        {
+            "path": str(source),
+            "entry": 1,
+            "error": "Xstrip outside 1..128: 129.0",
+        }
+    ]
+    assert qa["skipped_entries_truncated"] is False
+    assert (
+        f"WARNING: {source}: h80 entry 1: Xstrip outside 1..128: 129.0"
+        in capsys.readouterr().err
+    )
+
+
+def test_h80_reader_warns_and_skips_unreadable_files(tmp_path, capsys):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    unreadable = pre / "a-broken.root"
+    unreadable.write_text("not a ROOT file")
+    write_h80(pre / "b-valid.root", [(7, 2, 1.3)])
+
+    samples, qa = cli.read_h80_samples(pre)
+
+    assert [sample.xstrip for sample in samples] == [2]
+    assert qa["file_count"] == 2
+    assert qa["skipped_file_count"] == 1
+    assert qa["skipped_files"] == [
+        {"path": str(unreadable), "error": f"zombie ROOT file: {unreadable}"}
+    ]
+    assert qa["skipped_files_truncated"] is False
+    assert (
+        f"WARNING: zombie ROOT file: {unreadable}" in capsys.readouterr().err
+    )
 
 
 def test_h80_reader_uses_declared_double_xstrip_type(tmp_path):
@@ -971,7 +967,10 @@ def test_h80_reader_uses_bound_buffers_instead_of_dynamic_tree_access(
     samples, qa = cli.read_h80_samples(pre)
 
     assert samples == [cli.EnergySample(1321, 70, pytest.approx(1.3195386))]
-    assert qa == {"entries": 1, "file_count": 1}
+    assert qa["entries"] == 1
+    assert qa["file_count"] == 1
+    assert qa["skipped_entry_count"] == 0
+    assert qa["skipped_file_count"] == 0
 
 
 def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):
