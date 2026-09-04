@@ -930,6 +930,30 @@ def test_h80_reader_warns_and_skips_unreadable_files(tmp_path, capsys):
     )
 
 
+def test_h80_reader_reports_interval_and_file_progress(
+    tmp_path, monkeypatch, capsys
+):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    source = pre / "progress.root"
+    write_h80(source, [(7, 1, 1.1), (7, 2, 1.2), (7, 3, 1.3)])
+    monkeypatch.setattr(cli, "_H80_PROGRESS_ENTRY_INTERVAL", 2, raising=False)
+
+    _, qa = cli.read_h80_samples(pre)
+
+    assert qa["processed_entry_count"] == 3
+    progress = [
+        line for line in capsys.readouterr().err.splitlines()
+        if line.startswith("PROGRESS:")
+    ]
+    assert progress == [
+        "PROGRESS: h80 files=1 processed_entries=2 valid_entries=2 "
+        f"skipped_entries=0 skipped_files=0 current={source}",
+        "PROGRESS: h80 files=1 processed_entries=3 valid_entries=3 "
+        f"skipped_entries=0 skipped_files=0 completed={source}",
+    ]
+
+
 def test_h80_reader_uses_declared_double_xstrip_type(tmp_path):
     pre = tmp_path / "pre"
     pre.mkdir()

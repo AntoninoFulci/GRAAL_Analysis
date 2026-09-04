@@ -39,6 +39,7 @@ from graal_common.strip_energy_flux import (
 
 _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
+_H80_PROGRESS_ENTRY_INTERVAL = 1_000_000
 _MAX_H80_SKIP_DETAILS = 100
 _ROOT_SCALAR_ARRAY_CODES = {
     "Char_t": "b",
@@ -149,6 +150,29 @@ def _record_h80_skip(
             )
 
 
+def _print_h80_progress(
+    qa: dict[str, object], path: Path, state: str
+) -> None:
+    print(
+        "PROGRESS: h80 "
+        f"files={qa['file_count']} "
+        f"processed_entries={qa['processed_entry_count']} "
+        f"valid_entries={qa['entries']} "
+        f"skipped_entries={qa['skipped_entry_count']} "
+        f"skipped_files={qa['skipped_file_count']} "
+        f"{state}={path}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def _maybe_print_h80_entry_progress(
+    qa: dict[str, object], path: Path
+) -> None:
+    if int(qa["processed_entry_count"]) % _H80_PROGRESS_ENTRY_INTERVAL == 0:
+        _print_h80_progress(qa, path, "current")
+
+
 def iter_h80_samples(
     preanalysis_dir: Path,
 ) -> tuple[Iterator[EnergySample], dict[str, object]]:
@@ -156,6 +180,7 @@ def iter_h80_samples(
     paths = _h80_paths(preanalysis_dir)
     qa: dict[str, object] = {
         "entries": 0,
+        "processed_entry_count": 0,
         "file_count": 0,
         "skipped_entry_count": 0,
         "skipped_entries": [],
@@ -177,6 +202,7 @@ def iter_h80_samples(
                     {"path": str(path), "error": str(exc)},
                     str(exc),
                 )
+                _print_h80_progress(qa, path, "skipped")
                 continue
             try:
                 tree = source.Get("h80")
@@ -227,6 +253,9 @@ def iter_h80_samples(
                         )
 
                 for entry_index in range(entry_count):
+                    qa["processed_entry_count"] = (
+                        int(qa["processed_entry_count"]) + 1
+                    )
                     if tree.GetEntry(entry_index) <= 0:
                         error = "cannot read entry"
                         _record_h80_skip(
@@ -239,6 +268,7 @@ def iter_h80_samples(
                             },
                             f"{path}: h80 entry {entry_index}: {error}",
                         )
+                        _maybe_print_h80_entry_progress(qa, path)
                         continue
                     try:
                         sample = EnergySample(
@@ -253,6 +283,7 @@ def iter_h80_samples(
                         error = "cannot convert RunNumber/Xstrip/beam.E()"
                     else:
                         qa["entries"] = int(qa["entries"]) + 1
+                        _maybe_print_h80_entry_progress(qa, path)
                         yield sample
                         continue
                     _record_h80_skip(
@@ -265,8 +296,10 @@ def iter_h80_samples(
                         },
                         f"{path}: h80 entry {entry_index}: {error}",
                     )
+                    _maybe_print_h80_entry_progress(qa, path)
             finally:
                 source.Close()
+            _print_h80_progress(qa, path, "completed")
 
     return samples(), qa
 
