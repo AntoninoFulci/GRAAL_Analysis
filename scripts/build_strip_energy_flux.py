@@ -39,6 +39,20 @@ from graal_common.strip_energy_flux import (
 
 _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
+_ROOT_SCALAR_ARRAY_CODES = {
+    "Char_t": "b",
+    "UChar_t": "B",
+    "Short_t": "h",
+    "UShort_t": "H",
+    "Int_t": "i",
+    "UInt_t": "I",
+    "Long_t": "l",
+    "ULong_t": "L",
+    "Long64_t": "q",
+    "ULong64_t": "Q",
+    "Float_t": "f",
+    "Double_t": "d",
+}
 
 
 def _import_root():
@@ -84,6 +98,28 @@ def _h80_paths(preanalysis_dir: Path) -> Iterator[Path]:
         raise StripEnergyFluxError(f"no ROOT files below: {preanalysis_dir}")
 
 
+def _scalar_branch_buffer(path: Path, tree, branch_name: str):
+    branch = tree.GetBranch(branch_name)
+    leaves = branch.GetListOfLeaves()
+    if not leaves or leaves.GetEntries() != 1:
+        raise StripEnergyFluxError(
+            f"{path}: branch {branch_name} must contain one scalar leaf"
+        )
+    leaf = leaves.At(0)
+    if leaf.GetLeafCount() or leaf.GetLenStatic() != 1:
+        raise StripEnergyFluxError(
+            f"{path}: branch {branch_name} must contain one scalar value"
+        )
+    type_name = str(leaf.GetTypeName())
+    try:
+        type_code = _ROOT_SCALAR_ARRAY_CODES[type_name]
+    except KeyError as exc:
+        raise StripEnergyFluxError(
+            f"{path}: unsupported {branch_name} type {type_name}"
+        ) from exc
+    return array(type_code, [0])
+
+
 def iter_h80_samples(
     preanalysis_dir: Path,
 ) -> tuple[Iterator[EnergySample], dict[str, object]]:
@@ -121,8 +157,8 @@ def iter_h80_samples(
                         f"{path}: h80 entry 0: "
                         "cannot convert RunNumber/Xstrip/beam.E()"
                     )
-                run_number = array("i", [0])
-                xstrip = array("f", [0.0])
+                run_number = _scalar_branch_buffer(path, tree, "RunNumber")
+                xstrip = _scalar_branch_buffer(path, tree, "Xstrip")
                 beam = (
                     getattr(_import_root(), beam_class)()
                     if beam_class

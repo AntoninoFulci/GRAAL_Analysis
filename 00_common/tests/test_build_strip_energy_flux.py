@@ -62,6 +62,24 @@ def write_h80_with_scalar_beam(path: Path):
     output.Close()
 
 
+def write_h80_with_double_xstrip(path: Path, strip: float):
+    import ROOT
+
+    output = ROOT.TFile(str(path), "RECREATE")
+    tree = ROOT.TTree("h80", "h80")
+    vector_type = "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >"
+    beam = getattr(ROOT, vector_type)()
+    run_number = array("i", [1321])
+    xstrip = array("d", [strip])
+    tree.Branch("beam", vector_type, beam)
+    tree.Branch("RunNumber", run_number, "RunNumber/I")
+    tree.Branch("Xstrip", xstrip, "Xstrip/D")
+    beam.SetPxPyPzE(0.0, 0.0, 1.3195386, 1.3195386)
+    tree.Fill()
+    tree.Write()
+    output.Close()
+
+
 def write_flux(
     path: Path,
     runs: dict[int, dict[str, dict[int, float]]],
@@ -910,6 +928,16 @@ def test_h80_reader_rounds_fractional_xstrip_to_nearest_integer(tmp_path):
     pre = tmp_path / "pre"
     pre.mkdir()
     write_h80(pre / "fractional.root", [(1321, 69.50387573242188, 1.3195386)])
+
+    samples, _ = cli.read_h80_samples(pre)
+
+    assert samples[0].xstrip == 70
+
+
+def test_h80_reader_uses_declared_double_xstrip_type(tmp_path):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80_with_double_xstrip(pre / "double.root", 69.50387573242188)
 
     samples, _ = cli.read_h80_samples(pre)
 
