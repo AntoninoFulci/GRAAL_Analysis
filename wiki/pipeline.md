@@ -104,6 +104,14 @@ python scripts/build_strip_energy_flux.py \
   --output-dir results/strip_energy_flux
 ```
 
+La CLI valida tutte le triplette richieste in `flux.root` prima di leggere gli
+`h80`. Dopo la scansione salva atomicamente la directory
+`results/strip_energy_flux.checkpoint/`, con metadati JSON, lookup CSV e relativo
+checksum SHA-256. Se una fase successiva fallisce,
+correggere la causa e ripetere lo stesso comando aggiungendo `--resume`. Il
+checkpoint viene accettato soltanto se hash del manifest e inventario dei file
+pre-analisi coincidono; dopo una pubblicazione completa viene rimosso.
+
 I preset `ajaka_cross_section` e `ajaka_sigma` sono sempre prodotti. Per
 aggiungere uno schema ripetibile, si può ripetere `--binning` con
 `NOME:BORDO,BORDO,...`, per esempio:

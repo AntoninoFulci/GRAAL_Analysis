@@ -130,7 +130,11 @@ disco. Non vengono usati campionamento, istogrammi approssimati,
 interpolazione o fit di calibrazione. In memoria Python restano al massimo i
 record `(run, strip)` delle run richieste dal manifest, oltre ai record di
 flusso di dimensione analogamente limitata. Lo spool viene rimosso alla fine,
-anche in caso di eccezione.
+anche in caso di eccezione. I record lookup e il QA `h80` vengono quindi
+salvati in una directory checkpoint sibling dell'output, con metadati JSON e
+record CSV letti e scritti in streaming e checksum SHA-256. `--resume` può riusarli
+soltanto quando hash del manifest e inventario `(path relativo, dimensione,
+mtime_ns)` degli input pre-analisi coincidono.
 
 Vengono inoltre calcolati:
 

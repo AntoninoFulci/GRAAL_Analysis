@@ -67,14 +67,14 @@ supporto e non sostituisce il manifest curato.
 ```text
 config/run_manifest.csv ──validate_manifest──────────────┐
                                                          │
+data/flux/flux.root ──validate requested triplets────────┤
+                                                         │
 inclusive h80 ROOT ──iter_h80_samples────────────────────┤
                     file/entry validation                │
                     bounded batches → temporary SQLite   │
-                    exact median/MAD → lookup records    │
+                    exact median/MAD → lookup checkpoint │
                                                          ├─ run/bin flux
-data/flux/flux.root ──read_flux_histograms───────────────┤
-                       strict requested triplets         │
-                       warning-only unrequested keys     │
+resume checkpoint ──fingerprint validation───────────────┤
                                                          ├─ group/bin flux
 named energy binnings ──whole-strip assignment───────────┤
                                                          │
@@ -89,6 +89,15 @@ quando la lettura fallisce. Contiene ogni evento validato, mentre la memoria
 Python conserva batch di inserimento limitati e al massimo
 `manifest-runs × 128` record lookup. Mediana e MAD sono statistiche d'ordine
 esatte: nessun campionamento, istogramma approssimato o fit.
+
+Prima dello spool, la CLI apre `flux.root` e valida tutte le triplette delle
+run richieste. Dopo il calcolo lookup scrive atomicamente
+`<output-dir>.checkpoint/`, contenente `metadata.json` e
+`strip_energy_lookup.csv` scritto in streaming e protetto da checksum SHA-256.
+Un rerun con `--resume` evita la rilettura
+`h80` quando hash del manifest e inventario pre-analisi coincidono. Checkpoint
+mancante, corrotto o incompatibile è fatale; una pubblicazione completa lo
+rimuove.
 
 ### Responsabilità dei moduli
 
@@ -175,6 +184,10 @@ Un errore prima della pubblicazione segue questa policy:
 Un'analisi completata ma `valid: false` è invece una pubblicazione completa:
 conserva tutte le righe diagnostiche e può sostituire atomicamente l'output
 precedente. Non usarla per estrazione fisica.
+
+Se il fallimento avviene dopo la scansione `h80`, il checkpoint sibling resta
+disponibile. Correggere input/opzione downstream e rilanciare comando identico
+con `--resume`; non modificare manifest o file pre-analisi tra tentativi.
 
 ## Comando farm e directory da riportare
 

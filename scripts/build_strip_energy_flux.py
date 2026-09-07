@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-"""Read inclusive h80 energies and tagger-flux ROOT histograms."""
+"""Build strip-energy and flux artifacts from pre-analysis and ROOT inputs.
+
+The pipeline validates h80 energy samples, reads the three flux histograms for
+each run, integrates flux over configured energy binnings, and writes CSV/JSON
+outputs through an atomic directory replacement.
+"""
 from __future__ import annotations
 
 import argparse
 from array import array
 from collections import defaultdict
+import csv
+import hashlib
+import json
 from math import fsum, isfinite
 import os
 from pathlib import Path
@@ -21,6 +29,8 @@ from graal_common.strip_energy_flux import (
     AJAKA_SIGMA,
     EnergyBinning,
     EnergySample,
+    StripEnergyLookupBuild,
+    StripEnergyRecord,
     StripEnergyFluxError,
     StripFlux,
     aggregate_group_flux,
@@ -41,6 +51,17 @@ _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
 _H80_PROGRESS_ENTRY_INTERVAL = 1_000_000
 _MAX_H80_SKIP_DETAILS = 100
+_CHECKPOINT_SCHEMA_VERSION = 1
+_CHECKPOINT_LOOKUP_FIELDS = (
+    "run_number",
+    "xstrip",
+    "event_count",
+    "energy_median_gev",
+    "energy_mad_gev",
+    "energy_min_gev",
+    "energy_max_gev",
+    "provenance",
+)
 _ROOT_SCALAR_ARRAY_CODES = {
     "Char_t": "b",
     "UChar_t": "B",
@@ -74,6 +95,7 @@ def _open_root_file(path: Path):
     if not source:
         raise StripEnergyFluxError(f"zombie ROOT file: {path}")
     if source.IsZombie():
+        # Close zombie handles explicitly before reporting the invalid input.
         try:
             source.Close()
         except Exception:
@@ -87,6 +109,7 @@ def _h80_paths(preanalysis_dir: Path) -> Iterator[Path]:
     if not preanalysis_dir.is_dir():
         raise StripEnergyFluxError(f"preanalysis directory not found: {preanalysis_dir}")
     found = False
+    # Sort both levels so QA output and processing order are reproducible.
     for directory, child_directories, filenames in os.walk(preanalysis_dir):
         child_directories.sort()
         for filename in sorted(filenames):
@@ -114,6 +137,7 @@ def _scalar_branch_buffer(path: Path, tree, branch_name: str):
         )
     type_name = str(leaf.GetTypeName())
     try:
+        # ROOT leaves use C++ type names; array() requires its one-letter codes.
         type_code = _ROOT_SCALAR_ARRAY_CODES[type_name]
     except KeyError as exc:
         raise StripEnergyFluxError(
@@ -138,6 +162,7 @@ def _record_h80_skip(
     details = qa[details_key]
     if not isinstance(details, list):
         raise AssertionError(f"{details_key} must be a list")
+    # Keep QA bounded when a damaged input contains many invalid records.
     if len(details) < _MAX_H80_SKIP_DETAILS:
         details.append(detail)
         print(f"WARNING: {warning}", file=sys.stderr)
@@ -176,7 +201,18 @@ def _maybe_print_h80_entry_progress(
 def iter_h80_samples(
     preanalysis_dir: Path,
 ) -> tuple[Iterator[EnergySample], dict[str, object]]:
-    """Stream validated h80 samples and update QA as entries are consumed."""
+    """Stream validated h80 samples and collect QA data.
+
+    The returned iterator opens and processes files only when consumed. The QA
+    dictionary is shared with the iterator, so its counters and skip details
+    are complete after iteration finishes.
+
+    Args:
+        preanalysis_dir: Directory tree containing input ROOT files.
+
+    Returns:
+        A lazy sample iterator and its mutable QA dictionary.
+    """
     paths = _h80_paths(preanalysis_dir)
     qa: dict[str, object] = {
         "entries": 0,
@@ -242,6 +278,7 @@ def iter_h80_samples(
                     ("Xstrip", xstrip),
                     ("beam", beam),
                 )
+                # Bind only the required branches to avoid loading unrelated data.
                 for branch, buffer in bindings:
                     if buffer is None:
                         continue
@@ -305,7 +342,7 @@ def iter_h80_samples(
 
 
 def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[str, object]]:
-    """Materialize the h80 stream for adapter callers and small tests."""
+    """Materialize validated h80 samples for callers that need a list."""
     samples, qa = iter_h80_samples(preanalysis_dir)
     return list(samples), qa
 
@@ -313,6 +350,8 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
 def _triplet_qa(
     objects: dict[int, dict[str, list[object]]], requested_runs: set[int]
 ) -> dict[str, object]:
+    # Inspect keys without reading histograms; malformed inputs are reported
+    # before the requested histograms are converted into strip records.
     complete_runs = {
         run
         for run, suffixes in objects.items()
@@ -388,6 +427,7 @@ def _required_histogram(key, run: int, suffix: str):
         raise StripEnergyFluxError(f"{name} must have 128 bins")
 
     axis = histogram.GetXaxis()
+    # Check all visible bin edges and both flow bins before accepting values.
     for edge_index in range(129):
         edge = (
             axis.GetBinLowEdge(edge_index + 1)
@@ -411,7 +451,15 @@ def _required_histogram(key, run: int, suffix: str):
 def read_flux_histograms(
     path: Path, run_numbers: Sequence[int]
 ) -> tuple[list[StripFlux], dict[str, object]]:
-    """Read one validated POL1/POL2/BREM triplet per requested run."""
+    """Read one validated POL1/POL2/BREM triplet per requested run.
+
+    Args:
+        path: ROOT file containing the flux histograms.
+        run_numbers: Runs that must have a complete histogram triplet.
+
+    Returns:
+        One `StripFlux` record per run and strip, plus histogram QA data.
+    """
     path = Path(path)
     requested_runs = set(run_numbers)
     source = _open_root_file(path)
@@ -430,6 +478,7 @@ def read_flux_histograms(
             if not suffixes:
                 raise StripEnergyFluxError(f"requested flux run {run} is absent")
             histograms = {}
+            # Require exactly one canonical histogram for each polarization.
             for suffix in _FLUX_SUFFIXES:
                 name = f"run{run}_{suffix}"
                 keys = suffixes.get(suffix, [])
@@ -473,9 +522,11 @@ def read_flux_histograms(
 
 
 def parse_custom_binnings(values: Sequence[str]) -> tuple[EnergyBinning, ...]:
+    """Parse custom binnings supplied as `NAME:EDGE,EDGE,...` values."""
     result = []
     seen = {AJAKA_CROSS_SECTION.name, AJAKA_SIGMA.name}
     for value in values:
+        # Reject duplicates here so output keys remain unambiguous.
         name, separator, raw_edges = value.partition(":")
         if not separator or not name or not raw_edges:
             raise StripEnergyFluxError(
@@ -503,6 +554,220 @@ def _input_paths(args: argparse.Namespace) -> dict[str, str]:
     }
 
 
+def _checkpoint_path(output_dir: Path) -> Path:
+    output_dir = Path(output_dir)
+    return output_dir.with_name(f"{output_dir.name}.checkpoint")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _checkpoint_fingerprint(args: argparse.Namespace) -> dict[str, object]:
+    root = Path(args.preanalysis_dir)
+    inventory = []
+    for path in _h80_paths(root):
+        stat = path.stat()
+        inventory.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "size": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+            }
+        )
+    return {
+        "manifest_sha256": _sha256(args.manifest),
+        "preanalysis_inventory": inventory,
+    }
+
+
+def _write_checkpoint(
+    path: Path,
+    fingerprint: dict[str, object],
+    lookup_build: StripEnergyLookupBuild,
+    h80_qa: dict[str, object],
+) -> None:
+    metadata = {
+        "schema_version": _CHECKPOINT_SCHEMA_VERSION,
+        "fingerprint": fingerprint,
+        "lookup_build": {
+            "observed_runs": list(lookup_build.observed_runs),
+            "event_count": lookup_build.event_count,
+            "observed_run_count": lookup_build.observed_run_count,
+            "unrequested_runs": list(lookup_build.unrequested_runs),
+            "unrequested_run_count": lookup_build.unrequested_run_count,
+            "unrequested_runs_truncated": (
+                lookup_build.unrequested_runs_truncated
+            ),
+        },
+        "h80_qa": h80_qa,
+    }
+    with atomic_output_directory(path) as staging:
+        lookup_path = staging / "strip_energy_lookup.csv"
+        with lookup_path.open(
+            "w", encoding="utf-8", newline=""
+        ) as stream:
+            writer = csv.DictWriter(stream, fieldnames=_CHECKPOINT_LOOKUP_FIELDS)
+            writer.writeheader()
+            for record in lookup_build.records:
+                writer.writerow(
+                    {
+                        field: getattr(record, field)
+                        for field in _CHECKPOINT_LOOKUP_FIELDS
+                    }
+                )
+        metadata["lookup_sha256"] = _sha256(lookup_path)
+        with (staging / "metadata.json").open("w", encoding="utf-8") as stream:
+            json.dump(metadata, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+
+
+def _checkpoint_integer(value: object, name: str, minimum: int = 0) -> int:
+    if type(value) is not int or value < minimum:
+        raise ValueError(f"{name} must be an integer >= {minimum}")
+    return value
+
+
+def _read_checkpoint_records(path: Path) -> tuple[StripEnergyRecord, ...]:
+    records = []
+    previous_key = None
+    with path.open(encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        if tuple(reader.fieldnames or ()) != _CHECKPOINT_LOOKUP_FIELDS:
+            raise ValueError("invalid strip-energy lookup header")
+        for line_number, row in enumerate(reader, start=2):
+            try:
+                record = StripEnergyRecord(
+                    run_number=int(row["run_number"]),
+                    xstrip=int(row["xstrip"]),
+                    event_count=int(row["event_count"]),
+                    energy_median_gev=float(row["energy_median_gev"]),
+                    energy_mad_gev=float(row["energy_mad_gev"]),
+                    energy_min_gev=float(row["energy_min_gev"]),
+                    energy_max_gev=float(row["energy_max_gev"]),
+                    provenance=row["provenance"],
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid lookup row {line_number}: {exc}") from exc
+            values = (
+                record.energy_median_gev,
+                record.energy_mad_gev,
+                record.energy_min_gev,
+                record.energy_max_gev,
+            )
+            if (
+                record.run_number <= 0
+                or not 1 <= record.xstrip <= 128
+                or record.event_count <= 0
+                or not all(isfinite(value) for value in values)
+                or record.energy_median_gev <= 0
+                or record.energy_mad_gev < 0
+                or record.energy_min_gev <= 0
+                or record.energy_max_gev < record.energy_min_gev
+                or not record.energy_min_gev
+                <= record.energy_median_gev
+                <= record.energy_max_gev
+                or record.provenance != "observed"
+            ):
+                raise ValueError(f"invalid lookup row {line_number}")
+            key = (record.run_number, record.xstrip)
+            if previous_key is not None and key <= previous_key:
+                raise ValueError("lookup rows must be unique and sorted")
+            previous_key = key
+            records.append(record)
+    return tuple(records)
+
+
+def _read_checkpoint(
+    path: Path,
+    expected_fingerprint: dict[str, object],
+) -> tuple[StripEnergyLookupBuild, dict[str, object]]:
+    if not path.is_dir():
+        raise StripEnergyFluxError(f"resume checkpoint not found: {path}")
+    try:
+        payload = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+        if payload["schema_version"] != _CHECKPOINT_SCHEMA_VERSION:
+            raise ValueError("unsupported schema version")
+        if payload["fingerprint"] != expected_fingerprint:
+            raise StripEnergyFluxError(
+                f"checkpoint input fingerprint mismatch: {path}"
+            )
+        stored = payload["lookup_build"]
+        lookup_path = path / "strip_energy_lookup.csv"
+        records = _read_checkpoint_records(lookup_path)
+        observed_runs = tuple(stored["observed_runs"])
+        unrequested_runs = tuple(stored["unrequested_runs"])
+        if any(type(run) is not int or run <= 0 for run in observed_runs):
+            raise ValueError("observed runs must be positive integers")
+        if tuple(sorted(set(observed_runs))) != observed_runs:
+            raise ValueError("observed runs must be unique and sorted")
+        if any(type(run) is not int or run <= 0 for run in unrequested_runs):
+            raise ValueError("unrequested runs must be positive integers")
+        if tuple(sorted(set(unrequested_runs))) != unrequested_runs:
+            raise ValueError("unrequested runs must be unique and sorted")
+        if set(observed_runs) & set(unrequested_runs):
+            raise ValueError("observed and unrequested runs overlap")
+        event_count = _checkpoint_integer(stored["event_count"], "event_count")
+        observed_run_count = _checkpoint_integer(
+            stored["observed_run_count"], "observed_run_count"
+        )
+        unrequested_run_count = _checkpoint_integer(
+            stored["unrequested_run_count"], "unrequested_run_count"
+        )
+        truncated = stored["unrequested_runs_truncated"]
+        if type(truncated) is not bool:
+            raise ValueError("unrequested_runs_truncated must be boolean")
+        if {record.run_number for record in records} != set(observed_runs):
+            raise ValueError("lookup runs do not match observed runs")
+        if sum(record.event_count for record in records) > event_count:
+            raise ValueError("lookup event counts exceed total event count")
+        if (
+            unrequested_run_count == 0
+            and sum(record.event_count for record in records) != event_count
+        ):
+            raise ValueError("lookup event counts do not match total event count")
+        if observed_run_count != len(observed_runs) + unrequested_run_count:
+            raise ValueError("observed run count is inconsistent")
+        if unrequested_run_count < len(unrequested_runs):
+            raise ValueError("unrequested run count is inconsistent")
+        if truncated != (unrequested_run_count > len(unrequested_runs)):
+            raise ValueError("unrequested truncation flag is inconsistent")
+        lookup_build = StripEnergyLookupBuild(
+            records=records,
+            observed_runs=observed_runs,
+            event_count=event_count,
+            observed_run_count=observed_run_count,
+            unrequested_runs=unrequested_runs,
+            unrequested_run_count=unrequested_run_count,
+            unrequested_runs_truncated=truncated,
+        )
+        h80_qa = payload["h80_qa"]
+        if not isinstance(h80_qa, dict):
+            raise TypeError("h80_qa must be an object")
+        if h80_qa.get("entries") != event_count:
+            raise ValueError("h80 entry count is inconsistent")
+        if h80_qa.get("run_count") != observed_run_count:
+            raise ValueError("h80 run count is inconsistent")
+        if h80_qa.get("unrequested_run_count") != unrequested_run_count:
+            raise ValueError("h80 unrequested run count is inconsistent")
+        if h80_qa.get("unrequested_runs_truncated") is not truncated:
+            raise ValueError("h80 unrequested truncation flag is inconsistent")
+        lookup_sha256 = payload["lookup_sha256"]
+        if not isinstance(lookup_sha256, str) or _sha256(lookup_path) != lookup_sha256:
+            raise ValueError("checkpoint lookup checksum mismatch")
+    except StripEnergyFluxError:
+        raise
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise StripEnergyFluxError(
+            f"invalid resume checkpoint {path}: {exc}"
+        ) from exc
+    return lookup_build, h80_qa
+
+
 def _validate_output_location(args: argparse.Namespace) -> None:
     lexical_output = Path(os.path.abspath(args.output_dir))
     resolved_output = args.output_dir.resolve(strict=False)
@@ -511,6 +776,7 @@ def _validate_output_location(args: argparse.Namespace) -> None:
         args.manifest,
         args.flux,
     ):
+        # Compare lexical and resolved paths to catch aliases and symlinks.
         lexical_input = Path(os.path.abspath(input_path))
         resolved_input = input_path.resolve(strict=False)
         lexical_collision = (
@@ -536,6 +802,7 @@ def build_qa_payload(
     flux_qa,
     errors,
 ) -> dict[str, object]:
+    """Build the consolidated QA payload written with the analysis outputs."""
     manifest_runs = {record.run_number for record in manifest}
     h80_runs = {record.run_number for record in lookup}
     unique_errors = sorted(set(errors))
@@ -592,6 +859,11 @@ def build_qa_payload(
 
 
 def run(args: argparse.Namespace) -> int:
+    """Run validation, integration, QA generation, and atomic output writing.
+
+    Returns:
+        `0` when all structural and data-quality checks pass, otherwise `1`.
+    """
     _validate_output_location(args)
     if args.min_events_per_strip < 1:
         raise StripEnergyFluxError("min-events-per-strip must be at least 1")
@@ -608,33 +880,6 @@ def run(args: argparse.Namespace) -> int:
     records = validate_manifest(args.manifest)
     manifest_by_run = {record.run_number: record for record in records}
     manifest_runs = set(manifest_by_run)
-    args.output_dir.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(
-        prefix=f".{args.output_dir.name}.energy-spool.",
-        dir=args.output_dir.parent,
-    ) as spool_directory:
-        samples, h80_qa = iter_h80_samples(args.preanalysis_dir)
-        lookup_build = build_strip_energy_lookup_on_disk(
-            samples,
-            Path(spool_directory) / "h80-energy.sqlite3",
-            run_numbers=manifest_runs,
-        )
-    lookup = lookup_build.records
-    sample_runs = set(lookup_build.observed_runs)
-    h80_qa.update(
-        {
-            "run_count": lookup_build.observed_run_count,
-            "unrequested_run_count": lookup_build.unrequested_run_count,
-            "unrequested_runs_truncated": (
-                lookup_build.unrequested_runs_truncated
-            ),
-        }
-    )
-
-    lookup_by_run = defaultdict(list)
-    for row in lookup:
-        lookup_by_run[row.run_number].append(row)
-
     strips, flux_qa = read_flux_histograms(args.flux, sorted(manifest_runs))
     flux_by_run = defaultdict(list)
     for row in strips:
@@ -644,6 +889,52 @@ def run(args: argparse.Namespace) -> int:
         for run_number, rows in flux_by_run.items()
     }
 
+    args.output_dir.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint = _checkpoint_path(args.output_dir)
+    fingerprint = _checkpoint_fingerprint(args)
+    if getattr(args, "resume", False):
+        lookup_build, h80_qa = _read_checkpoint(checkpoint, fingerprint)
+        h80_qa = dict(h80_qa)
+        h80_qa["resumed_from_checkpoint"] = True
+        print(f"Resumed strip-energy lookup from {checkpoint}", file=sys.stderr)
+    else:
+        # Spool samples outside the final output so a failed run cannot publish
+        # partial lookup data.
+        with tempfile.TemporaryDirectory(
+            prefix=f".{args.output_dir.name}.energy-spool.",
+            dir=args.output_dir.parent,
+        ) as spool_directory:
+            samples, h80_qa = iter_h80_samples(args.preanalysis_dir)
+            lookup_build = build_strip_energy_lookup_on_disk(
+                samples,
+                Path(spool_directory) / "h80-energy.sqlite3",
+                run_numbers=manifest_runs,
+            )
+        h80_qa.update(
+            {
+                "run_count": lookup_build.observed_run_count,
+                "unrequested_run_count": lookup_build.unrequested_run_count,
+                "unrequested_runs_truncated": (
+                    lookup_build.unrequested_runs_truncated
+                ),
+                "resumed_from_checkpoint": False,
+            }
+        )
+        _write_checkpoint(
+            checkpoint,
+            fingerprint,
+            lookup_build,
+            h80_qa,
+        )
+    lookup = lookup_build.records
+    sample_runs = set(lookup_build.observed_runs)
+
+    lookup_by_run = defaultdict(list)
+    for row in lookup:
+        lookup_by_run[row.run_number].append(row)
+
+    # Structural mismatches make the final QA invalid; advisory lists remain
+    # visible in the payload without necessarily failing the run.
     errors = []
     extra_h80 = list(lookup_build.unrequested_runs)
     missing_h80 = sorted(manifest_runs - sample_runs)
@@ -694,6 +985,7 @@ def run(args: argparse.Namespace) -> int:
     inversions = []
     for inversion in find_monotonic_inversions(lookup):
         delta = inversion.get("delta_gev")
+        # Keep only inversions beyond tolerance as run-invalidating findings.
         if delta is None or abs(delta) > args.monotonic_tolerance_gev:
             inversions.append(inversion)
             if delta is None:
@@ -732,6 +1024,7 @@ def run(args: argparse.Namespace) -> int:
         tuple[str, int], tuple[float, float, float]
     ] = {}
     for binning in binnings:
+        # Track excluded flux per run so conservation can be checked later.
         below = []
         above = []
         excluded_parts: list[list[float]] = [[], [], []]
@@ -863,6 +1156,7 @@ def run(args: argparse.Namespace) -> int:
         flux_qa,
         errors,
     )
+    # All files are staged together so consumers never see a partial result.
     with atomic_output_directory(args.output_dir) as staging:
         write_lookup_csv(
             staging / "strip_energy_lookup.csv",
@@ -875,6 +1169,8 @@ def run(args: argparse.Namespace) -> int:
             group_flux,
         )
         write_qa_json(staging / "strip_energy_flux_qa.json", qa)
+    if checkpoint.exists():
+        shutil.rmtree(checkpoint)
     if qa["valid"]:
         print(
             f"Wrote {len(records)}-run strip-energy flux analysis "
@@ -885,6 +1181,7 @@ def run(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for the strip-energy flux build."""
     parser = argparse.ArgumentParser(
         description="Build run-specific strip-energy and integrated flux artifacts."
     )
@@ -892,6 +1189,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--flux", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="reuse a compatible strip-energy lookup checkpoint",
+    )
     parser.add_argument("--min-events-per-strip", type=int, default=1)
     parser.add_argument("--max-mad-gev", type=float, default=0.005)
     parser.add_argument("--monotonic-tolerance-gev", type=float, default=0.002)
@@ -900,6 +1202,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def _write_failure_qa(args: argparse.Namespace, error: str) -> Path:
+    """Write failure QA without replacing an existing successful output."""
     _validate_output_location(args)
     payload = {
         "schema_version": 1,
@@ -931,6 +1234,7 @@ def _write_failure_qa(args: argparse.Namespace, error: str) -> Path:
 
 
 def main() -> int:
+    """Run the CLI and convert expected failures into QA output."""
     args = parse_args()
     try:
         return run(args)

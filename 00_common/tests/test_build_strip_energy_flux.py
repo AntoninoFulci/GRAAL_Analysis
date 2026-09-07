@@ -184,6 +184,10 @@ def run_cli(pre, flux, manifest_path, output, *extra):
     )
 
 
+def checkpoint_path(output: Path) -> Path:
+    return output.with_name(f"{output.name}.checkpoint")
+
+
 def complete_flux_runs(*run_numbers):
     return {
         run: {
@@ -193,6 +197,165 @@ def complete_flux_runs(*run_numbers):
         }
         for run in run_numbers
     }
+
+
+def test_missing_flux_is_rejected_before_preanalysis_scan(tmp_path):
+    _, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    flux.unlink()
+    args = SimpleNamespace(
+        preanalysis_dir=tmp_path / "missing-preanalysis",
+        manifest=manifest_path,
+        flux=flux,
+        output_dir=output,
+        min_events_per_strip=1,
+        max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002,
+        binning=[],
+        resume=False,
+    )
+
+    with pytest.raises(
+        StripEnergyFluxError,
+        match=r"zombie ROOT file: .*flux\.root",
+    ):
+        cli.run(args)
+
+    assert not checkpoint_path(output).exists()
+
+
+def test_resume_reuses_checkpoint_without_rescanning_h80(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+
+    failed = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--binning",
+        "fine:1.0,1.1",
+        "--binning",
+        "fine:1.0,1.2",
+    )
+
+    assert failed.returncode == 1
+    assert checkpoint_path(output).is_dir()
+    resumed = run_cli(pre, flux, manifest_path, output, "--resume")
+    assert resumed.returncode == 0, resumed.stderr
+    assert "PROGRESS: h80" not in resumed.stderr
+    assert not checkpoint_path(output).exists()
+    assert (output / "strip_energy_lookup.csv").is_file()
+
+
+def test_resume_rejects_checkpoint_after_preanalysis_changes(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    failed = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--binning",
+        "fine:1.0,1.1",
+        "--binning",
+        "fine:1.0,1.2",
+    )
+    assert failed.returncode == 1
+    checkpoint = checkpoint_path(output)
+    assert checkpoint.is_dir()
+    changed = pre / "pre_7.root"
+    changed.write_bytes(changed.read_bytes() + b"changed")
+
+    resumed = run_cli(pre, flux, manifest_path, output, "--resume")
+
+    assert resumed.returncode == 1
+    assert "checkpoint input fingerprint mismatch" in resumed.stderr
+    assert "PROGRESS: h80" not in resumed.stderr
+    assert checkpoint.is_dir()
+
+
+def test_checkpoint_contains_complete_h80_qa(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+
+    failed = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--binning",
+        "fine:1.0,1.1",
+        "--binning",
+        "fine:1.0,1.2",
+    )
+
+    assert failed.returncode == 1
+    metadata = json.loads(
+        (checkpoint_path(output) / "metadata.json").read_text()
+    )
+    assert metadata["h80_qa"]["run_count"] == 2
+    assert metadata["h80_qa"]["unrequested_run_count"] == 0
+    assert metadata["h80_qa"]["unrequested_runs_truncated"] is False
+
+
+def test_resume_rejects_semantically_corrupt_checkpoint(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    failed = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--binning",
+        "fine:1.0,1.1",
+        "--binning",
+        "fine:1.0,1.2",
+    )
+    assert failed.returncode == 1
+    checkpoint = checkpoint_path(output)
+    lookup_path = checkpoint / "strip_energy_lookup.csv"
+    lookup_path.write_text(
+        "run_number,xstrip,event_count,energy_median_gev,"
+        "energy_mad_gev,energy_min_gev,energy_max_gev,provenance\n"
+    )
+
+    resumed = run_cli(pre, flux, manifest_path, output, "--resume")
+
+    assert resumed.returncode == 1
+    assert "invalid resume checkpoint" in resumed.stderr
+    assert "lookup runs do not match observed runs" in resumed.stderr
+    assert "PROGRESS: h80" not in resumed.stderr
+
+
+def test_resume_rejects_plausible_lookup_csv_tampering(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    failed = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--binning",
+        "fine:1.0,1.1",
+        "--binning",
+        "fine:1.0,1.2",
+    )
+    assert failed.returncode == 1
+    lookup_path = checkpoint_path(output) / "strip_energy_lookup.csv"
+    with lookup_path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+        fieldnames = tuple(rows[0])
+    for field in (
+        "energy_median_gev",
+        "energy_min_gev",
+        "energy_max_gev",
+    ):
+        rows[0][field] = str(float(rows[0][field]) + 0.0001)
+    with lookup_path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    resumed = run_cli(pre, flux, manifest_path, output, "--resume")
+
+    assert resumed.returncode == 1
+    assert "checkpoint lookup checksum mismatch" in resumed.stderr
+    assert "PROGRESS: h80" not in resumed.stderr
 
 
 def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
