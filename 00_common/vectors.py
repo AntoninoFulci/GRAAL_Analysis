@@ -1,10 +1,4 @@
-"""Read a ROOT TLorentzVector branch as a plain (N, 4) [px, py, pz, E] array.
-
-uproot-only, so it lives here rather than in trees.py (which deliberately opens
-nothing and stays usable from the ROOT side too). The fP/fE unpacking is the
-same in the fit validation and in the plots; keeping it in one place means one
-thing to fix if the storage ever changes.
-"""
+"""Read a ROOT TLorentzVector branch as a plain (N, 4) [px, py, pz, E] array."""
 from __future__ import annotations
 
 import numpy as np
