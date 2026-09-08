@@ -211,9 +211,15 @@ def _add_qa_reasons(
         run_number = entry.get("run_number")
         if run_number is None:
             histogram = entry.get("histogram")
-            match = _RUN_HISTOGRAM.match(histogram) if isinstance(histogram, str) else None
+            match = (
+                _RUN_HISTOGRAM.match(histogram)
+                if isinstance(histogram, str)
+                else None
+            )
             if match is None:
-                continue
+                raise ObservableRunError(
+                    "underflow_overflow histogram lacks a canonical run<N>_ prefix"
+                )
             run_number = int(match.group("run_number"))
         if isinstance(run_number, bool) or not isinstance(run_number, Integral):
             raise ObservableRunError("underflow_overflow entry has invalid run_number")

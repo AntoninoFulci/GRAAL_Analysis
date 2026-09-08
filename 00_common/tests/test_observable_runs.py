@@ -144,6 +144,17 @@ def test_group_scope_conservation_failure_cannot_be_safely_assigned():
         classify_run_quality(manifest_rows(7), qa, valid_flux_rows(7))
 
 
+def test_underflow_overflow_without_a_canonical_run_identifier_aborts():
+    qa = qa_for_runs(
+        underflow_overflow=[
+            {"histogram": "bad_histogram", "underflow": 1.0, "overflow": 0.0}
+        ]
+    )
+
+    with pytest.raises(ObservableRunError, match="underflow_overflow.*histogram"):
+        classify_run_quality(manifest_rows(7), qa, valid_flux_rows(7))
+
+
 @pytest.mark.parametrize(
     ("kwargs", "match"),
     [
