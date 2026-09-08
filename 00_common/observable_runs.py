@@ -570,7 +570,13 @@ def _qa_positive_integer(value: object, field: str) -> int:
 
 
 def _qa_finite_number(value: object, field: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ObservableRunError(f"source QA {field} must be finite")
+    try:
+        finite = isfinite(value)
+    except OverflowError:
+        raise ObservableRunError(f"source QA {field} must be finite") from None
+    if not finite:
         raise ObservableRunError(f"source QA {field} must be finite")
     return float(value)
 
@@ -596,8 +602,8 @@ def _validate_source_qa_payload(qa: Mapping[str, object]) -> None:
     extra = _qa_unique_positive_runs(qa["extra_h80_runs"], "extra_h80_runs")
     _qa_unique_positive_runs(qa["extra_flux_runs"], "extra_flux_runs")
     extra_count = int(qa["extra_h80_run_count"])
-    if extra_count < len(extra) or (
-        not qa["extra_h80_runs_truncated"] and extra_count != len(extra)
+    if extra_count < len(extra) or qa["extra_h80_runs_truncated"] != (
+        extra_count > len(extra)
     ):
         raise ObservableRunError("source QA extra_h80 run counters are inconsistent")
     if set(missing).intersection(extra):
@@ -666,8 +672,10 @@ def _validate_source_qa_payload(qa: Mapping[str, object]) -> None:
         high = _qa_finite_number(entry.get("energy_high_gev"), "negative_net_errors energy_high_gev")
         if high <= low:
             raise ObservableRunError("source QA negative_net_errors energy edges must increase")
-        _qa_finite_number(entry.get("pol1_net"), "negative_net_errors pol1_net")
-        _qa_finite_number(entry.get("pol2_net"), "negative_net_errors pol2_net")
+        pol1_net = _qa_finite_number(entry.get("pol1_net"), "negative_net_errors pol1_net")
+        pol2_net = _qa_finite_number(entry.get("pol2_net"), "negative_net_errors pol2_net")
+        if pol1_net >= 0 and pol2_net >= 0:
+            raise ObservableRunError("source QA negative_net_errors must have a negative net flux")
 
     for entry in qa["monotonic_inversions"]:
         if not isinstance(entry, Mapping):
@@ -723,7 +731,11 @@ def read_source_qa(path: Path) -> dict[str, object]:
         raise ObservableRunError(f"{path}: source QA must be an object")
     if set(payload) != _SOURCE_QA_FIELDS:
         raise ObservableRunError(f"{path}: source QA schema does not match version 1")
-    if isinstance(payload["schema_version"], bool) or payload["schema_version"] != 1:
+    if (
+        isinstance(payload["schema_version"], bool)
+        or not isinstance(payload["schema_version"], Integral)
+        or payload["schema_version"] != 1
+    ):
         raise ObservableRunError(f"{path}: schema_version must be 1")
     if not isinstance(payload["valid"], bool):
         raise ObservableRunError(f"{path}: source QA valid must be boolean")

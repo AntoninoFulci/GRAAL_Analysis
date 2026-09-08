@@ -449,6 +449,34 @@ def test_source_qa_reader_rejects_duplicate_keys_and_nonfinite_nested_numbers(tm
     with pytest.raises(ObservableRunError, match="non-finite"):
         read_source_qa(path)
 
+    path.write_text(json.dumps(source_qa(schema_version=1.0)))
+    with pytest.raises(ObservableRunError, match="schema_version"):
+        read_source_qa(path)
+
+    path.write_text(json.dumps(source_qa(extra_h80_runs_truncated=True)))
+    with pytest.raises(ObservableRunError, match="extra_h80 run counters"):
+        read_source_qa(path)
+
+    path.write_text(json.dumps(source_qa(extra_h80_runs=[9], extra_h80_run_count=1, extra_h80_runs_truncated=True)))
+    with pytest.raises(ObservableRunError, match="extra_h80 run counters"):
+        read_source_qa(path)
+
+    path.write_text(json.dumps(source_qa(negative_net_errors=[{
+        "run_number": 7,
+        "binning": "ajaka_cross_section",
+        "bin_index": 0,
+        "energy_low_gev": 1.0,
+        "energy_high_gev": 1.1,
+        "pol1_net": 1.0,
+        "pol2_net": 2.0,
+    }])))
+    with pytest.raises(ObservableRunError, match="negative_net_errors.*negative"):
+        read_source_qa(path)
+
+    path.write_text(json.dumps(source_qa(thresholds={"max_mad_gev": 10 ** 4000})))
+    with pytest.raises(ObservableRunError, match="thresholds.max_mad_gev.*finite"):
+        read_source_qa(path)
+
 
 @pytest.mark.parametrize(
     "payload",
