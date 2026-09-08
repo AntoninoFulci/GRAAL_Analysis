@@ -1,6 +1,6 @@
 # Strip-energy flux: manutenzione e correzioni
 
-**Stato:** implemented; farm production validation pending
+**Stato:** produzione QA ricevuta; curazione run per osservabili implementata
 **Ambito:** lookup run/strip→Eγ, integrazione `POL1/POL2/BREM`, QA e output farm
 
 Questa pagina è il punto di partenza per correggere la normalizzazione quando
@@ -61,6 +61,40 @@ i preset.
 Percorsi, soglie, bordi e digest devono essere archiviati con gli output. Il
 locale `data/run_manifest.generated.csv`, quando presente, è inventario di
 supporto e non sostituisce il manifest curato.
+
+## Curazione osservabili senza rescan
+
+Il passaggio downstream `scripts/build_observable_run_database.py` consuma il
+manifest curato e il bundle trasferito `strip_energy_flux`; non apre ROOT e
+non effettua un rescan `h80`. Legge soltanto lookup, flusso per run e QA
+sorgente, li valida contro il manifest e pubblica una nuova directory atomica.
+La sorgente resta byte-per-byte invariata.
+
+La policy v1 assegna una sola etichetta per run con precedenza
+`bad > review > good`. Le cause bad sono `missing_h80`,
+`nonzero_flux_without_lookup`, `monotonic_inversion`,
+`run_flux_conservation_failure` e `brem_period_outlier`; le cause review sono
+`negative_net_flux`, `negative_raw_brem`, `low_strip_statistics`,
+`high_energy_mad`, `flux_underflow_overflow` e
+`brem_baseline_unavailable`. Per BREM, la somma nel binning
+`ajaka_cross_section` viene rapportata alla mediana delle run dello stesso
+`source_period`: il default `>= 100.0` è outlier; una mediana non positiva o
+meno di cinque totali disponibili rende la baseline non disponibile. I tre
+parametri CLI e gli hash degli input/output sono nel QA osservabili.
+
+Il bundle pubblicato contiene sei file: `run_quality.csv`,
+`run_manifest_observables.csv`, lookup e flusso per run filtrati, flusso di
+gruppo rigenerato e `observable_run_qa.json`. Il manifest completo resta per
+cut e cinematica; **solo** il manifest osservabili good-only e i CSV della
+stessa pubblicazione con QA valido possono essere usati per normalizzare un
+osservabile.
+
+Accettazione sul bundle trasferito del 9 settembre 2026: QA osservabili
+`valid: true`, `good=2372`, `review=152`, `bad=187`; gruppi good
+`P_UV=1256`, `P_VIS=323`, `D_UV=531`, `D_VIS=262`. Questi numeri sono evidenza
+del bundle con hash manifest
+`64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160`, non
+soglie o costanti nel classificatore.
 
 ## Flusso dati completo
 

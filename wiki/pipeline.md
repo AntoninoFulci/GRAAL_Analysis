@@ -148,6 +148,47 @@ recuperare l'output. Con exit `0` o `1`, riportare dalla farm tutta la cartella
 Assunzioni provvisorie, matrice warning/fatale e guida alle future correzioni
 sono in [Manutenzione strip-energy flux](strip-energy-flux-maintenance).
 
+## Curazione delle run per osservabili
+
+La produzione `results/strip_energy_flux/` viene curata senza riaprire ROOT o
+rileggere gli `h80`: questa CLI usa soltanto il manifest curato e i tre
+artefatti già pubblicati `strip_energy_lookup.csv`, `flux_by_run_energy.csv` e
+`strip_energy_flux_qa.json`. Non modifica mai la directory sorgente.
+
+```bash
+python scripts/build_observable_run_database.py \
+  --manifest config/run_manifest.csv \
+  --strip-energy-dir results/strip_energy_flux \
+  --output-dir results/observable_runs
+```
+
+La pubblicazione atomica in `results/observable_runs/` contiene sei file:
+`run_quality.csv`, `run_manifest_observables.csv`,
+`strip_energy_lookup.csv`, `flux_by_run_energy.csv`,
+`flux_by_group_energy.csv` e `observable_run_qa.json`. I tre CSV di
+fisica contengono solo run `good`; il flusso di gruppo viene rigenerato dalle
+righe per run filtrate, mai copiato dal gruppo della sorgente.
+
+Il manifest completo `config/run_manifest.csv` resta l'autorità per studi di
+cut, cinematica e copertura. **Solo** `run_manifest_observables.csv`, e solo
+insieme agli altri output della stessa pubblicazione con QA `valid: true`, può
+normalizzare sezioni d'urto o altri osservabili. Le run `review` e `bad`
+restano disponibili nel manifest completo e in `run_quality.csv`, ma sono
+escluse in modo fail-closed dalla normalizzazione.
+
+Con policy v1 predefinita, la somma BREM per run nel binning
+`ajaka_cross_section` è confrontata con la mediana del suo `source_period`.
+Un rapporto maggiore o uguale a `100.0` è `brem_period_outlier`; una mediana
+non positiva o meno di cinque run nel periodo genera
+`brem_baseline_unavailable` e richiede review. I controlli sono configurabili
+con `--brem-reference-binning`, `--brem-outlier-ratio` e
+`--minimum-period-runs` e sono registrati nel QA di output.
+
+L'accettazione eseguita il 9 settembre 2026 sul bundle trasferito ha pubblicato
+QA osservabili valido: `good=2372`, `review=152`, `bad=187`; le run good sono
+`P_UV=1256`, `P_VIS=323`, `D_UV=531`, `D_VIS=262`. Sono conteggi del bundle
+con i suoi hash di input, non costanti della policy.
+
 ## Fase 2 — Selezione eventi (h80 → h85)
 
 ```bash

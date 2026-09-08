@@ -1,8 +1,8 @@
 # Current Status
 
-**Aggiornato:** 1 settembre 2026
-**Stato sintetico:** infrastruttura strip→energia e integrazione flussi pronta;
-validazione sui dati completi della farm ancora da eseguire.
+**Aggiornato:** 9 settembre 2026
+**Stato sintetico:** QA della produzione farm ricevuta e database run per
+osservabili curato; la normalizzazione fisica finale resta fuori ambito.
 **Snapshot del codice precedente a questa pagina:** `1ed73e1`
 
 ## Dove stiamo andando
@@ -20,8 +20,9 @@ necessaria per associare ogni evento a run, stato di polarizzazione, strip del
 tagger ed energia del fotone, quindi normalizzare conteggi selezionati usando
 flussi coerenti con bin energetici della pubblicazione.
 
-In altre parole: catena software locale pronta; prossimo passaggio reale è
-produrre artefatti sulla farm e controllarne QA prima di usarli nella fisica.
+In altre parole: gli artefatti della farm sono stati ricevuti e una policy
+fail-closed ha pubblicato il sottoinsieme usabile per osservabili; mancano
+ancora le correzioni e gli ingredienti fisici della normalizzazione finale.
 
 ## Metadati portati lungo tutta la catena
 
@@ -164,6 +165,38 @@ Run di flusso extra non richieste producono warning, non invalidano subset
 autorevole del manifest. Errori strutturali delle run richieste restano
 fatali.
 
+## Database run per osservabili: accettazione produzione
+
+Il bundle trasferito `results/strip_energy_flux/` è stato curato senza
+rieseguire ROOT né leggere `h80`:
+
+```bash
+python scripts/build_observable_run_database.py \
+  --manifest config/run_manifest.csv \
+  --strip-energy-dir results/strip_energy_flux \
+  --output-dir results/observable_runs
+```
+
+La pubblicazione atomica contiene sei output: `run_quality.csv`, il manifest
+good-only `run_manifest_observables.csv`, lookup e flusso per run filtrati,
+flusso per gruppo rigenerato e `observable_run_qa.json`. Quest'ultimo registra
+schema/policy v1, percorsi, hash degli input e hash di tutti i CSV prodotti.
+L'accettazione ha terminato con exit 0 e QA `valid: true`: su 2711 run,
+`good=2372`, `review=152`, `bad=187`; le good sono `P_UV=1256`, `P_VIS=323`,
+`D_UV=531`, `D_VIS=262`.
+
+La classificazione usa precedenza `bad > review > good`. In particolare, una
+somma BREM `ajaka_cross_section` con rapporto alla mediana del periodo
+maggiore o uguale a `100.0` è bad; una baseline con meno di cinque run o
+mediana non positiva è review. Le ragioni e i parametri effettivi sono
+archiviati riga per riga in `run_quality.csv` e nel QA.
+
+Il manifest completo continua a servire studi di cut e cinematica. Per una
+normalizzazione è obbligatorio usare soltanto
+`run_manifest_observables.csv` e i CSV della medesima pubblicazione valida;
+le run review/bad non entrano negli osservabili, ma restano tracciabili nel
+manifest completo e in `run_quality.csv`.
+
 ## Verifiche locali completate
 
 Ultimo controllo prima del push:
@@ -184,18 +217,15 @@ Inoltre:
 
 ## Cosa manca
 
-Parte locale implementabile è completata. Restano attività dipendenti dai dati
-completi o da informazioni sperimentali non ancora disponibili:
+La curation della produzione è completata. Restano attività dipendenti da
+informazioni sperimentali non ancora disponibili:
 
-1. eseguire pre-analisi completa sulla farm con ramo `Xstrip` aggiornato;
-2. eseguire estrazione strip-energy flux su tutti file `h80`;
-3. riportare intera directory `results/strip_energy_flux/`;
-4. leggere `strip_energy_flux_qa.json` e risolvere eventuali errori o warning;
-5. verificare convenzione fisica esatta di `POL1` e `POL2` prima di estrarre
+1. esaminare le run review/bad e confermare fisicamente la policy BREM;
+2. verificare convenzione fisica esatta di `POL1` e `POL2` prima di estrarre
    `Σ`;
-6. sostituire assunzioni provvisorie sui conteggi quando arriveranno dead time,
+3. sostituire assunzioni provvisorie sui conteggi quando arriveranno dead time,
    live time, tagging efficiency o scala corretta di `BREM`;
-7. collegare flussi validati ai yield selezionati, efficienze MC e branching
+4. collegare flussi validati ai yield selezionati, efficienze MC e branching
    ratio per estrarre sezioni d'urto e osservabili finali.
 
 Quindi risposta breve a «siamo arrivati agli osservabili?» è: no. Abbiamo
@@ -215,6 +245,11 @@ python scripts/build_strip_energy_flux.py \
   --manifest config/run_manifest.csv \
   --flux data/flux/flux.root \
   --output-dir results/strip_energy_flux
+
+python scripts/build_observable_run_database.py \
+  --manifest config/run_manifest.csv \
+  --strip-energy-dir results/strip_energy_flux \
+  --output-dir results/observable_runs
 ```
 
 Per exit 0 o analisi completata con exit 1, riportare tutta

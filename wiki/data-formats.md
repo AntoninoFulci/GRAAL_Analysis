@@ -134,6 +134,60 @@ dell'elaborazione e non crea artefatti né QA.
 Per assunzioni provvisorie, severità complete e guida alle correzioni vedere
 [Manutenzione strip-energy flux](strip-energy-flux-maintenance).
 
+## Database delle run per osservabili
+
+`scripts/build_observable_run_database.py` non esegue un nuovo scan ROOT/h80:
+valida il manifest e i tre artefatti `strip_energy_flux` già pubblicati,
+classifica tutte le run e pubblica atomicamente una directory distinta. La
+policy e il QA del database sono entrambi **v1**.
+
+### `run_quality.csv`
+
+Una riga ordinata per `run_number` per ciascuna run del manifest completo:
+
+```text
+run_number,source_period,target,beam_type,group,classification_source,
+source_file,quality_status,reason_codes,nonzero_unmapped_strip_count,
+negative_net_bin_count,brem_reference_sum,brem_period_median,brem_ratio
+```
+
+`reason_codes` è una lista lessicograficamente ordinata e separata da `;`;
+le metriche BREM assenti sono campi vuoti. `quality_status` applica una
+precedenza rigorosa: una ragione bad rende la run `bad`; altrimenti una o più
+ragioni review la rendono `review`; nessuna ragione la rende `good`.
+
+Ragioni bad: `missing_h80`, `nonzero_flux_without_lookup`,
+`monotonic_inversion`, `run_flux_conservation_failure`,
+`brem_period_outlier`. Ragioni review: `negative_net_flux`,
+`negative_raw_brem`, `low_strip_statistics`, `high_energy_mad`,
+`flux_underflow_overflow`, `brem_baseline_unavailable`. Più ragioni possono
+coesistere; una ragione bad ha sempre precedenza su review.
+
+### Manifest e CSV filtrati
+
+`run_manifest_observables.csv` ha esattamente le sette colonne del manifest
+canonico e contiene solo run `good`; deve passare `validate_manifest()` senza
+eccezioni. `strip_energy_lookup.csv` e `flux_by_run_energy.csv` mantengono gli
+schemi documentati sopra, filtrati alle stesse run good. Le righe di flusso per
+run e quelle di `flux_by_group_energy.csv`, rigenerato dalle righe per run
+filtrate, hanno `status=valid`; il lookup non ha una colonna `status`.
+
+Il manifest completo non viene filtrato né sostituito: serve a studi di cut e
+cinematica. Per una normalizzazione di osservabili è vietato usare quel
+manifest o i CSV sorgenti: usare esclusivamente il bundle coerente con
+`run_manifest_observables.csv` e QA valido.
+
+### `observable_run_qa.json` (schema/policy v1)
+
+Il report serializza `schema_version`, `policy_version`, percorsi di input,
+`input_sha256`, `source_qa_sha256`, binning e parametri BREM, conteggi per
+status/ragione/gruppo/status-gruppo, conteggi source/output, warning QA globali
+della sorgente, `output_sha256` per ciascuno dei cinque CSV e `valid`.
+Il default confronta la somma BREM `ajaka_cross_section` di ogni run con la
+mediana del suo periodo: rapporto `>= 100.0` è outlier; un periodo con meno di
+cinque totali utilizzabili o mediana non positiva non classifica un outlier e
+produce `brem_baseline_unavailable`. I parametri effettivi restano nel QA.
+
 ## `h80` — pre-analisi
 
 Scritto da `PreAnalysis::Loop` in `01_pre_analysis/PreAnalysis.C`. 
