@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import csv
 from dataclasses import dataclass
-from math import fsum, isfinite
+import hashlib
+import json
+from math import fsum, isclose, isfinite
 from numbers import Integral, Real
+from pathlib import Path
 from statistics import median
 from typing import Mapping, Sequence
 import re
 
 from .run_manifest import RunRecord
-from .strip_energy_flux import FluxBinRecord
+from .strip_energy_flux import (
+    LOOKUP_FIELDS,
+    RUN_FLUX_FIELDS,
+    FluxBinRecord,
+    StripEnergyRecord,
+)
 
 
 class ObservableRunError(ValueError):
@@ -65,6 +74,40 @@ _BAD_REASONS = {
     "run_flux_conservation_failure",
     "brem_period_outlier",
 }
+_SOURCE_QA_FIELDS = frozenset(
+    {
+        "schema_version",
+        "inputs",
+        "thresholds",
+        "binnings",
+        "manifest_run_count",
+        "h80_run_count",
+        "flux_run_count",
+        "lookup_strip_count",
+        "h80",
+        "flux",
+        "missing_h80_runs",
+        "extra_h80_runs",
+        "extra_h80_run_count",
+        "extra_h80_runs_truncated",
+        "extra_flux_runs",
+        "malformed_flux_triplets",
+        "empty_strips",
+        "nonzero_unmapped_strips",
+        "monotonic_inversions",
+        "mad_warnings",
+        "low_stat_warnings",
+        "underflow_overflow",
+        "out_of_range",
+        "negative_net_errors",
+        "conservation",
+        "run_flux_bin_count",
+        "errors",
+        "valid",
+    }
+)
+_RUN_FLUX_STATUSES = frozenset({"valid", "invalid"})
+_QUALITY_STATUSES = frozenset({"good", "review", "bad"})
 
 
 def _manifest_by_run(manifest: Sequence[RunRecord]) -> dict[int, RunRecord]:
@@ -297,3 +340,370 @@ def classify_run_quality(
             )
         )
     return tuple(quality)
+
+
+def _artifact_error(path: Path, row_number: int, message: str) -> ObservableRunError:
+    return ObservableRunError(f"{path} row {row_number}: {message}")
+
+
+def _parse_positive_integer(value: object, path: Path, row_number: int, field: str) -> int:
+    if not isinstance(value, str):
+        raise _artifact_error(path, row_number, f"{field} must be a positive integer")
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise _artifact_error(path, row_number, f"{field} must be a positive integer") from None
+    if parsed <= 0 or value.strip() != value or not value or value.startswith("+"):
+        raise _artifact_error(path, row_number, f"{field} must be a positive integer")
+    return parsed
+
+
+def _parse_finite_float(value: object, path: Path, row_number: int, field: str) -> float:
+    if not isinstance(value, str):
+        raise _artifact_error(path, row_number, f"{field} must be finite")
+    try:
+        parsed = float(value)
+    except ValueError:
+        raise _artifact_error(path, row_number, f"{field} must be finite") from None
+    if not isfinite(parsed):
+        raise _artifact_error(path, row_number, f"{field} must be finite")
+    return parsed
+
+
+def _validate_manifest_metadata(
+    row: Mapping[str, str], path: Path, row_number: int, manifest_by_run: Mapping[int, RunRecord]
+) -> tuple[int, RunRecord]:
+    run_number = _parse_positive_integer(row.get("run_number"), path, row_number, "run_number")
+    manifest = manifest_by_run.get(run_number)
+    if manifest is None:
+        raise _artifact_error(path, row_number, f"unknown manifest run {run_number}")
+    if any(
+        row[field] != expected
+        for field, expected in (
+            ("source_period", manifest.source_period),
+            ("target", manifest.target),
+            ("beam_type", manifest.beam_type),
+            ("group", manifest.group),
+        )
+    ):
+        raise _artifact_error(path, row_number, "metadata conflicts with manifest")
+    return run_number, manifest
+
+
+def _read_csv_rows(path: Path, fields: tuple[str, ...]):
+    path = Path(path)
+    try:
+        stream = path.open(newline="")
+    except OSError as exc:
+        raise ObservableRunError(f"{path}: cannot read artifact: {exc}") from None
+    with stream:
+        try:
+            reader = csv.DictReader(stream, strict=True)
+            if tuple(reader.fieldnames or ()) != fields:
+                raise _artifact_error(path, 1, "header does not match required schema")
+            for row_number, row in enumerate(reader, start=2):
+                if None in row or any(value is None for value in row.values()):
+                    raise _artifact_error(path, row_number, "row does not match required schema")
+                yield path, row_number, row
+        except csv.Error as exc:
+            raise _artifact_error(path, max(reader.line_num, 2), f"malformed CSV: {exc}") from None
+
+
+def read_lookup_artifact(
+    path: Path, manifest_by_run: Mapping[int, RunRecord]
+) -> tuple[StripEnergyRecord, ...]:
+    """Read a strict source lookup CSV and reconstruct immutable records."""
+    records = []
+    keys: set[tuple[int, int]] = set()
+    for source_path, row_number, row in _read_csv_rows(path, LOOKUP_FIELDS):
+        run_number, _ = _validate_manifest_metadata(row, source_path, row_number, manifest_by_run)
+        xstrip = _parse_positive_integer(row.get("xstrip"), source_path, row_number, "xstrip")
+        if xstrip > 128:
+            raise _artifact_error(source_path, row_number, "xstrip must be in 1..128")
+        event_count = _parse_positive_integer(row.get("event_count"), source_path, row_number, "event_count")
+        numeric = {
+            field: _parse_finite_float(row.get(field), source_path, row_number, field)
+            for field in (
+                "energy_median_gev",
+                "energy_mad_gev",
+                "energy_min_gev",
+                "energy_max_gev",
+            )
+        }
+        if numeric["energy_mad_gev"] < 0:
+            raise _artifact_error(source_path, row_number, "energy_mad_gev must be nonnegative")
+        if not (
+            numeric["energy_min_gev"]
+            <= numeric["energy_median_gev"]
+            <= numeric["energy_max_gev"]
+        ):
+            raise _artifact_error(source_path, row_number, "energy statistics are inconsistent")
+        provenance = row["provenance"]
+        if not provenance:
+            raise _artifact_error(source_path, row_number, "provenance must be nonempty")
+        key = (run_number, xstrip)
+        if key in keys:
+            raise _artifact_error(source_path, row_number, f"duplicate lookup key {run_number}/{xstrip}")
+        keys.add(key)
+        records.append(
+            StripEnergyRecord(
+                run_number,
+                xstrip,
+                event_count,
+                numeric["energy_median_gev"],
+                numeric["energy_mad_gev"],
+                numeric["energy_min_gev"],
+                numeric["energy_max_gev"],
+                provenance,
+            )
+        )
+    return tuple(records)
+
+
+def read_run_flux_artifact(
+    path: Path, manifest_by_run: Mapping[int, RunRecord]
+) -> tuple[FluxBinRecord, ...]:
+    """Read a strict per-run flux CSV and verify its numeric invariants."""
+    records = []
+    keys: set[tuple[str, int, float, float]] = set()
+    for source_path, row_number, row in _read_csv_rows(path, RUN_FLUX_FIELDS):
+        run_number, manifest = _validate_manifest_metadata(row, source_path, row_number, manifest_by_run)
+        binning = row["binning"]
+        if not binning:
+            raise _artifact_error(source_path, row_number, "binning must be nonempty")
+        numeric = {
+            field: _parse_finite_float(row.get(field), source_path, row_number, field)
+            for field in (
+                "energy_low_gev",
+                "energy_high_gev",
+                "pol1",
+                "brem",
+                "pol2",
+                "pol1_net",
+                "pol2_net",
+                "total_net",
+            )
+        }
+        if numeric["energy_high_gev"] <= numeric["energy_low_gev"]:
+            raise _artifact_error(source_path, row_number, "energy bin edges must increase")
+        expected = {
+            "pol1_net": numeric["pol1"] - numeric["brem"],
+            "pol2_net": numeric["pol2"] - numeric["brem"],
+        }
+        expected["total_net"] = expected["pol1_net"] + expected["pol2_net"]
+        for field, value in expected.items():
+            if not isclose(numeric[field], value, rel_tol=1e-12, abs_tol=1e-9):
+                raise _artifact_error(source_path, row_number, f"{field} does not match raw flux formula")
+        status = row["status"]
+        if status not in _RUN_FLUX_STATUSES:
+            raise _artifact_error(source_path, row_number, "status is not in the source vocabulary")
+        expected_status = "invalid" if numeric["pol1_net"] < 0 or numeric["pol2_net"] < 0 else "valid"
+        if status != expected_status:
+            raise _artifact_error(source_path, row_number, "status conflicts with net flux")
+        key = (binning, run_number, numeric["energy_low_gev"], numeric["energy_high_gev"])
+        if key in keys:
+            raise _artifact_error(source_path, row_number, f"duplicate flux key {binning}/{run_number}")
+        keys.add(key)
+        records.append(
+            FluxBinRecord(
+                binning,
+                run_number,
+                manifest.source_period,
+                manifest.target,
+                manifest.beam_type,
+                manifest.group,
+                numeric["energy_low_gev"],
+                numeric["energy_high_gev"],
+                numeric["pol1"],
+                numeric["brem"],
+                numeric["pol2"],
+                numeric["pol1_net"],
+                numeric["pol2_net"],
+                numeric["total_net"],
+                status,
+            )
+        )
+    return tuple(records)
+
+
+def _reject_json_constant(value: str) -> object:
+    raise ValueError(f"non-finite JSON value {value}")
+
+
+def read_source_qa(path: Path) -> dict[str, object]:
+    """Read and validate the exact schema-v1 source QA JSON document."""
+    path = Path(path)
+    try:
+        payload = json.loads(path.read_text(), parse_constant=_reject_json_constant)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ObservableRunError(f"{path}: cannot read source QA: {exc}") from None
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ObservableRunError(f"{path}: malformed JSON: {exc}") from None
+    if not isinstance(payload, dict):
+        raise ObservableRunError(f"{path}: source QA must be an object")
+    if set(payload) != _SOURCE_QA_FIELDS:
+        raise ObservableRunError(f"{path}: source QA schema does not match version 1")
+    if isinstance(payload["schema_version"], bool) or payload["schema_version"] != 1:
+        raise ObservableRunError(f"{path}: schema_version must be 1")
+    for field in ("inputs", "thresholds", "binnings", "h80", "flux", "out_of_range", "conservation"):
+        if not isinstance(payload[field], dict):
+            raise ObservableRunError(f"{path}: source QA field {field} must be an object")
+    for field in (
+        "missing_h80_runs", "extra_h80_runs", "extra_flux_runs", "malformed_flux_triplets",
+        "empty_strips", "nonzero_unmapped_strips", "monotonic_inversions", "mad_warnings",
+        "low_stat_warnings", "underflow_overflow", "negative_net_errors", "errors",
+    ):
+        if not isinstance(payload[field], list):
+            raise ObservableRunError(f"{path}: source QA field {field} must be an array")
+    if not all(isinstance(error, str) for error in payload["errors"]):
+        raise ObservableRunError(f"{path}: source QA errors must be strings")
+    if not isinstance(payload["valid"], bool):
+        raise ObservableRunError(f"{path}: source QA valid must be boolean")
+    return payload
+
+
+def _qa_positive_integer(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+        raise ObservableRunError(f"source QA {field} must be a positive integer")
+    return int(value)
+
+
+def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
+    missing = qa.get("missing_h80_runs")
+    if not isinstance(missing, list):
+        raise ObservableRunError("source QA missing_h80_runs must be an array")
+    missing_runs = [_qa_positive_integer(run, "missing_h80_runs entry") for run in missing]
+    expected = {f"manifest runs absent from h80: {missing_runs}"} if missing_runs else set()
+
+    unmapped = qa.get("nonzero_unmapped_strips")
+    if not isinstance(unmapped, list):
+        raise ObservableRunError("source QA nonzero_unmapped_strips must be an array")
+    for entry in unmapped:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA nonzero_unmapped_strips entry must be an object")
+        run_number = _qa_positive_integer(entry.get("run_number"), "nonzero_unmapped_strips run_number")
+        xstrip = _qa_positive_integer(entry.get("xstrip"), "nonzero_unmapped_strips xstrip")
+        expected.add(f"run {run_number} strip {xstrip}: nonzero flux without lookup")
+
+    negative = qa.get("negative_net_errors")
+    if not isinstance(negative, list):
+        raise ObservableRunError("source QA negative_net_errors must be an array")
+    for entry in negative:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA negative_net_errors entry must be an object")
+        run_number = _qa_positive_integer(entry.get("run_number"), "negative_net_errors run_number")
+        binning = entry.get("binning")
+        bin_index = entry.get("bin_index")
+        if not isinstance(binning, str) or not binning:
+            raise ObservableRunError("source QA negative_net_errors binning must be nonempty")
+        if isinstance(bin_index, bool) or not isinstance(bin_index, Integral) or bin_index < 0:
+            raise ObservableRunError("source QA negative_net_errors bin_index must be nonnegative")
+        expected.add(f"run {run_number} binning {binning} bin {bin_index}: negative net flux")
+
+    conservation = qa.get("conservation")
+    if not isinstance(conservation, Mapping):
+        raise ObservableRunError("source QA conservation must be an object")
+    failures = conservation.get("failures")
+    if not isinstance(failures, list):
+        raise ObservableRunError("source QA conservation failures must be an array")
+    for failure in failures:
+        if not isinstance(failure, Mapping):
+            raise ObservableRunError("source QA conservation failure must be an object")
+        scope = failure.get("scope")
+        binning = failure.get("binning")
+        state = failure.get("state")
+        if not isinstance(binning, str) or not binning or not isinstance(state, str) or not state:
+            raise ObservableRunError("source QA conservation failure has invalid identity")
+        if scope == "run":
+            run_number = _qa_positive_integer(failure.get("run_number"), "conservation run_number")
+            expected.add(
+                "structural run raw-flux conservation failure: "
+                f"binning {binning} run {run_number} state {state}"
+            )
+        elif scope == "group":
+            group = failure.get("group")
+            low = failure.get("energy_low_gev")
+            high = failure.get("energy_high_gev")
+            if not isinstance(group, str) or not group or not isinstance(low, Real) or not isinstance(high, Real):
+                raise ObservableRunError("source QA group conservation failure has invalid identity")
+            expected.add(
+                "structural group raw-flux conservation failure: "
+                f"binning {binning} group {group} bin [{low}, {high}] state {state}"
+            )
+        else:
+            raise ObservableRunError("source QA conservation failure has invalid scope")
+    return expected
+
+
+def validate_source_qa_errors(qa: Mapping[str, object]) -> None:
+    """Require every source error to have one exact structured QA identity."""
+    if not isinstance(qa, Mapping):
+        raise ObservableRunError("source QA must be an object")
+    errors = qa.get("errors")
+    if not isinstance(errors, list) or not all(isinstance(error, str) for error in errors):
+        raise ObservableRunError("source QA errors must be an array of strings")
+    if set(errors) != _qa_expected_errors(qa):
+        raise ObservableRunError("unclassified source QA error")
+
+
+def _quality_value(value: float | None, field: str) -> float | str:
+    if value is None:
+        return ""
+    if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
+        raise ObservableRunError(f"{field} must be finite or absent")
+    return float(value)
+
+
+def write_run_quality_csv(path: Path, rows: Sequence[RunQuality]) -> None:
+    """Write canonical run quality rows with a stable schema and ordering."""
+    path = Path(path)
+    seen_runs: set[int] = set()
+    serialized = []
+    for quality in sorted(rows, key=lambda row: row.run.run_number):
+        if quality.run.run_number in seen_runs:
+            raise ObservableRunError(f"duplicate quality run {quality.run.run_number}")
+        seen_runs.add(quality.run.run_number)
+        if quality.quality_status not in _QUALITY_STATUSES:
+            raise ObservableRunError("quality_status is not in the output vocabulary")
+        if tuple(sorted(set(quality.reason_codes))) != quality.reason_codes or not all(
+            isinstance(reason, str) and reason for reason in quality.reason_codes
+        ):
+            raise ObservableRunError("reason_codes must be sorted unique nonempty strings")
+        for field, value in (
+            ("nonzero_unmapped_strip_count", quality.nonzero_unmapped_strip_count),
+            ("negative_net_bin_count", quality.negative_net_bin_count),
+        ):
+            if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
+                raise ObservableRunError(f"{field} must be a nonnegative integer")
+        serialized.append(
+            {
+                "run_number": quality.run.run_number,
+                "source_period": quality.run.source_period,
+                "target": quality.run.target,
+                "beam_type": quality.run.beam_type,
+                "group": quality.run.group,
+                "classification_source": quality.run.classification_source,
+                "source_file": quality.run.source_file,
+                "quality_status": quality.quality_status,
+                "reason_codes": ";".join(quality.reason_codes),
+                "nonzero_unmapped_strip_count": quality.nonzero_unmapped_strip_count,
+                "negative_net_bin_count": quality.negative_net_bin_count,
+                "brem_reference_sum": _quality_value(quality.brem.reference_sum, "brem_reference_sum"),
+                "brem_period_median": _quality_value(quality.brem.period_median, "brem_period_median"),
+                "brem_ratio": _quality_value(quality.brem.ratio, "brem_ratio"),
+            }
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=QUALITY_FIELDS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(serialized)
+
+
+def sha256_file(path: Path) -> str:
+    """Return the SHA-256 digest of a file without depending on its text encoding."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

@@ -1,12 +1,29 @@
+import csv
+import hashlib
+import json
+
 import pytest
 
 from graal_common.observable_runs import (
+    BremMetric,
     ObservableRunError,
+    RunQuality,
     calculate_brem_metrics,
     classify_run_quality,
+    read_lookup_artifact,
+    read_run_flux_artifact,
+    read_source_qa,
+    sha256_file,
+    validate_source_qa_errors,
+    write_run_quality_csv,
 )
 from graal_common.run_manifest import RunRecord
-from graal_common.strip_energy_flux import FluxBinRecord
+from graal_common.strip_energy_flux import (
+    LOOKUP_FIELDS,
+    RUN_FLUX_FIELDS,
+    FluxBinRecord,
+    StripEnergyRecord,
+)
 
 
 def manifest_rows(*runs, period="period"):
@@ -47,6 +64,95 @@ def qa_for_runs(**overrides):
     }
     qa.update(overrides)
     return qa
+
+
+def write_artifact(path, fields, rows):
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(
+            stream, fieldnames=fields, extrasaction="ignore", lineterminator="\n"
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def lookup_artifact_row(run=7, **overrides):
+    row = {
+        "run_number": run,
+        "source_period": "period",
+        "target": "P",
+        "beam_type": "UV",
+        "group": "P_UV",
+        "xstrip": 1,
+        "event_count": 10,
+        "energy_median_gev": 1.2,
+        "energy_mad_gev": 0.01,
+        "energy_min_gev": 1.1,
+        "energy_max_gev": 1.3,
+        "provenance": "observed",
+    }
+    row.update(overrides)
+    return row
+
+
+def run_flux_artifact_row(run=7, **overrides):
+    row = {
+        "binning": "ajaka_cross_section",
+        "run_number": run,
+        "source_period": "period",
+        "target": "P",
+        "beam_type": "UV",
+        "group": "P_UV",
+        "energy_low_gev": 1.0,
+        "energy_high_gev": 1.1,
+        "pol1": 4.0,
+        "brem": 1.0,
+        "pol2": 5.0,
+        "pol1_net": 3.0,
+        "pol2_net": 4.0,
+        "total_net": 7.0,
+        "status": "valid",
+    }
+    row.update(overrides)
+    return row
+
+
+def source_qa(**overrides):
+    qa = {
+        "schema_version": 1,
+        "inputs": {},
+        "thresholds": {},
+        "binnings": {},
+        "manifest_run_count": 1,
+        "h80_run_count": 1,
+        "flux_run_count": 1,
+        "lookup_strip_count": 1,
+        "h80": {},
+        "flux": {},
+        "missing_h80_runs": [],
+        "extra_h80_runs": [],
+        "extra_h80_run_count": 0,
+        "extra_h80_runs_truncated": False,
+        "extra_flux_runs": [],
+        "malformed_flux_triplets": [],
+        "empty_strips": [],
+        "nonzero_unmapped_strips": [],
+        "monotonic_inversions": [],
+        "mad_warnings": [],
+        "low_stat_warnings": [],
+        "underflow_overflow": [],
+        "out_of_range": {},
+        "negative_net_errors": [],
+        "conservation": {"failures": []},
+        "run_flux_bin_count": 1,
+        "errors": [],
+        "valid": True,
+    }
+    qa.update(overrides)
+    return qa
+
+
+def quality_row(run=7, *, brem=BremMetric(1.0, 1.0, 1.0)):
+    return RunQuality(manifest_rows(run)[0], "good", (), 0, 0, brem)
 
 
 def test_bad_precedes_review_and_accumulates_sorted_reasons():
@@ -196,3 +302,159 @@ def test_brem_uses_only_reference_binning_and_rejects_invalid_flux_values():
             reference_binning="ajaka_cross_section", outlier_ratio=100.0,
             minimum_period_runs=1,
         )
+
+
+def test_lookup_reader_reconstructs_records_from_the_exact_source_schema(tmp_path):
+    path = tmp_path / "strip_energy_lookup.csv"
+    write_artifact(path, LOOKUP_FIELDS, [lookup_artifact_row()])
+
+    records = read_lookup_artifact(path, {7: manifest_rows(7)[0]})
+
+    assert records == (
+        StripEnergyRecord(7, 1, 10, 1.2, 0.01, 1.1, 1.3, "observed"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("fields", "rows", "match"),
+    [
+        (LOOKUP_FIELDS[:-1], [lookup_artifact_row()], "header"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(), lookup_artifact_row()], "duplicate.*7.*1"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(energy_mad_gev="nan")], "row 2.*finite"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(event_count=0)], "row 2.*positive integer"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(energy_mad_gev=-0.01)], "row 2.*energy_mad"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(energy_min_gev=1.25)], "row 2.*energy statistics"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(target="D")], "row 2.*metadata"),
+        (LOOKUP_FIELDS, [lookup_artifact_row(run=99)], "row 2.*unknown manifest run 99"),
+    ],
+)
+def test_lookup_reader_rejects_invalid_source_rows(tmp_path, fields, rows, match):
+    path = tmp_path / "strip_energy_lookup.csv"
+    write_artifact(path, fields, rows)
+
+    with pytest.raises(ObservableRunError, match=match):
+        read_lookup_artifact(path, {7: manifest_rows(7)[0]})
+
+
+def test_run_flux_reader_reconstructs_records_from_the_exact_source_schema(tmp_path):
+    path = tmp_path / "flux_by_run_energy.csv"
+    write_artifact(path, RUN_FLUX_FIELDS, [run_flux_artifact_row()])
+
+    records = read_run_flux_artifact(path, {7: manifest_rows(7)[0]})
+
+    assert records == (
+        FluxBinRecord(
+            "ajaka_cross_section", 7, "period", "P", "UV", "P_UV", 1.0, 1.1,
+            4.0, 1.0, 5.0, 3.0, 4.0, 7.0, "valid",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("row", "match"),
+    [
+        (run_flux_artifact_row(energy_low_gev="inf"), "row 2.*finite"),
+        (run_flux_artifact_row(run_number=0), "row 2.*positive integer"),
+        (run_flux_artifact_row(status="unknown"), "row 2.*status"),
+        (run_flux_artifact_row(pol1_net=3.1), "row 2.*pol1_net"),
+        (run_flux_artifact_row(total_net=6.9), "row 2.*total_net"),
+        (run_flux_artifact_row(group="D_UV"), "row 2.*metadata"),
+        (run_flux_artifact_row(run_number=99), "row 2.*unknown manifest run 99"),
+    ],
+)
+def test_run_flux_reader_rejects_invalid_source_rows(tmp_path, row, match):
+    path = tmp_path / "flux_by_run_energy.csv"
+    write_artifact(path, RUN_FLUX_FIELDS, [row])
+
+    with pytest.raises(ObservableRunError, match=match):
+        read_run_flux_artifact(path, {7: manifest_rows(7)[0]})
+
+
+def test_run_flux_reader_rejects_duplicate_bin_key(tmp_path):
+    path = tmp_path / "flux_by_run_energy.csv"
+    row = run_flux_artifact_row()
+    write_artifact(path, RUN_FLUX_FIELDS, [row, row])
+
+    with pytest.raises(ObservableRunError, match="duplicate.*ajaka_cross_section.*7"):
+        read_run_flux_artifact(path, {7: manifest_rows(7)[0]})
+
+
+def test_source_qa_reader_requires_schema_v1_and_valid_json(tmp_path):
+    path = tmp_path / "strip_energy_flux_qa.json"
+    path.write_text(json.dumps(source_qa(schema_version=2)))
+    with pytest.raises(ObservableRunError, match="schema_version"):
+        read_source_qa(path)
+
+    path.write_text(json.dumps(source_qa(schema_version=True)))
+    with pytest.raises(ObservableRunError, match="schema_version"):
+        read_source_qa(path)
+
+    path.write_text("{")
+    with pytest.raises(ObservableRunError, match="malformed JSON"):
+        read_source_qa(path)
+
+
+def test_source_qa_reader_requires_its_exact_schema(tmp_path):
+    path = tmp_path / "strip_energy_flux_qa.json"
+    payload = source_qa()
+    payload.pop("errors")
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ObservableRunError, match="schema"):
+        read_source_qa(path)
+
+
+def test_source_qa_errors_match_their_structured_findings():
+    qa = source_qa(
+        missing_h80_runs=[7],
+        nonzero_unmapped_strips=[{"run_number": 7, "xstrip": 4}],
+        negative_net_errors=[{"run_number": 7, "binning": "ajaka_cross_section", "bin_index": 2}],
+        conservation={
+            "failures": [
+                {
+                    "scope": "run", "binning": "ajaka_cross_section",
+                    "run_number": 7, "state": "brem",
+                }
+            ]
+        },
+        errors=[
+            "manifest runs absent from h80: [7]",
+            "run 7 strip 4: nonzero flux without lookup",
+            "run 7 binning ajaka_cross_section bin 2: negative net flux",
+            "structural run raw-flux conservation failure: binning ajaka_cross_section run 7 state brem",
+        ],
+        valid=False,
+    )
+
+    validate_source_qa_errors(qa)
+
+    qa["errors"].append("something unrelated")
+    with pytest.raises(ObservableRunError, match="^unclassified source QA error$"):
+        validate_source_qa_errors(qa)
+
+
+def test_quality_writer_uses_fixed_schema_and_empty_missing_metrics(tmp_path):
+    path = tmp_path / "run_quality.csv"
+    write_run_quality_csv(path, [quality_row(7, brem=BremMetric(None, None, None))])
+
+    row = next(csv.DictReader(path.open(newline="")))
+    assert tuple(row) == (
+        "run_number", "source_period", "target", "beam_type", "group",
+        "classification_source", "source_file", "quality_status", "reason_codes",
+        "nonzero_unmapped_strip_count", "negative_net_bin_count",
+        "brem_reference_sum", "brem_period_median", "brem_ratio",
+    )
+    assert row["brem_reference_sum"] == ""
+    assert row["brem_period_median"] == ""
+    assert row["brem_ratio"] == ""
+
+
+def test_quality_writer_rejects_invalid_status_and_has_stable_digest(tmp_path):
+    path = tmp_path / "run_quality.csv"
+    invalid = RunQuality(manifest_rows(7)[0], "invalid", (), 0, 0, BremMetric(None, None, None))
+    with pytest.raises(ObservableRunError, match="quality_status"):
+        write_run_quality_csv(path, [invalid])
+
+    write_run_quality_csv(path, [quality_row(8), quality_row(7)])
+    assert [row["run_number"] for row in csv.DictReader(path.open(newline=""))] == ["7", "8"]
+    assert sha256_file(path) == hashlib.sha256(path.read_bytes()).hexdigest()
