@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -157,6 +159,39 @@ def _run_cli(tmp_path: Path, manifest: Path, source: Path, output: Path) -> subp
         capture_output=True,
         check=False,
     )
+
+
+def _load_cli_module():
+    spec = importlib.util.spec_from_file_location("observable_run_database_cli", CLI)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_input_snapshots_are_parsed_and_hashed_after_originals_change(tmp_path):
+    """Hashing originals after parsing would let QA describe different input bytes."""
+    manifest, source = _build_source_bundle(tmp_path)
+    cli = _load_cli_module()
+    args = argparse.Namespace(manifest=manifest, strip_energy_dir=source)
+    source_paths = cli._source_paths(source)
+
+    with cli._snapshot_inputs(args, source_paths) as snapshots:
+        source_flux = source / "flux_by_run_energy.csv"
+        source_flux.write_text("changed after snapshot\n")
+
+        snapshot_manifest = validate_manifest(snapshots.manifest)
+        snapshot_flux = cli.read_run_flux_artifact(
+            snapshots.source_paths["flux_by_run_energy.csv"],
+            {record.run_number: record for record in snapshot_manifest},
+        )
+
+        assert len(snapshot_flux) == 10
+        assert snapshots.input_sha256["flux_by_run_energy"] == _sha256(
+            snapshots.source_paths["flux_by_run_energy.csv"]
+        )
+        assert snapshots.input_sha256["flux_by_run_energy"] != _sha256(source_flux)
 
 
 def test_cli_publishes_deterministic_good_run_bundle_with_lineage(tmp_path):

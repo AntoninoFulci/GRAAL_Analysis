@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from contextlib import contextmanager
+from dataclasses import dataclass
 import math
 import os
 from pathlib import Path
+import shutil
 import sys
+import tempfile
 from typing import Mapping, Sequence
 
 from graal_common.observable_runs import (
@@ -46,6 +50,13 @@ _OUTPUT_CSVS = (
 )
 
 
+@dataclass(frozen=True)
+class _InputSnapshot:
+    manifest: Path
+    source_paths: dict[str, Path]
+    input_sha256: dict[str, str]
+
+
 def _source_paths(strip_energy_dir: Path) -> dict[str, Path]:
     source = Path(strip_energy_dir)
     paths = {name: source / name for name in SOURCE_FILES}
@@ -53,6 +64,34 @@ def _source_paths(strip_energy_dir: Path) -> dict[str, Path]:
     if missing is not None:
         raise ObservableRunError(f"source artifact not found: {missing}")
     return paths
+
+
+@contextmanager
+def _snapshot_inputs(
+    args: argparse.Namespace, source_paths: Mapping[str, Path]
+):
+    """Copy all logical inputs before reading so QA hashes name parsed bytes."""
+    with tempfile.TemporaryDirectory(prefix="observable-run-inputs.") as directory:
+        root = Path(directory)
+        manifest = root / "manifest.csv"
+        source_root = root / "source"
+        source_root.mkdir()
+        try:
+            shutil.copyfile(args.manifest, manifest)
+            snapshots = {}
+            for name, path in source_paths.items():
+                snapshot = source_root / name
+                shutil.copyfile(path, snapshot)
+                snapshots[name] = snapshot
+        except OSError as exc:
+            raise ObservableRunError(f"cannot snapshot input artifact: {exc}") from None
+        input_sha256 = {
+            "manifest": sha256_file(manifest),
+            "strip_energy_lookup": sha256_file(snapshots["strip_energy_lookup.csv"]),
+            "flux_by_run_energy": sha256_file(snapshots["flux_by_run_energy.csv"]),
+            "strip_energy_flux_qa": sha256_file(snapshots["strip_energy_flux_qa.json"]),
+        }
+        yield _InputSnapshot(manifest, snapshots, input_sha256)
 
 
 def _paths_overlap(left: Path, right: Path) -> bool:
@@ -169,14 +208,9 @@ def _build_qa(
     source_run_count: int,
     output_run_count: int,
     staging: Path,
+    input_sha256: Mapping[str, str],
 ) -> dict[str, object]:
     by_status, by_reason, by_group, by_status_group = _quality_counts(quality)
-    input_sha256 = {
-        "manifest": sha256_file(args.manifest),
-        "strip_energy_lookup": sha256_file(source_paths["strip_energy_lookup.csv"]),
-        "flux_by_run_energy": sha256_file(source_paths["flux_by_run_energy.csv"]),
-        "strip_energy_flux_qa": sha256_file(source_paths["strip_energy_flux_qa.json"]),
-    }
     output_sha256 = {name: sha256_file(staging / name) for name in _OUTPUT_CSVS}
     return {
         "schema_version": 1,
@@ -211,55 +245,61 @@ def run(args: argparse.Namespace) -> int:
         raise ObservableRunError("minimum-period-runs must be at least 1")
     source_paths = _source_paths(args.strip_energy_dir)
     _validate_output_location(args, source_paths)
-    manifest = validate_manifest(args.manifest)
-    manifest_by_run = {record.run_number: record for record in manifest}
-    lookup = read_lookup_artifact(source_paths["strip_energy_lookup.csv"], manifest_by_run)
-    run_flux = read_run_flux_artifact(source_paths["flux_by_run_energy.csv"], manifest_by_run)
-    source_qa = read_source_qa(source_paths["strip_energy_flux_qa.json"])
-    _validate_source_counts(
-        source_qa,
-        manifest,
-        {record.run_number for record in lookup},
-        len(lookup),
-        {record.run_number for record in run_flux},
-        len(run_flux),
-    )
-    quality = classify_run_quality(
-        manifest,
-        source_qa,
-        run_flux,
-        reference_binning=args.brem_reference_binning,
-        brem_outlier_ratio=args.brem_outlier_ratio,
-        minimum_period_runs=args.minimum_period_runs,
-    )
-    good_runs = {row.run.run_number for row in quality if row.quality_status == "good"}
-    if not good_runs:
-        raise ObservableRunError("quality policy produced no good runs")
-    _validate_good_coverage(good_runs, lookup, run_flux, source_qa)
-    filtered_lookup = tuple(row for row in lookup if row.run_number in good_runs)
-    filtered_flux = tuple(row for row in run_flux if row.run_number in good_runs)
-    _require_valid_flux(filtered_flux, "filtered run flux")
-    group_flux = aggregate_group_flux(filtered_flux)
-    _require_valid_flux(group_flux, "filtered group flux")
-    good_manifest = [record for record in manifest if record.run_number in good_runs]
-    with atomic_output_directory(args.output_dir) as staging:
-        write_run_quality_csv(staging / "run_quality.csv", quality)
-        write_manifest(good_manifest, staging / "run_manifest_observables.csv")
-        write_lookup_csv(staging / "strip_energy_lookup.csv", filtered_lookup, manifest_by_run)
-        write_run_flux_csv(staging / "flux_by_run_energy.csv", filtered_flux)
-        write_group_flux_csv(staging / "flux_by_group_energy.csv", group_flux)
-        write_qa_json(
-            staging / "observable_run_qa.json",
-            _build_qa(
-                args,
-                source_paths,
-                quality,
-                source_qa,
-                len(manifest),
-                len(good_manifest),
-                staging,
-            ),
+    with _snapshot_inputs(args, source_paths) as snapshots:
+        manifest = validate_manifest(snapshots.manifest)
+        manifest_by_run = {record.run_number: record for record in manifest}
+        lookup = read_lookup_artifact(
+            snapshots.source_paths["strip_energy_lookup.csv"], manifest_by_run
         )
+        run_flux = read_run_flux_artifact(
+            snapshots.source_paths["flux_by_run_energy.csv"], manifest_by_run
+        )
+        source_qa = read_source_qa(snapshots.source_paths["strip_energy_flux_qa.json"])
+        _validate_source_counts(
+            source_qa,
+            manifest,
+            {record.run_number for record in lookup},
+            len(lookup),
+            {record.run_number for record in run_flux},
+            len(run_flux),
+        )
+        quality = classify_run_quality(
+            manifest,
+            source_qa,
+            run_flux,
+            reference_binning=args.brem_reference_binning,
+            brem_outlier_ratio=args.brem_outlier_ratio,
+            minimum_period_runs=args.minimum_period_runs,
+        )
+        good_runs = {row.run.run_number for row in quality if row.quality_status == "good"}
+        if not good_runs:
+            raise ObservableRunError("quality policy produced no good runs")
+        _validate_good_coverage(good_runs, lookup, run_flux, source_qa)
+        filtered_lookup = tuple(row for row in lookup if row.run_number in good_runs)
+        filtered_flux = tuple(row for row in run_flux if row.run_number in good_runs)
+        _require_valid_flux(filtered_flux, "filtered run flux")
+        group_flux = aggregate_group_flux(filtered_flux)
+        _require_valid_flux(group_flux, "filtered group flux")
+        good_manifest = [record for record in manifest if record.run_number in good_runs]
+        with atomic_output_directory(args.output_dir) as staging:
+            write_run_quality_csv(staging / "run_quality.csv", quality)
+            write_manifest(good_manifest, staging / "run_manifest_observables.csv")
+            write_lookup_csv(staging / "strip_energy_lookup.csv", filtered_lookup, manifest_by_run)
+            write_run_flux_csv(staging / "flux_by_run_energy.csv", filtered_flux)
+            write_group_flux_csv(staging / "flux_by_group_energy.csv", group_flux)
+            write_qa_json(
+                staging / "observable_run_qa.json",
+                _build_qa(
+                    args,
+                    source_paths,
+                    quality,
+                    source_qa,
+                    len(manifest),
+                    len(good_manifest),
+                    staging,
+                    snapshots.input_sha256,
+                ),
+            )
     print(f"Wrote {len(good_manifest)} good observable runs to {args.output_dir}")
     return 0
 
