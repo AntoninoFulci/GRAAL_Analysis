@@ -1,7 +1,10 @@
 # Design: lookup strip→Eγ e integrazione dei flussi
 
 **Data:** 2026-07-30
-**Stato:** implemented; farm production validation pending
+**Stato storico dell'implementazione:** completed il 2026-07-30. La
+validazione produzione e la curazione delle run per osservabili sono state
+completate il 2026-09-09; questa pagina conserva il design storico del lookup
+e dell'integrazione upstream.
 
 La manutenzione operativa e scientifica è descritta in
 [Strip-energy flux: manutenzione e correzioni](strip-energy-flux-maintenance).

@@ -18,7 +18,9 @@ event corpus in Python.
 
 ## Implementation Status
 
-**Status:** implemented; farm production validation pending.
+**Historical implementation status:** implemented on 2026-07-30. Production
+QA was received and observable-run curation completed on 2026-09-09; this plan
+remains the historical execution record for the upstream lookup/flux work.
 
 Tasks 1–6 and the final-review fix wave are implemented as of 2026-07-30.
 All 37 task checkboxes are marked complete; their original RED snippets remain

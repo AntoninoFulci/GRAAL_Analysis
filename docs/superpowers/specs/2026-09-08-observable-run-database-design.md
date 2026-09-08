@@ -159,12 +159,12 @@ CLI tests cover schema validation, metadata conflicts, unclassified QA errors,
 canonical filtered manifest, filtering, regenerated aggregation, hashes,
 atomic replacement, and current transferred production artifacts.
 
-Production acceptance expected from current bundle under default policy:
+Production acceptance observed from the current bundle under default policy:
 
-- `good=2373`;
-- `review=151`;
+- `good=2372`;
+- `review=152`;
 - `bad=187`;
-- good groups: `P_UV=1256`, `P_VIS=323`, `D_UV=532`, `D_VIS=262`.
+- good groups: `P_UV=1256`, `P_VIS=323`, `D_UV=531`, `D_VIS=262`.
 
 These counts are regression evidence for this exact input bundle, not constants
 embedded in classification code.

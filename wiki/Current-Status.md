@@ -199,7 +199,7 @@ manifest completo e in `run_quality.csv`.
 
 ## Verifiche locali completate
 
-Ultimo controllo prima del push:
+Risultato storico del 1 settembre 2026, prima della curation produzione:
 
 ```text
 353 passed
@@ -214,6 +214,14 @@ Inoltre:
   sostanzialmente indipendente dal numero totale di eventi;
 - branch `main` sincronizzato con `origin/main` al commit `1ed73e1` prima
   dell'aggiunta di questa pagina.
+
+Verifica corrente della curation del 9 settembre 2026: i test ROOT-free
+`test_observable_runs.py` e `test_build_observable_run_database.py` hanno
+eseguito **50 passed**; compilazione, validazione del manifest e `git diff
+--check` sono riusciti. La suite locale completa si ferma solo in collection
+per l'assenza di PyROOT (`ModuleNotFoundError: ROOT`) nei test di ricostruzione
+e plot; non segnala un fallimento del codice della curation. La suite completa
+va ripetuta in un ambiente con PyROOT.
 
 ## Cosa manca
 
