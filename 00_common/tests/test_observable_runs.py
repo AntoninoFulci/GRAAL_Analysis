@@ -419,8 +419,8 @@ def test_source_qa_errors_match_their_structured_findings():
         },
         errors=[
             "manifest runs absent from h80: [7]",
-            "run 7 strip 4: nonzero flux without lookup",
             "run 7 binning ajaka_cross_section bin 2: negative net flux",
+            "run 7 strip 4: nonzero flux without lookup",
             "structural run raw-flux conservation failure: binning ajaka_cross_section run 7 state brem",
         ],
         valid=False,
@@ -429,7 +429,88 @@ def test_source_qa_errors_match_their_structured_findings():
     validate_source_qa_errors(qa)
 
     qa["errors"].append("something unrelated")
+    qa["errors"].sort()
     with pytest.raises(ObservableRunError, match="^unclassified source QA error$"):
+        validate_source_qa_errors(qa)
+
+
+def test_source_qa_reader_rejects_duplicate_keys_and_nonfinite_nested_numbers(tmp_path):
+    path = tmp_path / "strip_energy_flux_qa.json"
+    serialized = json.dumps(source_qa())
+    path.write_text(f'{serialized[:-1]}, "schema_version": 1}}')
+    with pytest.raises(ObservableRunError, match="duplicate JSON key"):
+        read_source_qa(path)
+
+    path.write_text(
+        json.dumps(source_qa()).replace(
+            '"thresholds": {}', '"thresholds": {"max_mad_gev": 1e9999}'
+        )
+    )
+    with pytest.raises(ObservableRunError, match="non-finite"):
+        read_source_qa(path)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        source_qa(valid=False),
+        source_qa(errors=["unexpected"], valid=True),
+        source_qa(nonzero_unmapped_strips=[{"run_number": 0, "xstrip": 1}]),
+    ],
+)
+def test_source_qa_reader_rejects_inconsistent_state_and_malformed_nested_entries(tmp_path, payload):
+    path = tmp_path / "strip_energy_flux_qa.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ObservableRunError):
+        read_source_qa(path)
+
+
+def test_source_qa_errors_accept_exact_extra_h80_and_monotonic_messages():
+    qa = source_qa(
+        extra_h80_runs=[9],
+        extra_h80_run_count=1,
+        monotonic_inversions=[
+            {
+                "run_number": 7,
+                "direction": "increasing",
+                "left_strip": 1,
+                "right_strip": 2,
+                "left_energy_gev": 1.2,
+                "right_energy_gev": 1.1,
+                "delta_gev": -0.1,
+            }
+        ],
+        errors=[
+            "h80 runs absent from manifest: [9]",
+            "run 7 strips 1-2: monotonic inversion -0.1 GeV",
+        ],
+        valid=False,
+    )
+
+    validate_source_qa_errors(qa)
+
+
+@pytest.mark.parametrize(
+    "qa",
+    [
+        source_qa(
+            missing_h80_runs=[7],
+            errors=["manifest runs absent from h80: [7]"] * 2,
+            valid=False,
+        ),
+        source_qa(
+            nonzero_unmapped_strips=[
+                {"run_number": 7, "xstrip": 4},
+                {"run_number": 7, "xstrip": 4},
+            ],
+            errors=["run 7 strip 4: nonzero flux without lookup"],
+            valid=False,
+        ),
+    ],
+)
+def test_source_qa_error_validation_rejects_duplicate_identities(qa):
+    with pytest.raises(ObservableRunError, match="duplicate"):
         validate_source_qa_errors(qa)
 
 

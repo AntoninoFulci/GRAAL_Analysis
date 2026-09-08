@@ -530,11 +530,191 @@ def _reject_json_constant(value: str) -> object:
     raise ValueError(f"non-finite JSON value {value}")
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def _validate_json_numbers(value: object, location: str = "source QA") -> None:
+    if isinstance(value, bool) or value is None or isinstance(value, (str, int)):
+        return
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ObservableRunError(f"{location}: non-finite JSON number")
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_json_numbers(item, f"{location}[{index}]")
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _validate_json_numbers(item, f"{location}.{key}")
+        return
+    raise ObservableRunError(f"{location}: invalid JSON value")
+
+
+def _qa_nonnegative_integer(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
+        raise ObservableRunError(f"source QA {field} must be a nonnegative integer")
+    return int(value)
+
+
+def _qa_positive_integer(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+        raise ObservableRunError(f"source QA {field} must be a positive integer")
+    return int(value)
+
+
+def _qa_finite_number(value: object, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
+        raise ObservableRunError(f"source QA {field} must be finite")
+    return float(value)
+
+
+def _qa_unique_positive_runs(value: object, field: str) -> list[int]:
+    if not isinstance(value, list):
+        raise ObservableRunError(f"source QA {field} must be an array")
+    runs = [_qa_positive_integer(item, f"{field} entry") for item in value]
+    if len(set(runs)) != len(runs):
+        raise ObservableRunError(f"duplicate source QA {field} identity")
+    return runs
+
+
+def _validate_source_qa_payload(qa: Mapping[str, object]) -> None:
+    for field in (
+        "manifest_run_count", "h80_run_count", "flux_run_count", "lookup_strip_count",
+        "extra_h80_run_count", "run_flux_bin_count",
+    ):
+        _qa_nonnegative_integer(qa[field], field)
+    if not isinstance(qa["extra_h80_runs_truncated"], bool):
+        raise ObservableRunError("source QA extra_h80_runs_truncated must be boolean")
+    missing = _qa_unique_positive_runs(qa["missing_h80_runs"], "missing_h80_runs")
+    extra = _qa_unique_positive_runs(qa["extra_h80_runs"], "extra_h80_runs")
+    _qa_unique_positive_runs(qa["extra_flux_runs"], "extra_flux_runs")
+    extra_count = int(qa["extra_h80_run_count"])
+    if extra_count < len(extra) or (
+        not qa["extra_h80_runs_truncated"] and extra_count != len(extra)
+    ):
+        raise ObservableRunError("source QA extra_h80 run counters are inconsistent")
+    if set(missing).intersection(extra):
+        raise ObservableRunError("source QA missing and extra h80 runs overlap")
+
+    thresholds = qa["thresholds"]
+    if not isinstance(thresholds, Mapping):
+        raise ObservableRunError("source QA thresholds must be an object")
+    for field, value in thresholds.items():
+        _qa_finite_number(value, f"thresholds.{field}")
+    if "min_events_per_strip" in thresholds:
+        _qa_positive_integer(thresholds["min_events_per_strip"], "thresholds.min_events_per_strip")
+    for field in ("max_mad_gev", "monotonic_tolerance_gev"):
+        if field in thresholds and _qa_finite_number(thresholds[field], f"thresholds.{field}") < 0:
+            raise ObservableRunError(f"source QA thresholds.{field} must be nonnegative")
+
+    binnings = qa["binnings"]
+    if not isinstance(binnings, Mapping):
+        raise ObservableRunError("source QA binnings must be an object")
+    for name, edges in binnings.items():
+        if not isinstance(name, str) or not name or not isinstance(edges, list) or len(edges) < 2:
+            raise ObservableRunError("source QA binning is malformed")
+        parsed = [_qa_finite_number(edge, f"binnings.{name}") for edge in edges]
+        if any(right <= left for left, right in zip(parsed, parsed[1:])):
+            raise ObservableRunError(f"source QA binning {name} edges must increase")
+
+    for field in ("inputs", "h80", "flux", "out_of_range", "conservation"):
+        if not isinstance(qa[field], Mapping):
+            raise ObservableRunError(f"source QA field {field} must be an object")
+    if not all(isinstance(value, str) for value in qa["inputs"].values()):
+        raise ObservableRunError("source QA input paths must be strings")
+
+    for field in (
+        "malformed_flux_triplets", "empty_strips", "nonzero_unmapped_strips",
+        "monotonic_inversions", "mad_warnings", "low_stat_warnings",
+        "underflow_overflow", "negative_net_errors", "errors",
+    ):
+        if not isinstance(qa[field], list):
+            raise ObservableRunError(f"source QA field {field} must be an array")
+    for entry in qa["empty_strips"]:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA empty_strips entry must be an object")
+        _qa_positive_integer(entry.get("run_number"), "empty_strips run_number")
+        xstrip = _qa_positive_integer(entry.get("xstrip"), "empty_strips xstrip")
+        if xstrip > 128:
+            raise ObservableRunError("source QA empty_strips xstrip must be in 1..128")
+    for entry in qa["nonzero_unmapped_strips"]:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA nonzero_unmapped_strips entry must be an object")
+        _qa_positive_integer(entry.get("run_number"), "nonzero_unmapped_strips run_number")
+        xstrip = _qa_positive_integer(entry.get("xstrip"), "nonzero_unmapped_strips xstrip")
+        if xstrip > 128:
+            raise ObservableRunError("source QA nonzero_unmapped_strips xstrip must be in 1..128")
+        for field in ("pol1", "brem", "pol2"):
+            _qa_finite_number(entry.get(field), f"nonzero_unmapped_strips {field}")
+
+    for entry in qa["negative_net_errors"]:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA negative_net_errors entry must be an object")
+        _qa_positive_integer(entry.get("run_number"), "negative_net_errors run_number")
+        if not isinstance(entry.get("binning"), str) or not entry["binning"]:
+            raise ObservableRunError("source QA negative_net_errors binning must be nonempty")
+        if _qa_nonnegative_integer(entry.get("bin_index"), "negative_net_errors bin_index") < 0:
+            raise ObservableRunError("source QA negative_net_errors bin_index must be nonnegative")
+        low = _qa_finite_number(entry.get("energy_low_gev"), "negative_net_errors energy_low_gev")
+        high = _qa_finite_number(entry.get("energy_high_gev"), "negative_net_errors energy_high_gev")
+        if high <= low:
+            raise ObservableRunError("source QA negative_net_errors energy edges must increase")
+        _qa_finite_number(entry.get("pol1_net"), "negative_net_errors pol1_net")
+        _qa_finite_number(entry.get("pol2_net"), "negative_net_errors pol2_net")
+
+    for entry in qa["monotonic_inversions"]:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA monotonic_inversions entry must be an object")
+        _qa_positive_integer(entry.get("run_number"), "monotonic_inversions run_number")
+        direction = entry.get("direction")
+        if direction not in {"increasing", "decreasing", "undetermined"}:
+            raise ObservableRunError("source QA monotonic_inversions direction is invalid")
+        if direction == "undetermined":
+            if "delta_gev" in entry:
+                raise ObservableRunError("source QA undetermined monotonic direction has a delta")
+            continue
+        left = _qa_positive_integer(entry.get("left_strip"), "monotonic_inversions left_strip")
+        right = _qa_positive_integer(entry.get("right_strip"), "monotonic_inversions right_strip")
+        if not left < right <= 128:
+            raise ObservableRunError("source QA monotonic strip identity is invalid")
+        left_energy = _qa_finite_number(entry.get("left_energy_gev"), "monotonic_inversions left_energy_gev")
+        right_energy = _qa_finite_number(entry.get("right_energy_gev"), "monotonic_inversions right_energy_gev")
+        delta = _qa_finite_number(entry.get("delta_gev"), "monotonic_inversions delta_gev")
+        if not isclose(delta, right_energy - left_energy, rel_tol=1e-12, abs_tol=1e-12):
+            raise ObservableRunError("source QA monotonic delta is inconsistent")
+        if (direction == "increasing" and delta >= 0) or (direction == "decreasing" and delta <= 0):
+            raise ObservableRunError("source QA monotonic inversion direction is inconsistent")
+
+    conservation = qa["conservation"]
+    failures = conservation.get("failures")
+    if not isinstance(failures, list):
+        raise ObservableRunError("source QA conservation failures must be an array")
+    if not isinstance(conservation.get("valid"), bool) or conservation["valid"] != (not failures):
+        raise ObservableRunError("source QA conservation valid state is inconsistent")
+    for field in ("relative_tolerance", "absolute_tolerance"):
+        if field in conservation and _qa_finite_number(conservation[field], f"conservation.{field}") < 0:
+            raise ObservableRunError(f"source QA conservation.{field} must be nonnegative")
+    for field in ("run_state_check_count", "group_bin_state_check_count"):
+        if field in conservation:
+            _qa_nonnegative_integer(conservation[field], f"conservation.{field}")
+
+
 def read_source_qa(path: Path) -> dict[str, object]:
     """Read and validate the exact schema-v1 source QA JSON document."""
     path = Path(path)
     try:
-        payload = json.loads(path.read_text(), parse_constant=_reject_json_constant)
+        payload = json.loads(
+            path.read_text(),
+            parse_constant=_reject_json_constant,
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
     except (OSError, UnicodeDecodeError) as exc:
         raise ObservableRunError(f"{path}: cannot read source QA: {exc}") from None
     except (json.JSONDecodeError, ValueError) as exc:
@@ -545,35 +725,46 @@ def read_source_qa(path: Path) -> dict[str, object]:
         raise ObservableRunError(f"{path}: source QA schema does not match version 1")
     if isinstance(payload["schema_version"], bool) or payload["schema_version"] != 1:
         raise ObservableRunError(f"{path}: schema_version must be 1")
-    for field in ("inputs", "thresholds", "binnings", "h80", "flux", "out_of_range", "conservation"):
-        if not isinstance(payload[field], dict):
-            raise ObservableRunError(f"{path}: source QA field {field} must be an object")
-    for field in (
-        "missing_h80_runs", "extra_h80_runs", "extra_flux_runs", "malformed_flux_triplets",
-        "empty_strips", "nonzero_unmapped_strips", "monotonic_inversions", "mad_warnings",
-        "low_stat_warnings", "underflow_overflow", "negative_net_errors", "errors",
-    ):
-        if not isinstance(payload[field], list):
-            raise ObservableRunError(f"{path}: source QA field {field} must be an array")
-    if not all(isinstance(error, str) for error in payload["errors"]):
-        raise ObservableRunError(f"{path}: source QA errors must be strings")
     if not isinstance(payload["valid"], bool):
         raise ObservableRunError(f"{path}: source QA valid must be boolean")
+    _validate_json_numbers(payload)
+    try:
+        _validate_source_qa_payload(payload)
+        validate_source_qa_errors(payload)
+    except ObservableRunError as exc:
+        raise ObservableRunError(f"{path}: {exc}") from None
+    if payload["valid"] != (not payload["errors"]):
+        raise ObservableRunError(f"{path}: source QA valid state is inconsistent")
     return payload
 
 
-def _qa_positive_integer(value: object, field: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
-        raise ObservableRunError(f"source QA {field} must be a positive integer")
-    return int(value)
+def _qa_expected_errors(qa: Mapping[str, object]) -> list[str]:
+    expected: list[str] = []
+    identities: set[str] = set()
 
+    def add(identity: str) -> None:
+        if identity in identities:
+            raise ObservableRunError("duplicate source QA structured identity")
+        identities.add(identity)
+        expected.append(identity)
 
-def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
-    missing = qa.get("missing_h80_runs")
-    if not isinstance(missing, list):
-        raise ObservableRunError("source QA missing_h80_runs must be an array")
-    missing_runs = [_qa_positive_integer(run, "missing_h80_runs entry") for run in missing]
-    expected = {f"manifest runs absent from h80: {missing_runs}"} if missing_runs else set()
+    missing_runs = _qa_unique_positive_runs(qa.get("missing_h80_runs"), "missing_h80_runs")
+    if missing_runs:
+        add(f"manifest runs absent from h80: {missing_runs}")
+
+    extra_runs = _qa_unique_positive_runs(qa.get("extra_h80_runs"), "extra_h80_runs")
+    extra_count = _qa_nonnegative_integer(qa.get("extra_h80_run_count"), "extra_h80_run_count")
+    truncated = qa.get("extra_h80_runs_truncated")
+    if not isinstance(truncated, bool):
+        raise ObservableRunError("source QA extra_h80_runs_truncated must be boolean")
+    if extra_count:
+        if truncated:
+            add(
+                "h80 runs absent from manifest "
+                f"(showing first {len(extra_runs)} of {extra_count}): {extra_runs}"
+            )
+        else:
+            add(f"h80 runs absent from manifest: {extra_runs}")
 
     unmapped = qa.get("nonzero_unmapped_strips")
     if not isinstance(unmapped, list):
@@ -583,7 +774,22 @@ def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
             raise ObservableRunError("source QA nonzero_unmapped_strips entry must be an object")
         run_number = _qa_positive_integer(entry.get("run_number"), "nonzero_unmapped_strips run_number")
         xstrip = _qa_positive_integer(entry.get("xstrip"), "nonzero_unmapped_strips xstrip")
-        expected.add(f"run {run_number} strip {xstrip}: nonzero flux without lookup")
+        add(f"run {run_number} strip {xstrip}: nonzero flux without lookup")
+
+    inversions = qa.get("monotonic_inversions")
+    if not isinstance(inversions, list):
+        raise ObservableRunError("source QA monotonic_inversions must be an array")
+    for entry in inversions:
+        if not isinstance(entry, Mapping):
+            raise ObservableRunError("source QA monotonic_inversions entry must be an object")
+        run_number = _qa_positive_integer(entry.get("run_number"), "monotonic_inversions run_number")
+        if entry.get("direction") == "undetermined":
+            add(f"run {run_number}: monotonic direction is undetermined")
+            continue
+        left = _qa_positive_integer(entry.get("left_strip"), "monotonic_inversions left_strip")
+        right = _qa_positive_integer(entry.get("right_strip"), "monotonic_inversions right_strip")
+        delta = _qa_finite_number(entry.get("delta_gev"), "monotonic_inversions delta_gev")
+        add(f"run {run_number} strips {left}-{right}: monotonic inversion {delta} GeV")
 
     negative = qa.get("negative_net_errors")
     if not isinstance(negative, list):
@@ -598,7 +804,7 @@ def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
             raise ObservableRunError("source QA negative_net_errors binning must be nonempty")
         if isinstance(bin_index, bool) or not isinstance(bin_index, Integral) or bin_index < 0:
             raise ObservableRunError("source QA negative_net_errors bin_index must be nonnegative")
-        expected.add(f"run {run_number} binning {binning} bin {bin_index}: negative net flux")
+        add(f"run {run_number} binning {binning} bin {bin_index}: negative net flux")
 
     conservation = qa.get("conservation")
     if not isinstance(conservation, Mapping):
@@ -616,7 +822,7 @@ def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
             raise ObservableRunError("source QA conservation failure has invalid identity")
         if scope == "run":
             run_number = _qa_positive_integer(failure.get("run_number"), "conservation run_number")
-            expected.add(
+            add(
                 "structural run raw-flux conservation failure: "
                 f"binning {binning} run {run_number} state {state}"
             )
@@ -626,13 +832,13 @@ def _qa_expected_errors(qa: Mapping[str, object]) -> set[str]:
             high = failure.get("energy_high_gev")
             if not isinstance(group, str) or not group or not isinstance(low, Real) or not isinstance(high, Real):
                 raise ObservableRunError("source QA group conservation failure has invalid identity")
-            expected.add(
+            add(
                 "structural group raw-flux conservation failure: "
                 f"binning {binning} group {group} bin [{low}, {high}] state {state}"
             )
         else:
             raise ObservableRunError("source QA conservation failure has invalid scope")
-    return expected
+    return sorted(expected)
 
 
 def validate_source_qa_errors(qa: Mapping[str, object]) -> None:
@@ -642,7 +848,11 @@ def validate_source_qa_errors(qa: Mapping[str, object]) -> None:
     errors = qa.get("errors")
     if not isinstance(errors, list) or not all(isinstance(error, str) for error in errors):
         raise ObservableRunError("source QA errors must be an array of strings")
-    if set(errors) != _qa_expected_errors(qa):
+    if len(set(errors)) != len(errors):
+        raise ObservableRunError("duplicate source QA error")
+    if errors != sorted(errors):
+        raise ObservableRunError("source QA errors must be sorted")
+    if errors != _qa_expected_errors(qa):
         raise ObservableRunError("unclassified source QA error")
 
 
