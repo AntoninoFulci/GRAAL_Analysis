@@ -194,6 +194,55 @@ def test_input_snapshots_are_parsed_and_hashed_after_originals_change(tmp_path):
         assert snapshots.input_sha256["flux_by_run_energy"] != _sha256(source_flux)
 
 
+def test_cli_accepts_raw_flux_coverage_when_a_bad_run_has_no_integrated_rows(tmp_path):
+    """Equating raw triplet count with integrated CSV rows rejects valid curation."""
+    manifest, source = _build_source_bundle(tmp_path)
+    for name, fields in (
+        ("strip_energy_lookup.csv", LOOKUP_FIELDS),
+        ("flux_by_run_energy.csv", RUN_FLUX_FIELDS),
+    ):
+        path = source / name
+        rows = list(csv.DictReader(path.open(newline="")))
+        _write_csv(path, fields, [row for row in rows if row["run_number"] != "10"])
+    qa_path = source / "strip_energy_flux_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa.update(
+        {
+            "h80_run_count": 9,
+            "flux_run_count": 10,
+            "lookup_strip_count": 9,
+            "run_flux_bin_count": 9,
+            "missing_h80_runs": [10],
+            "errors": ["manifest runs absent from h80: [10]"],
+            "valid": False,
+        }
+    )
+    qa_path.write_text(json.dumps(qa, indent=2, sort_keys=True) + "\n")
+
+    output = tmp_path / "output"
+    completed = _run_cli(tmp_path, manifest, source, output)
+
+    assert completed.returncode == 0, completed.stderr
+    result_qa = json.loads((output / "observable_run_qa.json").read_text())
+    assert result_qa["counts_by_status"] == {"bad": 1, "good": 4, "review": 5}
+    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
+        assert {int(row["run_number"]) for row in csv.DictReader(stream)} == {1, 2, 3, 4}
+
+
+def test_cli_rejects_source_qa_manifest_count_mismatch(tmp_path):
+    """Relaxing raw-flux semantics must not relax canonical manifest consistency."""
+    manifest, source = _build_source_bundle(tmp_path)
+    qa_path = source / "strip_energy_flux_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["manifest_run_count"] = 9
+    qa_path.write_text(json.dumps(qa, indent=2, sort_keys=True) + "\n")
+
+    completed = _run_cli(tmp_path, manifest, source, tmp_path / "output")
+
+    assert completed.returncode == 1
+    assert "manifest_run_count conflicts" in completed.stderr
+
+
 def test_cli_publishes_deterministic_good_run_bundle_with_lineage(tmp_path):
     """Removing quality filtering or lineage serialization breaks this contract."""
     manifest, source = _build_source_bundle(tmp_path)

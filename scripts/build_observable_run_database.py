@@ -119,13 +119,14 @@ def _validate_source_counts(
     manifest: Sequence[RunRecord],
     lookup_runs: set[int],
     lookup_count: int,
-    flux_runs: set[int],
     flux_count: int,
 ) -> None:
     expected = {
         "manifest_run_count": len(manifest),
+        # This is the count of requested runs with raw ROOT triplets, not the
+        # number of runs which integrated into the per-energy CSV.
+        "flux_run_count": len(manifest),
         "h80_run_count": len(lookup_runs),
-        "flux_run_count": len(flux_runs),
         "lookup_strip_count": lookup_count,
         "run_flux_bin_count": flux_count,
     }
@@ -260,7 +261,6 @@ def run(args: argparse.Namespace) -> int:
             manifest,
             {record.run_number for record in lookup},
             len(lookup),
-            {record.run_number for record in run_flux},
             len(run_flux),
         )
         quality = classify_run_quality(
