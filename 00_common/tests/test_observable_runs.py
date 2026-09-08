@@ -243,6 +243,24 @@ def test_negative_net_flux_counts_run_flux_bins_without_qa_summary():
     assert quality[0].negative_net_bin_count == 2
 
 
+def test_finite_negative_raw_brem_is_review_not_a_global_error():
+    rows = (
+        flux_row(1, brem=100.0),
+        flux_row(1, brem=-1.0),
+        flux_row(2, brem=10.0),
+    )
+
+    quality = classify_run_quality(
+        manifest_rows(1, 2), qa_for_runs(), rows, minimum_period_runs=1
+    )
+
+    assert quality[0].quality_status == "review"
+    assert quality[0].reason_codes == ("negative_raw_brem",)
+    assert quality[0].brem.reference_sum == pytest.approx(99.0)
+    assert quality[0].brem.period_median == pytest.approx(54.5)
+    assert quality[1].quality_status == "good"
+
+
 def test_group_scope_conservation_failure_cannot_be_safely_assigned():
     qa = qa_for_runs(conservation={"failures": [{"scope": "group", "group": "P_UV"}]})
 

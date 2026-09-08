@@ -65,6 +65,7 @@ Threshold is configurable and stored in QA. Run IDs are never hardcoded.
 
 - `negative_net_flux`: at least one energy bin has negative `POL1-BREM` or
   `POL2-BREM` under the provisional convention;
+- `negative_raw_brem`: at least one finite raw BREM bin is negative;
 - `low_strip_statistics`: QA reports strip event count below threshold;
 - `high_energy_mad`: QA reports excessive within-strip energy dispersion;
 - `flux_underflow_overflow`: ROOT flux underflow or overflow was nonzero;

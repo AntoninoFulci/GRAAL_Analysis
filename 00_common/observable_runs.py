@@ -150,8 +150,8 @@ def _validate_flux_record(record: FluxBinRecord, manifest_by_run: Mapping[int, R
         or record.group != manifest.group
     ):
         raise ObservableRunError(f"run {record.run_number}: flux metadata conflicts with manifest")
-    if not isfinite(record.brem) or record.brem < 0:
-        raise ObservableRunError(f"run {record.run_number}: brem must be finite and nonnegative")
+    if not isfinite(record.brem):
+        raise ObservableRunError(f"run {record.run_number}: brem must be finite")
 
 
 def calculate_brem_metrics(
@@ -311,12 +311,17 @@ def classify_run_quality(
     _add_qa_reasons(source_qa, manifest_by_run, reasons, unmapped, negative)
 
     negative_from_flux: Counter[int] = Counter()
+    negative_raw_brem_runs: set[int] = set()
     for row in run_flux:
         if row.pol1_net < 0 or row.pol2_net < 0:
             negative_from_flux[row.run_number] += 1
+        if row.brem < 0:
+            negative_raw_brem_runs.add(row.run_number)
     for run_number, count in negative_from_flux.items():
         reasons[run_number].add("negative_net_flux")
         negative[run_number] = max(negative[run_number], count)
+    for run_number in negative_raw_brem_runs:
+        reasons[run_number].add("negative_raw_brem")
     for run_number in outliers:
         reasons[run_number].add("brem_period_outlier")
     for run_number in unavailable:

@@ -100,7 +100,8 @@ Expected: collection failure because `graal_common.observable_runs` does not exi
 - [ ] **Step 3: Implement minimal policy**
 
 Use per-run `set[str]` reason accumulation and `Counter` diagnostics. Sum BREM
-with `math.fsum`; validate finite nonnegative values. Group baselines strictly
+with `math.fsum`; validate finite values and classify finite negative raw BREM
+bins as `negative_raw_brem` review findings. Group baselines strictly
 by manifest `source_period`. Classify every manifest run exactly once, sorted
 numerically. Map structured QA sections directly; group-scope conservation
 failures raise `ObservableRunError` because they cannot be assigned safely.
