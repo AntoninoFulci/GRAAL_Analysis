@@ -17,6 +17,46 @@
       "valid": true
     },
     {
+      "allowed_use": "portable repository knowledge-graph artifact",
+      "bytes": 6107,
+      "path": "graphify-out/.graphify_labels.json",
+      "role": "derived",
+      "sha256": "f008d48605d4b6ed01c1b0c8aa788df42137cb4ea6b67a68844eefb9b0250c8a",
+      "valid": true
+    },
+    {
+      "allowed_use": "portable repository knowledge-graph artifact",
+      "bytes": 33309,
+      "path": "graphify-out/GRAPH_REPORT.md",
+      "role": "derived",
+      "sha256": "fb5e6a02173cea6e822ef86ff1f1b7b38551b3cfed35521b6e5721a5d3032b0c",
+      "valid": true
+    },
+    {
+      "allowed_use": "portable repository knowledge-graph artifact",
+      "bytes": 1852812,
+      "path": "graphify-out/graph.html",
+      "role": "derived",
+      "sha256": "48e279f73a2376d220415b14b1e22a3390eef28a6e814d53024a93e59517110d",
+      "valid": true
+    },
+    {
+      "allowed_use": "portable repository knowledge-graph artifact",
+      "bytes": 1987443,
+      "path": "graphify-out/graph.json",
+      "role": "derived",
+      "sha256": "c5c1aa68680d05bb54cbd90e72594ef24dab7694ba9703acb10be256adf0f803",
+      "valid": true
+    },
+    {
+      "allowed_use": "portable repository knowledge-graph artifact",
+      "bytes": 47862,
+      "path": "graphify-out/manifest.json",
+      "role": "derived",
+      "sha256": "0a754bf23f409bcfd4ff2dbedd64c427a98a2c9713e0ee61b7b6456f4b483be9",
+      "valid": true
+    },
+    {
       "allowed_use": "accepted observable-run bundle when QA is valid",
       "bytes": 12501,
       "path": "results/observable_runs/flux_by_group_energy.csv",
@@ -281,6 +321,6 @@
       "valid": true
     }
   ],
-  "generated_at_commit": "b5ea4cde25aad558f3f824deb633dd979f6c5ce5",
+  "generated_at_commit": "24e419b9a98eac004bbed9b9f68e1bef162e63f0",
   "schema_version": 1
 }
