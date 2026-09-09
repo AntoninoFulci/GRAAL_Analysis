@@ -11,11 +11,23 @@ Per stato corrente, formati e dettagli della pipeline consultare la
 📖 **[wiki del progetto](wiki/Current-Status.md)**, pubblicata anche nella
 **[GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)**.
 
-## Installazione
+## Clone e ambiente
 
 ```bash
-pip install -e .
+git lfs install
+git clone https://github.com/AntoninoFulci/GRAAL_Analysis.git
+cd GRAAL_Analysis
+git lfs pull
+python -m venv .venv
+source .venv/bin/activate
+make setup
+make verify
 ```
+
+ROOT/PyROOT non è una dipendenza pip del progetto: installarlo esternamente e
+usare l'interprete Python contro cui PyROOT è stato compilato. `make verify`
+non avvia elaborazioni farm; `make test` esegue invece l'intera suite e quindi
+richiede PyROOT. Per gli altri comandi, eseguire `make help`.
 
 Le cartelle sono numerate (`01_`, `02_`, …) per rendere visibile l'ordine
 della pipeline. L'installazione mappa questi nomi su package importabili

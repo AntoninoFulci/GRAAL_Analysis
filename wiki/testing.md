@@ -1,16 +1,30 @@
 # Testing
 
 Ci sono due modi di collaudare questa pipeline, e coprono cose diverse: la
-suite pytest verifica la fisica e la logica di controllo senza toccare
+suite root-free verifica la fisica e la logica di controllo senza toccare
 ROOT né ore di calcolo; `test_data/` con `--test-data` verifica che
 l'idraulica dei file — cartelle, nomi, formati — funzioni davvero, usando
 dati reali (anche se pochi) e il Monte Carlo/modello veri.
 
-## La suite pytest
+## Comandi di manutenzione
 
 ```bash
-pytest
+make syntax
+make validate-manifest
+make test-root-free
+make test                 # richiede PyROOT compatibile con questo Python
+make verify               # syntax + manifest + root-free + inventario
 ```
+
+`make test-root-free` enumera esplicitamente i test puri di `00_common/`,
+`03_mc_simulation/` e `04_bdt_training/`; esclude il test CLI
+`test_build_strip_energy_flux.py` e tutte le suite `05_reconstruction/` e
+`06_plots/`. È il gate riproducibile su macchine senza ROOT. `make test` usa
+invece la raccolta completa dichiarata in `pyproject.toml` e richiede ROOT con
+PyROOT compilato per l'interprete selezionato. Nessuno dei due target avvia
+una produzione farm.
+
+## La suite pytest completa
 
 `pyproject.toml` dichiara dove cercare i test:
 
@@ -40,16 +54,17 @@ nell'import mode di default di pytest.
 | `04_bdt_training/tests/test_build_background_features.py` | le 26 feature stage-1; che i nomi e il chi2 seguano l'ipotesi passata (gli stessi quattro fotoni sono un η+π⁰ perfetto e un 2π⁰ pessimo); che `shuffle_photons` non faccia migrare fotoni fra eventi e lasci intatte le feature indipendenti dall'ordine |
 | `04_bdt_training/tests/test_callbacks.py` | la callback di progress-bar per il training XGBoost |
 
-### Perché non importa mai ROOT
+### Logica root-free e integrazione PyROOT
 
-In tutto il repository, solo due moduli fanno `import ROOT`:
+Nei moduli della pipeline, solo due moduli fanno `import ROOT`:
 `05_reconstruction/reco_core.py` e `02_event_selector/select_events.py`. Nessuno
-dei due sta sotto una cartella di `testpaths`. Questo non è un caso: la fisica
+dei due sta sotto una raccolta root-free. Questo non è un caso: la fisica
 di accoppiamento chi2 vive in `00_common/pairing.py`, il gate BDT in
 `05_reconstruction/stage1_gate.py`, le feature in
 `04_bdt_training/build_background_features.py` — tutti moduli scritti come
 funzioni pure su array numpy, senza I/O, proprio perché potessero essere
-testati senza un'installazione di ROOT. `reco_core.py` fa solo da guscio di
+testati senza un'installazione di ROOT. Il test CLI del flusso e la suite
+completa esercitano invece l'integrazione PyROOT. `reco_core.py` fa solo da guscio di
 I/O: sposta dati dentro e fuori da ROOT, applica il gate, ma non contiene
 fisica propria da testare in isolamento.
 

@@ -433,9 +433,9 @@ Risultato corrente:
 6cdd8c2dde0fb5dbfb8e179908184bc60b0dc740832229432945261ea578ea35  data/run_manifest.generated.csv
 ```
 
-`data/run_manifest.generated.csv` è un inventario locale ignorato da Git,
-presente durante questa revisione ma non garantito in un clone. Ha le stesse
-2711 combinazioni
+`data/run_manifest.generated.csv` è una copia derivata pubblicata nel
+repository, quindi disponibile dopo il clone/LFS pull, ma non è autorevole e
+non sostituisce mai il manifest curato. Ha le stesse 2711 combinazioni
 run/periodo/target/file. Contiene 1831 classificazioni automatiche e 880 righe
 senza fascio/gruppo; il manifest curato conserva l'inventario ma applica a
 tutte le righe la mappa utente, colmando quelle 880 assegnazioni. Dopo
