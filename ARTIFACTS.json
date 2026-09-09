@@ -1,0 +1,286 @@
+{
+  "artifacts": [
+    {
+      "allowed_use": "published analysis input",
+      "bytes": 8578272,
+      "path": "data/flux/flux.root",
+      "role": "input",
+      "sha256": "bf1f6765438ad0ce0ccfb4b46ffaf8d0b31e15672eed635576a860366320db52",
+      "valid": true
+    },
+    {
+      "allowed_use": "generated convenience manifest; verify against config/run_manifest.csv",
+      "bytes": 159956,
+      "path": "data/run_manifest.generated.csv",
+      "role": "derived",
+      "sha256": "6cdd8c2dde0fb5dbfb8e179908184bc60b0dc740832229432945261ea578ea35",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 12501,
+      "path": "results/observable_runs/flux_by_group_energy.csv",
+      "role": "derived",
+      "sha256": "9cd26006e92becebbf195ba8b60fae8fdd59a253d5cb491acbc35e4e1a0cc3b0",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 6701341,
+      "path": "results/observable_runs/flux_by_run_energy.csv",
+      "role": "derived",
+      "sha256": "811bc735e84633ab0dd480a0f66479f64a0f667f03ceaf0e43ee83f9bd82bb0c",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 27006715,
+      "path": "results/observable_runs/observable_run_qa.json",
+      "role": "derived",
+      "sha256": "aca674f2f5c60914010fa387ca1ef4fa2ff7b8720d53d7910e5d2754b805191b",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 124084,
+      "path": "results/observable_runs/run_manifest_observables.csv",
+      "role": "derived",
+      "sha256": "f0e9212481c94c0eb2717d552a7f2cfd33bd84af4b13ca369c229ba5b7e79f0f",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 290602,
+      "path": "results/observable_runs/run_quality.csv",
+      "role": "derived",
+      "sha256": "03ddedd512f4c1698e6903dac820b96107d46df95c5098e644d2390495666f35",
+      "valid": true
+    },
+    {
+      "allowed_use": "accepted observable-run bundle when QA is valid",
+      "bytes": 30721183,
+      "path": "results/observable_runs/strip_energy_lookup.csv",
+      "role": "derived",
+      "sha256": "fcf457364be692a50c5fc229a073920c1d0f3102058e0ecfb464671b4cefbc93",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 17371,
+      "path": "results/plots/dalitz_bdt_implicito.pdf",
+      "role": "derived",
+      "sha256": "5d157916cfc3e40cf17a78909cf9537ab0d731492fb06fd1127e399620f03ea3",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15713,
+      "path": "results/plots/dalitz_bdt_misurato.pdf",
+      "role": "derived",
+      "sha256": "031c04f209b202e4daf83bef21ae4a1352191d623645aa5bda29b39684ab0307",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 17426,
+      "path": "results/plots/dalitz_chi2_implicito.pdf",
+      "role": "derived",
+      "sha256": "9023cae846edc351f7335193e79ba601aaf948fa35b95a26097a09f1c3c14bf3",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15766,
+      "path": "results/plots/dalitz_chi2_misurato.pdf",
+      "role": "derived",
+      "sha256": "041ebc50d53d2ad7cc1dcd25ab70c703780fa2e28fabae6d858c009bb904297e",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 27360,
+      "path": "results/plots/dalitz_confronto.pdf",
+      "role": "derived",
+      "sha256": "20f52febfb31a56e695c74f71ba5746b4353aef314b0ae436f7607fbb4034acd",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 21527,
+      "path": "results/plots/istogrammi.root",
+      "role": "derived",
+      "sha256": "5842a000c887e4f7b0e1b008d9d4a3580985620831c8de8b3f7141b881f93df6",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 42355,
+      "path": "results/plots/kinfit_validation.png",
+      "role": "derived",
+      "sha256": "621c57cf1565237c275043e197e6db3efe44d2b4d4b523adf015524621983246",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15698,
+      "path": "results/plots/massa_eta.pdf",
+      "role": "derived",
+      "sha256": "26d596cd75485f6cc8f2c7556ea30cb5078efb2d92b1b434d59e119ea3cff4a8",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 19493,
+      "path": "results/plots/massa_eta_p.pdf",
+      "role": "derived",
+      "sha256": "4e7947bc84e39ff144b626e1680644d2d3ef5397380084b96bb5e733557f9e4f",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 21854,
+      "path": "results/plots/massa_eta_p_mc.pdf",
+      "role": "derived",
+      "sha256": "84f5d5251962d6104cd306c201c650f19dc8754542c5547a3ae4b19ec039bc96",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15509,
+      "path": "results/plots/massa_eta_raw_confronto.pdf",
+      "role": "derived",
+      "sha256": "47cd044b44df87762293136354efdcbe652f21b4db211b6e01ad25d4631d3d8d",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15454,
+      "path": "results/plots/massa_pi0.pdf",
+      "role": "derived",
+      "sha256": "7fa2907e67be1f401ab76566a7761fddf9ad491a72b58d040a6916a4b6aa01e0",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 19773,
+      "path": "results/plots/massa_pi0_p.pdf",
+      "role": "derived",
+      "sha256": "0d67c7b9d69ede3ec96ab659cff27af22c5c94e98385b21dcd55fe507106ae7c",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 21500,
+      "path": "results/plots/massa_pi0_p_mc.pdf",
+      "role": "derived",
+      "sha256": "656205ab390fac6cb64eb6f07f391f8a1376a1efe66b7ef20b5d13d6d7ad395a",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15315,
+      "path": "results/plots/massa_pi0_raw_confronto.pdf",
+      "role": "derived",
+      "sha256": "0cb1273e011b14a0cc9c2966811363c06d062762cbcad2c3bdd50ba730ea5bdc",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 14519,
+      "path": "results/plots/masse_2d_bdt.pdf",
+      "role": "derived",
+      "sha256": "1d0a210cd237155da3f4098a5ea153f61fea3e71e8f4c63f45aa61e167651901",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 14513,
+      "path": "results/plots/masse_2d_chi2.pdf",
+      "role": "derived",
+      "sha256": "c97a13dd62458a5c8599358d012dbd8f3438145bd4581427340ac57d6bf5f9f6",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 15862,
+      "path": "results/plots/masse_2d_confronto.pdf",
+      "role": "derived",
+      "sha256": "f6c10070ba8292c6eb65b20f99ef75138d2050e1ec12dc3783d9639823837904",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 25458,
+      "path": "results/plots/risoluzione_eta_p.pdf",
+      "role": "derived",
+      "sha256": "24ffb146a0d3c9c9ee25666f3daf00f418371d56a08ea5d3592ea1c553fbb2c7",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 25969,
+      "path": "results/plots/risoluzione_pi0_p.pdf",
+      "role": "derived",
+      "sha256": "18ac7a09c8469b07c3b8e4f1181d6c5864d57bacfab61bc25d9b29e9d3b27c83",
+      "valid": true
+    },
+    {
+      "allowed_use": "legacy plots only; not run-flux normalization",
+      "bytes": 164004333,
+      "path": "results/reco/reco_eta_pi0_bdt.root",
+      "role": "legacy",
+      "sha256": "933079ef60d1a738c4b5ff05d0b4cd866b87ab683cbf032c4b6fa2c681c897a4",
+      "valid": true
+    },
+    {
+      "allowed_use": "legacy plots only; not run-flux normalization",
+      "bytes": 171699156,
+      "path": "results/reco/reco_eta_pi0_chi2.root",
+      "role": "legacy",
+      "sha256": "c300939f3ec1f5cbf8a5a297e9ab19bb56e3725812c5be6bd286f7996a010686",
+      "valid": true
+    },
+    {
+      "allowed_use": "diagnostic only; not normalization input",
+      "bytes": 540990,
+      "path": "results/strip_energy_flux.run.log",
+      "role": "derived",
+      "sha256": "8b48b74914b76f16ce76666f17f1c4b7ab617a6ecee0488d3d175d7c868d7135",
+      "valid": true
+    },
+    {
+      "allowed_use": "source bundle for observable-run rebuild",
+      "bytes": 12602,
+      "path": "results/strip_energy_flux/flux_by_group_energy.csv",
+      "role": "derived",
+      "sha256": "c96692fcd68a9f5cc368513a823d2c79e6379f52d61fc6b7615f03f4be31f98e",
+      "valid": true
+    },
+    {
+      "allowed_use": "source bundle for observable-run rebuild",
+      "bytes": 7144458,
+      "path": "results/strip_energy_flux/flux_by_run_energy.csv",
+      "role": "derived",
+      "sha256": "97428e8fe18a798b3d384249c1b0835aa1a052c93c053a8767dbd2acefc713ec",
+      "valid": true
+    },
+    {
+      "allowed_use": "source bundle for observable-run rebuild",
+      "bytes": 26029944,
+      "path": "results/strip_energy_flux/strip_energy_flux_qa.json",
+      "role": "derived",
+      "sha256": "9efc229a5da8630dd9fd3f03e8229794058f272ff4adc1205b13b60322d58910",
+      "valid": true
+    },
+    {
+      "allowed_use": "source bundle for observable-run rebuild",
+      "bytes": 34888951,
+      "path": "results/strip_energy_flux/strip_energy_lookup.csv",
+      "role": "derived",
+      "sha256": "fcb347475c9857216dffaabccd4bac9351301186856ff151ac7e42695c707b96",
+      "valid": true
+    }
+  ],
+  "generated_at_commit": "f38762d45cd610e7785fccdc104335be894714e8",
+  "schema_version": 1
+}
