@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+data/flux/*.root filter=lfs diff=lfs merge=lfs -text
+results/reco/*.root filter=lfs diff=lfs merge=lfs -text
+results/plots/*.root filter=lfs diff=lfs merge=lfs -text
+results/**/*.npz filter=lfs diff=lfs merge=lfs -text
