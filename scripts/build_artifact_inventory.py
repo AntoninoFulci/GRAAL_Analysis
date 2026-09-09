@@ -14,6 +14,15 @@ from typing import Iterable
 CHUNK_BYTES = 1024 * 1024
 SCHEMA_VERSION = 1
 DEFAULT_ROOTS: tuple[str, ...] = ("data", "results", "graphify-out")
+PORTABLE_GRAPHIFY_PATHS = frozenset(
+    {
+        "graphify-out/GRAPH_REPORT.md",
+        "graphify-out/graph.json",
+        "graphify-out/graph.html",
+        "graphify-out/.graphify_labels.json",
+        "graphify-out/manifest.json",
+    }
+)
 
 
 class ArtifactInventoryError(ValueError):
@@ -55,10 +64,7 @@ def _is_excluded(relative: Path) -> bool:
     if name.endswith((".tmp", ".temp", "~")):
         return True
     if relative.parts and relative.parts[0] == "graphify-out":
-        if name in {".graphify_python", ".graphify_root", "cost.json"}:
-            return True
-        if "cache" in relative.parts:
-            return True
+        return relative.as_posix() not in PORTABLE_GRAPHIFY_PATHS
     return False
 
 

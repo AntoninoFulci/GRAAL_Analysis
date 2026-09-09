@@ -70,3 +70,29 @@ def test_inventory_excludes_itself_and_machine_graphify_files(tmp_path):
     assert list(records(build_inventory(tmp_path, "abc123"))) == [
         "graphify-out/graph.json"
     ]
+
+
+def test_inventory_allows_only_portable_graphify_artifacts(tmp_path):
+    """New host/run-state Graphify files must not become published by default."""
+    portable = (
+        "GRAPH_REPORT.md",
+        "graph.json",
+        "graph.html",
+        ".graphify_labels.json",
+        "manifest.json",
+    )
+    for name in portable:
+        put(tmp_path, f"graphify-out/{name}")
+    for name in (
+        ".graphify_detect.json",
+        ".graphify_ast.json",
+        ".graphify_semantic.json",
+        ".graphify_cached.json",
+        ".graphify_uncached.txt",
+        "cache/extraction.json",
+    ):
+        put(tmp_path, f"graphify-out/{name}")
+
+    assert list(records(build_inventory(tmp_path, "abc123"))) == [
+        f"graphify-out/{name}" for name in sorted(portable)
+    ]
