@@ -4,6 +4,9 @@
 
 - Preserve unrelated edits. Work in an isolated Git worktree; do not reset,
   checkout, or delete another contributor's changes.
+- Raw/local inputs, working data, caches, and virtual environments are user
+  data even when ignored by Git. Agents must not delete or overwrite them
+  without explicit authorization.
 - Use `make setup` for a fresh Python environment, `make verify` for the
   non-farm maintenance gate, and `make test` only where the selected Python
   can import the installed external ROOT/PyROOT.
@@ -45,8 +48,8 @@ entry point.
   normalization; regenerate metadata-bearing reconstruction for new physics.
 - Read `docs/artifact-policy.md` and `ARTIFACTS.json` before treating a
   published artifact as an input. Do not commit raw detector/MC/training
-  corpora, credentials, virtual environments, caches, or undocumented
-  regenerated physics output. Fetch binary snapshots with `git lfs pull`.
+  corpora, credentials, or undocumented regenerated physics output. Fetch
+  binary snapshots with `git lfs pull`.
 
 ## Flux farm operation
 

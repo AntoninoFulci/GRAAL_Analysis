@@ -16,6 +16,16 @@ def test_agents_file_names_authoritative_observable_bundle():
     assert "review/bad" in text
 
 
+def test_agents_protects_untracked_user_data_from_unapproved_mutation():
+    text = read("AGENTS.md").lower()
+    assert "raw/local inputs" in text
+    assert "working data" in text
+    assert "cache" in text
+    assert "virtual environments" in text
+    assert "must not delete or overwrite" in text
+    assert "without explicit authorization" in text
+
+
 def test_requirements_include_scipy_and_pytest():
     requirements = {
         line.split("=", 1)[0].split(">", 1)[0].strip()
@@ -50,3 +60,8 @@ def test_makefile_root_free_suite_omits_pyroot_importing_tests():
     assert "test_build_strip_energy_flux.py" not in recipe
     assert "05_reconstruction/tests" not in recipe
     assert "06_plots/tests" not in recipe
+
+
+def test_testing_docs_name_top_level_pyroot_plot_module():
+    text = read("wiki/testing.md")
+    assert "06_plots/dalitz.py" in text

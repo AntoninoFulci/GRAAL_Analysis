@@ -56,9 +56,11 @@ nell'import mode di default di pytest.
 
 ### Logica root-free e integrazione PyROOT
 
-Nei moduli della pipeline, solo due moduli fanno `import ROOT`:
-`05_reconstruction/reco_core.py` e `02_event_selector/select_events.py`. Nessuno
-dei due sta sotto una raccolta root-free. Questo non è un caso: la fisica
+Tre moduli della pipeline fanno `import ROOT` a livello top-level:
+`02_event_selector/select_events.py`, `05_reconstruction/reco_core.py` e
+`06_plots/dalitz.py`. Nessuno dei tre è raccolto da `make test-root-free`;
+in particolare la suite `06_plots/` resta esplicitamente esclusa e si esegue
+solo con `make test` in un ambiente PyROOT. Questo non è un caso: la fisica
 di accoppiamento chi2 vive in `00_common/pairing.py`, il gate BDT in
 `05_reconstruction/stage1_gate.py`, le feature in
 `04_bdt_training/build_background_features.py` — tutti moduli scritti come
