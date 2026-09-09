@@ -207,8 +207,8 @@ def test_maps_each_other_run_scoped_qa_reason_and_keeps_clean_run_good():
     qa = qa_for_runs(
         monotonic_inversions=[{"run_number": 1}],
         conservation={"failures": [{"scope": "run", "run_number": 2}]},
-        mad_warnings=[{"run_number": 3}],
-        low_stat_warnings=[{"run_number": 4}],
+        mad_warnings=[{"run_number": 3, "xstrip": 1, "energy_mad_gev": 0.02}],
+        low_stat_warnings=[{"run_number": 4, "xstrip": 1, "event_count": 1}],
         underflow_overflow=[{"histogram": "run5_POL1", "underflow": 1.0, "overflow": 0.0}],
     )
 
@@ -280,6 +280,54 @@ def test_underflow_overflow_without_a_canonical_run_identifier_aborts():
 
 
 @pytest.mark.parametrize(
+    ("section", "entry", "match"),
+    [
+        (
+            "mad_warnings",
+            {"run_number": 7, "xstrip": 129, "energy_mad_gev": 0.01},
+            "mad_warnings.*xstrip",
+        ),
+        (
+            "mad_warnings",
+            {"run_number": 7, "xstrip": 1, "energy_mad_gev": -0.01},
+            "mad_warnings.*energy_mad",
+        ),
+        (
+            "low_stat_warnings",
+            {"run_number": 7, "xstrip": 1, "event_count": 1.5},
+            "low_stat_warnings.*event_count",
+        ),
+        (
+            "underflow_overflow",
+            {"histogram": "run7_POL1_extra", "underflow": 1.0, "overflow": 0.0},
+            "underflow_overflow.*histogram",
+        ),
+        (
+            "underflow_overflow",
+            {"run_number": 8, "histogram": "run7_POL1", "underflow": 1.0, "overflow": 0.0},
+            "underflow_overflow.*run_number",
+        ),
+    ],
+)
+def test_warning_payloads_are_strict_and_reconcile_histogram_identity(section, entry, match):
+    """Relaxing a warning shape could silently assign it to the wrong run."""
+    qa = qa_for_runs(**{section: [entry]})
+
+    with pytest.raises(ObservableRunError, match=match):
+        classify_run_quality(manifest_rows(7), qa, valid_flux_rows(7), minimum_period_runs=1)
+
+
+def test_warning_payloads_reject_unknown_manifest_runs():
+    """A producer warning for a non-manifest run is not safe to ignore."""
+    qa = qa_for_runs(
+        low_stat_warnings=[{"run_number": 99, "xstrip": 1, "event_count": 0}]
+    )
+
+    with pytest.raises(ObservableRunError, match="unknown manifest run 99.*low_stat_warnings"):
+        classify_run_quality(manifest_rows(7), qa, valid_flux_rows(7), minimum_period_runs=1)
+
+
+@pytest.mark.parametrize(
     ("kwargs", "match"),
     [
         ({"outlier_ratio": float("nan")}, "outlier_ratio"),
@@ -302,7 +350,9 @@ def test_duplicate_manifest_runs_and_unknown_qa_runs_abort():
     with pytest.raises(ObservableRunError, match="duplicate manifest run 7"):
         classify_run_quality(manifest_rows(7, 7), qa_for_runs(), valid_flux_rows(7))
 
-    qa = qa_for_runs(mad_warnings=[{"run_number": 99}])
+    qa = qa_for_runs(
+        mad_warnings=[{"run_number": 99, "xstrip": 1, "energy_mad_gev": 0.02}]
+    )
     with pytest.raises(ObservableRunError, match="unknown manifest run 99"):
         classify_run_quality(manifest_rows(7), qa, valid_flux_rows(7))
 

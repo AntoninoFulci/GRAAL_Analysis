@@ -66,7 +66,7 @@ class RunQuality:
     brem: BremMetric
 
 
-_RUN_HISTOGRAM = re.compile(r"^run(?P<run_number>\d+)_")
+_RUN_HISTOGRAM = re.compile(r"^run(?P<run_number>[1-9]\d*)_(?:POL1|BREM|POL2)$")
 _BAD_REASONS = {
     "missing_h80",
     "nonzero_flux_without_lookup",
@@ -226,6 +226,7 @@ def _add_qa_reasons(
     unmapped: Counter[int],
     negative: Counter[int],
 ) -> None:
+    _validate_warning_payloads(source_qa, manifest_by_run)
     for run_number in _entries(source_qa, "missing_h80_runs"):
         if isinstance(run_number, bool) or not isinstance(run_number, Integral):
             raise ObservableRunError("missing_h80_runs entries must be run numbers")
@@ -249,26 +250,10 @@ def _add_qa_reasons(
                 negative[run_number] += 1
 
     for entry in _entries(source_qa, "underflow_overflow"):
-        if not isinstance(entry, Mapping):
-            raise ObservableRunError("underflow_overflow entry must be an object")
-        run_number = entry.get("run_number")
-        if run_number is None:
-            histogram = entry.get("histogram")
-            match = (
-                _RUN_HISTOGRAM.match(histogram)
-                if isinstance(histogram, str)
-                else None
-            )
-            if match is None:
-                raise ObservableRunError(
-                    "underflow_overflow histogram lacks a canonical run<N>_ prefix"
-                )
-            run_number = int(match.group("run_number"))
-        if isinstance(run_number, bool) or not isinstance(run_number, Integral):
-            raise ObservableRunError("underflow_overflow entry has invalid run_number")
-        if run_number not in manifest_by_run:
-            raise ObservableRunError(f"unknown manifest run {run_number} in underflow_overflow")
-        reasons[int(run_number)].add("flux_underflow_overflow")
+        histogram = entry["histogram"]
+        match = _RUN_HISTOGRAM.fullmatch(histogram)
+        assert match is not None
+        reasons[int(match.group("run_number"))].add("flux_underflow_overflow")
 
     conservation = source_qa.get("conservation", {"failures": ()})
     if not isinstance(conservation, Mapping):
@@ -595,6 +580,72 @@ def _qa_unique_positive_runs(value: object, field: str) -> list[int]:
     return runs
 
 
+def _qa_strip(entry: Mapping[str, object], section: str) -> None:
+    xstrip = _qa_positive_integer(entry.get("xstrip"), f"{section} xstrip")
+    if xstrip > 128:
+        raise ObservableRunError(f"source QA {section} xstrip must be in 1..128")
+
+
+def _validate_warning_payloads(
+    qa: Mapping[str, object], manifest_by_run: Mapping[int, RunRecord] | None = None
+) -> None:
+    """Validate producer warnings before assigning them a quality outcome."""
+    for section, value_field in (
+        ("mad_warnings", "energy_mad_gev"),
+        ("low_stat_warnings", "event_count"),
+    ):
+        entries = qa.get(section)
+        if not isinstance(entries, list):
+            raise ObservableRunError(f"source QA field {section} must be an array")
+        required = {"run_number", "xstrip", value_field}
+        for entry in entries:
+            if not isinstance(entry, Mapping) or set(entry) != required:
+                raise ObservableRunError(f"source QA {section} entry has an invalid schema")
+            run_number = _qa_positive_integer(entry["run_number"], f"{section} run_number")
+            if manifest_by_run is not None and run_number not in manifest_by_run:
+                raise ObservableRunError(f"unknown manifest run {run_number} in {section}")
+            _qa_strip(entry, section)
+            if section == "mad_warnings":
+                if _qa_finite_number(entry[value_field], f"{section} {value_field}") < 0:
+                    raise ObservableRunError(
+                        f"source QA {section} {value_field} must be nonnegative"
+                    )
+            else:
+                _qa_nonnegative_integer(entry[value_field], f"{section} {value_field}")
+
+    entries = qa.get("underflow_overflow")
+    if not isinstance(entries, list):
+        raise ObservableRunError("source QA field underflow_overflow must be an array")
+    base_fields = {"histogram", "underflow", "overflow"}
+    for entry in entries:
+        if not isinstance(entry, Mapping) or set(entry) not in (
+            base_fields,
+            base_fields | {"run_number"},
+        ):
+            raise ObservableRunError("source QA underflow_overflow entry has an invalid schema")
+        histogram = entry["histogram"]
+        match = _RUN_HISTOGRAM.fullmatch(histogram) if isinstance(histogram, str) else None
+        if match is None:
+            raise ObservableRunError(
+                "source QA underflow_overflow histogram is not a canonical run<N>_(POL1|BREM|POL2) identity"
+            )
+        histogram_run = int(match.group("run_number"))
+        if "run_number" in entry:
+            run_number = _qa_positive_integer(
+                entry["run_number"], "underflow_overflow run_number"
+            )
+            if run_number != histogram_run:
+                raise ObservableRunError(
+                    "source QA underflow_overflow run_number conflicts with histogram identity"
+                )
+        if manifest_by_run is not None and histogram_run not in manifest_by_run:
+            raise ObservableRunError(
+                f"unknown manifest run {histogram_run} in underflow_overflow"
+            )
+        _qa_finite_number(entry["underflow"], "underflow_overflow underflow")
+        _qa_finite_number(entry["overflow"], "underflow_overflow overflow")
+
+
 def _validate_source_qa_payload(qa: Mapping[str, object]) -> None:
     for field in (
         "manifest_run_count", "h80_run_count", "flux_run_count", "lookup_strip_count",
@@ -648,6 +699,7 @@ def _validate_source_qa_payload(qa: Mapping[str, object]) -> None:
     ):
         if not isinstance(qa[field], list):
             raise ObservableRunError(f"source QA field {field} must be an array")
+    _validate_warning_payloads(qa)
     for entry in qa["empty_strips"]:
         if not isinstance(entry, Mapping):
             raise ObservableRunError("source QA empty_strips entry must be an object")

@@ -1,7 +1,7 @@
 # Observable Run Database Design
 
 **Date:** 2026-09-08
-**Status:** approved in chat; implementation pending
+**Status:** completed; production acceptance 2026-09-09
 
 ## Goal
 

@@ -331,6 +331,87 @@ def test_cli_rejects_metadata_conflicts_without_replacing_destination(tmp_path):
     assert {path.name for path in output.iterdir()} == {"sentinel"}
 
 
+def test_cli_rejects_undeclared_or_overlapping_flux_bins_without_replacing_destination(tmp_path):
+    """An extra partial bin must not survive merely because required bins exist."""
+    manifest, source = _build_source_bundle(tmp_path)
+    flux = source / "flux_by_run_energy.csv"
+    rows = list(csv.DictReader(flux.open(newline="")))
+    extra = rows[0] | {"energy_low_gev": 1.05, "energy_high_gev": 1.1}
+    rows.append(extra)
+    _write_csv(flux, RUN_FLUX_FIELDS, rows)
+    qa_path = source / "strip_energy_flux_qa.json"
+    payload = json.loads(qa_path.read_text())
+    payload["run_flux_bin_count"] = 11
+    qa_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / "sentinel").write_text("keep")
+
+    completed = _run_cli(tmp_path, manifest, source, output)
+
+    assert completed.returncode == 1
+    assert "undeclared flux bin" in completed.stderr
+    assert {path.name for path in output.iterdir()} == {"sentinel"}
+
+
+def test_cli_rejects_overflowed_group_aggregate_without_replacing_destination(tmp_path):
+    """Finite per-run inputs can still overflow when a group is summed."""
+    manifest, source = _build_source_bundle(tmp_path)
+    flux = source / "flux_by_run_energy.csv"
+    rows = list(csv.DictReader(flux.open(newline="")))
+    for row in rows:
+        row.update(
+            {
+                "pol1": 1e308,
+                "brem": 1e308,
+                "pol2": 1e308,
+                "pol1_net": 0.0,
+                "pol2_net": 0.0,
+                "total_net": 0.0,
+                "status": "valid",
+            }
+        )
+    _write_csv(flux, RUN_FLUX_FIELDS, rows)
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / "sentinel").write_text("keep")
+
+    completed = _run_cli(tmp_path, manifest, source, output)
+
+    assert completed.returncode == 1
+    assert "group flux" in completed.stderr
+    assert "finite" in completed.stderr
+    assert {path.name for path in output.iterdir()} == {"sentinel"}
+
+
+def test_cli_preserves_extra_source_warning_lineage(tmp_path):
+    """Global producer diagnostics remain visible after run filtering."""
+    manifest, source = _build_source_bundle(tmp_path)
+    qa_path = source / "strip_energy_flux_qa.json"
+    payload = json.loads(qa_path.read_text())
+    payload.update(
+        {
+            "extra_flux_runs": [99],
+            "extra_h80_runs": [98],
+            "extra_h80_run_count": 1,
+            "errors": ["h80 runs absent from manifest: [98]"],
+            "valid": False,
+        }
+    )
+    qa_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+    completed = _run_cli(tmp_path, manifest, source, tmp_path / "output")
+
+    assert completed.returncode == 0, completed.stderr
+    warnings = json.loads((tmp_path / "output" / "observable_run_qa.json").read_text())["global_source_qa_warnings"]
+    assert warnings == {
+        "extra_flux_runs": [99],
+        "extra_h80_run_count": 1,
+        "extra_h80_runs": [98],
+        "extra_h80_runs_truncated": False,
+    }
+
+
 def test_cli_rejects_an_output_directory_inside_its_source_bundle(tmp_path):
     """Allowing output nesting would make a future build consume its own results."""
     manifest, source = _build_source_bundle(tmp_path)

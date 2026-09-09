@@ -168,6 +168,34 @@ def _validate_good_coverage(
             )
 
 
+def _validate_run_flux_bin_identities(
+    run_flux, source_qa: Mapping[str, object]
+) -> None:
+    """Reject every per-run bin that is not an exact source-QA declaration."""
+    declared = {
+        (name, low, high)
+        for name, edges in source_qa["binnings"].items()
+        for low, high in zip(edges, edges[1:])
+    }
+    by_binning: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for name, low, high in declared:
+        by_binning[name].append((low, high))
+    for row in run_flux:
+        identity = (row.binning, row.energy_low_gev, row.energy_high_gev)
+        if identity in declared:
+            continue
+        overlaps = any(
+            row.energy_low_gev < high and low < row.energy_high_gev
+            for low, high in by_binning.get(row.binning, ())
+        )
+        detail = " overlaps a QA-declared bin" if overlaps else " is not QA-declared"
+        raise ObservableRunError(
+            "undeclared flux bin for run "
+            f"{row.run_number}: {row.binning} "
+            f"[{row.energy_low_gev}, {row.energy_high_gev}]{detail}"
+        )
+
+
 def _require_valid_flux(rows, label: str) -> None:
     invalid = next((row for row in rows if row.status != "valid"), None)
     if invalid is not None:
@@ -177,12 +205,46 @@ def _require_valid_flux(rows, label: str) -> None:
         )
 
 
+def _validate_group_flux(rows) -> None:
+    """Validate aggregate arithmetic before a group row can be published."""
+    for row in rows:
+        identity = f"{row.binning} {row.group} [{row.energy_low_gev}, {row.energy_high_gev}]"
+        values = {
+            field: getattr(row, field)
+            for field in (
+                "energy_low_gev", "energy_high_gev", "pol1", "brem", "pol2",
+                "pol1_net", "pol2_net", "total_net",
+            )
+        }
+        if any(not math.isfinite(value) for value in values.values()):
+            raise ObservableRunError(f"group flux {identity} must have finite numeric fields")
+        expected = {
+            "pol1_net": values["pol1"] - values["brem"],
+            "pol2_net": values["pol2"] - values["brem"],
+        }
+        expected["total_net"] = expected["pol1_net"] + expected["pol2_net"]
+        for field, value in expected.items():
+            if not math.isclose(values[field], value, rel_tol=1e-12, abs_tol=1e-9):
+                raise ObservableRunError(
+                    f"group flux {identity} {field} does not match raw flux formula"
+                )
+
+
 def _global_source_warnings(source_qa: Mapping[str, object]) -> dict[str, object]:
     warnings: dict[str, object] = {}
     for name in ("malformed_flux_triplets", "empty_strips", "out_of_range"):
         value = source_qa[name]
         if value:
             warnings[name] = value
+    if source_qa["extra_flux_runs"]:
+        warnings["extra_flux_runs"] = source_qa["extra_flux_runs"]
+    if source_qa["extra_h80_run_count"]:
+        for name in (
+            "extra_h80_runs",
+            "extra_h80_run_count",
+            "extra_h80_runs_truncated",
+        ):
+            warnings[name] = source_qa[name]
     return warnings
 
 
@@ -263,6 +325,7 @@ def run(args: argparse.Namespace) -> int:
             len(lookup),
             len(run_flux),
         )
+        _validate_run_flux_bin_identities(run_flux, source_qa)
         quality = classify_run_quality(
             manifest,
             source_qa,
@@ -279,6 +342,7 @@ def run(args: argparse.Namespace) -> int:
         filtered_flux = tuple(row for row in run_flux if row.run_number in good_runs)
         _require_valid_flux(filtered_flux, "filtered run flux")
         group_flux = aggregate_group_flux(filtered_flux)
+        _validate_group_flux(group_flux)
         _require_valid_flux(group_flux, "filtered group flux")
         good_manifest = [record for record in manifest if record.run_number in good_runs]
         with atomic_output_directory(args.output_dir) as staging:
