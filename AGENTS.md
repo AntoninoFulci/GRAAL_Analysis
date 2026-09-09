@@ -14,6 +14,10 @@
   Both owners must review any shared interface (manifest, serialized artifact
   schema, QA policy, common package, Make targets, or public documentation)
   before it is merged.
+- Physics continuation has exactly two non-overlapping workstreams documented
+  in `docs/collaboration/two-person-physics-roadmap.md`. Treat its Gate 0 and
+  acceptance/`Σ` handoff hashes as release blockers; D2/neutron and eta-prime
+  remain deferred until proton P0 passes its joint release gate.
 
 ## Pipeline and packages
 

@@ -15,6 +15,15 @@ gestione quasi-free su D2 + tag neutrone.
 > “Scrivibile” significa che esiste parte dell'infrastruttura, non che analisi,
 > sistematiche o confronto con letteratura siano completati.
 
+## Esecuzione a due persone
+
+Per P0, P1 e P2 l'ordine operativo, le ownership non sovrapposte e gli
+artefatti di handoff sono definiti nella [roadmap fisica a due
+persone](../docs/collaboration/two-person-physics-roadmap.md). La roadmap non
+altera lo stato stimato qui sopra: rende verificabili le dipendenze fra
+normalizzazione/accettanza e polarizzazione/`Σ`. Il lavoro D2/neutrone e η'
+resta differito fino al superamento del gate P0 sul protone.
+
 ---
 
 ## P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*

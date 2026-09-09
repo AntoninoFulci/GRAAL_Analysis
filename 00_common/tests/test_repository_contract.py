@@ -65,3 +65,18 @@ def test_makefile_root_free_suite_omits_pyroot_importing_tests():
 def test_testing_docs_name_top_level_pyroot_plot_module():
     text = read("wiki/testing.md")
     assert "06_plots/dalitz.py" in text
+
+
+def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
+    """Catch an added owner or a missing artifact handoff in the physics plan."""
+    text = read("docs/collaboration/two-person-physics-roadmap.md")
+    assert len(re.findall(r"^## Primary ownership: ", text, re.MULTILINE)) == 2
+    assert {
+        "results/physics/normalization/acceptance_v1.csv",
+        "results/physics/normalization/acceptance_qa.json",
+        "results/physics/polarization/sigma_v1.csv",
+        "results/physics/polarization/sigma_covariance.npz",
+        "results/physics/polarization/polarization_qa.json",
+    } <= set(text.splitlines())
+    assert "D2/neutron work is deferred" in text
+    assert "eta-prime work is deferred" in text

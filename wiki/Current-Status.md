@@ -2,7 +2,9 @@
 
 **Aggiornato:** 9 settembre 2026
 **Stato sintetico:** QA della produzione farm ricevuta e database run per
-osservabili curato; la normalizzazione fisica finale resta fuori ambito.
+osservabili curato; la normalizzazione fisica finale resta fuori ambito. Il
+passaggio a P0 è ora organizzato in due workstream con handoff verificabili:
+[roadmap fisica a due persone](../docs/collaboration/two-person-physics-roadmap.md).
 **Snapshot del codice precedente a questa pagina:** `1ed73e1`
 
 ## Dove stiamo andando
@@ -218,10 +220,10 @@ Inoltre:
 Verifica corrente della curation del 9 settembre 2026: i test ROOT-free
 `test_observable_runs.py` e `test_build_observable_run_database.py` hanno
 eseguito **50 passed**; compilazione, validazione del manifest e `git diff
---check` sono riusciti. La suite locale completa si ferma solo in collection
-per l'assenza di PyROOT (`ModuleNotFoundError: ROOT`) nei test di ricostruzione
-e plot; non segnala un fallimento del codice della curation. La suite completa
-va ripetuta in un ambiente con PyROOT.
+--check` sono riusciti. Verifica completa fresca nel worktree di handoff, con
+PyROOT disponibile nell'interprete selezionato, il 9 settembre 2026:
+**441 passed in 32.02s**. Il risultato storico di 353 test rimane il contesto
+precedente alla curation, non il conteggio di verifica corrente.
 
 ## Cosa manca
 
@@ -239,6 +241,11 @@ informazioni sperimentali non ancora disponibili:
 Quindi risposta breve a «siamo arrivati agli osservabili?» è: no. Abbiamo
 completato infrastruttura di metadati e normalizzazione necessaria per
 arrivarci senza mescolare periodi incompatibili o inventare calibrazioni.
+
+La prosecuzione sul canale protone è delimitata dalla [roadmap fisica a due
+persone](../docs/collaboration/two-person-physics-roadmap.md): separa
+normalizzazione/accettanza e polarizzazione/`Σ`, fissa il bundle Gate 0 e
+rimanda esplicitamente D2/neutrone e η-prime.
 
 ## Prossimo comando sulla farm
 
