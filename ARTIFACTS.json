@@ -18,42 +18,42 @@
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 6107,
+      "bytes": 9810,
       "path": "graphify-out/.graphify_labels.json",
       "role": "derived",
-      "sha256": "f008d48605d4b6ed01c1b0c8aa788df42137cb4ea6b67a68844eefb9b0250c8a",
+      "sha256": "747566a83dbb8a6beb07e98d007b615075032896d52ec7b2a2802319a9fb5439",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 33431,
+      "bytes": 47109,
       "path": "graphify-out/GRAPH_REPORT.md",
       "role": "derived",
-      "sha256": "e6b9a726a7fa6410e7071d03b4b0726771a0e931a065a695c6ed61067903c438",
+      "sha256": "bbee81d43cd446739644867ed8c2f830410817ad8adafeb84904f88e68d1bccb",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 1852812,
+      "bytes": 2126224,
       "path": "graphify-out/graph.html",
       "role": "derived",
-      "sha256": "48e279f73a2376d220415b14b1e22a3390eef28a6e814d53024a93e59517110d",
+      "sha256": "cd50f4af2171f51dac02e1821120bb6816c03455809ab461559f3a6bd8cadcc4",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 1987443,
+      "bytes": 2368825,
       "path": "graphify-out/graph.json",
       "role": "derived",
-      "sha256": "c5c1aa68680d05bb54cbd90e72594ef24dab7694ba9703acb10be256adf0f803",
+      "sha256": "f741130e582892077310202e5700fee99fb8321bd6d067149c99d9418cb55c48",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 47862,
+      "bytes": 48209,
       "path": "graphify-out/manifest.json",
       "role": "derived",
-      "sha256": "0a754bf23f409bcfd4ff2dbedd64c427a98a2c9713e0ee61b7b6456f4b483be9",
+      "sha256": "d5c94b434fe3ac9485f14ccfbfa66b1dc31e09b768f7fca0c34ce362c92a6a1c",
       "valid": true
     },
     {
@@ -321,6 +321,6 @@
       "valid": true
     }
   ],
-  "generated_at_commit": "0a19930d3207318420eb181c28c289f754f97a74",
+  "generated_at_commit": "00435e66eb627e10c6c196e0b116adeffc1c234e",
   "schema_version": 1
 }
