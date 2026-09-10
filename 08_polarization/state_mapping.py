@@ -14,6 +14,7 @@ from contracts import (
 
 
 ORIENTATIONS = frozenset({"parallel", "perpendicular"})
+FLUX_COMPONENTS = frozenset({"pol1_net", "pol2_net"})
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class StateInterval:
     state_code: int
     orientation: str
     source_period: str
+    flux_component: str
 
     def __post_init__(self) -> None:
         if (
@@ -44,6 +46,10 @@ class StateInterval:
             )
         if not isinstance(self.source_period, str) or not self.source_period.strip():
             raise PolarizationContractError("source_period must be non-empty")
+        if self.flux_component not in FLUX_COMPONENTS:
+            raise PolarizationContractError(
+                "flux_component must be exactly 'pol1_net' or 'pol2_net'"
+            )
 
 
 def validate_intervals(intervals: Iterable[StateInterval]) -> tuple[StateInterval, ...]:
@@ -72,6 +78,23 @@ def resolve_orientation(
     intervals: Iterable[StateInterval],
 ) -> str:
     """Resolve one measured state; reject gaps and ambiguity."""
+    return _resolve_interval(run_number, state_code, intervals).orientation
+
+
+def resolve_flux_component(
+    run_number: int,
+    state_code: int,
+    intervals: Iterable[StateInterval],
+) -> str:
+    """Resolve explicitly approved flux column for one measured state."""
+    return _resolve_interval(run_number, state_code, intervals).flux_component
+
+
+def _resolve_interval(
+    run_number: int,
+    state_code: int,
+    intervals: Iterable[StateInterval],
+) -> StateInterval:
     matches = [
         interval
         for interval in intervals
@@ -86,7 +109,7 @@ def resolve_orientation(
         raise PolarizationContractError(
             f"ambiguous polarization state: run={run_number}, state_code={state_code}"
         )
-    return matches[0].orientation
+    return matches[0]
 
 
 def _interval_from_mapping(raw: object) -> StateInterval:
@@ -99,6 +122,7 @@ def _interval_from_mapping(raw: object) -> StateInterval:
             state_code=raw["state_code"],
             orientation=raw["orientation"],
             source_period=raw["source_period"],
+            flux_component=raw["flux_component"],
         )
     except KeyError as exc:
         raise PolarizationContractError(

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build Person 2's fail-closed polarization and beam-asymmetry software, synthetic closure, and release validators without inventing missing experimental inputs or publishing a physics result before shared gates pass.
+**Goal:** Build Person 2's fail-closed polarization and beam-asymmetry software, synthetic closure, and release validators without inventing missing experimental inputs or publishing a physics result before shared gates pass. Add a framework-native diagnostic reproducing only the requested four-by-three comparison structure, never published numeric or visual content.
 
 **Architecture:** Keep all new physics code inside Person 2's exclusive `08_polarization/` area. Pure NumPy/SciPy modules validate provenance-bearing configuration, compute the periodic reaction-plane angle, fit an acceptance-aware Poisson model, exercise injected-`Sigma` closure, and validate release artifacts. Repository config records blocked external inputs explicitly; real output publication remains impossible until Gate 0, signed state mapping, authoritative Compton input, and Person 1 acceptance exist.
 
@@ -19,6 +19,17 @@
 - Do not use `results/reco/` for normalized physics.
 - Keep `Sigma` bounded to `[-1, 1]`; keep `phi` in `[0, pi)` and mark degenerate planes invalid.
 - No real `results/physics/polarization/` artifacts may be emitted while required upstream QA is absent or invalid.
+- Comparison output may use publication-compatible bin structure, but must not ingest published points, curves, digitization, code, or styling. Mark it diagnostic and non-release.
+
+## Approved comparison extension
+
+- [x] Implement flux-normalized conditional likelihood with explicit H/V flux and period polarization.
+- [x] Bind each approved state to an explicit flux component; never infer mapping.
+- [x] Compute three pair masses and pair-sum azimuth from reconstructed four-vectors.
+- [x] Build four energy rows, three pair columns, ten mass bins, and twelve azimuth bins.
+- [x] Render original project-native PNG and serialize every valid/invalid fit point.
+- [x] Add metadata-bearing ROOT reader and reject legacy/partial schemas.
+- [x] Add provenance QA sidecar and fail closed on missing Gate 0 or authorities.
 
 ---
 
@@ -327,4 +338,3 @@ git diff --check
 Review Graphify and inventory diffs. No real polarization result files are added until all scientific gates pass.
 
 Commit: `feat(polarization): validate Sigma release contracts`
-
