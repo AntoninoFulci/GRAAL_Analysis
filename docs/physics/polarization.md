@@ -39,7 +39,7 @@ covariance matrix. Interpolation is piecewise linear. Bin averages integrate
 that interpolation exactly under a uniform within-bin spectrum. Extrapolation
 is rejected. Current observable bundle exposes integrated 100 MeV flux, not
 strip-resolved flux by polarization component. Diagnostic QA therefore records
-a conservative endpoint envelope for unknown within-bin spectrum weighting;
+a conservative interpolation-node envelope for unknown within-bin spectrum weighting;
 final S6 release must replace or propagate this approximation.
 
 ## Observable and estimator
@@ -88,8 +88,22 @@ serialization are project-native.
 
 ## Command
 
-After Gate 0, signed state map, Compton inputs, and metadata-bearing
-reconstruction exist:
+After reconstruction, build immutable inventory. Processed-run ledger has exact
+columns `run_number,status`; every Gate 0 target run must appear once with
+`status=complete`:
+
+```bash
+python 08_polarization/build_reco_inventory.py \
+  --reco results/physics/reconstruction/reco_eta_pi0_chi2.root \
+  --processed-runs results/physics/reconstruction/processed_runs.csv \
+  --output results/physics/reconstruction/reco_eta_pi0_chi2_inventory.json
+```
+
+Builder validates every ROOT schema, scans observed event runs, records
+zero-selected-event runs, hashes inputs, rejects failed/incomplete ledger, and
+never overwrites existing inventory.
+
+After Gate 0, signed state map, Compton inputs, and inventory exist:
 
 ```bash
 python 08_polarization/build_figure4_comparison.py \
@@ -103,6 +117,55 @@ input/output hashes and exact complete-run inventory. Bundle is staged and then
 published as one new directory; existing destinations are never overwritten.
 QA marks this product `diagnostic` and `release_eligible=false`.
 
+## S6 release contract
+
+Physics release consists of exactly:
+
+- `sigma_v1.csv`: `analysis_version`, unique elementary-bin keys, complete N1
+  physical acceptance key (`channel`, target/beam group, energy and
+  `cos_theta` edges, observable, selection), physical `sigma`,
+  `stat_uncertainty`, JSON systematic components, `validity_mask`, `fit_id`,
+  `input_sha256`, `config_sha256`, event count and fit GOF;
+- `sigma_covariance.npz`: exact arrays `covariance`, `bin_keys`,
+  `stat_covariance`, `systematic_covariance`, and scalar `schema_version`;
+- `polarization_qa.json`: cross-hashes, producer commit, config/Gate 0/
+  acceptance hashes, actual input file records, fit QA, closure/sign QA,
+systematic sources, and approved numeric QA policy. Policy must equal canonical
+hash-validated config; current supported systematic combination is explicitly
+`independent_sources_quadrature`.
+
+Validator requires symmetric positive-semidefinite matrices, CSV/NPZ bin-order
+identity, statistical/systematic diagonal agreement, and
+`covariance = stat_covariance + systematic_covariance`. It resolves and hashes
+canonical config, Gate 0, acceptance, reconstruction inventory, state-map and
+Compton source bytes:
+
+```bash
+python 08_polarization/validate_sigma_release.py \
+  --repository-root . \
+  --results results/physics/polarization \
+  --check-covariance --check-qa
+```
+
+P1/P2 aggregation pre-validation references released elementary bins in exact
+order and provides explicit matrix `W` plus aggregate covariance. Validator
+verifies non-overlap and `C_aggregate = W C_sigma W^T` numerically. Final
+publication validation is fail-closed until shared `validate_p0_release.py`
+defines a jointly approved output artifact; acceptance QA alone is never
+treated as completed normalization:
+
+```bash
+python 08_polarization/validate_publication_binning.py \
+  --repository-root . \
+  --results results/physics/polarization \
+  --mapping-dir results/physics/publication_mappings --papers P1 P2
+```
+
+Synthetic end-to-end pytest creates temporary Gate 0, authorities, Compton
+curve, metadata-bearing ROOT, processed-run ledger, inventory, and injected
+Sigma modulation. It then exercises production comparison CLI and checks
+recovered Sigma plus CSV/PNG/QA. No experimental or published values enter.
+
 ## Current blockers
 
 - `results/observable_runs/HANDOFF.json` missing;
@@ -111,6 +174,13 @@ QA marks this product `diagnostic` and `release_eligible=false`.
 - approved orientation-sign convention missing;
 - metadata-bearing proton reconstruction missing;
 - Person 1 acceptance handoff missing for final S6 release.
+- shared P0 validator/output artifact still needs joint implementation and
+  two-reviewer approval before S7 mappings can pass.
+
+Event-count, deviance/ndof, closure bias/pull, and minimum-systematics
+thresholds and systematic-combination policy remain `pending_owner_approval`.
+Validator requires same approved policy in canonical config and QA, approval
+ID, and two distinct reviewers; no experimental release can pass meanwhile.
 
 No substitute, inferred mapping, legacy ROOT file, or paper-derived numeric
 content is accepted.

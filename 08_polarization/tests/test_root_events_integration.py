@@ -7,7 +7,7 @@ import pytest
 ROOT = pytest.importorskip("ROOT")
 
 from contracts import PolarizationContractError
-from root_events import read_reco_root
+from root_events import read_reco_root, scan_reco_run_numbers
 
 
 def write_tree(path, *, include_xstrip=True):
@@ -43,6 +43,9 @@ def test_read_reco_root_reads_metadata_and_rejects_each_incompatible_file(tmp_pa
     assert sample.state_code.tolist() == [2]
     assert sample.xstrip.tolist() == pytest.approx([42.0])
     assert sample.beam_energy.tolist() == pytest.approx([1.2])
+    assert scan_reco_run_numbers(
+        [good], tree_name="reco_eta_pi0_chi2", vectors="raw"
+    ) == {7}
     with pytest.raises(PolarizationContractError, match="Xstrip"):
         read_reco_root(
             [good, bad], tree_name="reco_eta_pi0_chi2", vectors="raw"

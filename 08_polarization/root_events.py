@@ -151,3 +151,34 @@ def read_reco_root(
     ):
         raise PolarizationContractError("reconstruction tree contains non-finite values")
     return sample
+
+
+def scan_reco_run_numbers(
+    paths: Iterable[Path], *, tree_name: str, vectors: str
+) -> frozenset[int]:
+    """Validate every ROOT schema and return observed event run numbers."""
+    files = tuple(Path(path) for path in paths)
+    if not files or any(not path.is_file() for path in files):
+        raise PolarizationContractError(
+            "all reconstruction ROOT files must exist before inventory scan"
+        )
+    try:
+        import ROOT
+    except ImportError as exc:
+        raise PolarizationContractError(
+            "PyROOT is required to scan reconstruction files"
+        ) from exc
+    for path in files:
+        _validate_file_schema(ROOT, path, tree_name, vectors)
+    chain = ROOT.TChain(tree_name)
+    for path in files:
+        if chain.Add(str(path)) == 0:
+            raise PolarizationContractError(
+                f"cannot add ROOT tree {tree_name} from {path}"
+            )
+    runs = frozenset(int(event.RunNumber) for event in chain)
+    if any(run <= 0 for run in runs):
+        raise PolarizationContractError(
+            "reconstruction contains non-positive RunNumber"
+        )
+    return runs

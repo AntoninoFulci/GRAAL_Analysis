@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "ARTIFACTS.json": {
-    "mtime": 1789046227.6781461,
-    "ast_hash": "c0cb3b320fb5b27ace357e66f57e8601",
+    "mtime": 1789069617.3486798,
+    "ast_hash": "dc0d36b3d399b7be769d3b3b641a3e94",
     "semantic_hash": ""
   },
   "results/observable_runs/observable_run_qa.json": {
@@ -1255,8 +1255,8 @@
     "semantic_hash": ""
   },
   "08_polarization/build_figure4_comparison.py": {
-    "mtime": 1789045778.1306596,
-    "ast_hash": "63cd9d112109cb413dde9d57570d5daa",
+    "mtime": 1789069105.5297709,
+    "ast_hash": "5890944153cb7ea483617832fe60ab75",
     "semantic_hash": ""
   },
   "08_polarization/closure_injected_sigma.py": {
@@ -1300,8 +1300,8 @@
     "semantic_hash": ""
   },
   "08_polarization/root_events.py": {
-    "mtime": 1789045210.9358833,
-    "ast_hash": "0e39bf234e0a3607f4595138d3849f44",
+    "mtime": 1789047362.630942,
+    "ast_hash": "49008cd2d8b1a031cc7c91dc68ecbb78",
     "semantic_hash": ""
   },
   "08_polarization/sigma_fit.py": {
@@ -1395,18 +1395,18 @@
     "semantic_hash": ""
   },
   "config/physics/polarization_v1.json": {
-    "mtime": 1789045921.192959,
-    "ast_hash": "045bb8d8c3a69e2e9f72859ff12966c4",
+    "mtime": 1789070232.6824024,
+    "ast_hash": "87ce8356c77edd6b3ac2528a22562df6",
     "semantic_hash": ""
   },
   "docs/physics/polarization.md": {
-    "mtime": 1789045845.7986627,
-    "ast_hash": "76cb61bcf86a03a2d2a4516826183f68",
+    "mtime": 1789070232.7310636,
+    "ast_hash": "75a7cbbce925d8d045cb41fe16e4df17",
     "semantic_hash": ""
   },
   "docs/superpowers/plans/2026-09-10-person2-polarization-sigma.md": {
-    "mtime": 1789043627.3513365,
-    "ast_hash": "650ec78cee1fdb9a928930d4eb064a13",
+    "mtime": 1789070232.780263,
+    "ast_hash": "d93829abf2c2c8357af22677717a75cd",
     "semantic_hash": ""
   },
   "requirements-graphify.txt": {
@@ -1415,8 +1415,8 @@
     "semantic_hash": ""
   },
   "08_polarization/reco_inventory.py": {
-    "mtime": 1789045778.027477,
-    "ast_hash": "12ab35158396aee1caa9db985c4ffa78",
+    "mtime": 1789069042.717168,
+    "ast_hash": "f616af04ae956f5c99c52004b47ca226",
     "semantic_hash": ""
   },
   "08_polarization/tests/test_figure4_cli.py": {
@@ -1425,13 +1425,53 @@
     "semantic_hash": ""
   },
   "08_polarization/tests/test_reco_inventory.py": {
-    "mtime": 1789045778.0800934,
-    "ast_hash": "a50b6b36d64039b883a6f544c4c054fc",
+    "mtime": 1789069025.089682,
+    "ast_hash": "7f8efc4d24c2dd6b0871e606699f86f1",
     "semantic_hash": ""
   },
   "08_polarization/tests/test_root_events_integration.py": {
-    "mtime": 1789045653.1780193,
-    "ast_hash": "47d755ee098ae9e40eed98214c97fdeb",
+    "mtime": 1789047362.6809359,
+    "ast_hash": "27679a93e4fa21c12701f9cf0111bfb4",
+    "semantic_hash": ""
+  },
+  "08_polarization/build_reco_inventory.py": {
+    "mtime": 1789047362.7297544,
+    "ast_hash": "df65ce1eb598dac8727770619aa2ee3f",
+    "semantic_hash": ""
+  },
+  "08_polarization/inventory_builder.py": {
+    "mtime": 1789047297.8553429,
+    "ast_hash": "86f4777f2d7c8695bc89493c1f20f1c2",
+    "semantic_hash": ""
+  },
+  "08_polarization/release.py": {
+    "mtime": 1789070359.3786304,
+    "ast_hash": "bcdaf8bc3643654a92065acabf6b4166",
+    "semantic_hash": ""
+  },
+  "08_polarization/tests/test_figure4_end_to_end.py": {
+    "mtime": 1789069126.0861793,
+    "ast_hash": "a577599dfdac140409590bf9d7a34dc8",
+    "semantic_hash": ""
+  },
+  "08_polarization/tests/test_inventory_builder.py": {
+    "mtime": 1789069025.136595,
+    "ast_hash": "7d4fbc64f3e247d39bfc526a248f4b62",
+    "semantic_hash": ""
+  },
+  "08_polarization/tests/test_release.py": {
+    "mtime": 1789070341.7969186,
+    "ast_hash": "fcaaf3caacb1bb140fa9dad9be58e706",
+    "semantic_hash": ""
+  },
+  "08_polarization/validate_publication_binning.py": {
+    "mtime": 1789070180.8427243,
+    "ast_hash": "ef8b2157019e150701cd788b96e6160d",
+    "semantic_hash": ""
+  },
+  "08_polarization/validate_sigma_release.py": {
+    "mtime": 1789068912.8086374,
+    "ast_hash": "3e08f3a86c990ec03315501b7e8c0e0a",
     "semantic_hash": ""
   }
 }

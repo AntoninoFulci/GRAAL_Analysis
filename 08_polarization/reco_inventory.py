@@ -20,6 +20,26 @@ from contracts import (
 class RecoInventory:
     paths: tuple[Path, ...]
     run_numbers: frozenset[int]
+    observed_event_run_numbers: frozenset[int]
+    zero_selected_event_run_numbers: frozenset[int]
+
+
+def _run_set(raw: object, label: str, *, allow_empty: bool) -> frozenset[int]:
+    if (
+        not isinstance(raw, list)
+        or (not allow_empty and not raw)
+        or any(
+            isinstance(run, bool) or not isinstance(run, int) or run <= 0
+            for run in raw
+        )
+    ):
+        qualifier = "possibly empty" if allow_empty else "non-empty"
+        raise PolarizationContractError(
+            f"reconstruction {label} must be {qualifier} positive integers"
+        )
+    if len(set(raw)) != len(raw):
+        raise PolarizationContractError(f"reconstruction {label} must be unique")
+    return frozenset(raw)
 
 
 def load_gate0_run_numbers(path: Path, *, target: str) -> frozenset[int]:
@@ -50,6 +70,40 @@ def load_gate0_run_numbers(path: Path, *, target: str) -> frozenset[int]:
     if not runs or len(set(runs)) != len(runs):
         raise PolarizationContractError(
             "Gate 0 target run set must be non-empty and unique"
+        )
+    return frozenset(runs)
+
+
+def load_processed_run_ledger(path: Path) -> frozenset[int]:
+    """Require one unique `complete` record for every processed source run."""
+    try:
+        handle = Path(path).open(newline="", encoding="utf-8")
+    except OSError as exc:
+        raise PolarizationContractError(
+            f"cannot read processed-run ledger: {path}"
+        ) from exc
+    runs = []
+    with handle:
+        reader = csv.DictReader(handle)
+        if tuple(reader.fieldnames or ()) != ("run_number", "status"):
+            raise PolarizationContractError(
+                "processed-run ledger columns must be run_number,status"
+            )
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                run = int(row["run_number"])
+            except (TypeError, ValueError) as exc:
+                raise PolarizationContractError(
+                    f"processed-run ledger row {row_number} has invalid run_number"
+                ) from exc
+            if run <= 0 or row["status"] != "complete":
+                raise PolarizationContractError(
+                    "processed-run ledger requires positive runs with status complete"
+                )
+            runs.append(run)
+    if not runs or len(set(runs)) != len(runs):
+        raise PolarizationContractError(
+            "processed-run ledger must contain unique non-empty runs"
         )
     return frozenset(runs)
 
@@ -101,18 +155,21 @@ def load_reco_inventory(
         raise PolarizationContractError(
             "reconstruction inventory tree/vector selection disagrees with config"
         )
-    raw_runs = payload.get("run_numbers")
-    if (
-        not isinstance(raw_runs, list)
-        or not raw_runs
-        or any(isinstance(run, bool) or not isinstance(run, int) or run <= 0 for run in raw_runs)
-    ):
+    run_numbers = _run_set(payload.get("run_numbers"), "run_numbers", allow_empty=False)
+    observed_runs = _run_set(
+        payload.get("observed_event_run_numbers"),
+        "observed_event_run_numbers",
+        allow_empty=True,
+    )
+    zero_event_runs = _run_set(
+        payload.get("zero_selected_event_run_numbers"),
+        "zero_selected_event_run_numbers",
+        allow_empty=True,
+    )
+    if observed_runs & zero_event_runs or observed_runs | zero_event_runs != run_numbers:
         raise PolarizationContractError(
-            "reconstruction run_numbers must be positive integers"
+            "observed and zero-selected event runs must partition run_numbers"
         )
-    if len(set(raw_runs)) != len(raw_runs):
-        raise PolarizationContractError("reconstruction run_numbers must be unique")
-    run_numbers = frozenset(raw_runs)
     expected_runs = frozenset(expected_run_numbers)
     if run_numbers != expected_runs:
         missing = expected_runs - run_numbers
@@ -120,6 +177,26 @@ def load_reco_inventory(
         raise PolarizationContractError(
             "reconstruction run inventory must equal Gate 0 target run set "
             f"(missing={len(missing)}, extra={len(extra)})"
+        )
+    ledger_record = payload.get("processed_run_ledger")
+    if not isinstance(ledger_record, Mapping):
+        raise PolarizationContractError(
+            "reconstruction inventory requires processed_run_ledger"
+        )
+    ledger_digest = ledger_record.get("sha256")
+    if (
+        not isinstance(ledger_digest, str)
+        or SHA256_PATTERN.fullmatch(ledger_digest) is None
+    ):
+        raise PolarizationContractError(
+            "processed-run ledger requires lowercase SHA-256"
+        )
+    ledger_path = _inside_root_file(repository_root, ledger_record.get("path"))
+    if sha256_file(ledger_path) != ledger_digest:
+        raise PolarizationContractError("processed-run ledger SHA-256 mismatch")
+    if load_processed_run_ledger(ledger_path) != run_numbers:
+        raise PolarizationContractError(
+            "processed-run ledger must equal reconstruction run inventory"
         )
     raw_files = payload.get("files")
     if not isinstance(raw_files, list) or not raw_files:
@@ -142,4 +219,4 @@ def load_reco_inventory(
                 f"reconstruction file SHA-256 mismatch for {record.get('path')}"
             )
         paths.append(candidate)
-    return RecoInventory(tuple(paths), run_numbers)
+    return RecoInventory(tuple(paths), run_numbers, observed_runs, zero_event_runs)

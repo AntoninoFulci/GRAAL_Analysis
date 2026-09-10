@@ -197,11 +197,13 @@ def main(argv: list[str] | None = None) -> int:
         events = read_reco_root(
             inventory.paths, tree_name=layout.tree, vectors=layout.vectors
         )
-        unexpected_runs = set(map(int, events.run_number)) - inventory.run_numbers
-        if unexpected_runs:
+        event_runs = frozenset(map(int, events.run_number))
+        if event_runs != inventory.observed_event_run_numbers:
+            missing = inventory.observed_event_run_numbers - event_runs
+            extra = event_runs - inventory.observed_event_run_numbers
             raise PolarizationContractError(
-                "reconstruction events contain runs outside signed inventory: "
-                + ", ".join(str(run) for run in sorted(unexpected_runs)[:5])
+                "reconstruction ROOT observed run set disagrees with signed inventory "
+                f"(missing={len(missing)}, extra={len(extra)})"
             )
         orientation_sign = np.asarray(
             [

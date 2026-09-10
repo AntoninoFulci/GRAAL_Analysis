@@ -50,5 +50,17 @@
     "pull_mean_absolute_max": 0.2,
     "pull_width_tolerance": 0.2,
     "require_sign_check": true
+  },
+  "release_qa_thresholds": {
+    "status": "pending_owner_approval",
+    "approval_id": null,
+    "reviewers": [],
+    "minimum_events_per_bin": null,
+    "maximum_deviance_per_ndof": null,
+    "closure_bias_absolute_max": null,
+    "closure_pull_mean_absolute_max": null,
+    "closure_pull_width_tolerance": null,
+    "minimum_systematic_sources": null,
+    "systematic_combination_policy": null
   }
 }

@@ -294,7 +294,7 @@ Commit: `feat(polarization): fit Sigma with acceptance closure`
 - Consumes: `sigma_v1.csv`, `sigma_covariance.npz`, `polarization_qa.json`, optional P1/P2 mapping files.
 - Produces: read-only validation; never repairs or rewrites candidate results.
 
-- [ ] **Step 1: Write failing release tests**
+- [x] **Step 1: Write failing release tests**
 
 ```python
 def test_release_accepts_cross_hashed_csv_npz_and_valid_qa(tmp_path):
@@ -309,17 +309,17 @@ def test_release_rejects_bin_order_hash_and_covariance_mismatch(tmp_path):
         validate_sigma_release(release)
 ```
 
-- [ ] **Step 2: Verify RED, implement strict release validator**
+- [x] **Step 2: Verify RED, implement strict release validator**
 
 Run: `python -m pytest -q 08_polarization/tests/test_release.py`
 
 Expected: FAIL because `release.py` does not exist. Require exact CSV columns, unique bin keys, finite values, physical `Sigma`, symmetric positive-semidefinite covariance, exact NPZ order, valid QA, fit/closure/sign checks, systematic sources, and matching hashes.
 
-- [ ] **Step 3: Implement publication-binning validator**
+- [ ] **Step 3: Complete publication-binning release gate after shared P0 output exists**
 
-Require every aggregate bin to reference released elementary bin keys, reject duplicates and partial covariance loss, and reject P1/P2 publication while QA lacks recorded P0 gate approval.
+Implemented now: exact released elementary-bin order, explicit aggregation matrix `W`, and numerical equality `C_aggregate = W C_sigma W^T`; duplicate/overlapping bins are rejected. Remaining shared blocker: define and jointly approve the real output artifact of `00_common/validate_p0_release.py`, then bind it to complete normalization and polarization releases. Until then publication validator rejects every P1/P2 release; acceptance QA cannot approve P0 itself.
 
-- [ ] **Step 4: Document conventions and current blockers**
+- [x] **Step 4: Document conventions and current blockers**
 
 `docs/physics/polarization.md` must document equations, orientation-sign convention, angle axes, degeneracy policy, interpolation/covariance rules, closure thresholds, CLI commands, handoff schemas, and current missing inputs. It must label Figure 7 code as theoretical reproduction, not authoritative period-by-period `P(Egamma)` input.
 
@@ -338,3 +338,11 @@ git diff --check
 Review Graphify and inventory diffs. No real polarization result files are added until all scientific gates pass.
 
 Commit: `feat(polarization): validate Sigma release contracts`
+
+### Independent pre-handoff hardening
+
+- [x] Add immutable reconstruction-inventory builder.
+- [x] Require hash-bound complete processed-run ledger matching Gate 0 target set.
+- [x] Record observed and zero-selected-event runs separately.
+- [x] Add real PyROOT end-to-end injected-Sigma comparison closure.
+- [ ] Obtain owner approval for final event-count, deviance, and systematic QA thresholds.
