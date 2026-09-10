@@ -36,10 +36,17 @@ python 00_common/validate_observable_handoff.py \
 
 **Rejection.** Rifiutare se manca un file, un hash non coincide,
 `observable_run_qa.valid` non è `true`, il manifest non è quello curato, o il
-bundle contiene run `review`/`bad`. Nessun lavoro fisico procede su un mix di
+manifest/lookup/flussi filtrati contengono run `review`/`bad`.
+`run_quality.csv` conserva invece tutte le run, comprese quelle escluse,
+per tracciabilità diagnostica. Nessun lavoro fisico procede su un mix di
 pubblicazioni.
 
 ## Primary ownership: Person 1 — normalizzazione e sezioni d'urto
+
+La [guida operativa della Persona 1](../physics/normalization.md) distingue
+comandi disponibili, decisioni da congelare e sequenza N1–N7. Le 2.372 run
+good del bundle comprendono tutti i gruppi: il sottoinsieme protone per P0
+conta 1.579 run (`P_UV=1256`, `P_VIS=323`).
 
 **Area esclusiva.**
 

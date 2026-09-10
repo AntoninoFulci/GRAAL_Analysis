@@ -7,6 +7,13 @@ passaggio a P0 è ora organizzato in due workstream con handoff verificabili:
 [roadmap fisica a due persone](../docs/collaboration/two-person-physics-roadmap.md).
 **Snapshot del codice precedente a questa pagina:** `1ed73e1`
 
+**Integrazione documentale del 10 settembre 2026:** disponibile la
+[guida operativa della Persona 1](../docs/physics/normalization.md), con
+controlli sugli input, decisioni N1 e dipendenze N2–N7. Il sottoinsieme
+protone good è di 1.579 run su 2.372 good complessive. Gate 0 (`HANDOFF.json`
+e validatore) e le interfacce fisiche N1–N7 restano da implementare; questa
+integrazione non aggiunge produzioni o risultati scientifici.
+
 ## Dove stiamo andando
 
 Obiettivo finale: estrarre osservabili fisici pubblicabili per il canale
