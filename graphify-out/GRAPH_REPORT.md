@@ -1,15 +1,16 @@
-# Graph Report - .  (2026-09-10)
+# Graph Report - person2-polarization  (2026-09-10)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 261 files · ~4,225,178 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2677 nodes · 4604 edges · 298 communities (118 shown, 180 thin omitted)
-- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 878 edges (avg confidence: 0.77)
+- 2697 nodes · 4604 edges · 310 communities (114 shown, 196 thin omitted)
+- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 876 edges (avg confidence: 0.77)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `450291db`
+- Built from commit: `514f6957`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -297,6 +298,18 @@
 - [[_COMMUNITY_Provisional Scientific Assumptions|Provisional Scientific Assumptions]]
 - [[_COMMUNITY_Strip-Energy Flux Maintenance|Strip-Energy Flux Maintenance]]
 - [[_COMMUNITY_ROOT-Free Test Suite|ROOT-Free Test Suite]]
+- [[_COMMUNITY_Release QA Policy|Release QA Policy]]
+- [[_COMMUNITY_Beam Polarization and Sigma|Beam Polarization and Sigma]]
+- [[_COMMUNITY_Period-Specific Compton Polarization|Period-Specific Compton Polarization]]
+- [[_COMMUNITY_Conditional Binomial Sigma Estimator|Conditional Binomial Sigma Estimator]]
+- [[_COMMUNITY_P1P2 Publication Aggregation|P1/P2 Publication Aggregation]]
+- [[_COMMUNITY_Gate 0 Reconstruction Inventory|Gate 0 Reconstruction Inventory]]
+- [[_COMMUNITY_S6 Sigma Release Bundle|S6 Sigma Release Bundle]]
+- [[_COMMUNITY_Shared P0 Release Gate|Shared P0 Release Gate]]
+- [[_COMMUNITY_Approved Polarization State Mapping|Approved Polarization State Mapping]]
+- [[_COMMUNITY_Fail-Closed Polarization Architecture|Fail-Closed Polarization Architecture]]
+- [[_COMMUNITY_Two-Person Physics Roadmap|Two-Person Physics Roadmap]]
+- [[_COMMUNITY_observable_run_qa.json|observable_run_qa.json]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `PreAnalysis` - 381 edges
@@ -311,23 +324,21 @@
 10. `validate_sigma_release()` - 26 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Fail-Closed Polarization Architecture` --semantically_similar_to--> `Blocked Scientific Authorities`  [INFERRED] [semantically similar]
-  docs/superpowers/plans/2026-09-10-person2-polarization-sigma.md → config/physics/polarization_v1.json
 - `test_reconstruction_preserves_event_metadata()` --calls--> `Pairing`  [INFERRED]
   05_reconstruction/tests/test_reco_physics.py → 00_common/pairing.py
 - `High-energy Polarization Rise` --conceptually_related_to--> `GRAAL Apparatus Constraints`  [INFERRED]
   06_plots/fig7_compton_polarization.pdf → wiki/physics-channels-survey.md
-- `Release QA Policy` --shares_data_with--> `S6 Sigma Release Bundle`  [INFERRED]
-  config/physics/polarization_v1.json → docs/physics/polarization.md
 - `ChannelSample` --uses--> `Hypothesis`  [INFERRED]
   04_bdt_training/build_background_features.py → 00_common/channels.py
+- `ChannelYield` --uses--> `Hypothesis`  [INFERRED]
+  04_bdt_training/build_background_features.py → 00_common/channels.py
+- `FitCovariance` --uses--> `Hypothesis`  [INFERRED]
+  05_reconstruction/kinematic_fit.py → 00_common/channels.py
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Polarization Estimator Inputs** — docs_physics_polarization_conditional_estimator, docs_physics_polarization_state_mapping, docs_physics_polarization_compton_curve [EXTRACTED 1.00]
-- **Publication Release Gate Chain** — docs_physics_polarization_s6_release_bundle, docs_physics_polarization_publication_aggregation, docs_physics_polarization_shared_p0_gate [EXTRACTED 1.00]
 - **Stage-1 ROC Evaluation** — 04_bdt_training_model_stage1_roc_true_positive_rate, 04_bdt_training_model_stage1_roc_false_positive_rate, 04_bdt_training_model_stage1_roc_auc_0_999 [EXTRACTED 1.00]
 - **Stage-1 Decision Boundary** — 04_bdt_training_model_stage1_score_dist_signal_scores, 04_bdt_training_model_stage1_score_dist_background_scores, 04_bdt_training_model_stage1_score_dist_threshold_0_28 [EXTRACTED 1.00]
 - **Three-Slot Classification** — 04_bdt_training_plots_confusion_slot_0_classification, 04_bdt_training_plots_confusion_slot_1_classification, 04_bdt_training_plots_confusion_slot_2_classification [EXTRACTED 1.00]
@@ -339,7 +350,7 @@
 - **Kinematic Fit Resolution Improvement Set** — results_plots_massa_eta_p_eta_p_raw_fit_data, results_plots_massa_eta_p_mc_eta_p_mc_raw_fit_truth, results_plots_risoluzione_eta_p_eta_p_mc_resolution, results_plots_massa_pi0_p_pi0_p_raw_fit_data, results_plots_massa_pi0_p_mc_pi0_p_mc_raw_fit_truth, results_plots_risoluzione_pi0_p_pi0_p_mc_resolution [INFERRED 0.85]
 - **Kinfit Validation Diagnostics** — results_plots_kinfit_validation_fit_chi2_ndf_6, results_plots_kinfit_validation_pull_eta_gamma1_e, results_plots_kinfit_validation_eta_mass_distribution [INFERRED 0.85]
 
-## Communities (298 total, 180 thin omitted)
+## Communities (310 total, 196 thin omitted)
 
 ### Community 0 - "PreAnalysis"
 Cohesion: 0.01
@@ -347,7 +358,7 @@ Nodes (371): PreAnalysis, A1, A2, A3, A_de1, A_de2, A_tof1, A_tof2 (+363 more)
 
 ### Community 1 - "ObservableRunError"
 Cohesion: 0.05
-Nodes (115): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+107 more)
+Nodes (116): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+108 more)
 
 ### Community 2 - "MCChannel"
 Cohesion: 0.05
@@ -367,7 +378,7 @@ Nodes (58): append_histogram(), checkpoint_path(), complete_flux_runs(), make_co
 
 ### Community 6 - "Hypothesis"
 Cohesion: 0.07
-Nodes (35): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., best_chi2(), best_pairing(), best_pairing_indices(), chi2(), chi2_per_pairing() (+27 more)
+Nodes (32): best_chi2(), best_pairing(), best_pairing_indices(), chi2(), chi2_per_pairing(), pair_masses(), pair_slot(), pairings() (+24 more)
 
 ### Community 7 - "build_artifact_inventory.py"
 Cohesion: 0.09
@@ -394,8 +405,8 @@ Cohesion: 0.14
 Nodes (31): build_qa_payload(), _checkpoint_fingerprint(), _checkpoint_integer(), _checkpoint_path(), _h80_paths(), _input_paths(), iter_h80_samples(), main() (+23 more)
 
 ### Community 13 - "test_release.py"
-Cohesion: 0.21
-Nodes (28): Validate immutable S6 CSV, covariance archive, and QA cross-hashes., validate_sigma_release(), combined_input_sha256(), file_record(), repo_of(), rewrite_config_binding(), rewrite_input_binding(), sha() (+20 more)
+Cohesion: 0.23
+Nodes (27): Validate immutable S6 CSV, covariance archive, and QA cross-hashes., validate_sigma_release(), combined_input_sha256(), file_record(), repo_of(), rewrite_config_binding(), rewrite_input_binding(), sha() (+19 more)
 
 ### Community 14 - "Stage1Gate"
 Cohesion: 0.12
@@ -407,11 +418,11 @@ Nodes (26): lorentz_array(), ndarray, Read a ROOT TLorentzVector branch as a pla
 
 ### Community 16 - "fit_sigma_binned"
 Cohesion: 0.12
-Nodes (25): _closure_design(), ClosureResult, main(), ndarray, Injected-asymmetry closure and controlled orientation-sign test., Run deterministic Poisson ensemble and Asimov sign inversion., run_injected_closure(), _array() (+17 more)
+Nodes (24): _closure_design(), ClosureResult, ndarray, Injected-asymmetry closure and controlled orientation-sign test., Run deterministic Poisson ensemble and Asimov sign inversion., run_injected_closure(), _array(), fit_sigma_binned() (+16 more)
 
 ### Community 17 - "contracts.py"
-Cohesion: 0.17
-Nodes (26): load_json(), Path, Fail-closed provenance contracts for beam-polarization analysis., Validate one authority-approved, content-addressed experimental source., Validate Gate 0 identity, bundle completeness, QA, and exact bytes., Return lowercase SHA-256 of exact file bytes., Load one JSON object, translating parse and shape failures., _required_digest() (+18 more)
+Cohesion: 0.14
+Nodes (29): main(), load_json(), Path, Fail-closed provenance contracts for beam-polarization analysis., Validate one authority-approved, content-addressed experimental source., Validate Gate 0 identity, bundle completeness, QA, and exact bytes., Return lowercase SHA-256 of exact file bytes., Load one JSON object, translating parse and shape failures. (+21 more)
 
 ### Community 18 - "TqdmCallback"
 Cohesion: 0.09
@@ -422,8 +433,8 @@ Cohesion: 0.14
 Nodes (25): build_strip_energy_lookup(), build_strip_energy_lookup_on_disk(), EnergySample, find_monotonic_inversions(), Build strip-energy lookups and energy-binned flux products., Store one run, strip, and measured beam-energy sample., Store robust energy statistics for one run and strip., Return a lookup and run-count QA metadata from the disk builder. (+17 more)
 
 ### Community 20 - "StateInterval"
-Cohesion: 0.14
-Nodes (22): _interval_from_mapping(), load_state_mapping(), Path, Authoritative run/state-code to polarization-orientation mapping., Load only an authority-approved state map from configuration., One closed run interval for one recorded Polarization state code., Return sorted intervals after proving `(run, state)` uniqueness., Resolve one measured state; reject gaps and ambiguity. (+14 more)
+Cohesion: 0.18
+Nodes (22): PolarizationContractError, Raised when scientific input or provenance violates Person 2's contract., _interval_from_mapping(), load_state_mapping(), Path, Authoritative run/state-code to polarization-orientation mapping., Load only an authority-approved state map from configuration., One closed run interval for one recorded Polarization state code. (+14 more)
 
 ### Community 21 - "Design: lookup strip→Eγ e integrazione dei flussi"
 Cohesion: 0.08
@@ -434,8 +445,8 @@ Cohesion: 0.12
 Nodes (20): _as_array(), _build_chain(), Gate, ndarray, Path, TChain, ROOT IO for the two-meson reconstruction: chain, branches, event loop, write.  T, Reconstruct one channel. Returns the number of events written. (+12 more)
 
 ### Community 23 - "PolarizationCurve"
-Cohesion: 0.12
-Nodes (16): load_period_curves(), PolarizationCurve, ndarray, Path, Tabulated Compton beam polarization with covariance propagation., Load authority-approved period curves from configuration., Piecewise-linear `P(Egamma)` with covariance on tabulated nodes., Return interpolated polarization and variance at one energy. (+8 more)
+Cohesion: 0.10
+Nodes (31): load_period_curves(), PolarizationCurve, ndarray, Path, Tabulated Compton beam polarization with covariance propagation., Load authority-approved period curves from configuration., Piecewise-linear `P(Egamma)` with covariance on tabulated nodes., Return interpolated polarization and variance at one energy. (+23 more)
 
 ### Community 24 - "Primary ownership: Person 1 — normalizzazione e sezioni d'urto"
 Cohesion: 0.08
@@ -446,8 +457,8 @@ Cohesion: 0.16
 Nodes (23): _as_array(), _collect(), _dalitz_hist(), _draw_raw_mass_comparison(), _draw_truth_cross(), _has_fit(), main(), _mass2d_hist() (+15 more)
 
 ### Community 26 - "PolarizationContractError"
-Cohesion: 0.22
-Nodes (22): PolarizationContractError, Raised when scientific input or provenance violates Person 2's contract., _acceptance_key(), _covariance(), _finite_number(), _input_digest(), _positive_float(), ndarray (+14 more)
+Cohesion: 0.17
+Nodes (21): _acceptance_key(), _covariance(), _finite_number(), _input_digest(), _positive_float(), ndarray, Path, Read-only validation of Sigma release and publication-bin mappings. (+13 more)
 
 ### Community 27 - "Two-Person AI Handoff Design"
 Cohesion: 0.09
@@ -466,8 +477,8 @@ Cohesion: 0.15
 Nodes (18): PhiResult, ndarray, Periodic reaction-plane angle for linearly polarized photons., Reaction-plane angle or an explicit degeneracy marker., Return signed reference-to-reaction-plane azimuth modulo `pi`.      `beam` fixes, reaction_plane_phi(), _vector3(), main() (+10 more)
 
 ### Community 31 - "Pairing"
-Cohesion: 0.16
-Nodes (18): Pairing, One hypothesis about which photons made which meson., _canonicalize_angles(), _constraints(), _covariance_diag(), FitOptions, FitResult, _jacobian() (+10 more)
+Cohesion: 0.19
+Nodes (18): _canonicalize_angles(), _constraints(), _covariance_diag(), fit_event(), FitOptions, _jacobian(), _params_to_vectors(), ndarray (+10 more)
 
 ### Community 32 - "CutManager.h"
 Cohesion: 0.24
@@ -490,16 +501,16 @@ Cohesion: 0.15
 Nodes (16): normalize_xstrip(), Report invalid strip-energy or flux input., Round and validate a detector strip number., StripEnergyFluxError, test_h80_reader_rejects_missing_tree(), test_h80_reader_rejects_no_root_files(), test_open_root_file_closes_truthy_zombie_before_raising(), test_parse_custom_binnings_rejects_duplicate_name() (+8 more)
 
 ### Community 37 - "fit_event"
-Cohesion: 0.24
-Nodes (8): fit_event(), Fit one event onto 4-momentum conservation and the two pair masses., _vectors_to_params(), _conserving_event(), _photon(), Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
+Cohesion: 0.27
+Nodes (4): _conserving_event(), _photon(), A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
 
 ### Community 38 - "test_reco_physics.py"
 Cohesion: 0.12
 Nodes (4): The channels the reconstruction can name.  The chi2 and the pairing enumeration, test_reconstruction_preserves_event_metadata(), TestPartnerMass, TestPassesMissingMass
 
 ### Community 39 - "build_panel_exposures"
-Cohesion: 0.30
-Nodes (15): build_panel_exposures(), Path, Flux and polarization exposures for Sigma energy panels., Aggregate accepted run flux and flux-weighted Compton polarization., _validate_component_assignments(), _validate_orientation_signs(), curves(), intervals() (+7 more)
+Cohesion: 0.20
+Nodes (9): Approved comparison extension, Global Constraints, Independent pre-handoff hardening, Person 2 Polarization and Sigma Implementation Plan, Task 1: Provenance and Configuration Contracts, Task 2: S1 State Mapping and S2 Compton Polarization, Task 3: S3 Periodic Reaction-Plane Angle, Task 4: S4 Acceptance-Aware Fit and S5 Injected Closure (+1 more)
 
 ### Community 40 - "Strip-energy flux: manutenzione e correzioni"
 Cohesion: 0.12
@@ -508,10 +519,6 @@ Nodes (17): Artefatti e schema QA, Assunzioni scientifiche provvisorie, Benchmar
 ### Community 41 - "build_reco_inventory"
 Cohesion: 0.24
 Nodes (13): build_reco_inventory(), Path, Build immutable reconstruction inventory from Gate 0 and run ledger., Write one inventory only after ledger and observed-run validation., _repo_file(), test_framework_figure4_cli_recovers_injected_sigma_from_root(), test_framework_figure4_rejects_observed_run_mismatch_with_inventory(), write_config() (+5 more)
-
-### Community 42 - "Beam Polarization and Sigma"
-Cohesion: 0.14
-Nodes (16): Blocked Scientific Authorities, Polarization V1 Configuration, Orientation-Sign Sigma Model, Reaction-Plane Phi Contract, Release QA Policy, Beam Polarization and Sigma, Period-Specific Compton Polarization, Conditional Binomial Sigma Estimator (+8 more)
 
 ### Community 43 - "Observable Run Database Design"
 Cohesion: 0.12
@@ -542,8 +549,8 @@ Cohesion: 0.14
 Nodes (14): Data format, Database delle run per osservabili, `flux_by_group_energy.csv`, `flux_by_run_energy.csv`, `h80` — pre-analisi, `h85` — selezione eventi, Lookup strip→Eγ e flussi integrati, Manifest e CSV filtrati (+6 more)
 
 ### Community 50 - "test_mc_status.py"
-Cohesion: 0.26
-Nodes (9): _make_mc(), test_a_fresh_file_is_not_stale(), test_a_missing_file_has_no_age(), test_age_is_measured_against_the_given_now(), test_all_channels_present_and_fresh(), test_cli_exits_one_when_a_file_is_missing(), test_cli_exits_zero_when_everything_is_present(), test_cli_still_exits_zero_when_files_are_stale() (+1 more)
+Cohesion: 0.14
+Nodes (19): all_present(), ChannelStatus, main(), Path, One ChannelStatus per channel, in CHANNELS order., Print the table, then the outcome, then any staleness warning., report(), stale() (+11 more)
 
 ### Community 51 - "fig7_compton_polarization.py"
 Cohesion: 0.22
@@ -554,28 +561,24 @@ Cohesion: 0.15
 Nodes (13): Artefatti prodotti, Binning e aggregazione, Cosa manca, Current Status, Database run per osservabili: accettazione produzione, Dove approfondire, Dove stiamo andando, Flussi disponibili (+5 more)
 
 ### Community 53 - "get_channel"
-Cohesion: 0.30
-Nodes (6): get_channel(), Registry of MC channels, particle masses, and two-meson hypotheses.  Single sour, Return the MCChannel with the given name.      Raises KeyError with a list of kn, Return the two-meson hypothesis to test against.      Args:         channel: The, resolve_hypothesis(), TestResolveHypothesis
+Cohesion: 0.07
+Nodes (14): channel_from_filename(), get_channel(), Path, Registry of MC channels, particle masses, and two-meson hypotheses.  Single sour, Return the MCChannel with the given name.      Raises KeyError with a list of kn, Extract channel name from MC filename and return the corresponding MCChannel., Return the two-meson hypothesis to test against.      Args:         channel: The, resolve_hypothesis() (+6 more)
 
 ### Community 54 - "test_channels.py"
-Cohesion: 0.17
-Nodes (3): Tests for the channel registry.  The registry exists to stop two copies of the s, TestHypotheses, TestProductionStates
-
-### Community 55 - "mc_status.py"
-Cohesion: 0.35
-Nodes (10): all_present(), ChannelStatus, main(), Path, One ChannelStatus per channel, in CHANNELS order., Print the table, then the outcome, then any staleness warning., report(), stale() (+2 more)
+Cohesion: 0.22
+Nodes (8): Beam polarization and Sigma, Command, Comparison grid, Current blockers, Observable and estimator, S6 release contract, Scientific contracts, Scope
 
 ### Community 57 - "File Map"
 Cohesion: 0.18
 Nodes (11): Execution Completion Gate, File Map, Global Constraints, Implementation Status, Strip→Eγ Lookup and Flux Integration Implementation Plan, Task 1: Energy binning and run-specific lookup, Task 2: Pure flux integration and group aggregation, Task 3: Deterministic CSV and QA serialization (+3 more)
 
 ### Community 59 - "Channel"
-Cohesion: 0.20
-Nodes (7): Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru, A two-meson final state the reconstruction can write out., Invariant mass of a single [px, py, pz, E] four-vector.
+Cohesion: 0.14
+Nodes (10): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru (+2 more)
 
 ### Community 60 - "TestValidationStatus"
-Cohesion: 0.27
-Nodes (6): TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default, Describe what evidence this validation run can support., validation_status(), Counter
+Cohesion: 0.19
+Nodes (8): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default, Describe what evidence this validation run can support., validation_status()
 
 ### Community 61 - "main"
 Cohesion: 0.31
@@ -588,10 +591,6 @@ Nodes (8): Approfondimento — canale η' (correzione), Canali di fisica investi
 ### Community 63 - "Scaletta articoli pubblicabili"
 Cohesion: 0.20
 Nodes (10): Blocchi abilitanti (da risolvere una volta, servono a più paper), Esecuzione a due persone, P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*, P1 — Σ della struttura Mpη ~1700 (a0/triangle singularity) *(fisica di punta)*, P2 — Mappa Σ+σ completa di γp→pηπ0 e la Δ(1700) *(consolidamento)*, P3 — Isospin: γn→nηπ0 quasi-free, σn/σp e Σn *(estensione al neutrone)*, P4 — η' Σ sul neutrone *(stretch, condizionato)*, P5 — η singolo, Σ regione S11(1535) *(opzionale, normalizzazione/aηN)* (+2 more)
-
-### Community 64 - "channel_from_filename"
-Cohesion: 0.33
-Nodes (4): channel_from_filename(), Path, Extract channel name from MC filename and return the corresponding MCChannel., TestChannelFromFilename
 
 ### Community 65 - "test_generator_physics.py"
 Cohesion: 0.33
@@ -617,13 +616,9 @@ Nodes (7): Global Constraints, Task 1: Publish path-scoped data and result snaps
 Cohesion: 0.25
 Nodes (8): 06 — Plot, Confronto chi² vs BDT, Controlli cinematici, Grafici prodotti, Pipeline, Protone misurato e protone implicito, Risoluzione del fit cinematico, Struttura
 
-### Community 72 - "FitCovariance"
-Cohesion: 0.33
-Nodes (5): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint, TestChi2Calibration
-
 ### Community 73 - "GRAAL Analysis Maintenance Contract"
 Cohesion: 0.29
-Nodes (6): Flux farm operation, Graph, provenance, and documentation, GRAAL Analysis Maintenance Contract, Pipeline and packages, Scientific authorities and protected rules, Work discipline
+Nodes (6): Flux farm operation, GRAAL Analysis: maintenance contract, Graph, provenance, and documentation, Pipeline and packages, Scientific authorities and protected rules, Work discipline
 
 ### Community 74 - "Global Constraints"
 Cohesion: 0.29
@@ -670,8 +665,8 @@ Cohesion: 0.40
 Nodes (6): Boosting Rounds, Convergent BDT Learning, Small Generalization Gap, BDT Training Curve, Training Logloss, Validation Logloss
 
 ### Community 85 - "TestConfidenceLevel"
-Cohesion: 0.47
-Nodes (3): confidence_level(), Probability that a correct fit would give a chi2 this large or larger., TestConfidenceLevel
+Cohesion: 0.22
+Nodes (9): Pairing, One hypothesis about which photons made which meson., confidence_level(), FitResult, Probability that a correct fit would give a chi2 this large or larger., Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint, TestChi2Calibration (+1 more)
 
 ### Community 86 - "Compton Polarization Transfer Figure"
 Cohesion: 0.40
@@ -754,19 +749,19 @@ Cohesion: 0.67
 Nodes (3): GRAAL Analysis, Le varie fasi, NEXT
 
 ## Knowledge Gaps
-- **690 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+685 more)
+- **716 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+711 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **180 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **196 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `main()` connect `TestValidationStatus` to `FitCovariance`, `fit_event`?**
-  _High betweenness centrality (0.106) - this node is a cross-community bridge._
-- **Why does `Hypothesis` connect `Hypothesis` to `MCChannel`, `fit_event`, `FitCovariance`, `Stage1Gate`, `get_channel`, `Channel`, `Pairing`?**
-  _High betweenness centrality (0.095) - this node is a cross-community bridge._
-- **Why does `PolarizationContractError` connect `PolarizationContractError` to `ObservableRunError`, `load_reco_inventory`, `root_events.py`, `figure4_analysis.py`, `build_panel_exposures`, `build_reco_inventory`, `test_release.py`, `load_figure4_config`, `fit_sigma_binned`, `contracts.py`, `StateInterval`, `PolarizationCurve`, `main`, `reaction_plane_phi`?**
-  _High betweenness centrality (0.082) - this node is a cross-community bridge._
+- **Why does `main()` connect `TestValidationStatus` to `ObservableRunError`, `Pairing`?**
+  _High betweenness centrality (0.103) - this node is a cross-community bridge._
+- **Why does `Hypothesis` connect `Channel` to `MCChannel`, `Hypothesis`, `Stage1Gate`, `TestConfidenceLevel`, `get_channel`, `TestValidationStatus`, `Pairing`?**
+  _High betweenness centrality (0.093) - this node is a cross-community bridge._
+- **Why does `PolarizationContractError` connect `StateInterval` to `ObservableRunError`, `load_reco_inventory`, `root_events.py`, `figure4_analysis.py`, `build_reco_inventory`, `test_release.py`, `load_figure4_config`, `fit_sigma_binned`, `contracts.py`, `PolarizationCurve`, `PolarizationContractError`, `main`, `reaction_plane_phi`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
 - **Are the 128 inferred relationships involving `PolarizationContractError` (e.g. with `PhiResult` and `reaction_plane_phi()`) actually correct?**
   _`PolarizationContractError` has 128 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 31 inferred relationships involving `ObservableRunError` (e.g. with `RunRecord` and `FluxBinRecord`) actually correct?**
