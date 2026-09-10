@@ -222,7 +222,7 @@ Verifica corrente della curation del 9 settembre 2026: i test ROOT-free
 eseguito **50 passed**; compilazione, validazione del manifest e `git diff
 --check` sono riusciti. Verifica completa fresca nel worktree di handoff, con
 PyROOT disponibile nell'interprete selezionato, il 9 settembre 2026:
-**441 passed in 32.02s**. Il risultato storico di 353 test rimane il contesto
+**441 passed**. Il risultato storico di 353 test rimane il contesto
 precedente alla curation, non il conteggio di verifica corrente.
 
 ## Cosa manca

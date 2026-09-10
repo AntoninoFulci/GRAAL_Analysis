@@ -26,10 +26,10 @@
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 33309,
+      "bytes": 33431,
       "path": "graphify-out/GRAPH_REPORT.md",
       "role": "derived",
-      "sha256": "fb5e6a02173cea6e822ef86ff1f1b7b38551b3cfed35521b6e5721a5d3032b0c",
+      "sha256": "e6b9a726a7fa6410e7071d03b4b0726771a0e931a065a695c6ed61067903c438",
       "valid": true
     },
     {
@@ -321,6 +321,6 @@
       "valid": true
     }
   ],
-  "generated_at_commit": "24e419b9a98eac004bbed9b9f68e1bef162e63f0",
+  "generated_at_commit": "0a19930d3207318420eb181c28c289f754f97a74",
   "schema_version": 1
 }

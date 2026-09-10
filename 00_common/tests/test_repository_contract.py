@@ -35,6 +35,14 @@ def test_requirements_include_scipy_and_pytest():
     assert {"scipy", "pytest"} <= requirements
 
 
+def test_graphify_is_pinned_and_maintenance_uses_the_project_interpreter():
+    """A user-global Graphify executable would make clone bootstrap non-portable."""
+    assert "graphifyy==0.9.7" in read("requirements-graphify.txt")
+    makefile = read("Makefile")
+    assert "GRAPHIFY ?= $(PYTHON) -m graphify" in makefile
+    assert "requirements-graphify.txt" in makefile.split("setup:", 1)[1].split("\n\n", 1)[0]
+
+
 def test_makefile_exposes_required_targets():
     makefile = read("Makefile")
     required = {
@@ -44,6 +52,15 @@ def test_makefile_exposes_required_targets():
     }
     declared = set(re.findall(r"^([a-z][a-z0-9-]*):", makefile, re.MULTILINE))
     assert required <= declared
+
+
+def test_verify_uses_saved_inventory_without_regenerating_it():
+    """Verification must fail on drift, not replace the provenance it is checking."""
+    makefile = read("Makefile")
+    target = makefile.split("verify:", 1)[1]
+    header, _, recipe = target.partition("\n")
+    assert "artifact-inventory" not in header
+    assert "--verify --inventory ARTIFACTS.json" in recipe
 
 
 def test_readme_documents_lfs_clone_flow():

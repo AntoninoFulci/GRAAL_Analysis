@@ -1,0 +1,3 @@
+# Repository-local Graphify CLI used by `make graph-query` and `make graph-update`.
+# The official PyPI distribution is graphifyy (the CLI command remains graphify).
+graphifyy==0.9.7

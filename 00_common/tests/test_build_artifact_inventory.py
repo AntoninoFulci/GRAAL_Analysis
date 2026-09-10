@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
-from scripts.build_artifact_inventory import ArtifactInventoryError, build_inventory
+from scripts.build_artifact_inventory import (
+    ArtifactInventoryError,
+    build_inventory,
+    verify_inventory,
+)
 
 
 def put(root: Path, relative: str, payload: bytes = b"payload") -> Path:
@@ -23,12 +30,12 @@ def records(payload: dict) -> dict[str, dict]:
 
 def test_inventory_is_sorted_and_hashes_file_bytes(tmp_path):
     """Changing sort order or hashing any bytes other than file contents fails."""
-    put(tmp_path, "results/plots/z.pdf", b"z")
+    put(tmp_path, "results/plots/massa_eta.pdf", b"z")
     put(tmp_path, "data/run_manifest.generated.csv", b"run_number\n1\n")
     payload = build_inventory(tmp_path, "abc123")
     paths = [row["path"] for row in payload["artifacts"]]
     assert paths == sorted(paths)
-    row = records(payload)["results/plots/z.pdf"]
+    row = records(payload)["results/plots/massa_eta.pdf"]
     assert row["sha256"] == hashlib.sha256(b"z").hexdigest()
     assert row["bytes"] == 1
 
@@ -96,3 +103,146 @@ def test_inventory_allows_only_portable_graphify_artifacts(tmp_path):
     assert list(records(build_inventory(tmp_path, "abc123"))) == [
         f"graphify-out/{name}" for name in sorted(portable)
     ]
+
+
+def test_inventory_selects_only_explicitly_published_paths(tmp_path):
+    """Adding raw or scratch bytes must not alter the published inventory."""
+    published = (
+        "data/flux/flux.root",
+        "data/run_manifest.generated.csv",
+        "results/reco/reco_eta_pi0_chi2.root",
+        "results/plots/massa_eta.pdf",
+        "results/strip_energy_flux/strip_energy_lookup.csv",
+        "results/strip_energy_flux.run.log",
+        "results/observable_runs/observable_run_qa.json",
+    )
+    for path in published:
+        put(tmp_path, path)
+    baseline = build_inventory(tmp_path, "abc123")
+    for path in (
+        "data/graal_data/raw.root",
+        "data/pre_analyzed/h80.root",
+        "data/selected/selected.root",
+        "data/cache/local.csv",
+        "results/observable_runs.clone-check/flux.csv",
+        "results/strip_energy_flux.failed/input.json",
+        "results/cache/partial.csv",
+        "results/scratch/not-for-publication.txt",
+    ):
+        put(tmp_path, path, b"must not be selected")
+    assert build_inventory(tmp_path, "abc123") == baseline
+
+
+def _inventory_fixture(tmp_path: Path) -> Path:
+    """Create a minimal valid published bundle and return its inventory path."""
+    inputs = {
+        "config/run_manifest.csv": b"run\n1\n",
+        "results/strip_energy_flux/flux_by_run_energy.csv": b"source flux\n",
+        "results/strip_energy_flux/strip_energy_lookup.csv": b"source lookup\n",
+        "results/strip_energy_flux/strip_energy_flux_qa.json": b'{"valid": false}\n',
+    }
+    outputs = {
+        "flux_by_group_energy.csv": b"groups\n",
+        "flux_by_run_energy.csv": b"runs\n",
+        "run_manifest_observables.csv": b"manifest\n",
+        "run_quality.csv": b"quality\n",
+        "strip_energy_lookup.csv": b"lookup\n",
+    }
+    for path, payload in inputs.items():
+        put(tmp_path, path, payload)
+    for name, payload in outputs.items():
+        put(tmp_path, f"results/observable_runs/{name}", payload)
+    digest = lambda path: hashlib.sha256((tmp_path / path).read_bytes()).hexdigest()
+    qa = {
+        "valid": True,
+        "inputs": {
+            "manifest": "config/run_manifest.csv",
+            "source_files": {
+                "flux_by_run_energy.csv": "results/strip_energy_flux/flux_by_run_energy.csv",
+                "strip_energy_flux_qa.json": "results/strip_energy_flux/strip_energy_flux_qa.json",
+                "strip_energy_lookup.csv": "results/strip_energy_flux/strip_energy_lookup.csv",
+            },
+        },
+        "input_sha256": {
+            "manifest": digest("config/run_manifest.csv"),
+            "flux_by_run_energy": digest("results/strip_energy_flux/flux_by_run_energy.csv"),
+            "strip_energy_flux_qa": digest("results/strip_energy_flux/strip_energy_flux_qa.json"),
+            "strip_energy_lookup": digest("results/strip_energy_flux/strip_energy_lookup.csv"),
+        },
+        "source_qa_sha256": digest("results/strip_energy_flux/strip_energy_flux_qa.json"),
+        "output_sha256": {
+            name: hashlib.sha256(payload).hexdigest() for name, payload in outputs.items()
+        },
+    }
+    put(tmp_path, "results/observable_runs/observable_run_qa.json", json.dumps(qa).encode())
+    inventory = build_inventory(tmp_path, "abc123")
+    path = tmp_path / "ARTIFACTS.json"
+    path.write_text(json.dumps(inventory), encoding="utf-8")
+    return path
+
+
+def test_verifier_accepts_complete_observable_bundle_and_false_source_diagnostic(tmp_path):
+    """Rejecting the intentionally false source QA would block the published snapshot."""
+    verify_inventory(tmp_path, _inventory_fixture(tmp_path))
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "missing",
+        "changed",
+        "extra",
+        "invalid_observable_qa",
+        "bad_recorded_hash",
+        "lfs_pointer",
+    ),
+)
+def test_verifier_rejects_snapshot_mutations_without_rewriting_inventory(tmp_path, mutation):
+    """A bad publication must fail verification while its reference inventory stays intact."""
+    inventory_path = _inventory_fixture(tmp_path)
+    before = inventory_path.read_bytes()
+    target = tmp_path / "results/observable_runs/run_quality.csv"
+    if mutation == "missing":
+        target.unlink()
+    elif mutation == "changed":
+        target.write_bytes(b"changed\n")
+    elif mutation == "extra":
+        put(tmp_path, "results/plots/massa_eta.pdf")
+    elif mutation == "invalid_observable_qa":
+        qa_path = tmp_path / "results/observable_runs/observable_run_qa.json"
+        qa = json.loads(qa_path.read_text())
+        qa["valid"] = False
+        qa_path.write_text(json.dumps(qa), encoding="utf-8")
+    elif mutation == "bad_recorded_hash":
+        qa_path = tmp_path / "results/observable_runs/observable_run_qa.json"
+        qa = json.loads(qa_path.read_text())
+        qa["output_sha256"]["run_quality.csv"] = "0" * 64
+        qa_path.write_text(json.dumps(qa), encoding="utf-8")
+    else:
+        put(
+            tmp_path,
+            "data/flux/flux.root",
+            b"version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n",
+        )
+    with pytest.raises(ArtifactInventoryError):
+        verify_inventory(tmp_path, inventory_path)
+    assert inventory_path.read_bytes() == before
+
+
+def test_inventory_cli_rejects_output_outside_repo_and_symlinked_parent(tmp_path):
+    """Writing through an escaped output path could overwrite unrelated user data."""
+    put(tmp_path, "data/flux/flux.root")
+    script = Path(__file__).resolve().parents[2] / "scripts/build_artifact_inventory.py"
+    outside = tmp_path.parent / "outside.json"
+    command = [
+        sys.executable,
+        str(script),
+        "--repo-root", str(tmp_path), "--commit", "abc123", "--output", str(outside),
+    ]
+    assert subprocess.run(command, capture_output=True, text=True).returncode != 0
+    assert not outside.exists()
+    linked_parent = tmp_path / "linked"
+    linked_parent.symlink_to(tmp_path.parent, target_is_directory=True)
+    command[-1] = str(linked_parent / "inventory.json")
+    assert subprocess.run(command, capture_output=True, text=True).returncode != 0
+    assert not (tmp_path.parent / "inventory.json").exists()

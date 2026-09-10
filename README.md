@@ -29,6 +29,14 @@ usare l'interprete Python contro cui PyROOT è stato compilato. `make verify`
 non avvia elaborazioni farm; `make test` esegue invece l'intera suite e quindi
 richiede PyROOT. Per gli altri comandi, eseguire `make help`.
 
+`make setup` installa anche Graphify 0.9.7 nell'ambiente del progetto dal
+pacchetto PyPI ufficiale `graphifyy` (il comando resta `graphify`). Per
+interrogare lo snapshot esistente usare `make graph-query QUERY="..."`; dopo
+modifiche strutturali usare `make graph-update`. Per aggiornamenti semantici
+di documentazione Graphify richiede Gemini (`GEMINI_API_KEY` o
+`GOOGLE_API_KEY`) oppure l'estrazione dell'host-agent; gli aggiornamenti di
+solo codice non richiedono nessuno dei due.
+
 Le cartelle sono numerate (`01_`, `02_`, …) per rendere visibile l'ordine
 della pipeline. L'installazione mappa questi nomi su package importabili
 (`00_common` → `graal_common`, e così via).

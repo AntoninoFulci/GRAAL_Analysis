@@ -1,9 +1,11 @@
 # Published artifact policy
 
-`ARTIFACTS.json` is the deterministic, commit-bound inventory of the
+`ARTIFACTS.json` is the deterministic, commit-bound inventory of the explicit
 published artifacts below `data/`, `results/`, and the portable part of
-`graphify-out/`. Each record gives the path, byte count, SHA-256, role,
-validity, and allowed use. Regenerate it after changing a published artifact:
+`graphify-out/`. It is fail-closed: raw detector, pre-analysis, selected,
+cache, failed-run, clone-check, and other scratch paths are not inventory
+inputs. Each record gives the path, byte count, SHA-256, role, validity, and
+allowed use. Regenerate it after changing a published artifact:
 
 ```sh
 python scripts/build_artifact_inventory.py \
@@ -50,6 +52,14 @@ shasum -a 256 results/reco/reco_eta_pi0_chi2.root
 Compare the lowercase digest and byte count with the matching record in
 `ARTIFACTS.json`. A mismatch means the file is not the published artifact for
 the recorded commit; do not substitute it into the analysis.
+
+Use `make verify` to read-only verify the saved inventory: it never regenerates
+`ARTIFACTS.json`. It rejects missing, changed, or extra published artifacts,
+Git LFS pointer text, an incomplete six-file observable bundle, invalid
+observable QA, and disagreeing recorded input/output hashes. The source
+`results/strip_energy_flux/strip_energy_flux_qa.json` intentionally remains
+`valid: false` as a diagnostic source state; the accepted observable bundle's
+QA is the separate required `valid: true` gate.
 
 Rebuild the accepted observable bundle only from the authoritative manifest
 and the checked-in source bundle:

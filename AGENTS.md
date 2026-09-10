@@ -81,13 +81,17 @@ different publications.
 Query an existing graph before exploring code relationships:
 
 ```bash
-graphify query "How does the observable-run handoff reach normalization?"
+make graph-query QUERY="How does the observable-run handoff reach normalization?"
 ```
 
-After structural code or documentation changes, refresh it with `make
-graph-update` (`graphify . --update`), then regenerate provenance with `make
-artifact-inventory` and review its diff. Only portable Graphify files are
-publishable; local interpreter/root paths and cache state remain local.
+`make setup` installs the supported project-local `graphifyy==0.9.7` package;
+its CLI is invoked through the selected project Python, not a user-global
+tool. After structural code or documentation changes, refresh it with `make
+graph-update`, then regenerate provenance with `make artifact-inventory` and
+review its diff. Semantic documentation updates require Gemini
+(`GEMINI_API_KEY` or `GOOGLE_API_KEY`) or host-agent extraction; code-only
+updates require neither. Only portable Graphify files are publishable; local
+interpreter/root paths and cache state remain local.
 
 When public behavior changes, update the relevant wiki/design docs, tests,
 provenance inventory, and graph snapshot in the same review.

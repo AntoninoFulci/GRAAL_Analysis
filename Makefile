@@ -1,15 +1,16 @@
 PYTHON ?= python
-GRAPHIFY ?= graphify
+GRAPHIFY ?= $(PYTHON) -m graphify
 
-.PHONY: help setup syntax test-root-free test validate-manifest observable-runs graph-update artifact-inventory verify
+.PHONY: help setup syntax test-root-free test validate-manifest observable-runs graph-update graph-query artifact-inventory verify
 
 help:
-	@echo "Targets: setup syntax test-root-free test validate-manifest observable-runs graph-update artifact-inventory verify"
-	@echo "Use an interpreter compatible with external ROOT/PyROOT. verify never starts farm processing."
+	@echo "Targets: setup syntax test-root-free test validate-manifest observable-runs graph-update graph-query artifact-inventory verify"
+	@echo "Use an interpreter compatible with external ROOT/PyROOT. verify is read-only and never starts farm processing."
 
 setup:
 	$(PYTHON) -m pip install --upgrade pip setuptools
 	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) -m pip install -r requirements-graphify.txt
 	$(PYTHON) -m pip install -e .
 
 syntax:
@@ -29,10 +30,14 @@ observable-runs:
 	$(PYTHON) scripts/build_observable_run_database.py --manifest config/run_manifest.csv --strip-energy-dir results/strip_energy_flux --output-dir results/observable_runs
 
 graph-update:
-	$(GRAPHIFY) . --update
+	$(GRAPHIFY) update .
+
+graph-query:
+	$(GRAPHIFY) query "$(QUERY)"
 
 artifact-inventory:
 	$(PYTHON) scripts/build_artifact_inventory.py --repo-root . --commit "$$(git rev-parse HEAD)" --output ARTIFACTS.json
 
-verify: syntax validate-manifest test-root-free artifact-inventory
+verify: syntax validate-manifest test-root-free
+	$(PYTHON) scripts/build_artifact_inventory.py --repo-root . --verify --inventory ARTIFACTS.json
 	@git diff --check

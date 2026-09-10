@@ -13,7 +13,7 @@ make syntax
 make validate-manifest
 make test-root-free
 make test                 # richiede PyROOT compatibile con questo Python
-make verify               # syntax + manifest + root-free + inventario
+make verify               # syntax + manifest + root-free + verifica read-only dell'inventario
 ```
 
 `make test-root-free` enumera esplicitamente i test puri di `00_common/`,
@@ -23,6 +23,11 @@ make verify               # syntax + manifest + root-free + inventario
 invece la raccolta completa dichiarata in `pyproject.toml` e richiede ROOT con
 PyROOT compilato per l'interprete selezionato. Nessuno dei due target avvia
 una produzione farm.
+
+`make artifact-inventory` è il comando esplicito di pubblicazione che
+rigenera `ARTIFACTS.json`; `make verify` non lo riscrive e confronta invece
+l'inventario registrato, inclusi i sei file osservabili, le hash QA e gli
+oggetti Git LFS idratati.
 
 ## La suite pytest completa
 

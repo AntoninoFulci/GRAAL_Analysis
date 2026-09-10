@@ -1,7 +1,8 @@
 # Graph Report - .  (2026-09-09)
 
 ## Corpus Check
-- 48 files · ~4,202,128 words
+- Latest incremental update input: 48 files · ~4,202,128 words
+- Portable manifest: 250 entries; graph references 244 distinct non-empty source paths.
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
