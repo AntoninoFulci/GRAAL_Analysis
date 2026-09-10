@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "analysis_version": "polarization-v1",
+  "status": "blocked",
+  "blocked_reasons": [
+    "results/observable_runs/HANDOFF.json is not published",
+    "signed experimental Polarization state mapping is not published",
+    "authoritative period-by-period Compton polarization input is not published",
+    "Person 1 acceptance_v1.csv and acceptance_qa.json are not published"
+  ],
+  "gate0_handoff": "results/observable_runs/HANDOFF.json",
+  "acceptance": {
+    "csv_path": "results/physics/normalization/acceptance_v1.csv",
+    "qa_path": "results/physics/normalization/acceptance_qa.json"
+  },
+  "state_mapping": {
+    "status": "blocked",
+    "source": null,
+    "intervals": []
+  },
+  "compton_polarization": {
+    "status": "blocked",
+    "sources": [],
+    "periods": []
+  },
+  "angle": {
+    "observable": "reaction_plane_phi",
+    "range_radians": [0.0, 3.141592653589793],
+    "period_radians": 3.141592653589793,
+    "degenerate_plane_policy": "invalid"
+  },
+  "sign_convention": {
+    "status": "pending_two_reviewer_approval",
+    "model": "mu = exposure * acceptance * scale_state * (1 + orientation_sign * P * Sigma * cos(2*phi))",
+    "orientation_signs": {}
+  },
+  "closure": {
+    "random_seed": 1701,
+    "bias_absolute_max": 0.02,
+    "pull_mean_absolute_max": 0.2,
+    "pull_width_tolerance": 0.2,
+    "require_sign_check": true
+  }
+}
