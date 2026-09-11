@@ -1085,13 +1085,13 @@
     "semantic_hash": "7c7de4341909bfe32dcb44a2b2e6f17c"
   },
   "00_common/tests/test_repository_contract.py": {
-    "mtime": 1789136861.1692407,
-    "ast_hash": "0b0251b224232ace079f143d03fdc197",
+    "mtime": 1789146769.9723742,
+    "ast_hash": "bb4ee43902c363dc84e98e6a669d9b69",
     "semantic_hash": ""
   },
   "ARTIFACTS.json": {
-    "mtime": 1789136268.1786025,
-    "ast_hash": "42fdaeb363f07675000d717e73423037",
+    "mtime": 1789139441.4427986,
+    "ast_hash": "349b2efef14693581dd9f5dddab1279e",
     "semantic_hash": ""
   },
   "results/observable_runs/observable_run_qa.json": {
@@ -1125,9 +1125,9 @@
     "semantic_hash": "a6a00402b03607dcfb4c7eef6d8cc8ef"
   },
   "docs/collaboration/two-person-physics-roadmap.md": {
-    "mtime": 1789136861.3008733,
-    "ast_hash": "887b0197fda30c1b8738233969da3d49",
-    "semantic_hash": "887b0197fda30c1b8738233969da3d49"
+    "mtime": 1789146788.4775393,
+    "ast_hash": "c6bfd3c04856ca08b6bcfedcd0bfc22f",
+    "semantic_hash": "c6bfd3c04856ca08b6bcfedcd0bfc22f"
   },
   "docs/superpowers/plans/2026-09-08-observable-run-database.md": {
     "mtime": 1789045397.9039242,
@@ -1145,9 +1145,9 @@
     "semantic_hash": "3813d103ed0425fcdc6bd703c315cc8e"
   },
   "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md": {
-    "mtime": 1789136861.4487467,
-    "ast_hash": "73e430188d73f8881f2f001461a7826e",
-    "semantic_hash": "73e430188d73f8881f2f001461a7826e"
+    "mtime": 1789146788.375891,
+    "ast_hash": "3ff1c059e4b3ac09ff27aebae62f1b09",
+    "semantic_hash": "3ff1c059e4b3ac09ff27aebae62f1b09"
   },
   "requirements-dev.txt": {
     "mtime": 1789045397.912051,

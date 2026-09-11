@@ -1,16 +1,16 @@
 # Graph Report - .  (2026-09-11)
 
 ## Corpus Check
-- Large corpus: 252 files · ~4,205,892 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 252 files · ~4,206,016 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 2359 nodes · 3689 edges · 291 communities (103 shown, 188 thin omitted)
+- 2363 nodes · 3696 edges · 282 communities (99 shown, 183 thin omitted)
 - Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 587 edges (avg confidence: 0.76)
 - Semantic extraction: host-agent; token usage is not exposed by this host.
 
 ## Refresh Scope
 
-- Documentation source commit: `e33f4352ada78ca4bd37aff956c4417575b13ed3`.
+- Documentation source commit: `5557f8c356cc48de402b90970e693e2ba151faf8`.
 - Structural refresh: `make graph-update` with project-local `graphifyy==0.9.7`.
 - Host-agent semantic refresh: changed normalization guide and two-person roadmap.
 - Previously published hyperedges are union-preserved; graph knowledge does not certify physics QA.
@@ -19,14 +19,14 @@
 - [[_COMMUNITY_PreAnalysis Scalars|PreAnalysis Scalars]]
 - [[_COMMUNITY_run|run]]
 - [[_COMMUNITY_strip_energy_flux.py|strip_energy_flux.py]]
-- [[_COMMUNITY_compute_stage1_features|compute_stage1_features]]
+- [[_COMMUNITY_MCChannel|MCChannel]]
 - [[_COMMUNITY_Strip Flux CLI Tests|Strip Flux CLI Tests]]
 - [[_COMMUNITY_Run Manifest Handling|Run Manifest Handling]]
 - [[_COMMUNITY_Photon Loss Features|Photon Loss Features]]
 - [[_COMMUNITY_Two-Person AI Handoff Design|Two-Person AI Handoff Design]]
 - [[_COMMUNITY_GRAAL Analysis maintenance contract|GRAAL Analysis: maintenance contract]]
 - [[_COMMUNITY_test_strip_energy_flux.py|test_strip_energy_flux.py]]
-- [[_COMMUNITY_Channel Registry Tests|Channel Registry Tests]]
+- [[_COMMUNITY_get_channel|get_channel]]
 - [[_COMMUNITY_Beam Spectrum Reweighting|Beam Spectrum Reweighting]]
 - [[_COMMUNITY_build_artifact_inventory.py|build_artifact_inventory.py]]
 - [[_COMMUNITY_pair_masses|pair_masses]]
@@ -45,7 +45,7 @@
 - [[_COMMUNITY_Reconstruction Physics Tests|Reconstruction Physics Tests]]
 - [[_COMMUNITY_Baryon Mass Resolution|Baryon Mass Resolution]]
 - [[_COMMUNITY_PreAnalysis Header|PreAnalysis Header]]
-- [[_COMMUNITY_Kinematic Fit Tests|Kinematic Fit Tests]]
+- [[_COMMUNITY_fit_event|fit_event]]
 - [[_COMMUNITY_Compton Polarization Figure|Compton Polarization Figure]]
 - [[_COMMUNITY_Proton Dalitz Plots|Proton Dalitz Plots]]
 - [[_COMMUNITY_BuildCutMap|BuildCutMap]]
@@ -57,7 +57,7 @@
 - [[_COMMUNITY_Eta Reconstruction Plot|Eta Reconstruction Plot]]
 - [[_COMMUNITY_Pi0 Reconstruction Plot|Pi0 Reconstruction Plot]]
 - [[_COMMUNITY_BDT Training Curve|BDT Training Curve]]
-- [[_COMMUNITY_Pairing|Pairing]]
+- [[_COMMUNITY_TestConfidenceLevel|TestConfidenceLevel]]
 - [[_COMMUNITY_Kinfit Validation Plot|Kinfit Validation Plot]]
 - [[_COMMUNITY_Invariant Mass Curves|Invariant Mass Curves]]
 - [[_COMMUNITY_Chi2 BDT Comparison|Chi2 BDT Comparison]]
@@ -175,13 +175,11 @@
 - [[_COMMUNITY_Neutron Eta-prime Feasibility|Neutron Eta-prime Feasibility]]
 - [[_COMMUNITY_BDT training stack|BDT training stack]]
 - [[_COMMUNITY_GRAAL analysis package|GRAAL analysis package]]
-- [[_COMMUNITY_observable_runs.py|observable_runs.py]]
+- [[_COMMUNITY_Scaletta articoli pubblicabili|Scaletta articoli pubblicabili]]
 - [[_COMMUNITY_Design lookup strip→Eγ e integrazione dei flussi|Design: lookup strip→Eγ e integrazione dei flussi]]
 - [[_COMMUNITY_write_lookup_csv|write_lookup_csv]]
-- [[_COMMUNITY_Person 1 Normalization Operations|Person 1 Normalization Operations]]
-- [[_COMMUNITY_build_channel_features|build_channel_features]]
+- [[_COMMUNITY_Hypothesis|Hypothesis]]
 - [[_COMMUNITY__Sidebar|_Sidebar.md]]
-- [[_COMMUNITY_ChannelYield|ChannelYield]]
 - [[_COMMUNITY_Accepted Observable Bundle|Accepted Observable Bundle]]
 - [[_COMMUNITY_Published artifact policy|Published artifact policy]]
 - [[_COMMUNITY_Canali di fisica investigabili con i dati GRAAL|Canali di fisica investigabili con i dati GRAAL]]
@@ -194,18 +192,16 @@
 - [[_COMMUNITY_Data format|Data format]]
 - [[_COMMUNITY_Current Status|Current Status]]
 - [[_COMMUNITY_Acceptance Handoff|Acceptance Handoff]]
-- [[_COMMUNITY_test_build_background_features.py|test_build_background_features.py]]
+- [[_COMMUNITY_Person 1 Normalization Operations|Person 1 Normalization Operations]]
 - [[_COMMUNITY_P0 Release Gate|P0 Release Gate]]
 - [[_COMMUNITY_File Map|File Map]]
-- [[_COMMUNITY_MCChannel|MCChannel]]
 - [[_COMMUNITY_Gate 0 Is Not Yet Frozen|Gate 0 Is Not Yet Frozen]]
 - [[_COMMUNITY_Joint Interface Review|Joint Interface Review]]
-- [[_COMMUNITY_Scaletta articoli pubblicabili|Scaletta articoli pubblicabili]]
 - [[_COMMUNITY_Legacy Reconstruction Normalization Ban|Legacy Reconstruction Normalization Ban]]
 - [[_COMMUNITY_Ricostruzione chi2|Ricostruzione chi2]]
-- [[_COMMUNITY_Global Constraints|Global Constraints]]
+- [[_COMMUNITY_Two-Person AI Handoff Global Constraints|Two-Person AI Handoff Global Constraints]]
 - [[_COMMUNITY_06 — Plot|06 — Plot]]
-- [[_COMMUNITY_Global Constraints|Global Constraints]]
+- [[_COMMUNITY_Observable-run Database Global Constraints|Observable-run Database Global Constraints]]
 - [[_COMMUNITY_01 — Pre-analisi|01 — Pre-analisi]]
 - [[_COMMUNITY_Cuts della pre-analisi|Cuts della pre-analisi]]
 - [[_COMMUNITY_03 — Simulazione Monte Carlo|03 — Simulazione Monte Carlo]]
@@ -218,15 +214,10 @@
 - [[_COMMUNITY_02 — Selezione eventi|02 — Selezione eventi]]
 - [[_COMMUNITY_P0 Proton Good-Run Scope|P0 Proton Good-Run Scope]]
 - [[_COMMUNITY_Gate BDT|Gate BDT]]
-- [[_COMMUNITY_GRAAL Analysis|GRAAL Analysis]]
+- [[_COMMUNITY_GRAAL Analysis Wiki Home|GRAAL Analysis Wiki Home]]
 - [[_COMMUNITY_BDT versus Chi2 Pairing Benchmark|BDT versus Chi2 Pairing Benchmark]]
 - [[_COMMUNITY_Sourced Physical Normalization Inputs|Sourced Physical Normalization Inputs]]
 - [[_COMMUNITY_Authoritative Run Manifest|Authoritative Run Manifest]]
-- [[_COMMUNITY_channel_yield|channel_yield]]
-- [[_COMMUNITY_TestWeightScale|TestWeightScale]]
-- [[_COMMUNITY_test_packaging.py|test_packaging.py]]
-- [[_COMMUNITY_TestFeatureNames|TestFeatureNames]]
-- [[_COMMUNITY_GRAAL Analysis|GRAAL Analysis]]
 - [[_COMMUNITY_Feature stage-1|Feature stage-1]]
 - [[_COMMUNITY_Sigma Release Handoff|Sigma Release Handoff]]
 - [[_COMMUNITY_build_observable_run_database CLI|build_observable_run_database CLI]]
@@ -309,14 +300,14 @@
 ## Surprising Connections (you probably didn't know these)
 - `test_reconstruction_preserves_event_metadata()` --calls--> `Pairing`  [INFERRED]
   05_reconstruction/tests/test_reco_physics.py → 00_common/pairing.py
-- `test_stage1_feature_builder_importable()` --indirect_call--> `compute_stage1_features()`  [INFERRED]
-  05_reconstruction/tests/test_packaging.py → 04_bdt_training/build_background_features.py
 - `High-energy Polarization Rise` --conceptually_related_to--> `GRAAL Apparatus Constraints`  [INFERRED]
   06_plots/fig7_compton_polarization.pdf → wiki/physics-channels-survey.md
 - `ChannelSample` --uses--> `Hypothesis`  [INFERRED]
   04_bdt_training/build_background_features.py → 00_common/channels.py
 - `ChannelYield` --uses--> `Hypothesis`  [INFERRED]
   04_bdt_training/build_background_features.py → 00_common/channels.py
+- `FitCovariance` --uses--> `Hypothesis`  [INFERRED]
+  05_reconstruction/kinematic_fit.py → 00_common/channels.py
 
 ## Import Cycles
 - None detected.
@@ -338,31 +329,31 @@
 - **Kinfit Validation Diagnostics** — results_plots_kinfit_validation_fit_chi2_ndf_6, results_plots_kinfit_validation_pull_eta_gamma1_e, results_plots_kinfit_validation_eta_mass_distribution [INFERRED 0.85]
 - **Two-Person P0 Release Contract** — docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff, docs_collaboration_two_person_physics_roadmap_person_1_normalization_cross_sections, docs_collaboration_two_person_physics_roadmap_person_2_polarization_sigma, docs_collaboration_two_person_physics_roadmap_acceptance_handoff, docs_collaboration_two_person_physics_roadmap_sigma_release_handoff, docs_collaboration_two_person_physics_roadmap_p0_release_gate [EXTRACTED 1.00]
 
-## Communities (291 total, 188 thin omitted)
+## Communities (282 total, 183 thin omitted)
 
 ### Community 0 - "PreAnalysis Scalars"
 Cohesion: 0.01
 Nodes (371): PreAnalysis, A1, A2, A3, A_de1, A_de2, A_tof1, A_tof2 (+363 more)
 
 ### Community 1 - "run"
-Cohesion: 0.15
-Nodes (29): build_qa_payload(), _checkpoint_fingerprint(), _checkpoint_integer(), _checkpoint_path(), _h80_paths(), _input_paths(), iter_h80_samples(), main() (+21 more)
+Cohesion: 0.12
+Nodes (37): build_qa_payload(), _checkpoint_fingerprint(), _checkpoint_integer(), _checkpoint_path(), _h80_paths(), _import_root(), _input_paths(), iter_h80_samples() (+29 more)
 
 ### Community 2 - "strip_energy_flux.py"
-Cohesion: 0.14
-Nodes (25): build_strip_energy_lookup(), build_strip_energy_lookup_on_disk(), EnergySample, find_monotonic_inversions(), Build strip-energy lookups and energy-binned flux products., Store one run, strip, and measured beam-energy sample., Store robust energy statistics for one run and strip., Return a lookup and run-count QA metadata from the disk builder. (+17 more)
+Cohesion: 0.12
+Nodes (27): build_strip_energy_lookup(), build_strip_energy_lookup_on_disk(), EnergySample, find_monotonic_inversions(), normalize_xstrip(), Build strip-energy lookups and energy-binned flux products., Store one run, strip, and measured beam-energy sample., Return a lookup and run-count QA metadata from the disk builder. (+19 more)
 
-### Community 3 - "compute_stage1_features"
-Cohesion: 0.20
-Nodes (11): compute_stage1_features(), Compute the 26 stage-1 features — vectorised, no Python loops over events., _make_beam(), _make_photons(), _make_proton(), Tests for build_background_features module., 4 photons that reconstruct exactly eta+pi0 → best_chi2 ≈ 0., The two features built on the chi2-best pairing (cols 24, 25). (+3 more)
+### Community 3 - "MCChannel"
+Cohesion: 0.05
+Nodes (49): MCChannel, Beam energy at which this reaction first becomes possible., One generated reaction, as it exists on disk.      photon_branches:         The, build_channel_features(), channel_yield(), ChannelSample, ChannelYield, compute_shares() (+41 more)
 
 ### Community 4 - "Strip Flux CLI Tests"
 Cohesion: 0.08
-Nodes (61): append_histogram(), checkpoint_path(), complete_flux_runs(), make_complete_fixture(), Path, run_cli(), test_checkpoint_contains_complete_h80_qa(), test_cli_bounded_lookup_is_exact_for_runs_spanning_multi_run_files() (+53 more)
+Nodes (64): Report invalid strip-energy or flux input., StripEnergyFluxError, append_histogram(), checkpoint_path(), complete_flux_runs(), make_complete_fixture(), Path, run_cli() (+56 more)
 
 ### Community 5 - "Run Manifest Handling"
-Cohesion: 0.07
-Nodes (47): classify_period(), ManifestError, Path, Write records to a manifest with the canonical schema., Read manifest rows without applying semantic validation., Read and validate every row in a manifest., Report an invalid or unusable manifest., Classify a source-period name into target, beam, group, and source. (+39 more)
+Cohesion: 0.08
+Nodes (46): classify_period(), ManifestError, Path, Write records to a manifest with the canonical schema., Read manifest rows without applying semantic validation., Read and validate every row in a manifest., Report an invalid or unusable manifest., Classify a source-period name into target, beam, group, and source. (+38 more)
 
 ### Community 6 - "Photon Loss Features"
 Cohesion: 0.11
@@ -380,7 +371,7 @@ Nodes (7): Flux farm operation, GRAAL Analysis: maintenance contract, Graph, pro
 Cohesion: 0.16
 Nodes (31): aggregate_group_flux(), check_flux_conservation(), energy_bin_index(), EnergyBinning, integrate_run_flux(), Store three raw flux components for one run and strip., Define named, strictly increasing energy-bin edges in GeV., Return the bin containing an energy, or ``None`` when out of range. (+23 more)
 
-### Community 10 - "Channel Registry Tests"
+### Community 10 - "get_channel"
 Cohesion: 0.07
 Nodes (14): channel_from_filename(), get_channel(), Path, Registry of MC channels, particle masses, and two-meson hypotheses.  Single sour, Return the MCChannel with the given name.      Raises KeyError with a list of kn, Extract channel name from MC filename and return the corresponding MCChannel., Return the two-meson hypothesis to test against.      Args:         channel: The, resolve_hypothesis() (+6 more)
 
@@ -405,11 +396,11 @@ Cohesion: 0.12
 Nodes (20): _as_array(), _build_chain(), Gate, ndarray, Path, TChain, ROOT IO for the two-meson reconstruction: chain, branches, event loop, write.  T, Reconstruct one channel. Returns the number of events written. (+12 more)
 
 ### Community 16 - "fit_event"
-Cohesion: 0.19
-Nodes (18): _canonicalize_angles(), _constraints(), _covariance_diag(), fit_event(), FitOptions, _jacobian(), _params_to_vectors(), ndarray (+10 more)
+Cohesion: 0.18
+Nodes (15): _canonicalize_angles(), _constraints(), _covariance_diag(), _jacobian(), _params_to_vectors(), ndarray, 6C kinematic fit for gamma p -> p eta pi0.  The reconstruction measures four pho, Normalize spherical coordinates in place without changing 4-vectors. (+7 more)
 
 ### Community 17 - "Stage One Gate"
-Cohesion: 0.12
+Cohesion: 0.13
 Nodes (22): ndarray, Path, Stage-1 BDT gate: rejects background-like events before the chi2 pairing.  The f, Score a whole chunk of events at once.          photons: (N,4,4); protons, beams, Accept an event if the stage-1 BDT scores it at or above the threshold., Refuse to gate a reconstruction the model was not trained for.          The gate, Stage1Gate, _events() (+14 more)
 
 ### Community 18 - "Kinematics Vector Utilities"
@@ -417,8 +408,8 @@ Cohesion: 0.10
 Nodes (26): lorentz_array(), ndarray, Read a ROOT TLorentzVector branch as a plain (N, 4) [px, py, pz, E] array., An uproot TTree branch of TLorentzVector as an (N, 4) [px, py, pz, E]., dalitz_limit(), invariant_mass(), invariant_masses(), ndarray (+18 more)
 
 ### Community 20 - "Hypothesis"
-Cohesion: 0.14
-Nodes (10): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru (+2 more)
+Cohesion: 0.20
+Nodes (7): Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru, A two-meson final state the reconstruction can write out., Invariant mass of a single [px, py, pz, E] four-vector.
 
 ### Community 21 - "XGBoost Progress Callback"
 Cohesion: 0.09
@@ -452,9 +443,9 @@ Nodes (16): M(eta p) Raw vs Fit on Data, Fit Sigma 0.051 GeV, M(eta p) MC Raw Fi
 Cohesion: 0.27
 Nodes (13): string, TChain, vector, Cut, EnableOnly, GetEntry, Init, LoadTree (+5 more)
 
-### Community 29 - "Kinematic Fit Tests"
-Cohesion: 0.27
-Nodes (4): _conserving_event(), _photon(), A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
+### Community 29 - "fit_event"
+Cohesion: 0.24
+Nodes (7): fit_event(), Fit one event onto 4-momentum conservation and the two pair masses., _conserving_event(), _photon(), Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
 
 ### Community 30 - "Compton Polarization Figure"
 Cohesion: 0.22
@@ -465,8 +456,8 @@ Cohesion: 0.18
 Nodes (12): Gate BDT Implicit Proton Dalitz Plot, M(eta p) Axis, M(pi0 p) Axis, Gate BDT Measured Proton Dalitz Plot, M(eta p) Axis, M(pi0 p) Axis, Chi2-Only Implicit Proton Dalitz Plot, M(eta p) Axis (+4 more)
 
 ### Community 33 - "test_repository_contract.py"
-Cohesion: 0.23
-Nodes (14): A user-global Graphify executable would make clone bootstrap non-portable., Verification must fail on drift, not replace the provenance it is checking., Catch an added owner or a missing artifact handoff in the physics plan., read(), test_agents_file_names_authoritative_observable_bundle(), test_agents_protects_untracked_user_data_from_unapproved_mutation(), test_graphify_is_pinned_and_maintenance_uses_the_project_interpreter(), test_makefile_exposes_required_targets() (+6 more)
+Cohesion: 0.20
+Nodes (16): Catch an added owner or a missing artifact handoff in the physics plan., A user-global Graphify executable would make clone bootstrap non-portable., Published graph labels must identify which document owns a generic heading., Verification must fail on drift, not replace the provenance it is checking., read(), test_agents_file_names_authoritative_observable_bundle(), test_agents_protects_untracked_user_data_from_unapproved_mutation(), test_graphify_disambiguates_repeated_document_headings() (+8 more)
 
 ### Community 35 - "Compton Polarization Transfer Figure"
 Cohesion: 0.40
@@ -478,7 +469,7 @@ Nodes (7): Path, Physics invariants shared by every ROOT Monte Carlo generator.,
 
 ### Community 37 - "FitCovariance"
 Cohesion: 0.19
-Nodes (8): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default, Describe what evidence this validation run can support., validation_status()
+Nodes (9): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default, Describe what evidence this validation run can support., validation_status() (+1 more)
 
 ### Community 38 - "BDT Grid Search"
 Cohesion: 0.32
@@ -496,9 +487,9 @@ Nodes (6): BDT Pi0 Reconstruction, Chi2 Pi0 Reconstruction, Pi0 Mass Peak Near 0
 Cohesion: 0.40
 Nodes (6): Boosting Rounds, Convergent BDT Learning, Small Generalization Gap, BDT Training Curve, Training Logloss, Validation Logloss
 
-### Community 43 - "Pairing"
-Cohesion: 0.22
-Nodes (9): Pairing, One hypothesis about which photons made which meson., confidence_level(), FitResult, Probability that a correct fit would give a chi2 this large or larger., Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint, TestChi2Calibration (+1 more)
+### Community 43 - "TestConfidenceLevel"
+Cohesion: 0.47
+Nodes (3): confidence_level(), Probability that a correct fit would give a chi2 this large or larger., TestConfidenceLevel
 
 ### Community 44 - "Kinfit Validation Plot"
 Cohesion: 0.53
@@ -542,7 +533,7 @@ Nodes (3): Resolve preselection tree names for ROOT and uproot readers., Resolve
 
 ### Community 56 - "test_observable_runs.py"
 Cohesion: 0.05
-Nodes (116): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+108 more)
+Nodes (118): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+110 more)
 
 ### Community 57 - "Pipeline Script"
 Cohesion: 0.83
@@ -556,29 +547,25 @@ Nodes (3): Dalitz Four-Panel Chi2 vs BDT Comparison, Implicit Proton Panels, Mea
 Cohesion: 0.67
 Nodes (3): BDT Panel, Chi2 Panel, Eta-Pi0 Mass Correlation Comparison
 
-### Community 173 - "observable_runs.py"
-Cohesion: 0.16
-Nodes (15): normalize_xstrip(), Report invalid strip-energy or flux input., Round and validate a detector strip number., StripEnergyFluxError, test_parse_custom_binnings_rejects_duplicate_name(), test_xstrip_rejects_values_that_round_outside_domain(), test_xstrip_rounds_to_nearest_integer_half_up(), _import_root() (+7 more)
+### Community 173 - "Scaletta articoli pubblicabili"
+Cohesion: 0.20
+Nodes (10): Blocchi abilitanti (da risolvere una volta, servono a più paper), Esecuzione a due persone, P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*, P1 — Σ della struttura Mpη ~1700 (a0/triangle singularity) *(fisica di punta)*, P2 — Mappa Σ+σ completa di γp→pηπ0 e la Δ(1700) *(consolidamento)*, P3 — Isospin: γn→nηπ0 quasi-free, σn/σp e Σn *(estensione al neutrone)*, P4 — η' Σ sul neutrone *(stretch, condizionato)*, P5 — η singolo, Σ regione S11(1535) *(opzionale, normalizzazione/aηN)* (+2 more)
 
 ### Community 174 - "Design: lookup strip→Eγ e integrazione dei flussi"
 Cohesion: 0.08
 Nodes (26): Aggregazione, Asimmetria di fascio Ajaka, Binning energetico, Controlli sul lookup, Costruzione del lookup, Dati pre-analizzati, Design: lookup strip→Eγ e integrazione dei flussi, Errori fatali (+18 more)
 
 ### Community 175 - "write_lookup_csv"
-Cohesion: 0.16
-Nodes (16): GroupFluxBinRecord, Path, Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records., Write JSON QA data with stable indentation and a trailing newline. (+8 more)
+Cohesion: 0.13
+Nodes (19): atomic_output_directory(), GroupFluxBinRecord, Path, Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records. (+11 more)
 
-### Community 176 - "Person 1 Normalization Operations"
-Cohesion: 0.06
-Nodes (42): Cambiamenti di interfaccia e gate finale, Esplicitamente differito, Gate 0 — bundle osservabili congelato, Gate 0 Observable Handoff, Handoff condivisi e release P0, Handoff Person 1 → Person 2, Handoff Person 2 → P0/P1/P2, N1 — congelare Gate 0 e schema di accettanza (+34 more)
+### Community 176 - "Hypothesis"
+Cohesion: 0.24
+Nodes (9): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Pairing, One hypothesis about which photons made which meson., FitOptions, FitResult, Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint (+1 more)
 
-### Community 177 - "build_channel_features"
-Cohesion: 0.12
-Nodes (19): build_channel_features(), ChannelSample, _extract_E_theta(), feature_names(), _load_4vec(), load_photons(), main(), ndarray (+11 more)
-
-### Community 179 - "ChannelYield"
-Cohesion: 0.30
-Nodes (8): ChannelYield, compute_shares(), What one channel is worth in the mixture, before shares are struck.      y_sigma, How much of the total training weight each channel is meant to carry.      Three, _bkg(), _signal(), _slaved(), TestComputeShares
+### Community 178 - "_Sidebar.md"
+Cohesion: 0.22
+Nodes (4): `feature_names(hypothesis)`, nell'ordine, Feature stage-1, Fisica & pubblicazioni, GRAAL Analysis Wiki Navigation
 
 ### Community 181 - "Published artifact policy"
 Cohesion: 0.33
@@ -589,8 +576,8 @@ Cohesion: 0.20
 Nodes (8): Approfondimento — canale η' (correzione), Canali di fisica investigabili con i dati GRAAL, Canali, in ordine di leva, Osservabili raccomandati, Riferimenti, Sintesi operativa, Stato del codice (fit cinematico integrato in `main`), Vincoli dell'apparato
 
 ### Community 184 - "sigma_at"
-Cohesion: 0.13
-Nodes (16): _cached_curve(), _kallen(), phase_space_volume(), _phi2(), _phi_curve(), ndarray, Compute threshold-aware channel cross-sections from phase space.  Cross-sections, Convert beam energy E [GeV] to gamma-proton CM energy. (+8 more)
+Cohesion: 0.09
+Nodes (21): _cached_curve(), _kallen(), phase_space_volume(), _phi2(), _phi_curve(), ndarray, Compute threshold-aware channel cross-sections from phase space.  Cross-sections, Convert beam energy E [GeV] to gamma-proton CM energy. (+13 more)
 
 ### Community 185 - "Strip-energy flux: manutenzione e correzioni"
 Cohesion: 0.12
@@ -612,9 +599,9 @@ Nodes (14): Data format, Database delle run per osservabili, `flux_by_group_ener
 Cohesion: 0.15
 Nodes (13): Artefatti prodotti, Binning e aggregazione, Cosa manca, Current Status, Database run per osservabili: accettazione produzione, Dove approfondire, Dove stiamo andando, Flussi disponibili (+5 more)
 
-### Community 192 - "test_build_background_features.py"
-Cohesion: 0.33
-Nodes (6): atomic_output_directory(), Yield a staging directory and publish it atomically on success., test_atomic_output_does_not_replace_destination_on_failure(), test_atomic_output_ignores_post_publish_backup_cleanup_failure(), test_atomic_output_keeps_preexisting_backup_collision(), test_atomic_output_restores_destination_if_staging_replace_fails()
+### Community 192 - "Person 1 Normalization Operations"
+Cohesion: 0.06
+Nodes (44): Cambiamenti di interfaccia e gate finale, Esplicitamente differito, Gate 0 — bundle osservabili congelato, Gate 0 Observable Handoff, Handoff condivisi e release P0, Handoff Person 1 → Person 2, Handoff Person 2 → P0/P1/P2, Reject Incomplete or Legacy Acceptance Handoffs (+36 more)
 
 ### Community 193 - "P0 Release Gate"
 Cohesion: 0.67
@@ -622,31 +609,23 @@ Nodes (3): P0 Release Gate, Person 1 Normalization and Cross Sections, Person 2 
 
 ### Community 194 - "File Map"
 Cohesion: 0.18
-Nodes (11): Execution Completion Gate, File Map, Global Constraints, Implementation Status, Strip→Eγ Lookup and Flux Integration Implementation Plan, Task 1: Energy binning and run-specific lookup, Task 2: Pure flux integration and group aggregation, Task 3: Deterministic CSV and QA serialization (+3 more)
-
-### Community 195 - "MCChannel"
-Cohesion: 0.20
-Nodes (8): MCChannel, Beam energy at which this reaction first becomes possible., One generated reaction, as it exists on disk.      photon_branches:         The, Evaluate a channel cross-section at beam energies E [GeV]., sigma_at(), _channel(), Tests for the phase-space model behind sigma(E).  Phi_n is defined only up to an, TestSigmaAt
-
-### Community 198 - "Scaletta articoli pubblicabili"
-Cohesion: 0.20
-Nodes (10): Blocchi abilitanti (da risolvere una volta, servono a più paper), Esecuzione a due persone, P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*, P1 — Σ della struttura Mpη ~1700 (a0/triangle singularity) *(fisica di punta)*, P2 — Mappa Σ+σ completa di γp→pηπ0 e la Δ(1700) *(consolidamento)*, P3 — Isospin: γn→nηπ0 quasi-free, σn/σp e Σn *(estensione al neutrone)*, P4 — η' Σ sul neutrone *(stretch, condizionato)*, P5 — η singolo, Σ regione S11(1535) *(opzionale, normalizzazione/aηN)* (+2 more)
+Nodes (11): Execution Completion Gate, File Map, Strip-energy Flux Global Constraints, Implementation Status, Strip→Eγ Lookup and Flux Integration Implementation Plan, Task 1: Energy binning and run-specific lookup, Task 2: Pure flux integration and group aggregation, Task 3: Deterministic CSV and QA serialization (+3 more)
 
 ### Community 200 - "Ricostruzione chi2"
 Cohesion: 0.22
 Nodes (9): Assegnazione η/π⁰, Gli accoppiamenti sono derivati, non elencati, Il problema: quattro fotoni, due mesoni, Il quadrimomento mancante, Il taglio chi2 < 10, Il taglio degli eventi impossibili, La formula del chi2, Rami di output (+1 more)
 
-### Community 201 - "Global Constraints"
-Cohesion: 0.25
-Nodes (7): Global Constraints, Task 1: Publish path-scoped data and result snapshots, Task 2: Add deterministic artifact provenance, Task 3: Add clone-ready maintenance interface, Task 4: Publish exactly-two-person physics roadmap, Task 5: Refresh Graphify and prove fresh-clone operation, Two-Person AI Handoff Implementation Plan
+### Community 201 - "Two-Person AI Handoff Global Constraints"
+Cohesion: 0.13
+Nodes (11): Two-Person AI Handoff Global Constraints, Task 1: Publish path-scoped data and result snapshots, Task 2: Add deterministic artifact provenance, Task 3: Add clone-ready maintenance interface, Task 4: Publish exactly-two-person physics roadmap, Task 5: Refresh Graphify and prove fresh-clone operation, Two-Person AI Handoff Implementation Plan, Clone e ambiente (+3 more)
 
 ### Community 202 - "06 — Plot"
 Cohesion: 0.25
 Nodes (8): 06 — Plot, Confronto chi² vs BDT, Controlli cinematici, Grafici prodotti, Pipeline, Protone misurato e protone implicito, Risoluzione del fit cinematico, Struttura
 
-### Community 203 - "Global Constraints"
+### Community 203 - "Observable-run Database Global Constraints"
 Cohesion: 0.29
-Nodes (6): Global Constraints, Observable Run Database Implementation Plan, Task 1: Pure run-quality policy, Task 2: Strict artifact readers and deterministic writers, Task 3: Artifact-only observable database CLI, Task 4: Farm workflow, schemas, and production acceptance
+Nodes (6): Observable-run Database Global Constraints, Observable Run Database Implementation Plan, Task 1: Pure run-quality policy, Task 2: Strict artifact readers and deterministic writers, Task 3: Artifact-only observable database CLI, Task 4: Farm workflow, schemas, and production acceptance
 
 ### Community 204 - "01 — Pre-analisi"
 Cohesion: 0.29
@@ -684,32 +663,28 @@ Nodes (5): 02 — Selezione eventi, CLI, Fail loud su zero file in input, La sel
 Cohesion: 0.50
 Nodes (4): Come funziona, Dopo il gate: il fit cinematico, Gate BDT, Perché a blocchi e non evento per evento
 
-### Community 216 - "GRAAL Analysis"
+### Community 216 - "GRAAL Analysis Wiki Home"
 Cohesion: 0.67
-Nodes (3): GRAAL Analysis, Le varie fasi, NEXT
+Nodes (3): GRAAL Analysis Wiki Home, Le varie fasi, NEXT
 
-### Community 220 - "channel_yield"
-Cohesion: 0.36
-Nodes (3): channel_yield(), Integrate one channel's flux, cross-section and acceptance.      beam_E and w_be, TestChannelYield
-
-### Community 224 - "GRAAL Analysis"
-Cohesion: 0.50
-Nodes (4): Clone e ambiente, GRAAL Analysis, La catena, Uso
+### Community 225 - "Feature stage-1"
+Cohesion: 0.67
+Nodes (3): Write JSON QA data with stable indentation and a trailing newline., write_qa_json(), test_qa_json_is_stable_and_ends_with_newline()
 
 ## Knowledge Gaps
 - **715 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+710 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **188 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **183 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `main()` connect `FitCovariance` to `fit_event`, `Run Manifest Handling`?**
-  _High betweenness centrality (0.082) - this node is a cross-community bridge._
-- **Why does `Hypothesis` connect `Hypothesis` to `compute_stage1_features`, `FitCovariance`, `Channel Registry Tests`, `Pairing`, `pair_masses`, `fit_event`, `build_channel_features`, `Stage One Gate`, `ChannelYield`?**
-  _High betweenness centrality (0.082) - this node is a cross-community bridge._
-- **Why does `FitCovariance` connect `FitCovariance` to `Pairing`, `Reconstruction ROOT IO`, `fit_event`, `Kinematics Vector Utilities`, `Hypothesis`, `Kinematic Fit Tests`?**
-  _High betweenness centrality (0.049) - this node is a cross-community bridge._
+- **Why does `Hypothesis` connect `Hypothesis` to `MCChannel`, `FitCovariance`, `get_channel`, `pair_masses`, `fit_event`, `Stage One Gate`, `Hypothesis`, `fit_event`?**
+  _High betweenness centrality (0.086) - this node is a cross-community bridge._
+- **Why does `main()` connect `FitCovariance` to `fit_event`?**
+  _High betweenness centrality (0.080) - this node is a cross-community bridge._
+- **Why does `FitCovariance` connect `FitCovariance` to `TestConfidenceLevel`, `Reconstruction ROOT IO`, `fit_event`, `Hypothesis`, `Kinematics Vector Utilities`, `fit_event`?**
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
 - **Are the 31 inferred relationships involving `ObservableRunError` (e.g. with `RunRecord` and `FluxBinRecord`) actually correct?**
   _`ObservableRunError` has 31 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 31 inferred relationships involving `StripEnergyFluxError` (e.g. with `RunRecord` and `test_flux_reader_rejects_duplicate_root_key_cycles()`) actually correct?**
