@@ -343,6 +343,15 @@ file non vengono sovrascritti: ogni correzione o nuovo input crea un nuovo
 sostituisce. Person 2 rifiuta il handoff se un hash non coincide o i bin del
 fit non hanno copertura valida.
 
+I due path non versionati del contratto storico restano documentati soltanto
+come identificatori incompatibili da rifiutare; non sono alias, puntatori o
+destinazioni di pubblicazione:
+
+```text
+results/physics/normalization/acceptance_v1.csv
+results/physics/normalization/acceptance_qa.json
+```
+
 ### Handoff Person 2 → P0/P1/P2
 
 I tre filename sono l'interfaccia condivisa v1; sono pubblicati insieme e
