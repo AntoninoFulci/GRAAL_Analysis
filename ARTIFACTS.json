@@ -18,42 +18,42 @@
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 9810,
+      "bytes": 10323,
       "path": "graphify-out/.graphify_labels.json",
       "role": "derived",
-      "sha256": "747566a83dbb8a6beb07e98d007b615075032896d52ec7b2a2802319a9fb5439",
+      "sha256": "44f21d41e508f74ba43eb1c1eb142bb7fb05a79229186abce39e8f4461da5801",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 47109,
+      "bytes": 51193,
       "path": "graphify-out/GRAPH_REPORT.md",
       "role": "derived",
-      "sha256": "bbee81d43cd446739644867ed8c2f830410817ad8adafeb84904f88e68d1bccb",
+      "sha256": "8e861cd560860bfbe9c0fae61e95ab6f586726e8a6dcccd92b5402850b875b1d",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 2126224,
+      "bytes": 2131592,
       "path": "graphify-out/graph.html",
       "role": "derived",
-      "sha256": "cd50f4af2171f51dac02e1821120bb6816c03455809ab461559f3a6bd8cadcc4",
+      "sha256": "1a143a81187b2c7aea514f52cac3a23b75b3b9889ec5913ff8f9d194e7bbeb85",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 2368825,
+      "bytes": 2376459,
       "path": "graphify-out/graph.json",
       "role": "derived",
-      "sha256": "f741130e582892077310202e5700fee99fb8321bd6d067149c99d9418cb55c48",
+      "sha256": "a713d4879a6ff0e3ecd63a9843cb88fadd60b996407de04886d73c7ae6b40e7a",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 48209,
+      "bytes": 48214,
       "path": "graphify-out/manifest.json",
       "role": "derived",
-      "sha256": "d5c94b434fe3ac9485f14ccfbfa66b1dc31e09b768f7fca0c34ce362c92a6a1c",
+      "sha256": "1110382d193bbfdb27814c56807647a3f3ace0bfa3a93b6f79b094aee3c02e1a",
       "valid": true
     },
     {
@@ -321,6 +321,6 @@
       "valid": true
     }
   ],
-  "generated_at_commit": "00435e66eb627e10c6c196e0b116adeffc1c234e",
+  "generated_at_commit": "59829bb668c40f3d25b2150bb61964e29f0c6f09",
   "schema_version": 1
 }

@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "ARTIFACTS.json": {
-    "mtime": 1789045397.69,
-    "ast_hash": "7802e099116010392ec4b51aacf36c82",
+    "mtime": 1789117821.7678704,
+    "ast_hash": "815c8d7c7814a65f24f4825251281c50",
     "semantic_hash": ""
   },
   "results/observable_runs/observable_run_qa.json": {
@@ -1125,9 +1125,9 @@
     "semantic_hash": "a6a00402b03607dcfb4c7eef6d8cc8ef"
   },
   "docs/collaboration/two-person-physics-roadmap.md": {
-    "mtime": 1789046098.1136222,
-    "ast_hash": "a2e3234ffd52837ae39a6ad076ba693b",
-    "semantic_hash": "a2e3234ffd52837ae39a6ad076ba693b"
+    "mtime": 1789117960.3800585,
+    "ast_hash": "efc82681bde3348622ecf0c80c929704",
+    "semantic_hash": "efc82681bde3348622ecf0c80c929704"
   },
   "docs/superpowers/plans/2026-09-08-observable-run-database.md": {
     "mtime": 1789045397.9039242,
@@ -1250,9 +1250,9 @@
     "semantic_hash": "45deadda88d2c630a1acd77ce2ad487b"
   },
   "docs/physics/normalization.md": {
-    "mtime": 1789046184.8764002,
-    "ast_hash": "f35256ca2c6a949f4fde6723143b7bff",
-    "semantic_hash": "f35256ca2c6a949f4fde6723143b7bff"
+    "mtime": 1789117568.9875793,
+    "ast_hash": "4349cb24ae251d05d7ee5ae31e424aa0",
+    "semantic_hash": "4349cb24ae251d05d7ee5ae31e424aa0"
   },
   "requirements-graphify.txt": {
     "mtime": 1789045397.9121442,
