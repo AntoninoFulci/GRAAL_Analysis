@@ -15351,7 +15351,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L43",
       "_origin": "ast",
-      "community": 224,
+      "community": 223,
       "norm_label": "testfeaturenames",
       "id": "04_bdt_training_tests_test_build_background_features_testfeaturenames",
       "community_name": "TestFeatureNames"
@@ -15362,7 +15362,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L44",
       "_origin": "ast",
-      "community": 224,
+      "community": 223,
       "norm_label": ".test_count()",
       "id": "04_bdt_training_tests_test_build_background_features_testfeaturenames_test_count",
       "community_name": "TestFeatureNames"
@@ -15373,7 +15373,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L47",
       "_origin": "ast",
-      "community": 224,
+      "community": 223,
       "norm_label": ".test_unique()",
       "id": "04_bdt_training_tests_test_build_background_features_testfeaturenames_test_unique",
       "community_name": "TestFeatureNames"
@@ -15384,7 +15384,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L50",
       "_origin": "ast",
-      "community": 224,
+      "community": 223,
       "norm_label": ".test_six_pair_masses()",
       "id": "04_bdt_training_tests_test_build_background_features_testfeaturenames_test_six_pair_masses",
       "community_name": "TestFeatureNames"
@@ -15637,7 +15637,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L238",
       "_origin": "ast",
-      "community": 222,
+      "community": 221,
       "norm_label": "testweightscale",
       "id": "04_bdt_training_tests_test_build_background_features_testweightscale",
       "community_name": "TestWeightScale"
@@ -15648,7 +15648,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L248",
       "_origin": "ast",
-      "community": 222,
+      "community": 221,
       "norm_label": ".test_normalising_keeps_every_ratio()",
       "id": "04_bdt_training_tests_test_build_background_features_testweightscale_test_normalising_keeps_every_ratio",
       "community_name": "TestWeightScale"
@@ -15659,7 +15659,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L253",
       "_origin": "ast",
-      "community": 222,
+      "community": 221,
       "norm_label": ".test_normalising_puts_the_mean_at_one()",
       "id": "04_bdt_training_tests_test_build_background_features_testweightscale_test_normalising_puts_the_mean_at_one",
       "community_name": "TestWeightScale"
@@ -15670,7 +15670,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L257",
       "_origin": "ast",
-      "community": 222,
+      "community": 221,
       "norm_label": ".test_a_mean_of_one_survives_zero_weighted_events()",
       "id": "04_bdt_training_tests_test_build_background_features_testweightscale_test_a_mean_of_one_survives_zero_weighted_events",
       "community_name": "TestWeightScale"
@@ -16033,7 +16033,7 @@
       "source_file": "04_bdt_training/tests/test_build_background_features.py",
       "source_location": "L239",
       "_origin": "ast",
-      "community": 222,
+      "community": 221,
       "norm_label": "the training weights must be usable, not just correct in ratio.      regression:",
       "id": "04_bdt_training_tests_test_build_background_features_rationale_239",
       "community_name": "TestWeightScale"
@@ -17617,7 +17617,7 @@
       "source_file": "05_reconstruction/tests/test_packaging.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 223,
+      "community": 222,
       "norm_label": "test_packaging.py",
       "id": "05_reconstruction_tests_test_packaging",
       "community_name": "test_packaging.py"
@@ -17628,7 +17628,7 @@
       "source_file": "05_reconstruction/tests/test_packaging.py",
       "source_location": "L4",
       "_origin": "ast",
-      "community": 223,
+      "community": 222,
       "norm_label": "test_graal_common_importable()",
       "id": "05_reconstruction_tests_test_packaging_test_graal_common_importable",
       "community_name": "test_packaging.py"
@@ -17639,7 +17639,7 @@
       "source_file": "05_reconstruction/tests/test_packaging.py",
       "source_location": "L11",
       "_origin": "ast",
-      "community": 223,
+      "community": 222,
       "norm_label": "test_bdt_training_importable()",
       "id": "05_reconstruction_tests_test_packaging_test_bdt_training_importable",
       "community_name": "test_packaging.py"
@@ -17650,7 +17650,7 @@
       "source_file": "05_reconstruction/tests/test_packaging.py",
       "source_location": "L17",
       "_origin": "ast",
-      "community": 223,
+      "community": 222,
       "norm_label": "test_stage1_feature_builder_importable()",
       "id": "05_reconstruction_tests_test_packaging_test_stage1_feature_builder_importable",
       "community_name": "test_packaging.py"
@@ -17661,7 +17661,7 @@
       "source_file": "05_reconstruction/tests/test_packaging.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 223,
+      "community": 222,
       "norm_label": "the numbered pipeline dirs must be importable under clean package names.",
       "id": "05_reconstruction_tests_test_packaging_rationale_1",
       "community_name": "test_packaging.py"
@@ -20449,10 +20449,10 @@
       "source_file": "README.md",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 181,
+      "community": 178,
       "norm_label": "readme.md",
       "id": "readme",
-      "community_name": "two-person-physics-roadmap.md"
+      "community_name": "_Sidebar.md"
     },
     {
       "label": "GRAAL Analysis",
@@ -20460,10 +20460,10 @@
       "source_file": "README.md",
       "source_location": "L2",
       "_origin": "ast",
-      "community": 181,
+      "community": 224,
       "norm_label": "graal analysis",
       "id": "readme_graal_analysis",
-      "community_name": "two-person-physics-roadmap.md"
+      "community_name": "GRAAL Analysis"
     },
     {
       "label": "Clone e ambiente",
@@ -20471,10 +20471,10 @@
       "source_file": "README.md",
       "source_location": "L19",
       "_origin": "ast",
-      "community": 181,
+      "community": 224,
       "norm_label": "clone e ambiente",
       "id": "readme_clone_e_ambiente",
-      "community_name": "two-person-physics-roadmap.md"
+      "community_name": "GRAAL Analysis"
     },
     {
       "label": "Uso",
@@ -20482,10 +20482,10 @@
       "source_file": "README.md",
       "source_location": "L49",
       "_origin": "ast",
-      "community": 181,
+      "community": 224,
       "norm_label": "uso",
       "id": "readme_uso",
-      "community_name": "two-person-physics-roadmap.md"
+      "community_name": "GRAAL Analysis"
     },
     {
       "label": "La catena",
@@ -20493,10 +20493,10 @@
       "source_file": "README.md",
       "source_location": "L58",
       "_origin": "ast",
-      "community": 181,
+      "community": 224,
       "norm_label": "la catena",
       "id": "readme_la_catena",
-      "community_name": "two-person-physics-roadmap.md"
+      "community_name": "GRAAL Analysis"
     },
     {
       "label": "artifact-policy.md",
@@ -20504,7 +20504,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "artifact-policy.md",
       "id": "docs_artifact_policy",
       "community_name": "Published artifact policy"
@@ -20515,7 +20515,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "published artifact policy",
       "id": "docs_artifact_policy_published_artifact_policy",
       "community_name": "Published artifact policy"
@@ -20526,7 +20526,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L17",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "authority and intended use",
       "id": "docs_artifact_policy_authority_and_intended_use",
       "community_name": "Published artifact policy"
@@ -20537,7 +20537,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L34",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "graphify portability",
       "id": "docs_artifact_policy_graphify_portability",
       "community_name": "Published artifact policy"
@@ -20548,7 +20548,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L43",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "verify and rebuild",
       "id": "docs_artifact_policy_verify_and_rebuild",
       "community_name": "Published artifact policy"
@@ -20559,7 +20559,7 @@
       "source_file": "docs/artifact-policy.md",
       "source_location": "L77",
       "_origin": "ast",
-      "community": 221,
+      "community": 181,
       "norm_label": "rejection conditions",
       "id": "docs_artifact_policy_rejection_conditions",
       "community_name": "Published artifact policy"
@@ -20639,94 +20639,6 @@
       "community": 203,
       "norm_label": "task 4: farm workflow, schemas, and production acceptance",
       "id": "docs_superpowers_plans_2026_09_08_observable_run_database_task_4_farm_workflow_schemas_and_production_acceptance",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "2026-09-09-two-person-ai-handoff.md",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "2026-09-09-two-person-ai-handoff.md",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Two-Person AI Handoff Implementation Plan",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "two-person ai handoff implementation plan",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Global Constraints",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L13",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "global constraints",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Task 1: Publish path-scoped data and result snapshots",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L27",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "task 1: publish path-scoped data and result snapshots",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Task 2: Add deterministic artifact provenance",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L157",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "task 2: add deterministic artifact provenance",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Task 3: Add clone-ready maintenance interface",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L337",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "task 3: add clone-ready maintenance interface",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Task 4: Publish exactly-two-person physics roadmap",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L502",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "task 4: publish exactly-two-person physics roadmap",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap",
-      "community_name": "Global Constraints"
-    },
-    {
-      "label": "Task 5: Refresh Graphify and prove fresh-clone operation",
-      "file_type": "document",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L598",
-      "_origin": "ast",
-      "community": 201,
-      "norm_label": "task 5: refresh graphify and prove fresh-clone operation",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation",
       "community_name": "Global Constraints"
     },
     {
@@ -24747,34 +24659,6 @@
       "id": "docs_superpowers_specs_2026_09_08_observable_run_database_design_observable_run_qa"
     },
     {
-      "label": "Clone-Ready Project Package",
-      "file_type": "concept",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 232,
-      "norm_label": "clone-ready project package",
-      "community_name": "Clone-Ready Project Package",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package"
-    },
-    {
-      "label": "Graphify Refresh",
-      "file_type": "concept",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 233,
-      "norm_label": "graphify refresh",
-      "community_name": "Graphify Refresh",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh"
-    },
-    {
       "label": "Python Dependency Contract",
       "file_type": "document",
       "source_file": "requirements-dev.txt",
@@ -25901,8 +25785,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_collaboration_two_person_physics_roadmap",
-      "community": 181,
-      "community_name": "two-person-physics-roadmap.md",
+      "community": 178,
+      "community_name": "_Sidebar.md",
       "norm_label": "two-person-physics-roadmap.md"
     },
     {
@@ -26176,8 +26060,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_physics_normalization",
-      "community": 181,
-      "community_name": "two-person-physics-roadmap.md",
+      "community": 178,
+      "community_name": "_Sidebar.md",
       "norm_label": "normalization.md"
     },
     {
@@ -26300,6 +26184,94 @@
       "community": 176,
       "community_name": "Person 1 Normalization Operations",
       "norm_label": "registro di avanzamento e revisione"
+    },
+    {
+      "label": "2026-09-09-two-person-ai-handoff.md",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "2026-09-09-two-person-ai-handoff.md"
+    },
+    {
+      "label": "Two-Person AI Handoff Implementation Plan",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "two-person ai handoff implementation plan"
+    },
+    {
+      "label": "Global Constraints",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "global constraints"
+    },
+    {
+      "label": "Task 1: Publish path-scoped data and result snapshots",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L27",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "task 1: publish path-scoped data and result snapshots"
+    },
+    {
+      "label": "Task 2: Add deterministic artifact provenance",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L157",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "task 2: add deterministic artifact provenance"
+    },
+    {
+      "label": "Task 3: Add clone-ready maintenance interface",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L337",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "task 3: add clone-ready maintenance interface"
+    },
+    {
+      "label": "Task 4: Publish exactly-two-person physics roadmap",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L502",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "task 4: publish exactly-two-person physics roadmap"
+    },
+    {
+      "label": "Task 5: Refresh Graphify and prove fresh-clone operation",
+      "file_type": "document",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L603",
+      "_origin": "ast",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation",
+      "community": 201,
+      "community_name": "Global Constraints",
+      "norm_label": "task 5: refresh graphify and prove fresh-clone operation"
     },
     {
       "label": "2026-09-09-two-person-ai-handoff-design.md",
@@ -26525,7 +26497,7 @@
       "label": "Verification and publication gates",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
-      "source_location": "L267",
+      "source_location": "L269",
       "_origin": "ast",
       "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates",
       "community": 7,
@@ -26536,7 +26508,7 @@
       "label": "Out of scope",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
-      "source_location": "L283",
+      "source_location": "L285",
       "_origin": "ast",
       "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope",
       "community": 7,
@@ -26808,6 +26780,34 @@
       "id": "docs_physics_normalization_sourced_physical_normalization_inputs",
       "community": 218,
       "community_name": "Sourced Physical Normalization Inputs"
+    },
+    {
+      "label": "Clone-Ready Project Package",
+      "file_type": "concept",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "norm_label": "clone-ready project package",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package",
+      "community": 232,
+      "community_name": "Clone-Ready Project Package"
+    },
+    {
+      "label": "Graphify Refresh",
+      "file_type": "concept",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "norm_label": "graphify refresh",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh",
+      "community": 233,
+      "community_name": "Graphify Refresh"
     },
     {
       "label": "Git LFS Snapshot",
@@ -61110,76 +61110,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L13",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L27",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L157",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L337",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L502",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
-      "source_location": "L598",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "docs/superpowers/specs/2026-09-08-observable-run-database-design.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -65288,6 +65218,16 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/physics/normalization.md",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "docs_physics_normalization",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
@@ -65450,6 +65390,76 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L157",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L337",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L502",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
+      "source_location": "L603",
+      "weight": 1.0,
+      "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -65531,7 +65541,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
-      "source_location": "L283",
+      "source_location": "L285",
       "weight": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
       "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope",
@@ -65561,7 +65571,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
-      "source_location": "L267",
+      "source_location": "L269",
       "weight": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
       "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates",
@@ -65914,5 +65924,5 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md"
     }
   ],
-  "built_at_commit": "0798e3d4efe8d2709f8e206d327974c74ddd5f5c"
+  "built_at_commit": "e33f4352ada78ca4bd37aff956c4417575b13ed3"
 }

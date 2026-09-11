@@ -1,16 +1,16 @@
 # Graph Report - .  (2026-09-11)
 
 ## Corpus Check
-- Large corpus: 252 files · ~4,205,782 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 252 files · ~4,205,892 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 2359 nodes · 3688 edges · 291 communities (103 shown, 188 thin omitted)
+- 2359 nodes · 3689 edges · 291 communities (103 shown, 188 thin omitted)
 - Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 587 edges (avg confidence: 0.76)
 - Semantic extraction: host-agent; token usage is not exposed by this host.
 
 ## Refresh Scope
 
-- Documentation source commit: `0798e3d4efe8d2709f8e206d327974c74ddd5f5c`.
+- Documentation source commit: `e33f4352ada78ca4bd37aff956c4417575b13ed3`.
 - Structural refresh: `make graph-update` with project-local `graphifyy==0.9.7`.
 - Host-agent semantic refresh: changed normalization guide and two-person roadmap.
 - Previously published hyperedges are union-preserved; graph knowledge does not certify physics QA.
@@ -183,7 +183,7 @@
 - [[_COMMUNITY__Sidebar|_Sidebar.md]]
 - [[_COMMUNITY_ChannelYield|ChannelYield]]
 - [[_COMMUNITY_Accepted Observable Bundle|Accepted Observable Bundle]]
-- [[_COMMUNITY_two-person-physics-roadmap|two-person-physics-roadmap.md]]
+- [[_COMMUNITY_Published artifact policy|Published artifact policy]]
 - [[_COMMUNITY_Canali di fisica investigabili con i dati GRAAL|Canali di fisica investigabili con i dati GRAAL]]
 - [[_COMMUNITY_Two-Person Project Rule|Two-Person Project Rule]]
 - [[_COMMUNITY_sigma_at|sigma_at]]
@@ -223,10 +223,10 @@
 - [[_COMMUNITY_Sourced Physical Normalization Inputs|Sourced Physical Normalization Inputs]]
 - [[_COMMUNITY_Authoritative Run Manifest|Authoritative Run Manifest]]
 - [[_COMMUNITY_channel_yield|channel_yield]]
-- [[_COMMUNITY_Published artifact policy|Published artifact policy]]
 - [[_COMMUNITY_TestWeightScale|TestWeightScale]]
 - [[_COMMUNITY_test_packaging.py|test_packaging.py]]
 - [[_COMMUNITY_TestFeatureNames|TestFeatureNames]]
+- [[_COMMUNITY_GRAAL Analysis|GRAAL Analysis]]
 - [[_COMMUNITY_Feature stage-1|Feature stage-1]]
 - [[_COMMUNITY_Sigma Release Handoff|Sigma Release Handoff]]
 - [[_COMMUNITY_build_observable_run_database CLI|build_observable_run_database CLI]]
@@ -580,9 +580,9 @@ Nodes (19): build_channel_features(), ChannelSample, _extract_E_theta(), feature
 Cohesion: 0.30
 Nodes (8): ChannelYield, compute_shares(), What one channel is worth in the mixture, before shares are struck.      y_sigma, How much of the total training weight each channel is meant to carry.      Three, _bkg(), _signal(), _slaved(), TestComputeShares
 
-### Community 181 - "two-person-physics-roadmap.md"
-Cohesion: 0.29
-Nodes (4): Clone e ambiente, GRAAL Analysis, La catena, Uso
+### Community 181 - "Published artifact policy"
+Cohesion: 0.33
+Nodes (5): Authority and intended use, Graphify portability, Published artifact policy, Rejection conditions, Verify and rebuild
 
 ### Community 182 - "Canali di fisica investigabili con i dati GRAAL"
 Cohesion: 0.20
@@ -692,9 +692,9 @@ Nodes (3): GRAAL Analysis, Le varie fasi, NEXT
 Cohesion: 0.36
 Nodes (3): channel_yield(), Integrate one channel's flux, cross-section and acceptance.      beam_E and w_be, TestChannelYield
 
-### Community 221 - "Published artifact policy"
-Cohesion: 0.33
-Nodes (5): Authority and intended use, Graphify portability, Published artifact policy, Rejection conditions, Verify and rebuild
+### Community 224 - "GRAAL Analysis"
+Cohesion: 0.50
+Nodes (4): Clone e ambiente, GRAAL Analysis, La catena, Uso
 
 ## Knowledge Gaps
 - **715 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+710 more)
