@@ -349,6 +349,11 @@ sostituisce. Persona 2 costruisce i conteggi azimutali dalla reco N2, non dalle
 yield N4, e rifiuta il handoff se un hash non coincide o i bin del fit non
 hanno copertura valida.
 
+**Rejection:** rifiutare qualsiasi handoff pubblicato fuori da
+`results/physics/normalization/handoffs/<acceptance_release_id>/`, privo anche
+di uno solo dei tre file obbligatori, oppure basato sulle destinazioni root
+legacy non versionate anziché sulla directory immutabile approvata.
+
 ### Handoff Person 2 → P0/P1/P2
 
 I tre filename sono l'interfaccia condivisa v1; sono pubblicati insieme e

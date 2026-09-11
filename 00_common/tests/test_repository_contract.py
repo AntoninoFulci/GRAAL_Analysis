@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 
@@ -41,6 +42,26 @@ def test_graphify_is_pinned_and_maintenance_uses_the_project_interpreter():
     makefile = read("Makefile")
     assert "GRAPHIFY ?= $(PYTHON) -m graphify" in makefile
     assert "requirements-graphify.txt" in makefile.split("setup:", 1)[1].split("\n\n", 1)[0]
+
+
+def test_graphify_disambiguates_repeated_document_headings():
+    """Published graph labels must identify which document owns a generic heading."""
+    graph = json.loads(read("graphify-out/graph.json"))
+    expected = {
+        "readme_graal_analysis": "GRAAL Analysis Repository README",
+        "wiki_home_graal_analysis": "GRAAL Analysis Wiki Home",
+        "wiki_sidebar_graal_analysis": "GRAAL Analysis Wiki Navigation",
+        "docs_superpowers_plans_2026_09_08_observable_run_database_global_constraints": "Observable-run Database Global Constraints",
+        "wiki_strip_energy_flux_implementation_plan_global_constraints": "Strip-energy Flux Global Constraints",
+        "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints": "Two-Person AI Handoff Global Constraints",
+    }
+    actual = {
+        node["id"]: node["label"]
+        for node in graph["nodes"]
+        if node["id"] in expected
+    }
+    assert actual == expected
+    assert len(set(actual.values())) == len(actual)
 
 
 def test_makefile_exposes_required_targets():
