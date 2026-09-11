@@ -131,7 +131,7 @@ dalla presenza delle colonne nel roadmap:
 | Gruppi sperimentali | Mapping esplicito fra `target`, `beam_type`, `group` dei CSV attuali e `beam_group` dello schema futuro; mantenere separati UV/VIS fino a una combinazione validata. |
 | Binning comune | Nome, bordi, unità, convenzione degli estremi; variabile angolare, sistema di riferimento, assi e range d'integrazione dichiarati. |
 | Denominatori MC | Significato distinto di `n_generated`, `n_thrown_in_bin`, `n_reconstructed_selected`; pesi, fase generata, migrazioni e metodo d'incertezza. |
-| Accettanza utile a `Σ` | Scelta congiunta del contratto azimutale descritto sotto. Una tabella integrata in `phi` non è sufficiente per S4 e lo schema v1 non può essere dichiarato pronto per il fit `Σ` finché entrambi gli owner non approvano risposta, bin e convenzioni. |
+| Accettanza utile a `Σ` | Interfaccia condivisa approvata: tabella comune, risposta azimutale separata e QA nella stessa release immutabile. Una tabella integrata in `phi` non è sufficiente per S4. |
 | QA e closure | Soglie preregistrate per popolazione dei bin, fit/fondo, closure MC e confronto Ajaka; regole per maschere e sistematiche. |
 
 I bin energetici già disponibili sono `ajaka_cross_section` (15 bin
@@ -146,17 +146,19 @@ reinventare i bordi. I bin angolari di N1 restano da concordare.
 
 Gate 0 precede il lavoro fisico. N1 congela il contratto condiviso, N2 produce
 la ricostruzione valida e N3 produce l'accettanza. Dopo QA N3 valido, la
-consegna immutabile dell'accettanza abilita S4 senza attendere N7. Da quel
-punto N4–N7 e S4–S6 possono avanzare in parallelo; N7 chiude la release finale
-di normalizzazione e sistematiche. La tabella descrive attività future, non
-risultati conseguiti.
+consegna immutabile dell'accettanza abilita S4 senza attendere N7. S4 consuma
+la ricostruzione dati N2 metadata-bearing e la risposta N3; Persona 2 costruisce
+da esse i conteggi azimutali. N4 non alimenta S4 ed è riservato alle sezioni
+d'urto. Da quel punto N4–N7 e S4–S6 possono avanzare in parallelo; N7 chiude la
+release finale di normalizzazione e sistematiche. La tabella descrive attività
+future, non risultati conseguiti.
 
 | Fase | Ingressi e lavoro della Persona 1 | Evidenza da consegnare e condizione di rifiuto |
 | --- | --- | --- |
-| **N1 — schema** | Gate 0 valido, canale, bin e proposta `normalization_v1.json`; congelare chiavi, denominatori, contratto azimutale e hash. | Schema e configurazione approvati da entrambi gli owner; rifiutare duplicati, denominatori negativi, selezioni senza ID, bin incompatibili, hash assenti o contratto `phi` ancora aperto. |
+| **N1 — schema** | Gate 0 valido, canale, bin e proposta `normalization_v1.json`; congelare chiavi, denominatori, contratto azimutale e hash secondo l'interfaccia condivisa approvata. | Schema e configurazione revisionati; rifiutare duplicati, denominatori negativi, selezioni senza ID, bin incompatibili, hash assenti o l'assenza della risposta `phi` separata. |
 | **N2 — ricostruzione** | Dati LH2 e MC appropriati, modello fissato, configurazione e Gate 0; produrre nuovi output in un percorso dedicato. | Provenienza e controllo di `RunNumber`, `Polarization`, `Xstrip`; rifiutare legacy, metadati mancanti o run non-good nella misura. La rappresentazione dei metadati MC richiede una convenzione esplicita. |
 | **N3 — accettanza** | Generato, eventi thrown nel bin e ricostruito N2 con la stessa selezione dei dati; dichiarare pesi, migrazioni e risposta. | Conteggi, accettanza, risposta azimutale concordata, incertezze, maschere e closure MC; con QA valido pubblicare l'handoff immutabile per S4. Rifiutare valori fuori `[0,1]`, conteggi incoerenti, denominatore nullo non mascherato, hash mancanti o closure fallita. |
-| **N4 — yield** | Dati N2, run-list good-only, bin N1 e metodo di estrazione con QA del fondo. | Segnale, fondo e incertezza statistica per chiave, run-list e hash; rifiutare review/bad, provenienza mancante o fit/sideband QA invalido. |
+| **N4 — yield per sezioni d'urto** | Dati N2, run-list good-only, bin N1 e metodo di estrazione con QA del fondo. | Segnale, fondo e incertezza statistica per chiave, run-list e hash destinati a N5–N7; rifiutare review/bad, provenienza mancante o fit/sideband QA invalido. N4 non è un input di S4. |
 | **N5 — fattori** | Yield, accettanza, flusso coerente, quantità di bersaglio e branching ratio con fonti. | Fattori/luminosità, unità, incertezze e correlazioni; rifiutare valori non finiti, sorgenti mancanti, assunzioni non approvate o flussi estranei al Gate 0. |
 | **N6 — sezioni d'urto** | N3–N5 e bin `ajaka_cross_section`; produrre totali/differenziali e confronto al riferimento. | Tabella dei risultati, residuali e compatibilità Ajaka; rifiutare bin errati, normalizzazione non riproducibile o scarti oltre soglia senza spiegazione sistematica approvata. |
 | **N7 — release finale** | N3–N6, variazioni sistematiche, correlazioni e provenienza completa. | Release finale di normalizzazione, componenti d'incertezza e covarianza, con riferimento per hash all'handoff N3 consumato da Persona 2; rifiutare sorgenti/hash mancanti o covarianza non simmetrica/semidefinita positiva entro tolleranza dichiarata. N7 non muta né sostituisce l'handoff N3. |
@@ -219,7 +221,7 @@ N3 è valido e il contratto azimutale ha ricevuto la revisione congiunta. N7
 non è un prerequisito: produce una release finale distinta, che riferisce
 per hash l'handoff N3 già consumato da S4–S6.
 
-La proposta da approvare è una directory identificata da un
+L'interfaccia condivisa approvata è una directory identificata da un
 `acceptance_release_id` univoco e immutabile:
 
 ```text
@@ -235,7 +237,7 @@ Gate 0 o una diversa decisione sul `phi` produce un nuovo
 rivalidare e registrare esplicitamente quale release consuma. Non esistono file
 "preliminari" e "finali" con lo stesso path e contenuto mutabile.
 
-### Tabella comune e contratto azimutale aperto
+### Tabella comune e risposta azimutale approvata
 
 Il CSV v1 deve portare le chiavi concordate nel roadmap:
 `analysis_version`, `channel`, `target`, `beam_group`, `Egamma_low`,
@@ -245,9 +247,9 @@ Il CSV v1 deve portare le chiavi concordate nel roadmap:
 `validity_mask`, `input_sha256` e `config_sha256`.
 
 `acceptance_v1.csv` resta la tabella delle chiavi comuni e dell'accettanza
-integrata in `phi`; da sola non è un input sufficiente per S4. La proposta
-raccomandata, ancora non approvata, aggiunge
-`acceptance_phi_response_v1.csv` come risposta sparsa true→reconstructed.
+integrata in `phi`; da sola non è un input sufficiente per S4. L'interfaccia
+richiede `acceptance_phi_response_v1.csv` come risposta sparsa
+true→reconstructed.
 Ogni riga riusa le chiavi comuni e un identificatore univoco della relativa
 riga di `acceptance_v1.csv`, quindi dichiara:
 
@@ -263,13 +265,6 @@ riga di `acceptance_v1.csv`, quindi dichiara:
 - commit produttore e hash di Gate 0, MC, ricostruzione N2, configurazione e
   tabella comune.
 
-L'alternativa sottoposta a revisione è estendere `acceptance_v1.csv` almeno
-con `phi_low` e `phi_high`; deve comunque specificare gli stessi aspetti e
-dimostrare se una risposta diagonale descrive adeguatamente le migrazioni.
-Finché Persona 1 e Persona 2 non approvano una delle due forme, il contratto
-`phi` è un release blocker: non si pubblica l'handoff N3 e non si dichiara lo
-schema v1 pronto per il fit `Σ`.
-
 `acceptance_qa.json` registra schema e `acceptance_release_id`, commit
 produttore, SHA-256 di entrambi i CSV, collegamento e hash di Gate 0, controlli
 dei conteggi, closure e decisione `valid`. I tre file devono essere
@@ -278,11 +273,13 @@ del QA; non richiedere al QA di contenere l'hash dei propri byte. La forma
 precisa delle referenze/hash degli input deve essere approvata insieme allo
 schema, senza dichiarare qui approvato un JSON v1.
 
-Persona 2 verifica gli hash, il QA, il contratto azimutale approvato e la
-presenza di copertura valida per ogni bin necessario al fit. Un bin mascherato
-rimane escluso. N7 può incorporare o riferire l'handoff soltanto con i suoi
-hash originali; qualsiasi sostituzione richiede una nuova release di
-accettanza e la rivalidazione degli output dipendenti.
+Persona 2 verifica gli hash, il QA, il contratto azimutale e la presenza di
+copertura valida per ogni bin necessario al fit. Costruisce i conteggi
+azimutali direttamente dalla ricostruzione dati N2 metadata-bearing collegata
+per hash al QA e applica la risposta N3; non consuma le yield N4. Un bin
+mascherato rimane escluso. N7 può incorporare o riferire l'handoff soltanto
+con i suoi hash originali; qualsiasi sostituzione richiede una nuova release
+di accettanza e la rivalidazione degli output dipendenti.
 
 La pubblicazione futura di `results/physics/` richiede anche una modifica
 revisionata delle allowlist Git e dell'inventario: oggi questa directory è

@@ -63,14 +63,14 @@ docs/physics/normalization.md
 - **Input:** `HANDOFF.json` valido, canale fisico `γ p → p η π⁰` con chiave
   serializzata autorevole `eta_pi0`, bordi Ajaka e
   configurazione `normalization_v1.json` proposta.
-- **Output:** proposta di schema CSV v1 con chiavi `analysis_version`, `channel`,
+- **Output:** schema CSV v1 con chiavi `analysis_version`, `channel`,
   `target`, `beam_group`, `Egamma_low`, `Egamma_high`, `cos_theta_low`,
   `cos_theta_high`, `observable`, `selection_id`; denominatori
   `n_generated`, `n_thrown_in_bin`, `n_reconstructed_selected`; campi
   `acceptance`, `acceptance_stat_uncertainty`, `validity_mask` e hash degli
-  input/configurazione; contratto separato della risposta in `phi` oppure
-  estensione con bin `phi`, da approvare insieme a Persona 2.
-- **Validation proposta — interface to implement dopo review congiunta:**
+  input/configurazione e artefatto separato della risposta in `phi`, secondo
+  l'interfaccia condivisa approvata con Persona 2.
+- **Validation — interface to implement:**
 
   ```text
   python 07_physics_normalization/validate_acceptance_schema.py \
@@ -80,9 +80,9 @@ docs/physics/normalization.md
 
 - **Rejection:** rifiutare chiavi non univoche, denominatori negativi,
   selezioni senza identificatore, bin incompatibili con il handoff, una
-  configurazione senza hash o uno schema integrato in `phi` proposto come
-  sufficiente per S4. Il contratto azimutale resta un release blocker fino
-  all'approvazione di entrambi gli owner.
+  configurazione senza hash, uno schema integrato in `phi` proposto come
+  sufficiente per S4 o l'assenza dell'artefatto separato di risposta
+  azimutale approvato.
 
 ### N2 — rigenerare ricostruzione con metadati
 
@@ -124,7 +124,8 @@ docs/physics/normalization.md
 - **Input:** dati ricostruiti N2, `run_manifest_observables.csv`, qualità fit e
   schema di bin N1.
 - **Output:** yield selezionati per chiave, run-list e hash del manifest;
-  separazione esplicita di segnale, fondo e incertezza statistica.
+  separazione esplicita di segnale, fondo e incertezza statistica. Questo
+  prodotto serve alle sezioni d'urto N5–N7 e non alimenta il fit S4.
 - **Validation — interface to implement:**
 
   ```text
@@ -247,11 +248,13 @@ docs/physics/polarization.md
 
 ### S4 — fit `cos(2phi)` consapevole dell'accettanza
 
-- **Input:** `phi` S3, stati S1, `P(Egamma)` S2, handoff immutabile N3 di
-  Person 1 con risposta azimutale approvata e yield per bin.
-- **Output:** modello di likelihood/fit con pesi o risposta di accettanza,
+- **Input:** ricostruzione dati N2 metadata-bearing con `RunNumber`,
+  `Polarization` e `Xstrip`, `phi` S3, stati S1, `P(Egamma)` S2 e handoff
+  immutabile N3 con risposta azimutale approvata. N4 non è un input.
+- **Output:** conteggi azimutali costruiti da Persona 2 direttamente dalla
+  ricostruzione N2, modello di likelihood/fit con risposta di accettanza N3,
   parametri `Σ`, diagnostica per bin e specifica delle correlazioni.
-- **Validation proposta — interface to implement dopo review congiunta:**
+- **Validation — interface to implement:**
 
   ```text
   python 08_polarization/fit_sigma.py \
@@ -259,8 +262,9 @@ docs/physics/polarization.md
     --config config/physics/polarization_v1.json
   ```
 
-- **Rejection:** rifiutare fit senza accettanza valida e hash verificati,
-  input soltanto integrato in `phi`, bin con copertura angolare insufficiente,
+- **Rejection:** rifiutare fit senza reco N2 metadata-bearing o senza
+  accettanza N3 valida e hash verificati, input soltanto integrato in `phi`,
+  conteggi importati dalle yield N4, bin con copertura angolare insufficiente,
   mancata convergenza o QA dei residui fallito.
 
 ### S5 — closure a asimmetria iniettata e convenzione di segno
@@ -315,8 +319,8 @@ docs/physics/polarization.md
 ### Handoff Person 1 → Person 2
 
 L'handoff viene pubblicato dopo N1+N2+N3 e QA valido: abilita S4 senza
-attendere N7. La proposta raccomandata, soggetta all'approvazione di entrambi
-gli owner, usa una directory versionata e immutabile:
+attendere N7. L'interfaccia condivisa approvata usa una directory versionata
+e immutabile:
 
 ```text
 results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv
@@ -324,6 +328,7 @@ results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_re
 results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json
 ```
 
+I tre file sono obbligatori e costituiscono una pubblicazione atomica.
 `acceptance_v1.csv` usa le chiavi e i denominatori N1, più accettanza,
 incertezza statistica, `validity_mask`, `input_sha256` e `config_sha256`.
 La chiave `channel` serializza `eta_pi0`; il nome fisico leggibile resta
@@ -332,25 +337,17 @@ risposta true→reconstructed con bordi in radianti, periodicità `[0, π)`,
 orientamento S3, selezione, pesi, migrazioni, incertezze, maschere e
 provenienza. `acceptance_qa.json` registra schema, release ID, commit, SHA-256
 di entrambi i CSV, bundle Gate 0, controlli di conteggio, closure e decisione
-`valid`; `ARTIFACTS.json` inventaria tutti e tre i file.
+`valid`; `ARTIFACTS.json` inventaria tutti e tre i file. Il QA collega inoltre
+per hash la ricostruzione N2 metadata-bearing da cui Persona 2 costruisce i
+conteggi azimutali.
 
-Un'accettanza integrata in `phi` non basta per S4. L'alternativa è estendere
-la tabella comune con `phi_low` e `phi_high`, conservando tutte le convenzioni
-e dimostrando il trattamento delle migrazioni. La scelta resta un release
-blocker finché entrambi gli owner non l'approvano. Dopo la pubblicazione, i
-file non vengono sovrascritti: ogni correzione o nuovo input crea un nuovo
+Un'accettanza integrata in `phi` non basta per S4: l'artefatto separato di
+risposta è parte obbligatoria dell'interfaccia. Dopo la pubblicazione, i file
+non vengono sovrascritti: ogni correzione o nuovo input crea un nuovo
 `acceptance_release_id`; N7 riferisce per hash l'handoff usato e non lo
-sostituisce. Person 2 rifiuta il handoff se un hash non coincide o i bin del
-fit non hanno copertura valida.
-
-I due path non versionati del contratto storico restano documentati soltanto
-come identificatori incompatibili da rifiutare; non sono alias, puntatori o
-destinazioni di pubblicazione:
-
-```text
-results/physics/normalization/acceptance_v1.csv
-results/physics/normalization/acceptance_qa.json
-```
+sostituisce. Persona 2 costruisce i conteggi azimutali dalla reco N2, non dalle
+yield N4, e rifiuta il handoff se un hash non coincide o i bin del fit non
+hanno copertura valida.
 
 ### Handoff Person 2 → P0/P1/P2
 

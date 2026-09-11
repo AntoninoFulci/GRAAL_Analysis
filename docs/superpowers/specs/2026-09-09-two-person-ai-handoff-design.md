@@ -230,7 +230,8 @@ Responsibilities:
 1. obtain authoritative `Polarization` and `POL1/POL2` state mapping;
 2. obtain Compton polarization `P(Eγ)` and uncertainty;
 3. define and test periodic reaction/decay-plane angle φ;
-4. implement acceptance-aware `cos(2φ)` fit;
+4. build azimuthal counts directly from metadata-bearing reconstructed data
+   and implement the `cos(2φ)` fit with the N3 acceptance response;
 5. run injected-asymmetry closure and sign-convention checks;
 6. produce Σ tables, covariance, QA, and systematic components.
 
@@ -244,12 +245,19 @@ bin definitions require joint review.
    inventory, valid six-file observable bundle.
 2. **Parallel contract work:** Person 1 freezes normalization/acceptance schema;
    Person 2 freezes polarization-state, φ, and fit schema.
-3. **Parallel implementation:** Person 1 builds acceptance/yields; Person 2
-   builds angles and injected-Σ closure using synthetic/MC inputs.
-4. **Handoff 1→2:** versioned acceptance table with explicit bin keys,
-   denominators, uncertainties, validity mask, commit, and input hashes.
-5. **Independent results:** Person 1 produces cross-section closure; Person 2
-   produces Σ and covariance.
+3. **Parallel implementation:** Person 1 produces metadata-bearing N2
+   reconstruction, N3 acceptance, and the separate N4 cross-section yields;
+   Person 2 builds angles and injected-Σ closure using synthetic/MC inputs.
+4. **Handoff 1→2:** the approved, immutable directory keyed by
+   `acceptance_release_id` publishes
+   `results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv`,
+   `acceptance_phi_response_v1.csv`, and `acceptance_qa.json` atomically in
+   that directory. The QA hash-links the Gate 0 bundle and metadata-bearing
+   N2 reconstruction.
+5. **Independent results:** Person 2 builds azimuthal counts directly from N2
+   reconstructed data and applies the N3 response in S4; N4 yields remain
+   exclusive inputs to Person 1 cross sections. Person 1 produces
+   cross-section closure while Person 2 produces Σ and covariance.
 6. **Joint release gate:** P0 benchmark requires normalization, acceptance,
    polarization mapping, fit validation, backgrounds, and systematic closures.
 

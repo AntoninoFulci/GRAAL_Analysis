@@ -87,13 +87,19 @@ def test_testing_docs_name_top_level_pyroot_plot_module():
 def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
     """Catch an added owner or a missing artifact handoff in the physics plan."""
     text = read("docs/collaboration/two-person-physics-roadmap.md")
+    lines = set(text.splitlines())
     assert len(re.findall(r"^## Primary ownership: ", text, re.MULTILINE)) == 2
     assert {
-        "results/physics/normalization/acceptance_v1.csv",
-        "results/physics/normalization/acceptance_qa.json",
+        "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv",
+        "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv",
+        "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json",
         "results/physics/polarization/sigma_v1.csv",
         "results/physics/polarization/sigma_covariance.npz",
         "results/physics/polarization/polarization_qa.json",
-    } <= set(text.splitlines())
+    } <= lines
+    assert {
+        "results/physics/normalization/acceptance_v1.csv",
+        "results/physics/normalization/acceptance_qa.json",
+    }.isdisjoint(lines)
     assert "D2/neutron work is deferred" in text
     assert "eta-prime work is deferred" in text
