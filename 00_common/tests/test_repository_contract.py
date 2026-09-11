@@ -87,19 +87,40 @@ def test_testing_docs_name_top_level_pyroot_plot_module():
 def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
     """Catch an added owner or a missing artifact handoff in the physics plan."""
     text = read("docs/collaboration/two-person-physics-roadmap.md")
-    lines = set(text.splitlines())
     assert len(re.findall(r"^## Primary ownership: ", text, re.MULTILINE)) == 2
-    assert {
+    expected_acceptance = {
         "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv",
         "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv",
         "results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json",
+    }
+    expected_polarization = {
         "results/physics/polarization/sigma_v1.csv",
         "results/physics/polarization/sigma_covariance.npz",
         "results/physics/polarization/polarization_qa.json",
-    } <= lines
-    assert {
+    }
+    handoff_section = text.split("### Handoff Person 1 → Person 2", 1)[1]
+    handoff_block = re.search(r"```text\n(.*?)\n```", handoff_section, re.DOTALL)
+    assert handoff_block is not None
+    assert set(handoff_block.group(1).splitlines()) == expected_acceptance
+    assert expected_polarization <= set(text.splitlines())
+
+    plan = read("docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md")
+    plan_block = re.search(
+        r"handoff (?:filenames|paths):\n\n```text\n(.*?)\n```", plan, re.DOTALL
+    )
+    assert plan_block is not None
+    plan_acceptance = {
+        line
+        for line in plan_block.group(1).splitlines()
+        if line.startswith("results/physics/normalization/")
+    }
+    assert plan_acceptance == expected_acceptance
+
+    deprecated_acceptance = {
         "results/physics/normalization/acceptance_v1.csv",
         "results/physics/normalization/acceptance_qa.json",
-    }.isdisjoint(lines)
+    }
+    assert all(path not in text for path in deprecated_acceptance)
+    assert all(path not in plan for path in deprecated_acceptance)
     assert "D2/neutron work is deferred" in text
     assert "eta-prime work is deferred" in text

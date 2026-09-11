@@ -251,9 +251,11 @@ bin definitions require joint review.
 4. **Handoff 1→2:** the approved, immutable directory keyed by
    `acceptance_release_id` publishes
    `results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv`,
-   `acceptance_phi_response_v1.csv`, and `acceptance_qa.json` atomically in
-   that directory. The QA hash-links the Gate 0 bundle and metadata-bearing
-   N2 reconstruction.
+   `results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv`,
+   and
+   `results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json`
+   atomically. The QA hash-links the Gate 0 bundle and metadata-bearing N2
+   reconstruction.
 5. **Independent results:** Person 2 builds azimuthal counts directly from N2
    reconstructed data and applies the N3 response in S4; N4 yields remain
    exclusive inputs to Person 1 cross sections. Person 1 produces

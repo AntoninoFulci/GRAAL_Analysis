@@ -332,8 +332,8 @@ I tre file sono obbligatori e costituiscono una pubblicazione atomica.
 `acceptance_v1.csv` usa le chiavi e i denominatori N1, più accettanza,
 incertezza statistica, `validity_mask`, `input_sha256` e `config_sha256`.
 La chiave `channel` serializza `eta_pi0`; il nome fisico leggibile resta
-`γ p → p η π⁰`. `acceptance_phi_response_v1.csv` è la proposta di
-risposta true→reconstructed con bordi in radianti, periodicità `[0, π)`,
+`γ p → p η π⁰`. `acceptance_phi_response_v1.csv` è la risposta
+true→reconstructed approvata, con bordi in radianti, periodicità `[0, π)`,
 orientamento S3, selezione, pesi, migrazioni, incertezze, maschere e
 provenienza. `acceptance_qa.json` registra schema, release ID, commit, SHA-256
 di entrambi i CSV, bundle Gate 0, controlli di conteggio, closure e decisione
