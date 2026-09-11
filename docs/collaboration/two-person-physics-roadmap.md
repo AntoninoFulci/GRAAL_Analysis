@@ -60,15 +60,17 @@ docs/physics/normalization.md
 
 ### N1 — congelare Gate 0 e schema di accettanza
 
-- **Input:** `HANDOFF.json` valido, definizione canale `pηπ0`, bordi Ajaka e
+- **Input:** `HANDOFF.json` valido, canale fisico `γ p → p η π⁰` con chiave
+  serializzata autorevole `eta_pi0`, bordi Ajaka e
   configurazione `normalization_v1.json` proposta.
-- **Output:** schema CSV v1 con chiavi `analysis_version`, `channel`,
+- **Output:** proposta di schema CSV v1 con chiavi `analysis_version`, `channel`,
   `target`, `beam_group`, `Egamma_low`, `Egamma_high`, `cos_theta_low`,
   `cos_theta_high`, `observable`, `selection_id`; denominatori
   `n_generated`, `n_thrown_in_bin`, `n_reconstructed_selected`; campi
   `acceptance`, `acceptance_stat_uncertainty`, `validity_mask` e hash degli
-  input/configurazione.
-- **Validation — interface to implement:**
+  input/configurazione; contratto separato della risposta in `phi` oppure
+  estensione con bin `phi`, da approvare insieme a Persona 2.
+- **Validation proposta — interface to implement dopo review congiunta:**
 
   ```text
   python 07_physics_normalization/validate_acceptance_schema.py \
@@ -77,8 +79,10 @@ docs/physics/normalization.md
   ```
 
 - **Rejection:** rifiutare chiavi non univoche, denominatori negativi,
-  selezioni senza identificatore, bin incompatibili con il handoff, o una
-  configurazione senza hash.
+  selezioni senza identificatore, bin incompatibili con il handoff, una
+  configurazione senza hash o uno schema integrato in `phi` proposto come
+  sufficiente per S4. Il contratto azimutale resta un release blocker fino
+  all'approvazione di entrambi gli owner.
 
 ### N2 — rigenerare ricostruzione con metadati
 
@@ -103,7 +107,8 @@ docs/physics/normalization.md
   selezione identica ai dati e schema N1.
 - **Output:** conteggi generated/thrown/reconstructed per chiave, efficienza
   e incertezza statistica; maschera per bin a denominatore nullo o qualità
-  insufficiente.
+  insufficiente; handoff di accettanza immutabile e hash-linked, inclusa la
+  risposta azimutale approvata, disponibile a Persona 2 dopo QA valido.
 - **Validation — interface to implement:**
 
   ```text
@@ -167,8 +172,9 @@ docs/physics/normalization.md
 
 - **Input:** output N3–N6, correlazioni dei fattori N5, commit e hash di ogni
   input.
-- **Output:** componenti statistiche/sistematiche e matrice di covarianza;
-  release di accettanza con QA e inventario.
+- **Output:** componenti statistiche/sistematiche, matrice di covarianza e
+  release finale di normalizzazione che riferisce per hash l'handoff N3 senza
+  mutarlo o sostituirlo.
 - **Validation — interface to implement:**
 
   ```text
@@ -241,20 +247,21 @@ docs/physics/polarization.md
 
 ### S4 — fit `cos(2phi)` consapevole dell'accettanza
 
-- **Input:** `phi` S3, stati S1, `P(Egamma)` S2, accettanza v1 di Person 1 e
-  yield per bin.
+- **Input:** `phi` S3, stati S1, `P(Egamma)` S2, handoff immutabile N3 di
+  Person 1 con risposta azimutale approvata e yield per bin.
 - **Output:** modello di likelihood/fit con pesi o risposta di accettanza,
   parametri `Σ`, diagnostica per bin e specifica delle correlazioni.
-- **Validation — interface to implement:**
+- **Validation proposta — interface to implement dopo review congiunta:**
 
   ```text
   python 08_polarization/fit_sigma.py \
-    --acceptance results/physics/normalization/acceptance_v1.csv \
+    --acceptance-handoff results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json \
     --config config/physics/polarization_v1.json
   ```
 
-- **Rejection:** rifiutare fit senza accettanza valida, bin con copertura
-  angolare insufficiente, mancata convergenza o QA dei residui fallito.
+- **Rejection:** rifiutare fit senza accettanza valida e hash verificati,
+  input soltanto integrato in `phi`, bin con copertura angolare insufficiente,
+  mancata convergenza o QA dei residui fallito.
 
 ### S5 — closure a asimmetria iniettata e convenzione di segno
 
@@ -307,19 +314,34 @@ docs/physics/polarization.md
 
 ### Handoff Person 1 → Person 2
 
-I due filename sono l'interfaccia condivisa v1; devono essere pubblicati
-insieme, con gli hash nel rispettivo QA e in `ARTIFACTS.json`:
+L'handoff viene pubblicato dopo N1+N2+N3 e QA valido: abilita S4 senza
+attendere N7. La proposta raccomandata, soggetta all'approvazione di entrambi
+gli owner, usa una directory versionata e immutabile:
 
 ```text
-results/physics/normalization/acceptance_v1.csv
-results/physics/normalization/acceptance_qa.json
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json
 ```
 
 `acceptance_v1.csv` usa le chiavi e i denominatori N1, più accettanza,
 incertezza statistica, `validity_mask`, `input_sha256` e `config_sha256`.
-`acceptance_qa.json` registra schema, commit, SHA-256 dell'intero CSV, bundle
-Gate 0, controlli di conteggio, closure e decisione `valid`. Person 2 rifiuta
-il handoff se i bin fit non hanno una riga valida o un hash non coincide.
+La chiave `channel` serializza `eta_pi0`; il nome fisico leggibile resta
+`γ p → p η π⁰`. `acceptance_phi_response_v1.csv` è la proposta di
+risposta true→reconstructed con bordi in radianti, periodicità `[0, π)`,
+orientamento S3, selezione, pesi, migrazioni, incertezze, maschere e
+provenienza. `acceptance_qa.json` registra schema, release ID, commit, SHA-256
+di entrambi i CSV, bundle Gate 0, controlli di conteggio, closure e decisione
+`valid`; `ARTIFACTS.json` inventaria tutti e tre i file.
+
+Un'accettanza integrata in `phi` non basta per S4. L'alternativa è estendere
+la tabella comune con `phi_low` e `phi_high`, conservando tutte le convenzioni
+e dimostrando il trattamento delle migrazioni. La scelta resta un release
+blocker finché entrambi gli owner non l'approvano. Dopo la pubblicazione, i
+file non vengono sovrascritti: ogni correzione o nuovo input crea un nuovo
+`acceptance_release_id`; N7 riferisce per hash l'handoff usato e non lo
+sostituisce. Person 2 rifiuta il handoff se un hash non coincide o i bin del
+fit non hanno copertura valida.
 
 ### Handoff Person 2 → P0/P1/P2
 

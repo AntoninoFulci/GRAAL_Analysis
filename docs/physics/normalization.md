@@ -127,11 +127,11 @@ dalla presenza delle colonne nel roadmap:
 
 | Decisione da congelare | Evidenza richiesta |
 | --- | --- |
-| Identità di analisi e selezione | `analysis_version`, canale del registry `eta_pi0`, target, `selection_id`, modello BDT, soglia, tagli e configurazione del fit con hash. |
+| Identità di analisi e selezione | `analysis_version`, nome fisico leggibile `γ p → p η π⁰`, chiave serializzata del registry `eta_pi0`, target, `selection_id`, modello BDT, soglia, tagli e configurazione del fit con hash. `pηπ0` non è una chiave serializzata alternativa. |
 | Gruppi sperimentali | Mapping esplicito fra `target`, `beam_type`, `group` dei CSV attuali e `beam_group` dello schema futuro; mantenere separati UV/VIS fino a una combinazione validata. |
 | Binning comune | Nome, bordi, unità, convenzione degli estremi; variabile angolare, sistema di riferimento, assi e range d'integrazione dichiarati. |
 | Denominatori MC | Significato distinto di `n_generated`, `n_thrown_in_bin`, `n_reconstructed_selected`; pesi, fase generata, migrazioni e metodo d'incertezza. |
-| Accettanza utile a `Σ` | Verifica con Persona 2 che risposta e copertura descrivano il fit in `phi`; una tabella integrata in `phi` non ne dimostra la sufficienza. Ogni estensione dello schema richiede revisione congiunta. |
+| Accettanza utile a `Σ` | Scelta congiunta del contratto azimutale descritto sotto. Una tabella integrata in `phi` non è sufficiente per S4 e lo schema v1 non può essere dichiarato pronto per il fit `Σ` finché entrambi gli owner non approvano risposta, bin e convenzioni. |
 | QA e closure | Soglie preregistrate per popolazione dei bin, fit/fondo, closure MC e confronto Ajaka; regole per maschere e sistematiche. |
 
 I bin energetici già disponibili sono `ajaka_cross_section` (15 bin
@@ -144,19 +144,22 @@ reinventare i bordi. I bin angolari di N1 restano da concordare.
 
 ## Sequenza di lavoro N1–N7
 
-Gate 0 precede il lavoro fisico. Dopo N2, N3 e N4 producono accettanza e
-yield compatibili; N5–N7 chiudono la misura. La tabella descrive attività
-future, non risultati conseguiti.
+Gate 0 precede il lavoro fisico. N1 congela il contratto condiviso, N2 produce
+la ricostruzione valida e N3 produce l'accettanza. Dopo QA N3 valido, la
+consegna immutabile dell'accettanza abilita S4 senza attendere N7. Da quel
+punto N4–N7 e S4–S6 possono avanzare in parallelo; N7 chiude la release finale
+di normalizzazione e sistematiche. La tabella descrive attività future, non
+risultati conseguiti.
 
 | Fase | Ingressi e lavoro della Persona 1 | Evidenza da consegnare e condizione di rifiuto |
 | --- | --- | --- |
-| **N1 — schema** | Gate 0 valido, canale, bin e proposta `normalization_v1.json`; congelare chiavi, denominatori e hash. | Schema e configurazione revisionati; rifiutare duplicati, denominatori negativi, selezioni senza ID, bin incompatibili e hash assenti. |
+| **N1 — schema** | Gate 0 valido, canale, bin e proposta `normalization_v1.json`; congelare chiavi, denominatori, contratto azimutale e hash. | Schema e configurazione approvati da entrambi gli owner; rifiutare duplicati, denominatori negativi, selezioni senza ID, bin incompatibili, hash assenti o contratto `phi` ancora aperto. |
 | **N2 — ricostruzione** | Dati LH2 e MC appropriati, modello fissato, configurazione e Gate 0; produrre nuovi output in un percorso dedicato. | Provenienza e controllo di `RunNumber`, `Polarization`, `Xstrip`; rifiutare legacy, metadati mancanti o run non-good nella misura. La rappresentazione dei metadati MC richiede una convenzione esplicita. |
-| **N3 — accettanza** | Generato, eventi thrown nel bin e ricostruito N2 con la stessa selezione dei dati; dichiarare pesi e risposta. | Conteggi, accettanza, incertezza, maschere e closure MC; rifiutare valori fuori `[0,1]`, conteggi incoerenti, denominatore nullo non mascherato o closure fallita. |
+| **N3 — accettanza** | Generato, eventi thrown nel bin e ricostruito N2 con la stessa selezione dei dati; dichiarare pesi, migrazioni e risposta. | Conteggi, accettanza, risposta azimutale concordata, incertezze, maschere e closure MC; con QA valido pubblicare l'handoff immutabile per S4. Rifiutare valori fuori `[0,1]`, conteggi incoerenti, denominatore nullo non mascherato, hash mancanti o closure fallita. |
 | **N4 — yield** | Dati N2, run-list good-only, bin N1 e metodo di estrazione con QA del fondo. | Segnale, fondo e incertezza statistica per chiave, run-list e hash; rifiutare review/bad, provenienza mancante o fit/sideband QA invalido. |
 | **N5 — fattori** | Yield, accettanza, flusso coerente, quantità di bersaglio e branching ratio con fonti. | Fattori/luminosità, unità, incertezze e correlazioni; rifiutare valori non finiti, sorgenti mancanti, assunzioni non approvate o flussi estranei al Gate 0. |
 | **N6 — sezioni d'urto** | N3–N5 e bin `ajaka_cross_section`; produrre totali/differenziali e confronto al riferimento. | Tabella dei risultati, residuali e compatibilità Ajaka; rifiutare bin errati, normalizzazione non riproducibile o scarti oltre soglia senza spiegazione sistematica approvata. |
-| **N7 — release** | N3–N6, variazioni sistematiche, correlazioni e provenienza completa. | Componenti d'incertezza, covarianza e release d'accettanza con QA; rifiutare sorgenti/hash mancanti o covarianza non simmetrica/semidefinita positiva entro tolleranza dichiarata. |
+| **N7 — release finale** | N3–N6, variazioni sistematiche, correlazioni e provenienza completa. | Release finale di normalizzazione, componenti d'incertezza e covarianza, con riferimento per hash all'handoff N3 consumato da Persona 2; rifiutare sorgenti/hash mancanti o covarianza non simmetrica/semidefinita positiva entro tolleranza dichiarata. N7 non muta né sostituisce l'handoff N3. |
 
 Il modello di perdita fotoni del training è documentato come
 [approssimazione non calibrata](../../wiki/03-mc-simulation.md#il-modello-di-perdita-fotoni).
@@ -209,12 +212,30 @@ python 07_physics_normalization/validate_normalization_release.py \
 
 ## Consegna dell'accettanza alla Persona 2
 
-Pubblicare insieme, soltanto dopo i controlli N1/N3/N7:
+### Ordine, versione e immutabilità
+
+La prima consegna a Persona 2 avviene dopo N1, N2 e N3, soltanto quando il QA
+N3 è valido e il contratto azimutale ha ricevuto la revisione congiunta. N7
+non è un prerequisito: produce una release finale distinta, che riferisce
+per hash l'handoff N3 già consumato da S4–S6.
+
+La proposta da approvare è una directory identificata da un
+`acceptance_release_id` univoco e immutabile:
 
 ```text
-results/physics/normalization/acceptance_v1.csv
-results/physics/normalization/acceptance_qa.json
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json
 ```
+
+I tre file sono una sola pubblicazione atomica. Dopo la consegna non vengono
+sovrascritti. Una correzione, una nuova selezione, un nuovo modello, un diverso
+Gate 0 o una diversa decisione sul `phi` produce un nuovo
+`acceptance_release_id`, una nuova directory e nuovi hash; Persona 2 deve
+rivalidare e registrare esplicitamente quale release consuma. Non esistono file
+"preliminari" e "finali" con lo stesso path e contenuto mutabile.
+
+### Tabella comune e contratto azimutale aperto
 
 Il CSV v1 deve portare le chiavi concordate nel roadmap:
 `analysis_version`, `channel`, `target`, `beam_group`, `Egamma_low`,
@@ -223,18 +244,45 @@ Il CSV v1 deve portare le chiavi concordate nel roadmap:
 `n_reconstructed_selected`, `acceptance`, `acceptance_stat_uncertainty`,
 `validity_mask`, `input_sha256` e `config_sha256`.
 
-Il QA registra schema, commit produttore, SHA-256 dell'intero CSV,
-collegamento al Gate 0, controlli dei conteggi, closure e decisione `valid`.
-I due file devono essere inventariati con hash in `ARTIFACTS.json`.
-L'inventario registra anche l'hash del QA; non richiedere al QA di contenere
-l'hash dei propri byte. La forma precisa delle referenze/hash degli input
-deve essere approvata insieme allo schema, senza inventare qui un JSON v1.
+`acceptance_v1.csv` resta la tabella delle chiavi comuni e dell'accettanza
+integrata in `phi`; da sola non è un input sufficiente per S4. La proposta
+raccomandata, ancora non approvata, aggiunge
+`acceptance_phi_response_v1.csv` come risposta sparsa true→reconstructed.
+Ogni riga riusa le chiavi comuni e un identificatore univoco della relativa
+riga di `acceptance_v1.csv`, quindi dichiara:
 
-Persona 2 verifica gli hash, il QA e la presenza di una riga valida per ogni
-bin necessario al fit, incluse le decisioni sulla risposta in `phi`.
-Un bin mascherato rimane escluso; una nuova selezione, un nuovo modello o
-un diverso Gate 0 richiedono nuova provenienza e rivalidazione degli output
-che ne dipendono.
+- bordi `phi_true_low`, `phi_true_high`, `phi_reco_low`, `phi_reco_high` in
+  radianti, intervalli chiusi a sinistra e aperti a destra e periodicità
+  `[0, π)`;
+- sistema di riferimento, assi, verso/orientamento e trattamento dei piani
+  degeneri, identici alla definizione S3 approvata;
+- `selection_id`, modello, soglia, tagli e hash della configurazione;
+- denominatori true, conteggi ricostruiti, convenzione dei pesi, migrazioni,
+  risposta, incertezza statistica e relativa procedura;
+- maschera di validità con motivazione per celle o bin nulli/insufficienti;
+- commit produttore e hash di Gate 0, MC, ricostruzione N2, configurazione e
+  tabella comune.
+
+L'alternativa sottoposta a revisione è estendere `acceptance_v1.csv` almeno
+con `phi_low` e `phi_high`; deve comunque specificare gli stessi aspetti e
+dimostrare se una risposta diagonale descrive adeguatamente le migrazioni.
+Finché Persona 1 e Persona 2 non approvano una delle due forme, il contratto
+`phi` è un release blocker: non si pubblica l'handoff N3 e non si dichiara lo
+schema v1 pronto per il fit `Σ`.
+
+`acceptance_qa.json` registra schema e `acceptance_release_id`, commit
+produttore, SHA-256 di entrambi i CSV, collegamento e hash di Gate 0, controlli
+dei conteggi, closure e decisione `valid`. I tre file devono essere
+inventariati con hash in `ARTIFACTS.json`. L'inventario registra anche l'hash
+del QA; non richiedere al QA di contenere l'hash dei propri byte. La forma
+precisa delle referenze/hash degli input deve essere approvata insieme allo
+schema, senza dichiarare qui approvato un JSON v1.
+
+Persona 2 verifica gli hash, il QA, il contratto azimutale approvato e la
+presenza di copertura valida per ogni bin necessario al fit. Un bin mascherato
+rimane escluso. N7 può incorporare o riferire l'handoff soltanto con i suoi
+hash originali; qualsiasi sostituzione richiede una nuova release di
+accettanza e la rivalidazione degli output dipendenti.
 
 La pubblicazione futura di `results/physics/` richiede anche una modifica
 revisionata delle allowlist Git e dell'inventario: oggi questa directory è
