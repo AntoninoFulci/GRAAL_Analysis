@@ -1085,13 +1085,13 @@
     "semantic_hash": "7c7de4341909bfe32dcb44a2b2e6f17c"
   },
   "00_common/tests/test_repository_contract.py": {
-    "mtime": 1789045397.6546469,
-    "ast_hash": "7a0ad4599bcbf7a40480a2c64dc9354d",
+    "mtime": 1789135799.454064,
+    "ast_hash": "c223bd5adca0d5fc63015532c84b74a5",
     "semantic_hash": ""
   },
   "ARTIFACTS.json": {
-    "mtime": 1789117821.7678704,
-    "ast_hash": "815c8d7c7814a65f24f4825251281c50",
+    "mtime": 1789117985.0058627,
+    "ast_hash": "2039382c64ab7931f7fa6848b8cc9236",
     "semantic_hash": ""
   },
   "results/observable_runs/observable_run_qa.json": {
@@ -1125,9 +1125,9 @@
     "semantic_hash": "a6a00402b03607dcfb4c7eef6d8cc8ef"
   },
   "docs/collaboration/two-person-physics-roadmap.md": {
-    "mtime": 1789117960.3800585,
-    "ast_hash": "efc82681bde3348622ecf0c80c929704",
-    "semantic_hash": "efc82681bde3348622ecf0c80c929704"
+    "mtime": 1789135877.772527,
+    "ast_hash": "0f3e99d6cdb4591444681b2c8c92c641",
+    "semantic_hash": "0f3e99d6cdb4591444681b2c8c92c641"
   },
   "docs/superpowers/plans/2026-09-08-observable-run-database.md": {
     "mtime": 1789045397.9039242,
@@ -1145,9 +1145,9 @@
     "semantic_hash": "3813d103ed0425fcdc6bd703c315cc8e"
   },
   "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md": {
-    "mtime": 1789045397.9049358,
-    "ast_hash": "e8545a7adcefc9405d3105bca725bec9",
-    "semantic_hash": "e8545a7adcefc9405d3105bca725bec9"
+    "mtime": 1789135903.1123438,
+    "ast_hash": "d9747a1b7415915d13c4b50d9f09a34b",
+    "semantic_hash": "d9747a1b7415915d13c4b50d9f09a34b"
   },
   "requirements-dev.txt": {
     "mtime": 1789045397.912051,
@@ -1250,9 +1250,9 @@
     "semantic_hash": "45deadda88d2c630a1acd77ce2ad487b"
   },
   "docs/physics/normalization.md": {
-    "mtime": 1789117568.9875793,
-    "ast_hash": "4349cb24ae251d05d7ee5ae31e424aa0",
-    "semantic_hash": "4349cb24ae251d05d7ee5ae31e424aa0"
+    "mtime": 1789135877.87367,
+    "ast_hash": "e144df61955b43655fc371617deec691",
+    "semantic_hash": "e144df61955b43655fc371617deec691"
   },
   "requirements-graphify.txt": {
     "mtime": 1789045397.9121442,

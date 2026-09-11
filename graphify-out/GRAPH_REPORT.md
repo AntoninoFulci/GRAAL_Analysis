@@ -1,16 +1,16 @@
 # Graph Report - .  (2026-09-11)
 
 ## Corpus Check
-- Large corpus: 252 files · ~4,205,724 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 252 files · ~4,205,782 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 2357 nodes · 3681 edges · 286 communities (102 shown, 184 thin omitted)
+- 2359 nodes · 3688 edges · 291 communities (103 shown, 188 thin omitted)
 - Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 587 edges (avg confidence: 0.76)
 - Semantic extraction: host-agent; token usage is not exposed by this host.
 
 ## Refresh Scope
 
-- Documentation source commit: `59829bb668c40f3d25b2150bb61964e29f0c6f09`.
+- Documentation source commit: `0798e3d4efe8d2709f8e206d327974c74ddd5f5c`.
 - Structural refresh: `make graph-update` with project-local `graphifyy==0.9.7`.
 - Host-agent semantic refresh: changed normalization guide and two-person roadmap.
 - Previously published hyperedges are union-preserved; graph knowledge does not certify physics QA.
@@ -184,7 +184,7 @@
 - [[_COMMUNITY_ChannelYield|ChannelYield]]
 - [[_COMMUNITY_Accepted Observable Bundle|Accepted Observable Bundle]]
 - [[_COMMUNITY_two-person-physics-roadmap|two-person-physics-roadmap.md]]
-- [[_COMMUNITY_Scaletta articoli pubblicabili|Scaletta articoli pubblicabili]]
+- [[_COMMUNITY_Canali di fisica investigabili con i dati GRAAL|Canali di fisica investigabili con i dati GRAAL]]
 - [[_COMMUNITY_Two-Person Project Rule|Two-Person Project Rule]]
 - [[_COMMUNITY_sigma_at|sigma_at]]
 - [[_COMMUNITY_Strip-energy flux manutenzione e correzioni|Strip-energy flux: manutenzione e correzioni]]
@@ -200,7 +200,7 @@
 - [[_COMMUNITY_MCChannel|MCChannel]]
 - [[_COMMUNITY_Gate 0 Is Not Yet Frozen|Gate 0 Is Not Yet Frozen]]
 - [[_COMMUNITY_Joint Interface Review|Joint Interface Review]]
-- [[_COMMUNITY_Published artifact policy|Published artifact policy]]
+- [[_COMMUNITY_Scaletta articoli pubblicabili|Scaletta articoli pubblicabili]]
 - [[_COMMUNITY_Legacy Reconstruction Normalization Ban|Legacy Reconstruction Normalization Ban]]
 - [[_COMMUNITY_Ricostruzione chi2|Ricostruzione chi2]]
 - [[_COMMUNITY_Global Constraints|Global Constraints]]
@@ -222,7 +222,12 @@
 - [[_COMMUNITY_BDT versus Chi2 Pairing Benchmark|BDT versus Chi2 Pairing Benchmark]]
 - [[_COMMUNITY_Sourced Physical Normalization Inputs|Sourced Physical Normalization Inputs]]
 - [[_COMMUNITY_Authoritative Run Manifest|Authoritative Run Manifest]]
+- [[_COMMUNITY_channel_yield|channel_yield]]
+- [[_COMMUNITY_Published artifact policy|Published artifact policy]]
+- [[_COMMUNITY_TestWeightScale|TestWeightScale]]
 - [[_COMMUNITY_test_packaging.py|test_packaging.py]]
+- [[_COMMUNITY_TestFeatureNames|TestFeatureNames]]
+- [[_COMMUNITY_Feature stage-1|Feature stage-1]]
 - [[_COMMUNITY_Sigma Release Handoff|Sigma Release Handoff]]
 - [[_COMMUNITY_build_observable_run_database CLI|build_observable_run_database CLI]]
 - [[_COMMUNITY_Run Quality Policy|Run Quality Policy]]
@@ -333,7 +338,7 @@
 - **Kinfit Validation Diagnostics** — results_plots_kinfit_validation_fit_chi2_ndf_6, results_plots_kinfit_validation_pull_eta_gamma1_e, results_plots_kinfit_validation_eta_mass_distribution [INFERRED 0.85]
 - **Two-Person P0 Release Contract** — docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff, docs_collaboration_two_person_physics_roadmap_person_1_normalization_cross_sections, docs_collaboration_two_person_physics_roadmap_person_2_polarization_sigma, docs_collaboration_two_person_physics_roadmap_acceptance_handoff, docs_collaboration_two_person_physics_roadmap_sigma_release_handoff, docs_collaboration_two_person_physics_roadmap_p0_release_gate [EXTRACTED 1.00]
 
-## Communities (286 total, 184 thin omitted)
+## Communities (291 total, 188 thin omitted)
 
 ### Community 0 - "PreAnalysis Scalars"
 Cohesion: 0.01
@@ -348,8 +353,8 @@ Cohesion: 0.14
 Nodes (25): build_strip_energy_lookup(), build_strip_energy_lookup_on_disk(), EnergySample, find_monotonic_inversions(), Build strip-energy lookups and energy-binned flux products., Store one run, strip, and measured beam-energy sample., Store robust energy statistics for one run and strip., Return a lookup and run-count QA metadata from the disk builder. (+17 more)
 
 ### Community 3 - "compute_stage1_features"
-Cohesion: 0.21
-Nodes (10): compute_stage1_features(), Compute the 26 stage-1 features — vectorised, no Python loops over events., _make_beam(), _make_photons(), _make_proton(), 4 photons that reconstruct exactly eta+pi0 → best_chi2 ≈ 0., The two features built on the chi2-best pairing (cols 24, 25)., Toy photon array (N, M, 4) = [px, py, pz, E] with E > |p|. (+2 more)
+Cohesion: 0.20
+Nodes (11): compute_stage1_features(), Compute the 26 stage-1 features — vectorised, no Python loops over events., _make_beam(), _make_photons(), _make_proton(), Tests for build_background_features module., 4 photons that reconstruct exactly eta+pi0 → best_chi2 ≈ 0., The two features built on the chi2-best pairing (cols 24, 25). (+3 more)
 
 ### Community 4 - "Strip Flux CLI Tests"
 Cohesion: 0.08
@@ -560,20 +565,16 @@ Cohesion: 0.08
 Nodes (26): Aggregazione, Asimmetria di fascio Ajaka, Binning energetico, Controlli sul lookup, Costruzione del lookup, Dati pre-analizzati, Design: lookup strip→Eγ e integrazione dei flussi, Errori fatali (+18 more)
 
 ### Community 175 - "write_lookup_csv"
-Cohesion: 0.11
-Nodes (22): atomic_output_directory(), GroupFluxBinRecord, Path, Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records. (+14 more)
+Cohesion: 0.16
+Nodes (16): GroupFluxBinRecord, Path, Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records., Write JSON QA data with stable indentation and a trailing newline. (+8 more)
 
 ### Community 176 - "Person 1 Normalization Operations"
 Cohesion: 0.06
-Nodes (40): Cambiamenti di interfaccia e gate finale, Esplicitamente differito, Gate 0 — bundle osservabili congelato, Gate 0 Observable Handoff, Handoff condivisi e release P0, Handoff Person 1 → Person 2, Handoff Person 2 → P0/P1/P2, N1 — congelare Gate 0 e schema di accettanza (+32 more)
+Nodes (42): Cambiamenti di interfaccia e gate finale, Esplicitamente differito, Gate 0 — bundle osservabili congelato, Gate 0 Observable Handoff, Handoff condivisi e release P0, Handoff Person 1 → Person 2, Handoff Person 2 → P0/P1/P2, N1 — congelare Gate 0 e schema di accettanza (+34 more)
 
 ### Community 177 - "build_channel_features"
 Cohesion: 0.12
 Nodes (19): build_channel_features(), ChannelSample, _extract_E_theta(), feature_names(), _load_4vec(), load_photons(), main(), ndarray (+11 more)
-
-### Community 178 - "_Sidebar.md"
-Cohesion: 0.22
-Nodes (4): `feature_names(hypothesis)`, nell'ordine, Feature stage-1, Fisica & pubblicazioni, GRAAL Analysis
 
 ### Community 179 - "ChannelYield"
 Cohesion: 0.30
@@ -583,9 +584,9 @@ Nodes (8): ChannelYield, compute_shares(), What one channel is worth in the mixt
 Cohesion: 0.29
 Nodes (4): Clone e ambiente, GRAAL Analysis, La catena, Uso
 
-### Community 182 - "Scaletta articoli pubblicabili"
-Cohesion: 0.10
-Nodes (18): Approfondimento — canale η' (correzione), Canali di fisica investigabili con i dati GRAAL, Canali, in ordine di leva, Osservabili raccomandati, Riferimenti, Sintesi operativa, Stato del codice (fit cinematico integrato in `main`), Vincoli dell'apparato (+10 more)
+### Community 182 - "Canali di fisica investigabili con i dati GRAAL"
+Cohesion: 0.20
+Nodes (8): Approfondimento — canale η' (correzione), Canali di fisica investigabili con i dati GRAAL, Canali, in ordine di leva, Osservabili raccomandati, Riferimenti, Sintesi operativa, Stato del codice (fit cinematico integrato in `main`), Vincoli dell'apparato
 
 ### Community 184 - "sigma_at"
 Cohesion: 0.13
@@ -612,8 +613,8 @@ Cohesion: 0.15
 Nodes (13): Artefatti prodotti, Binning e aggregazione, Cosa manca, Current Status, Database run per osservabili: accettazione produzione, Dove approfondire, Dove stiamo andando, Flussi disponibili (+5 more)
 
 ### Community 192 - "test_build_background_features.py"
-Cohesion: 0.13
-Nodes (7): channel_yield(), Integrate one channel's flux, cross-section and acceptance.      beam_E and w_be, Tests for build_background_features module., The training weights must be usable, not just correct in ratio.      Regression:, TestChannelYield, TestFeatureNames, TestWeightScale
+Cohesion: 0.33
+Nodes (6): atomic_output_directory(), Yield a staging directory and publish it atomically on success., test_atomic_output_does_not_replace_destination_on_failure(), test_atomic_output_ignores_post_publish_backup_cleanup_failure(), test_atomic_output_keeps_preexisting_backup_collision(), test_atomic_output_restores_destination_if_staging_replace_fails()
 
 ### Community 193 - "P0 Release Gate"
 Cohesion: 0.67
@@ -627,9 +628,9 @@ Nodes (11): Execution Completion Gate, File Map, Global Constraints, Implementat
 Cohesion: 0.20
 Nodes (8): MCChannel, Beam energy at which this reaction first becomes possible., One generated reaction, as it exists on disk.      photon_branches:         The, Evaluate a channel cross-section at beam energies E [GeV]., sigma_at(), _channel(), Tests for the phase-space model behind sigma(E).  Phi_n is defined only up to an, TestSigmaAt
 
-### Community 198 - "Published artifact policy"
-Cohesion: 0.33
-Nodes (5): Authority and intended use, Graphify portability, Published artifact policy, Rejection conditions, Verify and rebuild
+### Community 198 - "Scaletta articoli pubblicabili"
+Cohesion: 0.20
+Nodes (10): Blocchi abilitanti (da risolvere una volta, servono a più paper), Esecuzione a due persone, P0 — Paper metodologico / benchmark *(fondamento, da fare per primo)*, P1 — Σ della struttura Mpη ~1700 (a0/triangle singularity) *(fisica di punta)*, P2 — Mappa Σ+σ completa di γp→pηπ0 e la Δ(1700) *(consolidamento)*, P3 — Isospin: γn→nηπ0 quasi-free, σn/σp e Σn *(estensione al neutrone)*, P4 — η' Σ sul neutrone *(stretch, condizionato)*, P5 — η singolo, Σ regione S11(1535) *(opzionale, normalizzazione/aηN)* (+2 more)
 
 ### Community 200 - "Ricostruzione chi2"
 Cohesion: 0.22
@@ -687,10 +688,18 @@ Nodes (4): Come funziona, Dopo il gate: il fit cinematico, Gate BDT, Perché a b
 Cohesion: 0.67
 Nodes (3): GRAAL Analysis, Le varie fasi, NEXT
 
+### Community 220 - "channel_yield"
+Cohesion: 0.36
+Nodes (3): channel_yield(), Integrate one channel's flux, cross-section and acceptance.      beam_E and w_be, TestChannelYield
+
+### Community 221 - "Published artifact policy"
+Cohesion: 0.33
+Nodes (5): Authority and intended use, Graphify portability, Published artifact policy, Rejection conditions, Verify and rebuild
+
 ## Knowledge Gaps
-- **716 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+711 more)
+- **715 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+710 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **184 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **188 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -700,7 +709,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `Hypothesis` connect `Hypothesis` to `compute_stage1_features`, `FitCovariance`, `Channel Registry Tests`, `Pairing`, `pair_masses`, `fit_event`, `build_channel_features`, `Stage One Gate`, `ChannelYield`?**
   _High betweenness centrality (0.082) - this node is a cross-community bridge._
 - **Why does `FitCovariance` connect `FitCovariance` to `Pairing`, `Reconstruction ROOT IO`, `fit_event`, `Kinematics Vector Utilities`, `Hypothesis`, `Kinematic Fit Tests`?**
-  _High betweenness centrality (0.050) - this node is a cross-community bridge._
+  _High betweenness centrality (0.049) - this node is a cross-community bridge._
 - **Are the 31 inferred relationships involving `ObservableRunError` (e.g. with `RunRecord` and `FluxBinRecord`) actually correct?**
   _`ObservableRunError` has 31 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 31 inferred relationships involving `StripEnergyFluxError` (e.g. with `RunRecord` and `test_flux_reader_rejects_duplicate_root_key_cycles()`) actually correct?**
