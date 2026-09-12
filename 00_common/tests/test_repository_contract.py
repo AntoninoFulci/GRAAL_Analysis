@@ -63,6 +63,14 @@ def test_graphify_disambiguates_repeated_document_headings():
     assert actual == expected
     assert len(set(actual.values())) == len(actual)
 
+    community_labels = json.loads(read("graphify-out/.graphify_labels.json"))
+    duplicates = {
+        label
+        for label in community_labels.values()
+        if list(community_labels.values()).count(label) > 1
+    }
+    assert not duplicates, f"duplicate published Graphify community labels: {duplicates}"
+
 
 def test_makefile_exposes_required_targets():
     makefile = read("Makefile")
