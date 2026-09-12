@@ -515,11 +515,12 @@ git commit -m "docs(agents): add maintenance contract"
 - [ ] **Step 1: Extend contract tests**
 
 Assert roadmap contains exactly two primary ownership headings and exact shared
-handoff filenames:
+handoff paths:
 
 ```text
-results/physics/normalization/acceptance_v1.csv
-results/physics/normalization/acceptance_qa.json
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_phi_response_v1.csv
+results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json
 results/physics/polarization/sigma_v1.csv
 results/physics/polarization/sigma_covariance.npz
 results/physics/polarization/polarization_qa.json
@@ -557,17 +558,21 @@ docs/physics/polarization.md
 ```
 
 Plan authoritative polarization mapping, `P(Egamma)` inputs, periodic phi
-definition, acceptance-aware `cos(2phi)` fit, injected-asymmetry closure,
-sign convention, Sigma outputs, covariance, systematic components, and
-P1/P2 binning. Every milestone must name inputs, outputs, validation command,
-and rejection condition.
+definition, and the acceptance-aware `cos(2phi)` fit. S4 builds azimuthal
+counts directly from metadata-bearing N2 reconstruction and applies the N3
+response; it must not consume the separate N4 cross-section yields. Include
+injected-asymmetry closure, sign convention, Sigma outputs, covariance,
+systematic components, and P1/P2 binning. Every milestone must name inputs,
+outputs, validation command, and rejection condition.
 
 - [ ] **Step 4: Define shared handoff gates**
 
 Document:
 
 - Gate 0 observable bundle `HANDOFF.json` content and hash checks;
-- Person 1 acceptance table keys, denominators, uncertainty, masks, and hashes;
+- Person 1 immutable `acceptance_release_id` directory with the common table,
+  separate phi-response table, QA, N2 provenance, masks, uncertainties, and
+  hashes;
 - Person 2 Sigma table/covariance schema and fit QA;
 - shared-interface changes requiring both reviewers;
 - final P0 release gate;
