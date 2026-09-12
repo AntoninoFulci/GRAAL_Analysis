@@ -11,6 +11,7 @@ from typing import Mapping
 
 import numpy as np
 
+from acceptance_handoff import validate_acceptance_handoff
 from compton import load_period_curves
 from contracts import (
     COMMIT_PATTERN,
@@ -406,7 +407,8 @@ def _validate_inputs(
 ) -> tuple[str, str, str, dict[str, object]]:
     inputs = qa.get("inputs")
     required = {
-        "config", "gate0_handoff", "acceptance_csv", "acceptance_qa",
+        "config", "gate0_handoff", "acceptance_csv",
+        "acceptance_phi_response_csv", "acceptance_qa",
         "reconstruction_inventory", "state_mapping_sources", "compton_sources",
     }
     if not isinstance(inputs, Mapping) or set(inputs) != required:
@@ -422,34 +424,35 @@ def _validate_inputs(
     validate_gate0_handoff(gate0_path, repository_root)
     acceptance_csv, acceptance_csv_digest = _validate_file_record(
         inputs["acceptance_csv"], repository_root, "acceptance_csv",
-        canonical_path="results/physics/normalization/acceptance_v1.csv",
+    )
+    acceptance_response, acceptance_response_digest = _validate_file_record(
+        inputs["acceptance_phi_response_csv"], repository_root,
+        "acceptance_phi_response_csv",
     )
     acceptance_qa_path, acceptance_qa_digest = _validate_file_record(
         inputs["acceptance_qa"], repository_root, "acceptance_qa",
-        canonical_path="results/physics/normalization/acceptance_qa.json",
     )
     reconstruction_path, reconstruction_digest = _validate_file_record(
         inputs["reconstruction_inventory"], repository_root,
         "reconstruction_inventory",
     )
-    acceptance_qa = load_json(acceptance_qa_path)
+    handoff = validate_acceptance_handoff(
+        acceptance_qa_path.parent,
+        repository_root,
+        expected_gate0_sha256=gate0_digest,
+    )
     if (
-        acceptance_qa.get("schema_version") != 1
-        or acceptance_qa.get("valid") is not True
-        or acceptance_qa.get("acceptance_csv_sha256") != acceptance_csv_digest
-        or acceptance_qa.get("gate0_handoff_sha256") != gate0_digest
+        acceptance_csv != handoff.acceptance_csv
+        or acceptance_response != handoff.phi_response_csv
+        or acceptance_qa_path != handoff.qa_json
+        or acceptance_csv_digest != handoff.acceptance_sha256
+        or acceptance_response_digest != handoff.phi_response_sha256
+        or acceptance_qa_digest != handoff.qa_sha256
     ):
-        raise PolarizationContractError("acceptance QA is invalid or cross-hashes disagree")
-    commit = acceptance_qa.get("producer_commit")
-    if not isinstance(commit, str) or COMMIT_PATTERN.fullmatch(commit) is None:
-        raise PolarizationContractError("acceptance QA requires producer Git hash")
-    if (
-        not isinstance(acceptance_qa.get("count_checks"), Mapping)
-        or acceptance_qa["count_checks"].get("valid") is not True
-        or not isinstance(acceptance_qa.get("closure"), Mapping)
-        or acceptance_qa["closure"].get("valid") is not True
-    ):
-        raise PolarizationContractError("acceptance count checks or closure are invalid")
+        raise PolarizationContractError(
+            "acceptance input records disagree with immutable handoff"
+        )
+    acceptance_qa = handoff.qa
     acceptance_input_digest, acceptance_config_digest = _validate_acceptance_csv(
         acceptance_csv, required_acceptance_keys
     )
@@ -463,6 +466,7 @@ def _validate_inputs(
     digest_records = [
         ("gate0_handoff", gate0_digest),
         ("acceptance_csv", acceptance_csv_digest),
+        ("acceptance_phi_response_csv", acceptance_response_digest),
         ("acceptance_qa", acceptance_qa_digest),
         ("reconstruction_inventory", reconstruction_digest),
     ]
@@ -476,6 +480,20 @@ def _validate_inputs(
             )
             digest_records.append((collection_name, digest))
     config = load_json(config_path)
+    acceptance_config = config.get("acceptance")
+    expected_acceptance_directory = handoff.directory.relative_to(
+        Path(repository_root).resolve()
+    ).as_posix()
+    if (
+        not isinstance(acceptance_config, Mapping)
+        or acceptance_config.get("status") != "approved"
+        or acceptance_config.get("release_id") != handoff.release_id
+        or acceptance_config.get("handoff_directory")
+        != expected_acceptance_directory
+    ):
+        raise PolarizationContractError(
+            "acceptance handoff disagrees with approved canonical config"
+        )
     load_state_mapping(config_path, repository_root)
     load_period_curves(config_path, repository_root)
     layout = load_figure4_config(config_path)

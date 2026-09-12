@@ -6,13 +6,21 @@
     "results/observable_runs/HANDOFF.json is not published",
     "signed experimental Polarization state mapping is not published",
     "authoritative period-by-period Compton polarization input is not published",
-    "Person 1 acceptance_v1.csv and acceptance_qa.json are not published",
+    "Person 1 immutable acceptance triplet is not published",
     "metadata-bearing complete-run reconstruction inventory is not published"
   ],
   "gate0_handoff": "results/observable_runs/HANDOFF.json",
   "acceptance": {
-    "csv_path": "results/physics/normalization/acceptance_v1.csv",
-    "qa_path": "results/physics/normalization/acceptance_qa.json"
+    "status": "blocked",
+    "handoff_parent": "results/physics/normalization/handoffs",
+    "release_id": null,
+    "handoff_directory": null,
+    "required_files": [
+      "acceptance_v1.csv",
+      "acceptance_phi_response_v1.csv",
+      "acceptance_qa.json"
+    ],
+    "phi_response_schema_status": "pending_joint_approval"
   },
   "state_mapping": {
     "status": "blocked",

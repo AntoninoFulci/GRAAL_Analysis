@@ -87,7 +87,8 @@ def source_record(path, repo):
 def combined_input_sha256(inputs):
     payload = []
     for name in (
-        "gate0_handoff", "acceptance_csv", "acceptance_qa",
+        "gate0_handoff", "acceptance_csv", "acceptance_phi_response_csv",
+        "acceptance_qa",
         "reconstruction_inventory",
     ):
         payload.append([name, inputs[name]["sha256"]])
@@ -113,7 +114,10 @@ def write_valid_release(path):
         "systematic_combination_policy": "independent_sources_quadrature",
     }
     gate0 = write_gate0(repo)
-    acceptance_dir = repo / "results/physics/normalization"
+    acceptance_dir = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1"
+    )
     acceptance_dir.mkdir(parents=True)
     acceptance_csv = acceptance_dir / "acceptance_v1.csv"
     acceptance_csv.write_text(
@@ -126,15 +130,23 @@ def write_valid_release(path):
         + "polarization-v1,eta_pi0,P,P_UV,1.1,1.2,-1.0,1.0,p_eta,selection-v1,"
         + f"10000,0,0,,,invalid,{'1' * 64},{'2' * 64}\n"
     )
+    acceptance_response = acceptance_dir / "acceptance_phi_response_v1.csv"
+    acceptance_response.write_text(
+        "channel,true_phi_low,true_phi_high,reco_phi_low,reco_phi_high,response\n"
+        "eta_pi0,0.0,0.5,0.0,0.5,0.9\n"
+    )
     acceptance_qa = acceptance_dir / "acceptance_qa.json"
     acceptance_qa.write_text(
         json.dumps(
             {
                 "schema_version": 1,
+                "acceptance_release_id": acceptance_dir.name,
                 "producer_commit": "b" * 40,
                 "valid": True,
                 "acceptance_csv_sha256": sha(acceptance_csv),
+                "acceptance_phi_response_csv_sha256": sha(acceptance_response),
                 "gate0_handoff_sha256": sha(gate0),
+                "n2_reconstruction_sha256": "3" * 64,
                 "input_sha256": "1" * 64,
                 "config_sha256": "2" * 64,
                 "count_checks": {"valid": True},
@@ -155,6 +167,11 @@ def write_valid_release(path):
             {
                 "schema_version": 1,
                 "analysis_version": "polarization-v1",
+                "acceptance": {
+                    "status": "approved",
+                    "release_id": acceptance_dir.name,
+                    "handoff_directory": str(acceptance_dir.relative_to(repo)),
+                },
                 "state_mapping": {
                     "status": "ready",
                     "source": source_record(state_source, repo),
@@ -218,6 +235,7 @@ def write_valid_release(path):
         "config": file_record(config, repo),
         "gate0_handoff": file_record(gate0, repo),
         "acceptance_csv": file_record(acceptance_csv, repo),
+        "acceptance_phi_response_csv": file_record(acceptance_response, repo),
         "acceptance_qa": file_record(acceptance_qa, repo),
         "reconstruction_inventory": file_record(reconstruction, repo),
         "state_mapping_sources": [file_record(state_source, repo)],
@@ -499,6 +517,17 @@ def test_release_rejects_qa_policy_not_approved_in_canonical_config(tmp_path):
         validate_sigma_release(release, repo_of(release))
 
 
+def test_release_rejects_acceptance_not_approved_in_canonical_config(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(status="blocked"),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="acceptance.*canonical config"):
+        validate_sigma_release(release, repo_of(release))
+
+
 def test_release_applies_approved_numeric_qa_thresholds(tmp_path):
     release = write_valid_release(tmp_path / "release")
     rewrite_config_binding(
@@ -514,7 +543,10 @@ def test_release_applies_approved_numeric_qa_thresholds(tmp_path):
 
 def test_release_rejects_missing_acceptance_for_sigma_bin(tmp_path):
     release = write_valid_release(tmp_path / "release")
-    acceptance_csv = repo_of(release) / "results/physics/normalization/acceptance_v1.csv"
+    acceptance_csv = (
+        repo_of(release)
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_v1.csv"
+    )
     lines = acceptance_csv.read_text().splitlines()
     acceptance_csv.write_text("\n".join(lines[:1]) + "\n")
     acceptance_qa_path = acceptance_csv.with_name("acceptance_qa.json")
@@ -543,7 +575,10 @@ def test_release_rejects_missing_acceptance_for_sigma_bin(tmp_path):
 def test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa(tmp_path):
     release = write_valid_release(tmp_path / "release")
     repo = repo_of(release)
-    acceptance_csv = repo / "results/physics/normalization/acceptance_v1.csv"
+    acceptance_csv = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_v1.csv"
+    )
     rows = list(csv.reader(acceptance_csv.open()))
     input_index = rows[0].index("input_sha256")
     for row in rows[1:]:

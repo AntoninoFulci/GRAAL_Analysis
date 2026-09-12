@@ -75,7 +75,19 @@ variation remains a diagnostic assumption and belongs in final systematic
 validation.
 
 Common-acceptance cancellation is a diagnostic comparison assumption. It does
-not replace Person 1 acceptance handoff or S6 systematic/release validation.
+not replace Person 1's immutable N3 acceptance handoff or S6
+systematic/release validation.
+
+Person 2 accepts N3 only from
+`results/physics/normalization/handoffs/<acceptance_release_id>/`. Publication
+is atomic and contains exactly `acceptance_v1.csv`,
+`acceptance_phi_response_v1.csv`, and `acceptance_qa.json`. Release validation
+rejects legacy root-level destinations, incomplete or extra files, symlinks,
+release-ID mismatch, invalid QA, Gate 0 mismatch, missing N2 linkage, or any
+CSV hash mismatch. Canonical polarization config must explicitly approve same
+release ID and directory. Concrete response columns and forward-folding CLI
+remain blocked pending joint schema approval; scalar/common-acceptance
+diagnostics cannot satisfy this release gate.
 
 ## Comparison grid
 
@@ -138,7 +150,8 @@ Physics release consists of exactly:
 - `sigma_covariance.npz`: exact arrays `covariance`, `bin_keys`,
   `stat_covariance`, `systematic_covariance`, and scalar `schema_version`;
 - `polarization_qa.json`: cross-hashes, producer commit, config/Gate 0/
-  acceptance hashes, actual input file records, fit QA, closure/sign QA,
+  acceptance-table, phi-response and QA hashes, actual input file records,
+  fit QA, closure/sign QA,
 systematic sources, and approved numeric QA policy. Policy must equal canonical
 hash-validated config; current supported systematic combination is explicitly
 `independent_sources_quadrature`.
@@ -182,7 +195,9 @@ recovered Sigma plus CSV/PNG/QA. No experimental or published values enter.
 - authoritative period Compton curves/covariance missing;
 - approved orientation-sign convention missing;
 - metadata-bearing proton reconstruction missing;
-- Person 1 acceptance handoff missing for final S6 release.
+- Person 1 immutable acceptance table/phi-response/QA handoff missing for final
+  S6 release;
+- concrete phi-response schema and forward-folding CLI pending joint approval;
 - shared P0 validator/output artifact still needs joint implementation and
   two-reviewer approval before S7 mappings can pass.
 
