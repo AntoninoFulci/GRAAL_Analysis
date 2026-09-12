@@ -11,6 +11,11 @@ Per stato corrente, formati e dettagli della pipeline consultare la
 📖 **[wiki del progetto](wiki/Current-Status.md)**, pubblicata anche nella
 **[GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)**.
 
+Per proseguire il lavoro a due persone consultare la
+[roadmap e i gate condivisi](docs/collaboration/two-person-physics-roadmap.md).
+La Persona 1 trova preparazione, sequenza N1–N7 e consegna dell'accettanza
+nella [guida operativa alla normalizzazione](docs/physics/normalization.md).
+
 ## Clone e ambiente
 
 ```bash

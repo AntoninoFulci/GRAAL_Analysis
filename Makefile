@@ -1,5 +1,6 @@
 PYTHON ?= python
 GRAPHIFY ?= $(PYTHON) -m graphify
+export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH))
 
 .PHONY: help setup syntax test-root-free test validate-manifest observable-runs graph-update graph-query artifact-inventory verify
 
