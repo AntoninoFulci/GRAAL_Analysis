@@ -250,7 +250,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "hypothesis",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_channels_hypothesis"
     },
     {
@@ -261,7 +261,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": ".is_degenerate()",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_channels_hypothesis_is_degenerate"
     },
     {
@@ -360,7 +360,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "two mesons the four observed photons are tested against.      `heavy` is the mor",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_channels_rationale_38"
     },
     {
@@ -371,7 +371,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "true when both mesons are the same particle.",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_channels_rationale_55"
     },
     {
@@ -1196,7 +1196,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "pairing",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_pairing_pairing"
     },
     {
@@ -1317,7 +1317,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "one hypothesis about which photons made which meson.",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "00_common_pairing_rationale_24"
     },
     {
@@ -16541,7 +16541,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "kinematic_fit.py",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit"
     },
     {
@@ -16574,7 +16574,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "ndarray",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_py_ndarray"
     },
     {
@@ -16585,7 +16585,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "resolutionmodel",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_resolutionmodel"
     },
     {
@@ -16596,7 +16596,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "protocol",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "protocol"
     },
     {
@@ -16607,7 +16607,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": ".covariance_diag()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_resolutionmodel_covariance_diag"
     },
     {
@@ -16618,7 +16618,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "fitoptions",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "05_reconstruction_kinematic_fit_fitoptions"
     },
     {
@@ -16629,7 +16629,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "fitresult",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "05_reconstruction_kinematic_fit_fitresult"
     },
     {
@@ -16651,7 +16651,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_vectors_to_params()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_vectors_to_params"
     },
     {
@@ -16662,7 +16662,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_params_to_vectors()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_params_to_vectors"
     },
     {
@@ -16673,7 +16673,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_canonicalize_angles()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_canonicalize_angles"
     },
     {
@@ -16684,7 +16684,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_covariance_diag()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_covariance_diag"
     },
     {
@@ -16695,7 +16695,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_constraints()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_constraints"
     },
     {
@@ -16706,7 +16706,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_jacobian()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_jacobian"
     },
     {
@@ -16717,7 +16717,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "fit_event()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_kinematic_fit_fit_event"
     },
     {
@@ -16728,7 +16728,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "6c kinematic fit for gamma p -> p eta pi0.  the reconstruction measures four pho",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_1"
     },
     {
@@ -16761,7 +16761,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "measurement-resolution boundary for future calibrated models.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_67"
     },
     {
@@ -16772,7 +16772,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "return 16 variances in fitter parameter order.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_70"
     },
     {
@@ -16794,7 +16794,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "normalize spherical coordinates in place without changing 4-vectors.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_134"
     },
     {
@@ -16805,7 +16805,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "diagonal of v, in the same order as the params, evaluated at measured p.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_145"
     },
     {
@@ -16816,7 +16816,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "d f / d p, 6 x 16, by central differences.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Core",
       "id": "05_reconstruction_kinematic_fit_rationale_164"
     },
     {
@@ -16827,7 +16827,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "fit one event onto 4-momentum conservation and the two pair masses.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_kinematic_fit_rationale_181"
     },
     {
@@ -17025,7 +17025,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "reco_physics.py",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics"
     },
     {
@@ -17036,7 +17036,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "channel",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_channel"
     },
     {
@@ -17047,7 +17047,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": ".heavy_label()",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_channel_heavy_label"
     },
     {
@@ -17058,7 +17058,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": ".light_label()",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_channel_light_label"
     },
     {
@@ -17069,7 +17069,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "invariant_mass()",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_invariant_mass"
     },
     {
@@ -17091,7 +17091,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "passes_missing_mass()",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_passes_missing_mass"
     },
     {
@@ -17102,7 +17102,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "channel definitions for the two-meson reconstruction.  the chi2 itself lives in",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_rationale_1"
     },
     {
@@ -17113,7 +17113,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "a two-meson final state the reconstruction can write out.",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_rationale_54"
     },
     {
@@ -17124,7 +17124,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "invariant mass of a single [px, py, pz, e] four-vector.",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_rationale_73"
     },
     {
@@ -17146,7 +17146,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "whether an event's eta-pi0 missing mass is close enough to the partner.      tru",
-      "community_name": "Hypothesis",
+      "community_name": "Reconstruction Physics Channel",
       "id": "05_reconstruction_reco_physics_rationale_105"
     },
     {
@@ -17245,7 +17245,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": ".__init__()",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "05_reconstruction_stage1_gate_stage1gate_init"
     },
     {
@@ -17366,7 +17366,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "test_kinematic_fit.py",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit"
     },
     {
@@ -17377,7 +17377,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_photon()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_photon"
     },
     {
@@ -17388,7 +17388,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_conserving_event()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_conserving_event"
     },
     {
@@ -17487,7 +17487,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "testfitevent",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent"
     },
     {
@@ -17498,7 +17498,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_nonpositive_photon_energy_is_rejected()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_nonpositive_photon_energy_is_rejected"
     },
     {
@@ -17509,7 +17509,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_max_iteration_failure_has_structured_reason()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_max_iteration_failure_has_structured_reason"
     },
     {
@@ -17520,7 +17520,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_fit_does_not_use_explicit_inverse()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_fit_does_not_use_explicit_inverse"
     },
     {
@@ -17531,7 +17531,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_singular_constraint_matrix_has_structured_reason()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_singular_constraint_matrix_has_structured_reason"
     },
     {
@@ -17542,7 +17542,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_a_conserving_on_mass_event_barely_moves()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_a_conserving_on_mass_event_barely_moves"
     },
     {
@@ -17553,7 +17553,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_the_fitted_event_satisfies_the_constraints()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_the_fitted_event_satisfies_the_constraints"
     },
     {
@@ -17564,7 +17564,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_fitted_cov_is_no_larger_than_the_measured_variance()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_fitted_cov_is_no_larger_than_the_measured_variance"
     },
     {
@@ -17575,7 +17575,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_non_convergence_is_flagged_not_crashed()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_non_convergence_is_flagged_not_crashed"
     },
     {
@@ -17586,7 +17586,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "testchi2calibration",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testchi2calibration"
     },
     {
@@ -17597,7 +17597,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": ".test_doubling_every_sigma_quarters_chi2_but_not_the_fitted_vectors()",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_testchi2calibration_test_doubling_every_sigma_quarters_chi2_but_not_the_fitted_vectors"
     },
     {
@@ -17608,7 +17608,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "tests for the 6c kinematic fit.  the fit adjusts measured photons/proton/beam wi",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_1"
     },
     {
@@ -17619,7 +17619,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "a gamma p -> p eta pi0 event that conserves and is on-mass, built forwards.",
-      "community_name": "fit_event",
+      "community_name": "Kinematic Fit Event Tests",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_38"
     },
     {
@@ -17630,7 +17630,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      constraint",
-      "community_name": "Hypothesis",
+      "community_name": "Common Meson Hypothesis and Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_229"
     },
     {
@@ -25806,10 +25806,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "two-person-physics-roadmap.md"
+      "norm_label": "two-person-physics-roadmap.md",
+      "id": "docs_collaboration_two_person_physics_roadmap"
     },
     {
       "label": "Roadmap fisica a due persone",
@@ -25817,10 +25817,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "roadmap fisica a due persone"
+      "norm_label": "roadmap fisica a due persone",
+      "id": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone"
     },
     {
       "label": "Scopo e confine",
@@ -25828,10 +25828,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L3",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_scopo_e_confine",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "scopo e confine"
+      "norm_label": "scopo e confine",
+      "id": "docs_collaboration_two_person_physics_roadmap_scopo_e_confine"
     },
     {
       "label": "Gate 0 \u2014 bundle osservabili congelato",
@@ -25839,10 +25839,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L16",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_gate_0_bundle_osservabili_congelato",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "gate 0 \u2014 bundle osservabili congelato"
+      "norm_label": "gate 0 \u2014 bundle osservabili congelato",
+      "id": "docs_collaboration_two_person_physics_roadmap_gate_0_bundle_osservabili_congelato"
     },
     {
       "label": "Primary ownership: Person 1 \u2014 normalizzazione e sezioni d'urto",
@@ -25850,10 +25850,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L44",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "primary ownership: person 1 \u2014 normalizzazione e sezioni d'urto"
+      "norm_label": "primary ownership: person 1 \u2014 normalizzazione e sezioni d'urto",
+      "id": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto"
     },
     {
       "label": "N1 \u2014 congelare Gate 0 e schema di accettanza",
@@ -25861,10 +25861,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L61",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n1_congelare_gate_0_e_schema_di_accettanza",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n1 \u2014 congelare gate 0 e schema di accettanza"
+      "norm_label": "n1 \u2014 congelare gate 0 e schema di accettanza",
+      "id": "docs_collaboration_two_person_physics_roadmap_n1_congelare_gate_0_e_schema_di_accettanza"
     },
     {
       "label": "N2 \u2014 rigenerare ricostruzione con metadati",
@@ -25872,10 +25872,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L87",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n2_rigenerare_ricostruzione_con_metadati",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n2 \u2014 rigenerare ricostruzione con metadati"
+      "norm_label": "n2 \u2014 rigenerare ricostruzione con metadati",
+      "id": "docs_collaboration_two_person_physics_roadmap_n2_rigenerare_ricostruzione_con_metadati"
     },
     {
       "label": "N3 \u2014 efficienza MC e accettanza",
@@ -25883,10 +25883,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L104",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n3_efficienza_mc_e_accettanza",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n3 \u2014 efficienza mc e accettanza"
+      "norm_label": "n3 \u2014 efficienza mc e accettanza",
+      "id": "docs_collaboration_two_person_physics_roadmap_n3_efficienza_mc_e_accettanza"
     },
     {
       "label": "N4 \u2014 yield good-only",
@@ -25894,10 +25894,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L122",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n4_yield_good_only",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n4 \u2014 yield good-only"
+      "norm_label": "n4 \u2014 yield good-only",
+      "id": "docs_collaboration_two_person_physics_roadmap_n4_yield_good_only"
     },
     {
       "label": "N5 \u2014 fattori di normalizzazione",
@@ -25905,10 +25905,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L139",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n5_fattori_di_normalizzazione",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n5 \u2014 fattori di normalizzazione"
+      "norm_label": "n5 \u2014 fattori di normalizzazione",
+      "id": "docs_collaboration_two_person_physics_roadmap_n5_fattori_di_normalizzazione"
     },
     {
       "label": "N6 \u2014 sezioni d'urto e closure Ajaka",
@@ -25916,10 +25916,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L156",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n6_sezioni_d_urto_e_closure_ajaka",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n6 \u2014 sezioni d'urto e closure ajaka"
+      "norm_label": "n6 \u2014 sezioni d'urto e closure ajaka",
+      "id": "docs_collaboration_two_person_physics_roadmap_n6_sezioni_d_urto_e_closure_ajaka"
     },
     {
       "label": "N7 \u2014 propagazione incertezze e provenienza",
@@ -25927,10 +25927,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L172",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_n7_propagazione_incertezze_e_provenienza",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n7 \u2014 propagazione incertezze e provenienza"
+      "norm_label": "n7 \u2014 propagazione incertezze e provenienza",
+      "id": "docs_collaboration_two_person_physics_roadmap_n7_propagazione_incertezze_e_provenienza"
     },
     {
       "label": "Primary ownership: Person 2 \u2014 polarizzazione e asimmetria del fascio",
@@ -25938,10 +25938,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L189",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "primary ownership: person 2 \u2014 polarizzazione e asimmetria del fascio"
+      "norm_label": "primary ownership: person 2 \u2014 polarizzazione e asimmetria del fascio",
+      "id": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio"
     },
     {
       "label": "S1 \u2014 mappa autorevole degli stati di polarizzazione",
@@ -25949,10 +25949,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L201",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s1_mappa_autorevole_degli_stati_di_polarizzazione",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s1 \u2014 mappa autorevole degli stati di polarizzazione"
+      "norm_label": "s1 \u2014 mappa autorevole degli stati di polarizzazione",
+      "id": "docs_collaboration_two_person_physics_roadmap_s1_mappa_autorevole_degli_stati_di_polarizzazione"
     },
     {
       "label": "S2 \u2014 ingresso Compton `P(Egamma)`",
@@ -25960,10 +25960,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L217",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s2_ingresso_compton_p_egamma",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s2 \u2014 ingresso compton `p(egamma)`"
+      "norm_label": "s2 \u2014 ingresso compton `p(egamma)`",
+      "id": "docs_collaboration_two_person_physics_roadmap_s2_ingresso_compton_p_egamma"
     },
     {
       "label": "S3 \u2014 definizione periodica di `phi`",
@@ -25971,10 +25971,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L233",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s3_definizione_periodica_di_phi",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s3 \u2014 definizione periodica di `phi`"
+      "norm_label": "s3 \u2014 definizione periodica di `phi`",
+      "id": "docs_collaboration_two_person_physics_roadmap_s3_definizione_periodica_di_phi"
     },
     {
       "label": "S4 \u2014 fit `cos(2phi)` consapevole dell'accettanza",
@@ -25982,10 +25982,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L249",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s4_fit_cos_2phi_consapevole_dell_accettanza",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s4 \u2014 fit `cos(2phi)` consapevole dell'accettanza"
+      "norm_label": "s4 \u2014 fit `cos(2phi)` consapevole dell'accettanza",
+      "id": "docs_collaboration_two_person_physics_roadmap_s4_fit_cos_2phi_consapevole_dell_accettanza"
     },
     {
       "label": "S5 \u2014 closure a asimmetria iniettata e convenzione di segno",
@@ -25993,10 +25993,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L270",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s5_closure_a_asimmetria_iniettata_e_convenzione_di_segno",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s5 \u2014 closure a asimmetria iniettata e convenzione di segno"
+      "norm_label": "s5 \u2014 closure a asimmetria iniettata e convenzione di segno",
+      "id": "docs_collaboration_two_person_physics_roadmap_s5_closure_a_asimmetria_iniettata_e_convenzione_di_segno"
     },
     {
       "label": "S6 \u2014 release `\u03a3`, covarianza e sistematiche",
@@ -26004,10 +26004,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L285",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s6_release_\u03c3_covarianza_e_sistematiche",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s6 \u2014 release `\u03c3`, covarianza e sistematiche"
+      "norm_label": "s6 \u2014 release `\u03c3`, covarianza e sistematiche",
+      "id": "docs_collaboration_two_person_physics_roadmap_s6_release_\u03c3_covarianza_e_sistematiche"
     },
     {
       "label": "S7 \u2014 binning P1/P2",
@@ -26015,10 +26015,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L301",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_s7_binning_p1_p2",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s7 \u2014 binning p1/p2"
+      "norm_label": "s7 \u2014 binning p1/p2",
+      "id": "docs_collaboration_two_person_physics_roadmap_s7_binning_p1_p2"
     },
     {
       "label": "Handoff condivisi e release P0",
@@ -26026,10 +26026,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L317",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "handoff condivisi e release p0"
+      "norm_label": "handoff condivisi e release p0",
+      "id": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0"
     },
     {
       "label": "Handoff Person 1 \u2192 Person 2",
@@ -26037,10 +26037,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L319",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_handoff_person_1_person_2",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "handoff person 1 \u2192 person 2"
+      "norm_label": "handoff person 1 \u2192 person 2",
+      "id": "docs_collaboration_two_person_physics_roadmap_handoff_person_1_person_2"
     },
     {
       "label": "Handoff Person 2 \u2192 P0/P1/P2",
@@ -26048,10 +26048,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L357",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_handoff_person_2_p0_p1_p2",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "handoff person 2 \u2192 p0/p1/p2"
+      "norm_label": "handoff person 2 \u2192 p0/p1/p2",
+      "id": "docs_collaboration_two_person_physics_roadmap_handoff_person_2_p0_p1_p2"
     },
     {
       "label": "Cambiamenti di interfaccia e gate finale",
@@ -26059,10 +26059,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L377",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_cambiamenti_di_interfaccia_e_gate_finale",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "cambiamenti di interfaccia e gate finale"
+      "norm_label": "cambiamenti di interfaccia e gate finale",
+      "id": "docs_collaboration_two_person_physics_roadmap_cambiamenti_di_interfaccia_e_gate_finale"
     },
     {
       "label": "Esplicitamente differito",
@@ -26070,10 +26070,10 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L400",
       "_origin": "ast",
-      "id": "docs_collaboration_two_person_physics_roadmap_esplicitamente_differito",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "esplicitamente differito"
+      "norm_label": "esplicitamente differito",
+      "id": "docs_collaboration_two_person_physics_roadmap_esplicitamente_differito"
     },
     {
       "label": "normalization.md",
@@ -26081,10 +26081,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_physics_normalization",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "normalization.md"
+      "norm_label": "normalization.md",
+      "id": "docs_physics_normalization"
     },
     {
       "label": "Persona 1 \u2014 guida operativa alla normalizzazione",
@@ -26092,10 +26092,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "persona 1 \u2014 guida operativa alla normalizzazione"
+      "norm_label": "persona 1 \u2014 guida operativa alla normalizzazione",
+      "id": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione"
     },
     {
       "label": "Punto di partenza verificabile",
@@ -26103,10 +26103,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L10",
       "_origin": "ast",
-      "id": "docs_physics_normalization_punto_di_partenza_verificabile",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "punto di partenza verificabile"
+      "norm_label": "punto di partenza verificabile",
+      "id": "docs_physics_normalization_punto_di_partenza_verificabile"
     },
     {
       "label": "Letture, Graphify e comandi disponibili",
@@ -26114,10 +26114,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "docs_physics_normalization_letture_graphify_e_comandi_disponibili",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "letture, graphify e comandi disponibili"
+      "norm_label": "letture, graphify e comandi disponibili",
+      "id": "docs_physics_normalization_letture_graphify_e_comandi_disponibili"
     },
     {
       "label": "Gate 0 \u2014 cosa verificare e cosa congelare",
@@ -26125,10 +26125,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L77",
       "_origin": "ast",
-      "id": "docs_physics_normalization_gate_0_cosa_verificare_e_cosa_congelare",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "gate 0 \u2014 cosa verificare e cosa congelare"
+      "norm_label": "gate 0 \u2014 cosa verificare e cosa congelare",
+      "id": "docs_physics_normalization_gate_0_cosa_verificare_e_cosa_congelare"
     },
     {
       "label": "Decisioni necessarie prima di N1",
@@ -26136,10 +26136,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L122",
       "_origin": "ast",
-      "id": "docs_physics_normalization_decisioni_necessarie_prima_di_n1",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "decisioni necessarie prima di n1"
+      "norm_label": "decisioni necessarie prima di n1",
+      "id": "docs_physics_normalization_decisioni_necessarie_prima_di_n1"
     },
     {
       "label": "Sequenza di lavoro N1\u2013N7",
@@ -26147,10 +26147,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L145",
       "_origin": "ast",
-      "id": "docs_physics_normalization_sequenza_di_lavoro_n1_n7",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "sequenza di lavoro n1\u2013n7"
+      "norm_label": "sequenza di lavoro n1\u2013n7",
+      "id": "docs_physics_normalization_sequenza_di_lavoro_n1_n7"
     },
     {
       "label": "Comandi futuri \u2014 interface to implement",
@@ -26158,10 +26158,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L182",
       "_origin": "ast",
-      "id": "docs_physics_normalization_comandi_futuri_interface_to_implement",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "comandi futuri \u2014 interface to implement"
+      "norm_label": "comandi futuri \u2014 interface to implement",
+      "id": "docs_physics_normalization_comandi_futuri_interface_to_implement"
     },
     {
       "label": "Consegna dell'accettanza alla Persona 2",
@@ -26169,10 +26169,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L215",
       "_origin": "ast",
-      "id": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "consegna dell'accettanza alla persona 2"
+      "norm_label": "consegna dell'accettanza alla persona 2",
+      "id": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2"
     },
     {
       "label": "Ordine, versione e immutabilit\u00e0",
@@ -26180,10 +26180,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L217",
       "_origin": "ast",
-      "id": "docs_physics_normalization_ordine_versione_e_immutabilit\u00e0",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "ordine, versione e immutabilita"
+      "norm_label": "ordine, versione e immutabilita",
+      "id": "docs_physics_normalization_ordine_versione_e_immutabilit\u00e0"
     },
     {
       "label": "Tabella comune e risposta azimutale approvata",
@@ -26191,10 +26191,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L240",
       "_origin": "ast",
-      "id": "docs_physics_normalization_tabella_comune_e_risposta_azimutale_approvata",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "tabella comune e risposta azimutale approvata"
+      "norm_label": "tabella comune e risposta azimutale approvata",
+      "id": "docs_physics_normalization_tabella_comune_e_risposta_azimutale_approvata"
     },
     {
       "label": "Registro di avanzamento e revisione",
@@ -26202,10 +26202,10 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L290",
       "_origin": "ast",
-      "id": "docs_physics_normalization_registro_di_avanzamento_e_revisione",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "registro di avanzamento e revisione"
+      "norm_label": "registro di avanzamento e revisione",
+      "id": "docs_physics_normalization_registro_di_avanzamento_e_revisione"
     },
     {
       "label": "2026-09-09-two-person-ai-handoff.md",
@@ -26213,10 +26213,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "2026-09-09-two-person-ai-handoff.md"
+      "norm_label": "2026-09-09-two-person-ai-handoff.md",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff"
     },
     {
       "label": "Two-Person AI Handoff Implementation Plan",
@@ -26224,10 +26224,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "two-person ai handoff implementation plan"
+      "norm_label": "two-person ai handoff implementation plan",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan"
     },
     {
       "label": "Two-Person AI Handoff Global Constraints",
@@ -26235,10 +26235,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L13",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "two-person ai handoff global constraints"
+      "norm_label": "two-person ai handoff global constraints",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints"
     },
     {
       "label": "Task 1: Publish path-scoped data and result snapshots",
@@ -26246,10 +26246,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L27",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "task 1: publish path-scoped data and result snapshots"
+      "norm_label": "task 1: publish path-scoped data and result snapshots",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots"
     },
     {
       "label": "Task 2: Add deterministic artifact provenance",
@@ -26257,10 +26257,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L157",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "task 2: add deterministic artifact provenance"
+      "norm_label": "task 2: add deterministic artifact provenance",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance"
     },
     {
       "label": "Task 3: Add clone-ready maintenance interface",
@@ -26268,10 +26268,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L337",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "task 3: add clone-ready maintenance interface"
+      "norm_label": "task 3: add clone-ready maintenance interface",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface"
     },
     {
       "label": "Task 4: Publish exactly-two-person physics roadmap",
@@ -26279,10 +26279,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L502",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "task 4: publish exactly-two-person physics roadmap"
+      "norm_label": "task 4: publish exactly-two-person physics roadmap",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap"
     },
     {
       "label": "Task 5: Refresh Graphify and prove fresh-clone operation",
@@ -26290,10 +26290,10 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L603",
       "_origin": "ast",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation",
       "community": 201,
       "community_name": "Two-Person AI Handoff Global Constraints",
-      "norm_label": "task 5: refresh graphify and prove fresh-clone operation"
+      "norm_label": "task 5: refresh graphify and prove fresh-clone operation",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation"
     },
     {
       "label": "2026-09-09-two-person-ai-handoff-design.md",
@@ -26301,10 +26301,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "2026-09-09-two-person-ai-handoff-design.md"
+      "norm_label": "2026-09-09-two-person-ai-handoff-design.md",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design"
     },
     {
       "label": "Two-Person AI Handoff Design",
@@ -26312,10 +26312,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "two-person ai handoff design"
+      "norm_label": "two-person ai handoff design",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design"
     },
     {
       "label": "Objective",
@@ -26323,10 +26323,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L7",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_objective",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "objective"
+      "norm_label": "objective",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_objective"
     },
     {
       "label": "Success criteria",
@@ -26334,10 +26334,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L18",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_success_criteria",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "success criteria"
+      "norm_label": "success criteria",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_success_criteria"
     },
     {
       "label": "Repository content policy",
@@ -26345,10 +26345,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L33",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "repository content policy"
+      "norm_label": "repository content policy",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy"
     },
     {
       "label": "Tracked normally",
@@ -26356,10 +26356,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_normally",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "tracked normally"
+      "norm_label": "tracked normally",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_normally"
     },
     {
       "label": "Tracked through Git LFS",
@@ -26367,10 +26367,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L46",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_through_git_lfs",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "tracked through git lfs"
+      "norm_label": "tracked through git lfs",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_through_git_lfs"
     },
     {
       "label": "Kept local and ignored",
@@ -26378,10 +26378,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L57",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_kept_local_and_ignored",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "kept local and ignored"
+      "norm_label": "kept local and ignored",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_kept_local_and_ignored"
     },
     {
       "label": "Initial published snapshot",
@@ -26389,10 +26389,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L74",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "initial published snapshot"
+      "norm_label": "initial published snapshot",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot"
     },
     {
       "label": "`data/`",
@@ -26400,10 +26400,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L76",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_data",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "`data/`"
+      "norm_label": "`data/`",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_data"
     },
     {
       "label": "`results/`",
@@ -26411,10 +26411,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L87",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_results",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "`results/`"
+      "norm_label": "`results/`",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_results"
     },
     {
       "label": "`docs/`",
@@ -26422,10 +26422,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L111",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_docs",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "`docs/`"
+      "norm_label": "`docs/`",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_docs"
     },
     {
       "label": "`graphify-out/`",
@@ -26433,10 +26433,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L118",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_graphify_out",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "`graphify-out/`"
+      "norm_label": "`graphify-out/`",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_graphify_out"
     },
     {
       "label": "Clone and environment contract",
@@ -26444,10 +26444,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L137",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_clone_and_environment_contract",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "clone and environment contract"
+      "norm_label": "clone and environment contract",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_clone_and_environment_contract"
     },
     {
       "label": "Maintenance interface",
@@ -26455,10 +26455,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L165",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_maintenance_interface",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "maintenance interface"
+      "norm_label": "maintenance interface",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_maintenance_interface"
     },
     {
       "label": "Agent operating contract",
@@ -26466,10 +26466,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L183",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_agent_operating_contract",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "agent operating contract"
+      "norm_label": "agent operating contract",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_agent_operating_contract"
     },
     {
       "label": "Exactly two-person physics split",
@@ -26477,10 +26477,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L199",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "exactly two-person physics split"
+      "norm_label": "exactly two-person physics split",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split"
     },
     {
       "label": "Person 1: normalization and cross sections",
@@ -26488,10 +26488,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L201",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_1_normalization_and_cross_sections",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "person 1: normalization and cross sections"
+      "norm_label": "person 1: normalization and cross sections",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_1_normalization_and_cross_sections"
     },
     {
       "label": "Person 2: polarization and beam asymmetry",
@@ -26499,10 +26499,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L219",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_2_polarization_and_beam_asymmetry",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "person 2: polarization and beam asymmetry"
+      "norm_label": "person 2: polarization and beam asymmetry",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_2_polarization_and_beam_asymmetry"
     },
     {
       "label": "Handoffs and execution order",
@@ -26510,10 +26510,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L242",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_handoffs_and_execution_order",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "handoffs and execution order"
+      "norm_label": "handoffs and execution order",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_handoffs_and_execution_order"
     },
     {
       "label": "Verification and publication gates",
@@ -26521,10 +26521,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L270",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "verification and publication gates"
+      "norm_label": "verification and publication gates",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates"
     },
     {
       "label": "Out of scope",
@@ -26532,10 +26532,10 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L286",
       "_origin": "ast",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope",
       "community": 7,
       "community_name": "Two-Person AI Handoff Design",
-      "norm_label": "out of scope"
+      "norm_label": "out of scope",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope"
     },
     {
       "label": "Acceptance Handoff",
@@ -26547,9 +26547,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "acceptance handoff",
-      "id": "docs_collaboration_two_person_physics_roadmap_acceptance_handoff",
       "community": 191,
-      "community_name": "Acceptance Handoff"
+      "community_name": "Acceptance Handoff",
+      "id": "docs_collaboration_two_person_physics_roadmap_acceptance_handoff"
     },
     {
       "label": "Gate 0 Observable Handoff",
@@ -26561,9 +26561,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "gate 0 observable handoff",
-      "id": "docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff",
       "community": 192,
-      "community_name": "Person 1 Normalization Operations"
+      "community_name": "Person 1 Normalization Operations",
+      "id": "docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff"
     },
     {
       "label": "Reject Incomplete or Legacy Acceptance Handoffs",
@@ -26574,10 +26574,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_collaboration_two_person_physics_roadmap_invalid_acceptance_handoff_rejection",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "reject incomplete or legacy acceptance handoffs"
+      "norm_label": "reject incomplete or legacy acceptance handoffs",
+      "id": "docs_collaboration_two_person_physics_roadmap_invalid_acceptance_handoff_rejection"
     },
     {
       "label": "P0 Release Gate",
@@ -26589,9 +26589,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "p0 release gate",
-      "id": "docs_collaboration_two_person_physics_roadmap_p0_release_gate",
       "community": 193,
-      "community_name": "P0 Release Gate"
+      "community_name": "P0 Release Gate",
+      "id": "docs_collaboration_two_person_physics_roadmap_p0_release_gate"
     },
     {
       "label": "Person 1 Normalization and Cross Sections",
@@ -26603,9 +26603,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "person 1 normalization and cross sections",
-      "id": "docs_collaboration_two_person_physics_roadmap_person_1_normalization_cross_sections",
       "community": 193,
-      "community_name": "P0 Release Gate"
+      "community_name": "P0 Release Gate",
+      "id": "docs_collaboration_two_person_physics_roadmap_person_1_normalization_cross_sections"
     },
     {
       "label": "Person 2 Polarization and Sigma",
@@ -26617,9 +26617,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "person 2 polarization and sigma",
-      "id": "docs_collaboration_two_person_physics_roadmap_person_2_polarization_sigma",
       "community": 193,
-      "community_name": "P0 Release Gate"
+      "community_name": "P0 Release Gate",
+      "id": "docs_collaboration_two_person_physics_roadmap_person_2_polarization_sigma"
     },
     {
       "label": "Sigma Release Handoff",
@@ -26631,9 +26631,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "sigma release handoff",
-      "id": "docs_collaboration_two_person_physics_roadmap_sigma_release_handoff",
       "community": 228,
-      "community_name": "Sigma Release Handoff"
+      "community_name": "Sigma Release Handoff",
+      "id": "docs_collaboration_two_person_physics_roadmap_sigma_release_handoff"
     },
     {
       "label": "Acceptance Handoff After N3",
@@ -26644,10 +26644,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_acceptance_handoff_after_n3",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "acceptance handoff after n3"
+      "norm_label": "acceptance handoff after n3",
+      "id": "docs_physics_normalization_acceptance_handoff_after_n3"
     },
     {
       "label": "Approved Phi Response Artifact",
@@ -26658,10 +26658,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_approved_phi_response_artifact",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "approved phi response artifact"
+      "norm_label": "approved phi response artifact",
+      "id": "docs_physics_normalization_approved_phi_response_artifact"
     },
     {
       "label": "Physical Channel to Registry Key Mapping",
@@ -26672,10 +26672,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_channel_identifier_contract",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "physical channel to registry key mapping"
+      "norm_label": "physical channel to registry key mapping",
+      "id": "docs_physics_normalization_channel_identifier_contract"
     },
     {
       "label": "Final Normalization Release N7",
@@ -26686,10 +26686,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_final_normalization_release_n7",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "final normalization release n7"
+      "norm_label": "final normalization release n7",
+      "id": "docs_physics_normalization_final_normalization_release_n7"
     },
     {
       "label": "Gate 0 Is Not Yet Frozen",
@@ -26701,9 +26701,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "gate 0 is not yet frozen",
-      "id": "docs_physics_normalization_gate_0_is_not_frozen",
       "community": 196,
-      "community_name": "Gate 0 Is Not Yet Frozen"
+      "community_name": "Gate 0 Is Not Yet Frozen",
+      "id": "docs_physics_normalization_gate_0_is_not_frozen"
     },
     {
       "label": "Joint Interface Review",
@@ -26715,9 +26715,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "joint interface review",
-      "id": "docs_physics_normalization_joint_interface_review",
       "community": 197,
-      "community_name": "Joint Interface Review"
+      "community_name": "Joint Interface Review",
+      "id": "docs_physics_normalization_joint_interface_review"
     },
     {
       "label": "Legacy Reconstruction Normalization Ban",
@@ -26729,9 +26729,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "legacy reconstruction normalization ban",
-      "id": "docs_physics_normalization_legacy_reco_normalization_ban",
       "community": 199,
-      "community_name": "Legacy Reconstruction Normalization Ban"
+      "community_name": "Legacy Reconstruction Normalization Ban",
+      "id": "docs_physics_normalization_legacy_reco_normalization_ban"
     },
     {
       "label": "N1\u2013N7 Future Interfaces",
@@ -26743,9 +26743,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "n1\u2013n7 future interfaces",
-      "id": "docs_physics_normalization_n1_n7_future_interfaces",
       "community": 211,
-      "community_name": "N1\u2013N7 Future Interfaces"
+      "community_name": "N1\u2013N7 Future Interfaces",
+      "id": "docs_physics_normalization_n1_n7_future_interfaces"
     },
     {
       "label": "N4 Yields Serve Cross Sections Only",
@@ -26756,10 +26756,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_n4_cross_section_yields_only",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n4 yields serve cross sections only"
+      "norm_label": "n4 yields serve cross sections only",
+      "id": "docs_physics_normalization_n4_cross_section_yields_only"
     },
     {
       "label": "Preselection Exposure Run List",
@@ -26771,9 +26771,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "preselection exposure run list",
-      "id": "docs_physics_normalization_preselection_exposure_run_list",
       "community": 212,
-      "community_name": "Preselection Exposure Run List"
+      "community_name": "Preselection Exposure Run List",
+      "id": "docs_physics_normalization_preselection_exposure_run_list"
     },
     {
       "label": "P0 Proton Good-Run Scope",
@@ -26785,9 +26785,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "p0 proton good-run scope",
-      "id": "docs_physics_normalization_proton_good_run_scope",
       "community": 214,
-      "community_name": "P0 Proton Good-Run Scope"
+      "community_name": "P0 Proton Good-Run Scope",
+      "id": "docs_physics_normalization_proton_good_run_scope"
     },
     {
       "label": "S4 Uses N2 Reco and N3 Response",
@@ -26798,10 +26798,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_physics_normalization_s4_n2_n3_input_contract",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "s4 uses n2 reco and n3 response"
+      "norm_label": "s4 uses n2 reco and n3 response",
+      "id": "docs_physics_normalization_s4_n2_n3_input_contract"
     },
     {
       "label": "Sourced Physical Normalization Inputs",
@@ -26813,9 +26813,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "sourced physical normalization inputs",
-      "id": "docs_physics_normalization_sourced_physical_normalization_inputs",
       "community": 218,
-      "community_name": "Sourced Physical Normalization Inputs"
+      "community_name": "Sourced Physical Normalization Inputs",
+      "id": "docs_physics_normalization_sourced_physical_normalization_inputs"
     },
     {
       "label": "Clone-Ready Project Package",
@@ -26827,9 +26827,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "clone-ready project package",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package",
       "community": 232,
-      "community_name": "Clone-Ready Project Package"
+      "community_name": "Clone-Ready Project Package",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package"
     },
     {
       "label": "Graphify Refresh",
@@ -26841,9 +26841,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "graphify refresh",
-      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh",
       "community": 233,
-      "community_name": "Graphify Refresh"
+      "community_name": "Graphify Refresh",
+      "id": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh"
     },
     {
       "label": "Git LFS Snapshot",
@@ -26855,9 +26855,9 @@
       "author": null,
       "contributor": null,
       "norm_label": "git lfs snapshot",
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_git_lfs_snapshot",
       "community": 235,
-      "community_name": "Git LFS Snapshot"
+      "community_name": "Git LFS Snapshot",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_git_lfs_snapshot"
     },
     {
       "label": "N3 Handoff Starts Parallel S4 and N4",
@@ -26868,10 +26868,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_n3_handoff_parallel_s4_n4",
       "community": 192,
       "community_name": "Person 1 Normalization Operations",
-      "norm_label": "n3 handoff starts parallel s4 and n4"
+      "norm_label": "n3 handoff starts parallel s4 and n4",
+      "id": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_n3_handoff_parallel_s4_n4"
     }
   ],
   "links": [
@@ -64944,9 +64944,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap",
-      "target": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone"
     },
     {
       "relation": "references",
@@ -64954,9 +64954,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap",
-      "target": "docs_physics_normalization",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization"
     },
     {
       "relation": "contains",
@@ -64964,9 +64964,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L400",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_esplicitamente_differito",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_esplicitamente_differito"
     },
     {
       "relation": "contains",
@@ -64974,9 +64974,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_gate_0_bundle_osservabili_congelato",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_gate_0_bundle_osservabili_congelato"
     },
     {
       "relation": "contains",
@@ -64984,9 +64984,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L317",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0"
     },
     {
       "relation": "contains",
@@ -64994,9 +64994,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto"
     },
     {
       "relation": "contains",
@@ -65004,9 +65004,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L189",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio"
     },
     {
       "relation": "contains",
@@ -65014,9 +65014,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_roadmap_fisica_a_due_persone",
-      "target": "docs_collaboration_two_person_physics_roadmap_scopo_e_confine",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_scopo_e_confine"
     },
     {
       "relation": "contains",
@@ -65024,9 +65024,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L61",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n1_congelare_gate_0_e_schema_di_accettanza",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n1_congelare_gate_0_e_schema_di_accettanza"
     },
     {
       "relation": "contains",
@@ -65034,9 +65034,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L87",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n2_rigenerare_ricostruzione_con_metadati",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n2_rigenerare_ricostruzione_con_metadati"
     },
     {
       "relation": "contains",
@@ -65044,9 +65044,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L104",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n3_efficienza_mc_e_accettanza",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n3_efficienza_mc_e_accettanza"
     },
     {
       "relation": "contains",
@@ -65054,9 +65054,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L122",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n4_yield_good_only",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n4_yield_good_only"
     },
     {
       "relation": "contains",
@@ -65064,9 +65064,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L139",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n5_fattori_di_normalizzazione",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n5_fattori_di_normalizzazione"
     },
     {
       "relation": "contains",
@@ -65074,9 +65074,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L156",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n6_sezioni_d_urto_e_closure_ajaka",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n6_sezioni_d_urto_e_closure_ajaka"
     },
     {
       "relation": "contains",
@@ -65084,9 +65084,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L172",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_1_normalizzazione_e_sezioni_d_urto",
-      "target": "docs_collaboration_two_person_physics_roadmap_n7_propagazione_incertezze_e_provenienza",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_n7_propagazione_incertezze_e_provenienza"
     },
     {
       "relation": "precedes",
@@ -65184,9 +65184,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L201",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s1_mappa_autorevole_degli_stati_di_polarizzazione",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s1_mappa_autorevole_degli_stati_di_polarizzazione"
     },
     {
       "relation": "contains",
@@ -65194,9 +65194,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L217",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s2_ingresso_compton_p_egamma",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s2_ingresso_compton_p_egamma"
     },
     {
       "relation": "contains",
@@ -65204,9 +65204,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L233",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s3_definizione_periodica_di_phi",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s3_definizione_periodica_di_phi"
     },
     {
       "relation": "contains",
@@ -65214,9 +65214,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L249",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s4_fit_cos_2phi_consapevole_dell_accettanza",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s4_fit_cos_2phi_consapevole_dell_accettanza"
     },
     {
       "relation": "contains",
@@ -65224,9 +65224,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L270",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s5_closure_a_asimmetria_iniettata_e_convenzione_di_segno",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s5_closure_a_asimmetria_iniettata_e_convenzione_di_segno"
     },
     {
       "relation": "contains",
@@ -65234,9 +65234,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L285",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s6_release_\u03c3_covarianza_e_sistematiche",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s6_release_\u03c3_covarianza_e_sistematiche"
     },
     {
       "relation": "contains",
@@ -65244,9 +65244,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L301",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_primary_ownership_person_2_polarizzazione_e_asimmetria_del_fascio",
-      "target": "docs_collaboration_two_person_physics_roadmap_s7_binning_p1_p2",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_s7_binning_p1_p2"
     },
     {
       "relation": "enables",
@@ -65284,9 +65284,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L377",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0",
-      "target": "docs_collaboration_two_person_physics_roadmap_cambiamenti_di_interfaccia_e_gate_finale",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_cambiamenti_di_interfaccia_e_gate_finale"
     },
     {
       "relation": "contains",
@@ -65294,9 +65294,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L319",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0",
-      "target": "docs_collaboration_two_person_physics_roadmap_handoff_person_1_person_2",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_handoff_person_1_person_2"
     },
     {
       "relation": "contains",
@@ -65304,9 +65304,9 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md",
       "source_location": "L357",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_collaboration_two_person_physics_roadmap_handoff_condivisi_e_release_p0",
-      "target": "docs_collaboration_two_person_physics_roadmap_handoff_person_2_p0_p1_p2",
-      "confidence_score": 1.0
+      "target": "docs_collaboration_two_person_physics_roadmap_handoff_person_2_p0_p1_p2"
     },
     {
       "relation": "contains",
@@ -65314,9 +65314,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization",
-      "target": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione"
     },
     {
       "relation": "references",
@@ -65324,9 +65324,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff"
     },
     {
       "relation": "contains",
@@ -65364,9 +65364,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L215",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2"
     },
     {
       "relation": "contains",
@@ -65374,9 +65374,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L122",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_decisioni_necessarie_prima_di_n1",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_decisioni_necessarie_prima_di_n1"
     },
     {
       "relation": "contains",
@@ -65394,9 +65394,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_gate_0_cosa_verificare_e_cosa_congelare",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_gate_0_cosa_verificare_e_cosa_congelare"
     },
     {
       "relation": "contains",
@@ -65404,9 +65404,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_letture_graphify_e_comandi_disponibili",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_letture_graphify_e_comandi_disponibili"
     },
     {
       "relation": "contains",
@@ -65424,9 +65424,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_punto_di_partenza_verificabile",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_punto_di_partenza_verificabile"
     },
     {
       "relation": "contains",
@@ -65434,9 +65434,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L290",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_registro_di_avanzamento_e_revisione",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_registro_di_avanzamento_e_revisione"
     },
     {
       "relation": "contains",
@@ -65454,9 +65454,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_persona_1_guida_operativa_alla_normalizzazione",
-      "target": "docs_physics_normalization_sequenza_di_lavoro_n1_n7",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_sequenza_di_lavoro_n1_n7"
     },
     {
       "relation": "contains",
@@ -65464,9 +65464,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L182",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_sequenza_di_lavoro_n1_n7",
-      "target": "docs_physics_normalization_comandi_futuri_interface_to_implement",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_comandi_futuri_interface_to_implement"
     },
     {
       "relation": "contains",
@@ -65474,9 +65474,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L217",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2",
-      "target": "docs_physics_normalization_ordine_versione_e_immutabilit\u00e0",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_ordine_versione_e_immutabilit\u00e0"
     },
     {
       "relation": "contains",
@@ -65484,9 +65484,9 @@
       "source_file": "docs/physics/normalization.md",
       "source_location": "L240",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_physics_normalization_consegna_dell_accettanza_alla_persona_2",
-      "target": "docs_physics_normalization_tabella_comune_e_risposta_azimutale_approvata",
-      "confidence_score": 1.0
+      "target": "docs_physics_normalization_tabella_comune_e_risposta_azimutale_approvata"
     },
     {
       "relation": "contains",
@@ -65494,9 +65494,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan"
     },
     {
       "relation": "contains",
@@ -65504,9 +65504,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_two_person_ai_handoff_implementation_plan",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints"
     },
     {
       "relation": "contains",
@@ -65514,9 +65514,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_1_publish_path_scoped_data_and_result_snapshots"
     },
     {
       "relation": "contains",
@@ -65524,9 +65524,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L157",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_2_add_deterministic_artifact_provenance"
     },
     {
       "relation": "contains",
@@ -65534,9 +65534,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L337",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_3_add_clone_ready_maintenance_interface"
     },
     {
       "relation": "contains",
@@ -65544,9 +65544,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L502",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_4_publish_exactly_two_person_physics_roadmap"
     },
     {
       "relation": "contains",
@@ -65554,9 +65554,9 @@
       "source_file": "docs/superpowers/plans/2026-09-09-two-person-ai-handoff.md",
       "source_location": "L603",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_global_constraints",
-      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_plans_2026_09_09_two_person_ai_handoff_task_5_refresh_graphify_and_prove_fresh_clone_operation"
     },
     {
       "relation": "contains",
@@ -65564,9 +65564,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design"
     },
     {
       "relation": "contains",
@@ -65574,9 +65574,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L183",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_agent_operating_contract",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_agent_operating_contract"
     },
     {
       "relation": "contains",
@@ -65584,9 +65584,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_clone_and_environment_contract",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_clone_and_environment_contract"
     },
     {
       "relation": "contains",
@@ -65594,9 +65594,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L199",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split"
     },
     {
       "relation": "contains",
@@ -65604,9 +65604,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L242",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_handoffs_and_execution_order",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_handoffs_and_execution_order"
     },
     {
       "relation": "contains",
@@ -65614,9 +65614,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot"
     },
     {
       "relation": "contains",
@@ -65624,9 +65624,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L165",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_maintenance_interface",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_maintenance_interface"
     },
     {
       "relation": "contains",
@@ -65634,9 +65634,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_objective",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_objective"
     },
     {
       "relation": "contains",
@@ -65644,9 +65644,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L286",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_out_of_scope"
     },
     {
       "relation": "contains",
@@ -65654,9 +65654,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy"
     },
     {
       "relation": "contains",
@@ -65664,9 +65664,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_success_criteria",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_success_criteria"
     },
     {
       "relation": "contains",
@@ -65674,9 +65674,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L270",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_two_person_ai_handoff_design",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_verification_and_publication_gates"
     },
     {
       "relation": "contains",
@@ -65684,9 +65684,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L57",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_kept_local_and_ignored",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_kept_local_and_ignored"
     },
     {
       "relation": "contains",
@@ -65694,9 +65694,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_normally",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_normally"
     },
     {
       "relation": "contains",
@@ -65704,9 +65704,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_repository_content_policy",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_through_git_lfs",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_tracked_through_git_lfs"
     },
     {
       "relation": "contains",
@@ -65714,9 +65714,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L76",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_data",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_data"
     },
     {
       "relation": "contains",
@@ -65724,9 +65724,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L111",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_docs",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_docs"
     },
     {
       "relation": "contains",
@@ -65734,9 +65734,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L118",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_graphify_out",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_graphify_out"
     },
     {
       "relation": "contains",
@@ -65744,9 +65744,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L87",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_initial_published_snapshot",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_results",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_results"
     },
     {
       "relation": "contains",
@@ -65754,9 +65754,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L201",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_1_normalization_and_cross_sections",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_1_normalization_and_cross_sections"
     },
     {
       "relation": "contains",
@@ -65764,9 +65764,9 @@
       "source_file": "docs/superpowers/specs/2026-09-09-two-person-ai-handoff-design.md",
       "source_location": "L219",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_exactly_two_person_physics_split",
-      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_2_polarization_and_beam_asymmetry",
-      "confidence_score": 1.0
+      "target": "docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_person_2_polarization_and_beam_asymmetry"
     },
     {
       "relation": "guarded_by",
@@ -66045,5 +66045,5 @@
       "source_file": "docs/collaboration/two-person-physics-roadmap.md"
     }
   ],
-  "built_at_commit": "5557f8c356cc48de402b90970e693e2ba151faf8"
+  "built_at_commit": "82203ba9e5203f3ef16ee2bb32a6b7860de75fc5"
 }

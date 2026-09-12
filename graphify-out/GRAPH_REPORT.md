@@ -1,4 +1,4 @@
-# Graph Report - .  (2026-09-11)
+# Graph Report - .  (2026-09-12)
 
 ## Corpus Check
 - Large corpus: 252 files · ~4,206,016 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
@@ -10,9 +10,11 @@
 
 ## Refresh Scope
 
-- Documentation source commit: `5557f8c356cc48de402b90970e693e2ba151faf8`.
+- Graph source commit: `82203ba9e5203f3ef16ee2bb32a6b7860de75fc5`.
 - Structural refresh: `make graph-update` with project-local `graphifyy==0.9.7`.
-- Host-agent semantic refresh: changed normalization guide and two-person roadmap.
+- Host-agent semantic content: two-person handoff design and roadmap from
+  `5557f8c356cc48de402b90970e693e2ba151faf8`; current source commit adds only
+  repository contract coverage.
 - Previously published hyperedges are union-preserved; graph knowledge does not certify physics QA.
 
 ## Community Hubs (Navigation)
@@ -32,11 +34,11 @@
 - [[_COMMUNITY_pair_masses|pair_masses]]
 - [[_COMMUNITY_Observable Database Tests|Observable Database Tests]]
 - [[_COMMUNITY_Reconstruction ROOT IO|Reconstruction ROOT IO]]
-- [[_COMMUNITY_fit_event|fit_event]]
+- [[_COMMUNITY_Kinematic Fit Core|Kinematic Fit Core]]
 - [[_COMMUNITY_Stage One Gate|Stage One Gate]]
 - [[_COMMUNITY_Kinematics Vector Utilities|Kinematics Vector Utilities]]
 - [[_COMMUNITY_Stage-1 Validation Metrics|Stage-1 Validation Metrics]]
-- [[_COMMUNITY_Hypothesis|Hypothesis]]
+- [[_COMMUNITY_Reconstruction Physics Channel|Reconstruction Physics Channel]]
 - [[_COMMUNITY_XGBoost Progress Callback|XGBoost Progress Callback]]
 - [[_COMMUNITY_Monte Carlo Status|Monte Carlo Status]]
 - [[_COMMUNITY_Dalitz Plotting|Dalitz Plotting]]
@@ -45,7 +47,7 @@
 - [[_COMMUNITY_Reconstruction Physics Tests|Reconstruction Physics Tests]]
 - [[_COMMUNITY_Baryon Mass Resolution|Baryon Mass Resolution]]
 - [[_COMMUNITY_PreAnalysis Header|PreAnalysis Header]]
-- [[_COMMUNITY_fit_event|fit_event]]
+- [[_COMMUNITY_Kinematic Fit Event Tests|Kinematic Fit Event Tests]]
 - [[_COMMUNITY_Compton Polarization Figure|Compton Polarization Figure]]
 - [[_COMMUNITY_Proton Dalitz Plots|Proton Dalitz Plots]]
 - [[_COMMUNITY_BuildCutMap|BuildCutMap]]
@@ -178,7 +180,7 @@
 - [[_COMMUNITY_Scaletta articoli pubblicabili|Scaletta articoli pubblicabili]]
 - [[_COMMUNITY_Design lookup strip→Eγ e integrazione dei flussi|Design: lookup strip→Eγ e integrazione dei flussi]]
 - [[_COMMUNITY_write_lookup_csv|write_lookup_csv]]
-- [[_COMMUNITY_Hypothesis|Hypothesis]]
+- [[_COMMUNITY_Common Meson Hypothesis and Pairing|Common Meson Hypothesis and Pairing]]
 - [[_COMMUNITY__Sidebar|_Sidebar.md]]
 - [[_COMMUNITY_Accepted Observable Bundle|Accepted Observable Bundle]]
 - [[_COMMUNITY_Published artifact policy|Published artifact policy]]
@@ -395,7 +397,7 @@ Nodes (30): _build_source_bundle(), _load_cli_module(), _manifest_records(), Pat
 Cohesion: 0.12
 Nodes (20): _as_array(), _build_chain(), Gate, ndarray, Path, TChain, ROOT IO for the two-meson reconstruction: chain, branches, event loop, write.  T, Reconstruct one channel. Returns the number of events written. (+12 more)
 
-### Community 16 - "fit_event"
+### Community 16 - "Kinematic Fit Core"
 Cohesion: 0.18
 Nodes (15): _canonicalize_angles(), _constraints(), _covariance_diag(), _jacobian(), _params_to_vectors(), ndarray, 6C kinematic fit for gamma p -> p eta pi0.  The reconstruction measures four pho, Normalize spherical coordinates in place without changing 4-vectors. (+7 more)
 
@@ -407,7 +409,7 @@ Nodes (22): ndarray, Path, Stage-1 BDT gate: rejects background-like events befo
 Cohesion: 0.10
 Nodes (26): lorentz_array(), ndarray, Read a ROOT TLorentzVector branch as a plain (N, 4) [px, py, pz, E] array., An uproot TTree branch of TLorentzVector as an (N, 4) [px, py, pz, E]., dalitz_limit(), invariant_mass(), invariant_masses(), ndarray (+18 more)
 
-### Community 20 - "Hypothesis"
+### Community 20 - "Reconstruction Physics Channel"
 Cohesion: 0.20
 Nodes (7): Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru, A two-meson final state the reconstruction can write out., Invariant mass of a single [px, py, pz, E] four-vector.
 
@@ -443,7 +445,7 @@ Nodes (16): M(eta p) Raw vs Fit on Data, Fit Sigma 0.051 GeV, M(eta p) MC Raw Fi
 Cohesion: 0.27
 Nodes (13): string, TChain, vector, Cut, EnableOnly, GetEntry, Init, LoadTree (+5 more)
 
-### Community 29 - "fit_event"
+### Community 29 - "Kinematic Fit Event Tests"
 Cohesion: 0.24
 Nodes (7): fit_event(), Fit one event onto 4-momentum conservation and the two pair masses., _conserving_event(), _photon(), Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
 
@@ -559,7 +561,7 @@ Nodes (26): Aggregazione, Asimmetria di fascio Ajaka, Binning energetico, Contro
 Cohesion: 0.13
 Nodes (19): atomic_output_directory(), GroupFluxBinRecord, Path, Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records. (+11 more)
 
-### Community 176 - "Hypothesis"
+### Community 176 - "Common Meson Hypothesis and Pairing"
 Cohesion: 0.24
 Nodes (9): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Pairing, One hypothesis about which photons made which meson., FitOptions, FitResult, Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint (+1 more)
 
