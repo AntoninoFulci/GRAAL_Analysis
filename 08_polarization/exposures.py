@@ -91,6 +91,8 @@ def build_panel_exposures(
         raise PolarizationContractError("run_numbers must contain positive integers")
 
     totals = [{-1: [0.0, 0.0, 0.0], 1: [0.0, 0.0, 0.0]} for _ in ranges]
+    period_fluxes = [{-1: {}, 1: {}} for _ in ranges]
+    period_variances = [{} for _ in ranges]
     covered = [set() for _ in ranges]
     path = Path(flux_csv)
     try:
@@ -138,7 +140,8 @@ def build_panel_exposures(
                 raise PolarizationContractError(
                     f"authoritative Compton curve missing for source_period {period}"
                 )
-            polarization, _ = curve.bin_average(1000.0 * low, 1000.0 * high)
+            polarization, variance = curve.bin_average(1000.0 * low, 1000.0 * high)
+            period_variances[energy_index][period] = variance
             low_mev = 1000.0 * low
             high_mev = 1000.0 * high
             extrema_energies = [low_mev, high_mev]
@@ -178,6 +181,9 @@ def build_panel_exposures(
                 totals[energy_index][sign][0] += flux
                 totals[energy_index][sign][1] += flux * polarization
                 totals[energy_index][sign][2] += flux * weighting_bound
+                period_fluxes[energy_index][sign][period] = (
+                    period_fluxes[energy_index][sign].get(period, 0.0) + flux
+                )
             covered[energy_index].add(run_number)
 
     exposures = []
@@ -194,12 +200,22 @@ def build_panel_exposures(
             raise PolarizationContractError(
                 f"energy bin {index} lacks positive flux for both orientations"
             )
+        horizontal_variance = sum(
+            (flux / horizontal_flux) ** 2 * period_variances[index][period]
+            for period, flux in period_fluxes[index][-1].items()
+        )
+        vertical_variance = sum(
+            (flux / vertical_flux) ** 2 * period_variances[index][period]
+            for period, flux in period_fluxes[index][1].items()
+        )
         exposures.append(
             PanelExposure(
                 vertical_flux=vertical_flux,
                 horizontal_flux=horizontal_flux,
                 vertical_polarization=vertical_weighted / vertical_flux,
                 horizontal_polarization=horizontal_weighted / horizontal_flux,
+                vertical_polarization_variance=vertical_variance,
+                horizontal_polarization_variance=horizontal_variance,
                 vertical_polarization_weighting_bound=vertical_bound / vertical_flux,
                 horizontal_polarization_weighting_bound=horizontal_bound / horizontal_flux,
             )

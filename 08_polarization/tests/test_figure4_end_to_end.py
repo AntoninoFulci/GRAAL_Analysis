@@ -4,6 +4,7 @@ from array import array
 import csv
 import hashlib
 import json
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -154,6 +155,8 @@ def write_config(root):
     config = {
         "sign_convention": {
             "status": "approved",
+            "approval_id": "fixture-sign",
+            "reviewers": ["test-a", "test-b"],
             "orientation_signs": {"parallel": -1, "perpendicular": 1},
         },
         "figure4_comparison": {
@@ -214,7 +217,7 @@ def test_framework_figure4_cli_recovers_injected_sigma_from_root(tmp_path, injec
         [
             "--repository-root", str(tmp_path), "--config", str(config),
             "--handoff", str(handoff), "--reco-inventory", str(inventory),
-            "--output-dir", str(output),
+            "--output-dir", str(output), "--producer-commit", "d" * 40,
         ]
     )
     assert result == 0
@@ -229,6 +232,29 @@ def test_framework_figure4_cli_recovers_injected_sigma_from_root(tmp_path, injec
     qa = json.loads((output / "figure4_comparison_qa.json").read_text())
     assert qa["published_data_used"] is False
     assert qa["points_total"] == 120
+    assert qa["schema_version"] == 2
+    assert qa["producer"]["commit"] == "d" * 40
+    assert qa["producer"]["command"][0:2] == [
+        "python", "08_polarization/build_figure4_comparison.py"
+    ]
+    assert qa["artifact_role"] == "diagnostic_qa"
+    assert "not release physics" in qa["allowed_use"]
+    assert qa["polarization_energy_weighting"]["panels"][0][
+        "vertical_polarization_variance"
+    ] == pytest.approx(0.000078125)
+    input_records = [
+        qa["config"], qa["handoff"], qa["reconstruction_inventory"], qa["flux"],
+        *qa["reconstruction"], *qa["state_mapping_sources"], *qa["compton_sources"],
+    ]
+    for record in input_records:
+        assert not Path(record["path"]).is_absolute()
+        assert record["bytes"] > 0
+        assert record["role"]
+        assert record["allowed_use"]
+    for record in qa["outputs"].values():
+        assert record["bytes"] > 0
+        assert record["role"]
+        assert "not release physics" in record["allowed_use"]
 
 
 def test_framework_figure4_rejects_observed_run_mismatch_with_inventory(
@@ -253,6 +279,7 @@ def test_framework_figure4_rejects_observed_run_mismatch_with_inventory(
             "--repository-root", str(tmp_path), "--config", str(config),
             "--handoff", str(handoff), "--reco-inventory", str(inventory),
             "--output-dir", str(tmp_path / "comparison"),
+            "--producer-commit", "d" * 40,
         ]
     ) == 1
     assert "observed run set" in capsys.readouterr().err

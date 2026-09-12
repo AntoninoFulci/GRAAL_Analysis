@@ -176,7 +176,11 @@ def scan_reco_run_numbers(
             raise PolarizationContractError(
                 f"cannot add ROOT tree {tree_name} from {path}"
             )
-    runs = frozenset(int(event.RunNumber) for event in chain)
+    runs = frozenset(
+        int(event.RunNumber)
+        for event in chain
+        if vectors != "kinematic_fit" or int(event.fit_converged) == 1
+    )
     if any(run <= 0 for run in runs):
         raise PolarizationContractError(
             "reconstruction contains non-positive RunNumber"

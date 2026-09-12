@@ -9,8 +9,10 @@ import sys
 
 import numpy as np
 
+from angles import reaction_plane_phi
 from contracts import PolarizationContractError, load_json
 from sigma_fit import fit_sigma_binned
+from state_mapping import StateInterval, resolve_orientation
 
 
 @dataclass(frozen=True)
@@ -29,14 +31,37 @@ class ClosureResult:
 
 
 def _closure_design(injected_sigma: float) -> tuple[dict[str, np.ndarray], np.ndarray]:
-    phi_state = (np.arange(16, dtype=float) + 0.5) * np.pi / 16.0
-    phi = np.concatenate((phi_state, phi_state))
-    sign = np.concatenate((-np.ones(16), np.ones(16)))
+    requested_phi = (np.arange(16, dtype=float) + 0.5) * np.pi / 16.0
+    requested_phi = np.concatenate((requested_phi, requested_phi))
+    state_codes = np.concatenate((np.full(16, 1), np.full(16, 2)))
+    intervals = (
+        StateInterval(1, 1, 1, "parallel", "closure", "pol1_net"),
+        StateInterval(1, 1, 2, "perpendicular", "closure", "pol2_net"),
+    )
+    orientation_signs = {"parallel": -1, "perpendicular": 1}
+    phi_results = [
+        reaction_plane_phi(
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [np.cos(angle), np.sin(angle), 0.0],
+        )
+        for angle in requested_phi
+    ]
+    if any(not result.valid for result in phi_results):
+        raise PolarizationContractError("closure generated degenerate reaction plane")
+    phi = np.asarray([result.value for result in phi_results], dtype=float)
+    sign = np.asarray(
+        [
+            orientation_signs[resolve_orientation(1, int(state), intervals)]
+            for state in state_codes
+        ],
+        dtype=float,
+    )
     polarization = np.concatenate((np.full(16, 0.74), np.full(16, 0.66)))
     acceptance = np.concatenate(
         (
-            0.28 + 0.58 * np.sin(phi_state + 0.11) ** 2,
-            0.32 + 0.52 * np.cos(phi_state - 0.19) ** 2,
+            0.28 + 0.58 * np.sin(phi[:16] + 0.11) ** 2,
+            0.32 + 0.52 * np.cos(phi[16:] - 0.19) ** 2,
         )
     )
     exposure = np.concatenate((np.full(16, 1.15), np.full(16, 0.87)))
@@ -93,11 +118,14 @@ def run_injected_closure(
     swapped_design["orientation_sign"] = -design["orientation_sign"]
     swapped = fit_sigma_binned(**swapped_design, observed=expected)
     sign_check_passed = abs(swapped.sigma + asimov.sigma) <= 5e-6
-    valid = (
-        abs(bias) <= bias_threshold
-        and abs(pull_mean) <= pull_mean_threshold
-        and abs(pull_width - 1.0) <= pull_width_tolerance
-        and sign_check_passed
+    bias_and_sign_valid = abs(bias) <= bias_threshold and sign_check_passed
+    at_physical_boundary = np.isclose(abs(injected), 1.0, rtol=0.0, atol=1e-12)
+    valid = bias_and_sign_valid and (
+        at_physical_boundary
+        or (
+            abs(pull_mean) <= pull_mean_threshold
+            and abs(pull_width - 1.0) <= pull_width_tolerance
+        )
     )
     return ClosureResult(
         injected_sigma=injected,

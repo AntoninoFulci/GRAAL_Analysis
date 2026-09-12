@@ -12,6 +12,8 @@ def valid_payload():
     return {
         "sign_convention": {
             "status": "approved",
+            "approval_id": "GRAAL-SIGN-001",
+            "reviewers": ["persona-1", "persona-2"],
             "orientation_signs": {"parallel": -1, "perpendicular": 1},
         },
         "figure4_comparison": {
@@ -55,4 +57,24 @@ def test_load_figure4_config_rejects_unapproved_sign_or_wrong_grid(tmp_path):
     payload["sign_convention"]["orientation_signs"]["perpendicular"] = True
     path.write_text(json.dumps(payload))
     with pytest.raises(PolarizationContractError, match="opposite signs"):
+        load_figure4_config(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("approval_id", ""),
+        ("reviewers", ["persona-1"]),
+        ("reviewers", ["persona-1", " persona-1 "]),
+    ],
+)
+def test_load_figure4_config_requires_documented_two_reviewer_approval(
+    tmp_path, field, value
+):
+    payload = valid_payload()
+    payload["sign_convention"][field] = value
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(PolarizationContractError, match="two-reviewer approval"):
         load_figure4_config(path)

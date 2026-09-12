@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping
 
 import numpy as np
 
@@ -32,6 +33,8 @@ class PanelExposure:
     horizontal_flux: float
     vertical_polarization: float
     horizontal_polarization: float
+    vertical_polarization_variance: float = 0.0
+    horizontal_polarization_variance: float = 0.0
     vertical_polarization_weighting_bound: float = 0.0
     horizontal_polarization_weighting_bound: float = 0.0
 
@@ -41,6 +44,8 @@ class PanelExposure:
             self.horizontal_flux,
             self.vertical_polarization,
             self.horizontal_polarization,
+            self.vertical_polarization_variance,
+            self.horizontal_polarization_variance,
             self.vertical_polarization_weighting_bound,
             self.horizontal_polarization_weighting_bound,
         )
@@ -53,6 +58,11 @@ class PanelExposure:
             or not 0.0 < self.horizontal_polarization <= 1.0
         ):
             raise PolarizationContractError("panel polarization must lie in (0, 1]")
+        if (
+            self.vertical_polarization_variance < 0.0
+            or self.horizontal_polarization_variance < 0.0
+        ):
+            raise PolarizationContractError("polarization variances must be nonnegative")
         if (
             self.vertical_polarization_weighting_bound < 0.0
             or self.horizontal_polarization_weighting_bound < 0.0
@@ -330,14 +340,19 @@ def analyze_sigma_grid(
         raise PolarizationContractError(
             "one panel exposure is required for each energy range"
         )
-    if set(mass_edges) != set(PAIR_NAMES):
+    mass_edge_rows = tuple(mass_edges)
+    if len(mass_edge_rows) != len(ranges) or any(
+        not isinstance(row_edges, Mapping) or set(row_edges) != set(PAIR_NAMES)
+        for row_edges in mass_edge_rows
+    ):
         raise PolarizationContractError(
-            "mass_edges must define p_pi0, p_eta, and eta_pi0"
+            "mass_edges must define every pair for each energy range"
         )
     phi_bins = _edges(phi_edges, "phi", 0.0, np.pi)
     centers = 0.5 * (phi_bins[:-1] + phi_bins[1:])
     results = {}
     for row, (energy_range, exposure) in enumerate(zip(ranges, panel_exposures)):
+        row_mass_edges = mass_edge_rows[row]
         for pair in PAIR_NAMES:
             observable = observables[pair]
             histogram = histogram_panel(
@@ -346,7 +361,7 @@ def analyze_sigma_grid(
                 observable.phi,
                 signs,
                 energy_range=energy_range,
-                mass_edges=mass_edges[pair],
+                mass_edges=row_mass_edges[pair],
                 phi_edges=phi_bins,
                 final_energy_bin=row == len(ranges) - 1,
             )
@@ -354,7 +369,7 @@ def analyze_sigma_grid(
                 histogram.vertical,
                 histogram.horizontal,
                 centers,
-                mass_edges[pair],
+                row_mass_edges[pair],
                 exposure,
                 phi_bin_widths=np.diff(phi_bins),
             )

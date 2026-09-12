@@ -27,10 +27,13 @@ def test_analyze_sigma_grid_builds_every_energy_pair_panel():
         return np.column_stack((momentum, total_energy))
 
     energy_ranges = tuple((low, low + 0.1) for low in (1.1, 1.2, 1.3, 1.4))
-    mass_edges = physical_mass_edges(
-        1.5,
-        bins=10,
-        masses_gev={"proton": 0.938, "eta": 0.548, "pi0": 0.135},
+    mass_edges = tuple(
+        physical_mass_edges(
+            high,
+            bins=10,
+            masses_gev={"proton": 0.938, "eta": 0.548, "pi0": 0.135},
+        )
+        for _, high in energy_ranges
     )
     exposures = [PanelExposure(1000.0, 900.0, 0.8, 0.75)] * 4
     results = analyze_sigma_grid(
@@ -50,6 +53,7 @@ def test_analyze_sigma_grid_builds_every_energy_pair_panel():
         for pair in ("p_pi0", "p_eta", "eta_pi0")
     }
     assert all(len(points) == 10 for points in results.values())
+    assert results[(0, "p_pi0")][-1].mass_high < results[(3, "p_pi0")][-1].mass_high
 
 
 def test_invariant_mass_matches_hand_calculated_four_vector():

@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 
@@ -14,7 +15,9 @@ import numpy as np
 
 from compton import load_period_curves
 from contracts import (
+    COMMIT_PATTERN,
     PolarizationContractError,
+    load_json,
     sha256_file,
     validate_gate0_handoff,
 )
@@ -30,6 +33,7 @@ from state_mapping import load_state_mapping, resolve_orientation
 CANONICAL_FLUX = "results/observable_runs/flux_by_run_energy.csv"
 CANONICAL_RUNS = "results/observable_runs/run_manifest_observables.csv"
 PARTICLE_MASSES_GEV = {"proton": 0.938272, "eta": 0.547862, "pi0": 0.134977}
+DIAGNOSTIC_USE = "diagnostic Figure-4 comparison only; not release physics"
 
 
 def publish_new_directory(destination: Path, writer) -> None:
@@ -80,6 +84,33 @@ def _write_points(path: Path, results, energy_ranges) -> None:
                 )
 
 
+def _relative_path(path: Path, repository_root: Path) -> str:
+    try:
+        return Path(path).resolve().relative_to(repository_root.resolve()).as_posix()
+    except ValueError as exc:
+        raise PolarizationContractError(
+            f"Figure 4 artifact path is outside repository: {path}"
+        ) from exc
+
+
+def _artifact_record(
+    path: Path,
+    repository_root: Path,
+    *,
+    role: str,
+    allowed_use: str,
+    published_path: str | None = None,
+) -> dict[str, object]:
+    candidate = Path(path)
+    return {
+        "path": published_path or _relative_path(candidate, repository_root),
+        "sha256": sha256_file(candidate),
+        "bytes": candidate.stat().st_size,
+        "role": role,
+        "allowed_use": allowed_use,
+    }
+
+
 def _write_qa(
     path: Path,
     *,
@@ -92,22 +123,59 @@ def _write_qa(
     results,
     points_csv,
     plot,
+    repository_root,
+    producer_commit,
+    command,
+    flux,
+    state_mapping_sources,
+    compton_sources,
 ) -> None:
     valid = sum(point.valid for points in results.values() for point in points)
     total = sum(len(points) for points in results.values())
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "diagnostic",
         "release_eligible": False,
         "reason": "Figure-comparison product; full S6 release gate remains separate",
-        "config": {"path": str(config), "sha256": sha256_file(config)},
-        "handoff": {"path": str(handoff), "sha256": sha256_file(handoff)},
-        "reconstruction_inventory": {
-            "path": str(reco_inventory),
-            "sha256": sha256_file(reco_inventory),
-        },
+        "artifact_role": "diagnostic_qa",
+        "allowed_use": DIAGNOSTIC_USE,
+        "producer": {"commit": producer_commit, "command": list(command)},
+        "config": _artifact_record(
+            config, repository_root, role="analysis_configuration",
+            allowed_use="input to diagnostic Figure-4 comparison",
+        ),
+        "handoff": _artifact_record(
+            handoff, repository_root, role="gate0_handoff",
+            allowed_use="input to diagnostic Figure-4 comparison",
+        ),
+        "reconstruction_inventory": _artifact_record(
+            reco_inventory, repository_root, role="reconstruction_inventory",
+            allowed_use="input to diagnostic Figure-4 comparison",
+        ),
+        "flux": _artifact_record(
+            flux, repository_root, role="normalization_flux",
+            allowed_use="input to diagnostic Figure-4 comparison",
+        ),
+        "state_mapping_sources": [
+            _artifact_record(
+                source, repository_root, role="state_mapping_authority",
+                allowed_use="input to diagnostic Figure-4 comparison",
+            )
+            for source in state_mapping_sources
+        ],
+        "compton_sources": [
+            _artifact_record(
+                source, repository_root, role="compton_polarization_authority",
+                allowed_use="input to diagnostic Figure-4 comparison",
+            )
+            for source in compton_sources
+        ],
         "reconstruction": [
-            {"path": str(path), "sha256": sha256_file(path)} for path in reco
+            _artifact_record(
+                item, repository_root, role="selected_reconstruction_events",
+                allowed_use="input to diagnostic Figure-4 comparison",
+            )
+            for item in reco
         ],
         "run_numbers": sorted(run_numbers),
         "polarization_energy_weighting": {
@@ -119,6 +187,8 @@ def _write_qa(
                     "horizontal_flux": item.horizontal_flux,
                     "vertical_polarization": item.vertical_polarization,
                     "horizontal_polarization": item.horizontal_polarization,
+                    "vertical_polarization_variance": item.vertical_polarization_variance,
+                    "horizontal_polarization_variance": item.horizontal_polarization_variance,
                     "vertical_unknown_spectrum_bound": item.vertical_polarization_weighting_bound,
                     "horizontal_unknown_spectrum_bound": (
                         item.horizontal_polarization_weighting_bound
@@ -129,12 +199,18 @@ def _write_qa(
         },
         "outputs": {
             "points_csv": {
-                "path": "figure4_comparison.csv",
-                "sha256": sha256_file(points_csv),
+                **_artifact_record(
+                    points_csv, repository_root, role="diagnostic_sigma_points",
+                    allowed_use=DIAGNOSTIC_USE,
+                    published_path="figure4_comparison.csv",
+                ),
             },
             "plot": {
-                "path": "figure4_comparison.png",
-                "sha256": sha256_file(plot),
+                **_artifact_record(
+                    plot, repository_root, role="diagnostic_visualization",
+                    allowed_use=DIAGNOSTIC_USE,
+                    published_path="figure4_comparison.png",
+                ),
             },
         },
         "panels": 12,
@@ -160,6 +236,10 @@ def main(argv: list[str] | None = None) -> int:
         help="new directory published atomically; must not already exist",
     )
     parser.add_argument("--repository-root", type=Path, default=Path("."))
+    parser.add_argument(
+        "--producer-commit",
+        help="40-character Git commit; defaults to repository HEAD",
+    )
     args = parser.parse_args(argv)
     root = args.repository_root.resolve()
     config_path = args.config if args.config.is_absolute() else root / args.config
@@ -173,7 +253,18 @@ def main(argv: list[str] | None = None) -> int:
     flux_path = root / CANONICAL_FLUX
     try:
         validate_gate0_handoff(handoff_path, root)
+        producer_commit = args.producer_commit
+        if producer_commit is None:
+            producer_commit = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        if COMMIT_PATTERN.fullmatch(producer_commit or "") is None:
+            raise PolarizationContractError("producer_commit must be a Git hash")
         layout = load_figure4_config(config_path)
+        raw_config = load_json(config_path)
         gate0_runs = load_gate0_run_numbers(root / CANONICAL_RUNS, target=layout.target)
         inventory = load_reco_inventory(
             inventory_path,
@@ -185,6 +276,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         intervals = load_state_mapping(config_path, root)
         curves = load_period_curves(config_path, root)
+        state_source = raw_config["state_mapping"]["source"]["path"]
+        state_sources = (
+            Path(state_source) if Path(state_source).is_absolute() else root / state_source,
+        )
+        compton_sources = tuple(
+            Path(item["source"]["path"])
+            if Path(item["source"]["path"]).is_absolute()
+            else root / item["source"]["path"]
+            for item in raw_config["compton_polarization"]["periods"]
+        )
         exposures = build_panel_exposures(
             flux_path,
             intervals,
@@ -214,10 +315,13 @@ def main(argv: list[str] | None = None) -> int:
             ],
             dtype=int,
         )
-        mass_edges = physical_mass_edges(
-            max(high for _, high in layout.energy_ranges),
-            bins=layout.mass_bins,
-            masses_gev=PARTICLE_MASSES_GEV,
+        mass_edges = tuple(
+            physical_mass_edges(
+                high,
+                bins=layout.mass_bins,
+                masses_gev=PARTICLE_MASSES_GEV,
+            )
+            for _, high in layout.energy_ranges
         )
         results = analyze_sigma_grid(
             events.beam_energy,
@@ -256,9 +360,23 @@ def main(argv: list[str] | None = None) -> int:
                 results=results,
                 points_csv=points_output,
                 plot=plot_output,
+                repository_root=root,
+                producer_commit=producer_commit,
+                command=(
+                    "python", "08_polarization/build_figure4_comparison.py",
+                    "--repository-root", ".",
+                    "--config", _relative_path(config_path, root),
+                    "--handoff", _relative_path(handoff_path, root),
+                    "--reco-inventory", _relative_path(inventory_path, root),
+                    "--output-dir", _relative_path(output_dir, root),
+                    "--producer-commit", producer_commit,
+                ),
+                flux=flux_path,
+                state_mapping_sources=state_sources,
+                compton_sources=compton_sources,
             )
         publish_new_directory(output_dir, write_bundle)
-    except (OSError, PolarizationContractError) as exc:
+    except (KeyError, TypeError, OSError, subprocess.CalledProcessError, PolarizationContractError) as exc:
         print(f"Figure 4 comparison blocked: {exc}", file=sys.stderr)
         return 1
     print(f"Published diagnostic bundle: {output_dir}")

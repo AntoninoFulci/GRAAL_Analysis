@@ -180,6 +180,8 @@ def write_valid_release(path):
                 },
                 "sign_convention": {
                     "status": "approved",
+                    "approval_id": "fixture-sign",
+                    "reviewers": ["test-a", "test-b"],
                     "orientation_signs": {"parallel": 1, "perpendicular": -1},
                 },
                 "figure4_comparison": {

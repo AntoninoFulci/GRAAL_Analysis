@@ -57,6 +57,7 @@ def plot_sigma_grid(
                     max(point.mass_high for point in points),
                 )
             valid = [point for point in points if point.valid]
+            invalid = [point for point in points if not point.valid]
             if valid:
                 axis.errorbar(
                     [point.mass_center for point in valid],
@@ -68,6 +69,17 @@ def plot_sigma_grid(
                     markersize=4.5,
                     capsize=2.0,
                     linewidth=1.0,
+                )
+            if invalid:
+                axis.scatter(
+                    [point.mass_center for point in invalid],
+                    [-0.94] * len(invalid),
+                    marker="x",
+                    color="#A33A2B",
+                    s=24,
+                    linewidths=1.2,
+                    label="invalid fit",
+                    zorder=3,
                 )
             axis.set_ylim(-1.0, 1.0)
             axis.grid(axis="y", color="0.9", linewidth=0.6)

@@ -67,8 +67,12 @@ def test_exposure_aggregates_explicit_flux_components_and_flux_weights_polarizat
     assert result[0].vertical_flux == pytest.approx(120.0)
     assert result[0].horizontal_polarization == pytest.approx(0.75)
     assert result[0].vertical_polarization == pytest.approx(0.75)
+    assert result[0].horizontal_polarization_variance == pytest.approx(0.00625)
+    assert result[0].vertical_polarization_variance == pytest.approx(0.00625)
     assert result[1].horizontal_polarization == pytest.approx(0.85)
     assert result[1].vertical_polarization == pytest.approx(0.85)
+    assert result[1].horizontal_polarization_variance == pytest.approx(0.00625)
+    assert result[1].vertical_polarization_variance == pytest.approx(0.00625)
 
 
 def test_exposure_ignores_other_binnings_and_targets(tmp_path):

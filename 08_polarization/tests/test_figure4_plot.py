@@ -64,5 +64,6 @@ def test_plot_marks_invalid_bins_without_turning_them_into_sigma_points(tmp_path
         analysis_label="test",
     )
     assert len(figure.axes[0].lines) == 1  # zero reference line only
-    assert len(figure.axes[0].collections) == 0
+    assert len(figure.axes[0].collections) == 1
+    assert figure.axes[0].collections[0].get_offsets().tolist() == [[0.75, -0.94]]
     assert figure.axes[0].get_xlim() == (0.7, 0.8)

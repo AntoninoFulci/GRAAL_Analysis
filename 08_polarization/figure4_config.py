@@ -30,6 +30,21 @@ def load_figure4_config(path: Path) -> Figure4Config:
         raise PolarizationContractError(
             "sign convention requires two-reviewer approval"
         )
+    approval_id = sign.get("approval_id")
+    reviewers = sign.get("reviewers")
+    normalized_reviewers = {
+        reviewer.strip()
+        for reviewer in reviewers
+        if isinstance(reviewer, str) and reviewer.strip()
+    } if isinstance(reviewers, list) else set()
+    if (
+        not isinstance(approval_id, str)
+        or not approval_id.strip()
+        or len(normalized_reviewers) < 2
+    ):
+        raise PolarizationContractError(
+            "sign convention requires documented two-reviewer approval"
+        )
     raw_signs = sign.get("orientation_signs")
     if not isinstance(raw_signs, Mapping) or set(raw_signs) != {
         "parallel", "perpendicular"

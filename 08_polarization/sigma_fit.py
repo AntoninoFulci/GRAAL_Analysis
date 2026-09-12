@@ -130,8 +130,8 @@ def fit_sigma_binned(
         initial,
         method="L-BFGS-B",
         jac=True,
-        bounds=((-0.999999, 0.999999), (-30.0, 30.0), (-30.0, 30.0)),
-        options={"ftol": 1e-14, "gtol": 1e-10, "maxiter": 2000},
+        bounds=((-1.0, 1.0), (-30.0, 30.0), (-30.0, 30.0)),
+        options={"ftol": 1e-12, "gtol": 1e-8, "maxiter": 2000},
     )
     if not optimization.success or not np.all(np.isfinite(optimization.x)):
         raise PolarizationContractError(

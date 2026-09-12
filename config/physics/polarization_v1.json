@@ -32,6 +32,8 @@
   },
   "sign_convention": {
     "status": "pending_two_reviewer_approval",
+    "approval_id": null,
+    "reviewers": [],
     "model": "mu = exposure * acceptance * scale_state * (1 + orientation_sign * P * Sigma * cos(2*phi))",
     "orientation_signs": {}
   },

@@ -32,7 +32,7 @@ reviewers. Each interval binds:
 - exact accepted flux column, `pol1_net` or `pol2_net`.
 
 Names `POL1` and `POL2` never imply an orientation. Sign convention also needs
-explicit two-reviewer approval.
+an approval ID and two distinct named reviewers.
 
 Period-specific Compton polarization uses tabulated `P(E_gamma)` nodes and a
 covariance matrix. Interpolation is piecewise linear. Bin averages integrate
@@ -40,7 +40,9 @@ that interpolation exactly under a uniform within-bin spectrum. Extrapolation
 is rejected. Current observable bundle exposes integrated 100 MeV flux, not
 strip-resolved flux by polarization component. Diagnostic QA therefore records
 a conservative interpolation-node envelope for unknown within-bin spectrum weighting;
-final S6 release must replace or propagate this approximation.
+it also preserves bin-average Compton covariance. Repeated runs from one period
+share that uncertainty; independent period contributions combine with squared
+flux weights. Final S6 release must replace or propagate this approximation.
 
 ## Observable and estimator
 
@@ -62,7 +64,10 @@ one common unknown efficiency/rate per azimuth bin. Conditioning on total
 count removes that common nuisance exactly and gives a binomial likelihood.
 This estimator allows unequal vertical/horizontal flux and polarization.
 `Sigma` is bounded to `[-1, 1]`. Empty or angularly incomplete mass bins remain
-visible as invalid rows, never silently dropped.
+visible as invalid rows and red crosses at plot boundary, never silently dropped
+or represented as measured `Sigma` points. Closure at `Sigma = +/-1` gates on
+bias and orientation-sign inversion; Gaussian pull gates apply only inside
+physical interval because their asymptotic assumptions fail at boundary.
 
 Finite azimuth bins use exact uniform-bin average
 `cos(2 phi_center) sin(delta_phi) / delta_phi`. Residual sub-bin acceptance
@@ -80,8 +85,8 @@ Configured diagnostic layout uses:
 - three columns: `M(p pi0)`, `M(p eta)`, `M(eta pi0)`;
 - ten invariant-mass bins per panel;
 - twelve azimuth bins on `[0, pi)`;
-- physical mass limits derived from framework particle masses and maximum
-  center-of-mass energy.
+- physical mass limits derived separately for each energy row from framework
+  particle masses and that row's maximum center-of-mass energy.
 
 Only framework results appear. Output title, colors, typography, axes, QA, and
 serialization are project-native.
@@ -113,9 +118,13 @@ python 08_polarization/build_figure4_comparison.py \
 
 Command validates exact Gate 0 hashes before reading events. Outputs are a PNG,
 one CSV row per fitted mass bin including invalid bins, and a QA JSON containing
-input/output hashes and exact complete-run inventory. Bundle is staged and then
-published as one new directory; existing destinations are never overwritten.
-QA marks this product `diagnostic` and `release_eligible=false`.
+repo-relative input/output paths, hashes, byte sizes, artifact roles, allowed-use
+labels, exact complete-run inventory, direct flux/state-map/Compton sources,
+Compton variances, producer commit, and reproducible command. Producer commit
+defaults to repository `HEAD`; `--producer-commit` permits explicit injection
+for controlled builds. Bundle is staged then published as one new directory;
+existing destinations are never overwritten. QA schema v2 marks product
+`diagnostic`, `release_eligible=false`, and unusable for release physics.
 
 ## S6 release contract
 
