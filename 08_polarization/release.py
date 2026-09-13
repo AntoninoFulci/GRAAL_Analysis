@@ -404,7 +404,7 @@ def _validate_acceptance_csv(
 def _validate_inputs(
     qa: Mapping[str, object], repository_root: Path,
     required_acceptance_keys: frozenset[tuple[object, ...]],
-) -> tuple[str, str, str, dict[str, object]]:
+) -> tuple[str, str, str, str, dict[str, object]]:
     inputs = qa.get("inputs")
     required = {
         "config", "gate0_handoff", "acceptance_csv",
@@ -518,6 +518,10 @@ def _validate_inputs(
         raise PolarizationContractError(
             "phi-response schema approval requires id and two reviewers"
         )
+    if phi_response_approval_id != handoff.phi_response_schema_approval_id:
+        raise PolarizationContractError(
+            "acceptance QA phi-response schema approval ID disagrees with config"
+        )
     load_state_mapping(config_path, repository_root)
     load_period_curves(config_path, repository_root)
     layout = load_figure4_config(config_path)
@@ -558,7 +562,13 @@ def _validate_inputs(
         expected_vectors=layout.vectors,
         expected_run_numbers=gate0_runs,
     )
-    return config_digest, gate0_digest, _input_digest(digest_records), config
+    return (
+        config_digest,
+        gate0_digest,
+        _input_digest(digest_records),
+        acceptance_response_digest,
+        config,
+    )
 
 
 def _validate_qa(
@@ -601,9 +611,23 @@ def _validate_qa(
         "config_sha256", "gate0_handoff_sha256", "acceptance_qa_sha256"
     ):
         _required_digest(qa, key)
-    config_digest, gate0_digest, input_digest, config = _validate_inputs(
+    (
+        config_digest,
+        gate0_digest,
+        input_digest,
+        acceptance_response_digest,
+        config,
+    ) = _validate_inputs(
         qa, repository_root, rows.acceptance_keys
     )
+    if (
+        fit_qa.get("acceptance_phi_response_sha256")
+        != acceptance_response_digest
+        or fit_qa.get("response_application") != "forward_folded"
+    ):
+        raise PolarizationContractError(
+            "fit QA does not prove approved phi-response usage"
+        )
     if qa["config_sha256"] != config_digest or rows.config_sha256 != config_digest:
         raise PolarizationContractError("config SHA-256 disagrees with actual config")
     if qa["gate0_handoff_sha256"] != gate0_digest:

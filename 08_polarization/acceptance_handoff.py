@@ -34,6 +34,7 @@ class AcceptanceHandoff:
     qa_json: Path
     acceptance_sha256: str
     phi_response_sha256: str
+    phi_response_schema_approval_id: str
     qa_sha256: str
     gate0_handoff_sha256: str
     n2_reconstruction_sha256: str
@@ -117,6 +118,16 @@ def validate_acceptance_handoff(
 
     acceptance_digest = _required_digest(qa, "acceptance_csv_sha256")
     response_digest = _required_digest(qa, "acceptance_phi_response_csv_sha256")
+    phi_response_schema_approval_id = qa.get(
+        "phi_response_schema_approval_id"
+    )
+    if (
+        not isinstance(phi_response_schema_approval_id, str)
+        or not phi_response_schema_approval_id.strip()
+    ):
+        raise PolarizationContractError(
+            "acceptance QA requires phi-response schema approval ID"
+        )
     gate0_digest = _required_digest(qa, "gate0_handoff_sha256")
     n2_digest = _required_digest(qa, "n2_reconstruction_sha256")
     if sha256_file(acceptance) != acceptance_digest:
@@ -142,6 +153,7 @@ def validate_acceptance_handoff(
         qa_json=qa_path,
         acceptance_sha256=acceptance_digest,
         phi_response_sha256=response_digest,
+        phi_response_schema_approval_id=phi_response_schema_approval_id,
         qa_sha256=sha256_file(qa_path),
         gate0_handoff_sha256=gate0_digest,
         n2_reconstruction_sha256=n2_digest,

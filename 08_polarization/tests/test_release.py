@@ -145,6 +145,7 @@ def write_valid_release(path):
                 "valid": True,
                 "acceptance_csv_sha256": sha(acceptance_csv),
                 "acceptance_phi_response_csv_sha256": sha(acceptance_response),
+                "phi_response_schema_approval_id": "fixture-phi-response",
                 "gate0_handoff_sha256": sha(gate0),
                 "n2_reconstruction_sha256": "3" * 64,
                 "input_sha256": "1" * 64,
@@ -288,7 +289,11 @@ def write_valid_release(path):
             "sigma_v1.csv": sha(csv_path),
             "sigma_covariance.npz": sha(npz_path),
         },
-        "fit_qa": {"valid": True},
+        "fit_qa": {
+            "valid": True,
+            "acceptance_phi_response_sha256": sha(acceptance_response),
+            "response_application": "forward_folded",
+        },
         "closure": {
             "valid": True, "sign_check_passed": True,
             "bias": 0.01, "pull_mean": 0.05, "pull_width": 1.04,
@@ -557,6 +562,19 @@ def test_release_rejects_unapproved_phi_response_schema(tmp_path, mutation):
         validate_sigma_release(release, repo_of(release))
 
 
+def test_release_rejects_phi_response_schema_approval_id_mismatch(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            phi_response_schema_approval_id="different-approval"
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="schema approval ID"):
+        validate_sigma_release(release, repo_of(release))
+
+
 def test_release_rejects_acceptance_bound_to_different_n2_reconstruction(tmp_path):
     release = write_valid_release(tmp_path / "release")
     inventory = repo_of(release) / "results/reconstruction/inventory.json"
@@ -569,6 +587,22 @@ def test_release_rejects_acceptance_bound_to_different_n2_reconstruction(tmp_pat
 
     rewrite_input_binding(release, refresh_inventory)
     with pytest.raises(PolarizationContractError, match="N2 reconstruction"):
+        validate_sigma_release(release, repo_of(release))
+
+
+@pytest.mark.parametrize("mutation", ["missing", "wrong_digest", "wrong_application"])
+def test_release_rejects_fit_not_bound_to_phi_response(tmp_path, mutation):
+    release = write_valid_release(tmp_path / "release")
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    if mutation == "missing":
+        qa["fit_qa"].pop("acceptance_phi_response_sha256")
+    elif mutation == "wrong_digest":
+        qa["fit_qa"]["acceptance_phi_response_sha256"] = "0" * 64
+    else:
+        qa["fit_qa"]["response_application"] = "diagnostic_only"
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="phi-response usage"):
         validate_sigma_release(release, repo_of(release))
 
 

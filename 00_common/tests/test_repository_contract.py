@@ -106,6 +106,19 @@ def test_makefile_root_free_suite_omits_pyroot_importing_tests():
     assert "test_build_strip_energy_flux.py" not in recipe
     assert "05_reconstruction/tests" not in recipe
     assert "06_plots/tests" not in recipe
+    assert "08_polarization/tests" in recipe
+    assert "--ignore=08_polarization/tests/test_figure4_end_to_end.py" in recipe
+    assert "--ignore=08_polarization/tests/test_root_events_integration.py" in recipe
+
+
+def test_default_test_discovery_includes_person2_polarization():
+    assert '"08_polarization/tests"' in read("pyproject.toml")
+
+
+def test_polarization_diagnostics_do_not_share_immutable_s6_directory():
+    text = read("docs/physics/polarization.md")
+    assert "--output-dir results/diagnostics/polarization/figure4_comparison" in text
+    assert "--output-dir results/physics/polarization/figure4_comparison" not in text
 
 
 def test_testing_docs_name_top_level_pyroot_plot_module():

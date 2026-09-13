@@ -88,9 +88,9 @@ CSV hash mismatch. N2 reconstruction digest in acceptance QA must equal actual
 reconstruction-inventory digest consumed by S6. Canonical polarization config
 must explicitly approve same release ID and directory. Phi-response schema
 approval additionally requires non-empty approval ID and two distinct
-reviewers. Concrete response columns and forward-folding CLI remain blocked
-pending that joint approval; scalar/common-acceptance diagnostics cannot
-satisfy this release gate.
+reviewers; `acceptance_qa.json` must carry same approval ID. Concrete response
+columns and forward-folding CLI remain blocked pending that joint approval;
+scalar/common-acceptance diagnostics cannot satisfy this release gate.
 
 ## Comparison grid
 
@@ -128,7 +128,7 @@ After Gate 0, signed state map, Compton inputs, and inventory exist:
 ```bash
 python 08_polarization/build_figure4_comparison.py \
   --reco-inventory results/physics/reconstruction/reco_eta_pi0_chi2_inventory.json \
-  --output-dir results/physics/polarization/figure4_comparison
+  --output-dir results/diagnostics/polarization/figure4_comparison
 ```
 
 Command validates exact Gate 0 hashes before reading events. Outputs are a PNG,
@@ -158,6 +158,10 @@ Physics release consists of exactly:
 systematic sources, and approved numeric QA policy. Policy must equal canonical
 hash-validated config; current supported systematic combination is explicitly
 `independent_sources_quadrature`.
+
+Fit QA must bind exact `acceptance_phi_response_v1.csv` SHA-256 and declare
+`response_application=forward_folded`. A diagnostic-only or differently hashed
+response cannot validate as S6.
 
 Validator requires symmetric positive-semidefinite matrices, CSV/NPZ bin-order
 identity, statistical/systematic diagonal agreement, and

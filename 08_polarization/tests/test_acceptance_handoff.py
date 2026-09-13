@@ -36,6 +36,7 @@ def write_handoff(repo: Path, release_id: str = "acceptance-test-v1") -> Path:
         "valid": True,
         "acceptance_csv_sha256": sha256(acceptance),
         "acceptance_phi_response_csv_sha256": sha256(response),
+        "phi_response_schema_approval_id": "fixture-phi-response",
         "gate0_handoff_sha256": "b" * 64,
         "n2_reconstruction_sha256": "c" * 64,
         "count_checks": {"valid": True},
@@ -59,6 +60,7 @@ def test_accepts_exact_immutable_triplet_with_cross_hashes(tmp_path):
     assert validated.phi_response_csv == release / "acceptance_phi_response_v1.csv"
     assert validated.qa_json == release / "acceptance_qa.json"
     assert validated.n2_reconstruction_sha256 == "c" * 64
+    assert validated.phi_response_schema_approval_id == "fixture-phi-response"
 
 
 @pytest.mark.parametrize(
@@ -86,6 +88,17 @@ def test_rejects_legacy_root_destination(tmp_path):
 
     with pytest.raises(PolarizationContractError, match="immutable handoff directory"):
         validate_acceptance_handoff(legacy, tmp_path)
+
+
+def test_rejects_missing_phi_response_schema_approval_id(tmp_path):
+    release = write_handoff(tmp_path)
+    qa_path = release / "acceptance_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    qa.pop("phi_response_schema_approval_id")
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="schema approval ID"):
+        validate_acceptance_handoff(release, tmp_path)
 
 
 def test_rejects_release_id_and_gate0_mismatch(tmp_path):
