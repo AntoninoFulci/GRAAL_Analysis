@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from pathlib import Path
 from typing import Mapping
 
@@ -12,7 +14,6 @@ from contracts import (
     SHA256_PATTERN,
     PolarizationContractError,
     canonical_relative_file,
-    load_json,
     sha256_file,
 )
 from phi_response import PhiResponse, load_phi_response
@@ -55,6 +56,23 @@ def _required_digest(payload: Mapping[str, object], key: str) -> str:
             f"acceptance QA {key} must be lowercase SHA-256"
         )
     return value
+
+
+def _load_qa_snapshot(path: Path) -> tuple[dict[str, object], str]:
+    """Parse QA and hash the exact same byte snapshot."""
+    candidate = Path(path)
+    try:
+        raw = candidate.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise PolarizationContractError(
+            f"cannot read JSON {candidate}: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise PolarizationContractError(
+            f"{candidate} must contain a JSON object"
+        )
+    return payload, hashlib.sha256(raw).hexdigest()
 
 
 def _canonical_release_directory(release_dir: Path, repository_root: Path) -> Path:
@@ -113,8 +131,7 @@ def validate_acceptance_handoff(
     acceptance = entries["acceptance_v1.csv"].resolve()
     response = entries["acceptance_phi_response_v1.csv"].resolve()
     qa_path = entries["acceptance_qa.json"].resolve()
-    qa = load_json(qa_path)
-    qa_digest = sha256_file(qa_path)
+    qa, qa_digest = _load_qa_snapshot(qa_path)
     if config.status != "approved":
         raise PolarizationContractError(
             "acceptance handoff requires approved canonical config"

@@ -47,6 +47,7 @@ def valid_handoff(response_fixture, repo: Path) -> Path:
         "n2_reconstruction_sha256": "e" * 64,
         "input_sha256": "b" * 64,
         "config_sha256": "c" * 64,
+        "snapshot_marker": "pinned",
         "count_checks": {"valid": True},
         "matrix_checks": {"valid": True},
         "weighted_covariance_checks": {"valid": True},
@@ -124,6 +125,29 @@ def test_handoff_requires_config_pinned_qa_digest(
     )
     with pytest.raises(PolarizationContractError, match="QA SHA-256"):
         validate_acceptance_handoff(valid_handoff, repo, config=unpinned)
+
+
+def test_handoff_parses_qa_from_same_bytes_as_pinned_digest(
+    valid_handoff, approved_config, repo, monkeypatch
+):
+    qa_path = valid_handoff / "acceptance_qa.json"
+    replacement = json.loads(qa_path.read_text(encoding="utf-8"))
+    replacement["snapshot_marker"] = "substituted"
+    original_read_text = Path.read_text
+
+    def substitute_text(path, *args, **kwargs):
+        if path == qa_path:
+            return json.dumps(replacement)
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", substitute_text)
+
+    validated = validate_acceptance_handoff(
+        valid_handoff, repo, config=approved_config
+    )
+
+    assert validated.qa_sha256 == approved_config.acceptance_qa_sha256
+    assert validated.qa["snapshot_marker"] == "pinned"
 
 
 def test_handoff_rejects_wholesale_self_consistent_replacement(

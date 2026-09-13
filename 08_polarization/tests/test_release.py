@@ -750,7 +750,14 @@ def test_release_rejects_missing_acceptance_for_sigma_bin(tmp_path):
         csv.writer(handle).writerows(rows)
     qa["files"]["sigma_v1.csv"] = sha(release / "sigma_v1.csv")
     qa_path.write_text(json.dumps(qa))
-    with pytest.raises(PolarizationContractError, match="acceptance"):
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            acceptance_qa_sha256=sha(acceptance_qa_path)
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="lacks valid rows"):
         validate_sigma_release(release, repo_of(release))
 
 
@@ -778,7 +785,16 @@ def test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa(tmp_pa
         qa["acceptance_qa_sha256"] = sha(acceptance_qa_path)
 
     rewrite_input_binding(release, refresh_outer)
-    with pytest.raises(PolarizationContractError, match="acceptance.*QA"):
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            acceptance_qa_sha256=sha(acceptance_qa_path)
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(
+        PolarizationContractError, match="row provenance hashes disagree"
+    ):
         validate_sigma_release(release, repo)
 
 
