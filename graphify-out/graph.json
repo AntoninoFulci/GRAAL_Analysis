@@ -30,14 +30,16 @@
         "source_file": "docs/physics/polarization.md"
       },
       {
-        "id": "docs_physics_polarization_sigma_release_inputs",
-        "label": "Sigma Release Validated Inputs",
+        "id": "docs_physics_polarization_sigma_release_gate",
+        "label": "Sigma Release Gate Inputs and Approvals",
         "nodes": [
           "docs_physics_polarization_gate_0_observable_handoff",
           "docs_physics_polarization_reconstruction_inventory",
           "docs_physics_polarization_approved_state_mapping",
           "docs_physics_polarization_period_specific_compton_polarization",
           "docs_physics_polarization_immutable_n3_acceptance_handoff",
+          "docs_physics_polarization_phi_response_joint_approval",
+          "docs_physics_polarization_forward_folded_response_binding",
           "docs_physics_polarization_s6_sigma_release_contract"
         ],
         "relation": "participate_in",
@@ -259,7 +261,7 @@
       "source_file": "00_common/channels.py",
       "source_location": "L37",
       "_origin": "ast",
-      "community": 154,
+      "community": 20,
       "norm_label": "hypothesis",
       "community_name": "Hypothesis",
       "id": "00_common_channels_hypothesis"
@@ -270,7 +272,7 @@
       "source_file": "00_common/channels.py",
       "source_location": "L54",
       "_origin": "ast",
-      "community": 154,
+      "community": 20,
       "norm_label": ".is_degenerate()",
       "community_name": "Hypothesis",
       "id": "00_common_channels_hypothesis_is_degenerate"
@@ -369,7 +371,7 @@
       "source_file": "00_common/channels.py",
       "source_location": "L38",
       "_origin": "ast",
-      "community": 154,
+      "community": 20,
       "norm_label": "two mesons the four observed photons are tested against.      `heavy` is the mor",
       "community_name": "Hypothesis",
       "id": "00_common_channels_rationale_38"
@@ -380,7 +382,7 @@
       "source_file": "00_common/channels.py",
       "source_location": "L55",
       "_origin": "ast",
-      "community": 154,
+      "community": 20,
       "norm_label": "true when both mesons are the same particle.",
       "community_name": "Hypothesis",
       "id": "00_common_channels_rationale_55"
@@ -1205,7 +1207,7 @@
       "source_file": "00_common/pairing.py",
       "source_location": "L23",
       "_origin": "ast",
-      "community": 16,
+      "community": 176,
       "norm_label": "pairing",
       "community_name": "Pairing",
       "id": "00_common_pairing_pairing"
@@ -1326,7 +1328,7 @@
       "source_file": "00_common/pairing.py",
       "source_location": "L24",
       "_origin": "ast",
-      "community": 16,
+      "community": 176,
       "norm_label": "one hypothesis about which photons made which meson.",
       "community_name": "Pairing",
       "id": "00_common_pairing_rationale_24"
@@ -1425,9 +1427,9 @@
       "source_file": "00_common/run_manifest.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 56,
+      "community": 5,
       "norm_label": "run_manifest.py",
-      "community_name": "ObservableRunError",
+      "community_name": "test_run_manifest.py",
       "id": "00_common_run_manifest"
     },
     {
@@ -1524,9 +1526,9 @@
       "source_file": "00_common/run_manifest.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 56,
+      "community": 5,
       "norm_label": "scan, serialize, read, and validate run manifests.",
-      "community_name": "ObservableRunError",
+      "community_name": "test_run_manifest.py",
       "id": "00_common_run_manifest_rationale_1"
     },
     {
@@ -1636,7 +1638,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "energybinning",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_energybinning"
     },
     {
@@ -1691,7 +1693,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "stripflux",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_stripflux"
     },
     {
@@ -1790,7 +1792,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "atomic_output_directory()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_strip_energy_flux_atomic_output_directory"
     },
     {
@@ -1834,7 +1836,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "energy_bin_index()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_energy_bin_index"
     },
     {
@@ -1889,7 +1891,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "integrate_run_flux()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_integrate_run_flux"
     },
     {
@@ -1898,7 +1900,7 @@
       "source_file": "00_common/strip_energy_flux.py",
       "source_location": "L708",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "aggregate_group_flux()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_aggregate_group_flux"
@@ -1911,7 +1913,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "check_flux_conservation()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_check_flux_conservation"
     },
     {
@@ -1955,7 +1957,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "define named, strictly increasing energy-bin edges in gev.",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_30"
     },
     {
@@ -1999,7 +2001,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "store three raw flux components for one run and strip.",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_139"
     },
     {
@@ -2087,7 +2089,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "yield a staging directory and publish it atomically on success.",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_strip_energy_flux_rationale_281"
     },
     {
@@ -2131,7 +2133,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "return the bin containing an energy, or ``none`` when out of range.",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_370"
     },
     {
@@ -2175,7 +2177,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "assign strip flux to energy bins and compute net polarization flux.",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_646"
     },
     {
@@ -2184,7 +2186,7 @@
       "source_file": "00_common/strip_energy_flux.py",
       "source_location": "L711",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "sum run-level flux records by group and energy bin.",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_711"
@@ -2197,7 +2199,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "check raw-flux conservation for runs and manifest groups.",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_strip_energy_flux_rationale_771"
     },
     {
@@ -2525,9 +2527,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_build_observable_run_database.py",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database"
     },
     {
@@ -2536,9 +2538,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L25",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_sha256()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_sha256"
     },
     {
@@ -2547,9 +2549,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "path",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_py_path"
     },
     {
@@ -2558,9 +2560,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L29",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_write_csv()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_write_csv"
     },
     {
@@ -2569,9 +2571,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L36",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_manifest_records()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_manifest_records"
     },
     {
@@ -2580,9 +2582,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L51",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_source_qa()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_source_qa"
     },
     {
@@ -2591,9 +2593,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L84",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_build_source_bundle()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_build_source_bundle"
     },
     {
@@ -2602,9 +2604,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L139",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_run_cli()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_run_cli"
     },
     {
@@ -2613,9 +2615,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "completedprocess",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "completedprocess"
     },
     {
@@ -2624,9 +2626,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L164",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "_load_cli_module()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_load_cli_module"
     },
     {
@@ -2635,9 +2637,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L173",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_input_snapshots_are_parsed_and_hashed_after_originals_change()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_input_snapshots_are_parsed_and_hashed_after_originals_change"
     },
     {
@@ -2646,9 +2648,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L197",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_accepts_raw_flux_coverage_when_a_bad_run_has_no_integrated_rows()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_accepts_raw_flux_coverage_when_a_bad_run_has_no_integrated_rows"
     },
     {
@@ -2657,9 +2659,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L232",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_source_qa_manifest_count_mismatch()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_source_qa_manifest_count_mismatch"
     },
     {
@@ -2668,9 +2670,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L246",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_publishes_deterministic_good_run_bundle_with_lineage()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_publishes_deterministic_good_run_bundle_with_lineage"
     },
     {
@@ -2679,9 +2681,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L296",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_unclassified_source_errors_without_replacing_destination()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_unclassified_source_errors_without_replacing_destination"
     },
     {
@@ -2690,9 +2692,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L316",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_metadata_conflicts_without_replacing_destination()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_metadata_conflicts_without_replacing_destination"
     },
     {
@@ -2701,9 +2703,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L334",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_undeclared_or_overlapping_flux_bins_without_replacing_destination()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_undeclared_or_overlapping_flux_bins_without_replacing_destination"
     },
     {
@@ -2712,9 +2714,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L357",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_overflowed_group_aggregate_without_replacing_destination()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_overflowed_group_aggregate_without_replacing_destination"
     },
     {
@@ -2723,9 +2725,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L387",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_preserves_extra_source_warning_lineage()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_preserves_extra_source_warning_lineage"
     },
     {
@@ -2734,9 +2736,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L415",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "test_cli_rejects_an_output_directory_inside_its_source_bundle()",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_test_cli_rejects_an_output_directory_inside_its_source_bundle"
     },
     {
@@ -2745,9 +2747,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "integration tests for the artifact-only observable-run database cli.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_1"
     },
     {
@@ -2756,9 +2758,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L174",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "hashing originals after parsing would let qa describe different input bytes.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_174"
     },
     {
@@ -2767,9 +2769,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L198",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "equating raw triplet count with integrated csv rows rejects valid curation.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_198"
     },
     {
@@ -2778,9 +2780,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L233",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "relaxing raw-flux semantics must not relax canonical manifest consistency.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_233"
     },
     {
@@ -2789,9 +2791,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L247",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "removing quality filtering or lineage serialization breaks this contract.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_247"
     },
     {
@@ -2800,9 +2802,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L297",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "accepting unknown producer errors could publish an unsafe good-run bundle.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_297"
     },
     {
@@ -2811,9 +2813,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L317",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "bypassing strict readers would let conflicting run metadata leak into outputs.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_317"
     },
     {
@@ -2822,9 +2824,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L335",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "an extra partial bin must not survive merely because required bins exist.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_335"
     },
     {
@@ -2833,9 +2835,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L358",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "finite per-run inputs can still overflow when a group is summed.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_358"
     },
     {
@@ -2844,9 +2846,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L388",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "global producer diagnostics remain visible after run filtering.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_388"
     },
     {
@@ -2855,9 +2857,9 @@
       "source_file": "00_common/tests/test_build_observable_run_database.py",
       "source_location": "L416",
       "_origin": "ast",
-      "community": 5,
+      "community": 37,
       "norm_label": "allowing output nesting would make a future build consume its own results.",
-      "community_name": "test_run_manifest.py",
+      "community_name": "test_build_observable_run_database.py",
       "id": "00_common_tests_test_build_observable_run_database_rationale_416"
     },
     {
@@ -5171,10 +5173,32 @@
       "id": "00_common_tests_test_repository_contract_test_makefile_root_free_suite_omits_pyroot_importing_tests"
     },
     {
+      "label": "test_default_test_discovery_includes_person2_polarization()",
+      "file_type": "code",
+      "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L114",
+      "_origin": "ast",
+      "community": 33,
+      "norm_label": "test_default_test_discovery_includes_person2_polarization()",
+      "community_name": "test_repository_contract.py",
+      "id": "00_common_tests_test_repository_contract_test_default_test_discovery_includes_person2_polarization"
+    },
+    {
+      "label": "test_polarization_diagnostics_do_not_share_immutable_s6_directory()",
+      "file_type": "code",
+      "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L118",
+      "_origin": "ast",
+      "community": 33,
+      "norm_label": "test_polarization_diagnostics_do_not_share_immutable_s6_directory()",
+      "community_name": "test_repository_contract.py",
+      "id": "00_common_tests_test_repository_contract_test_polarization_diagnostics_do_not_share_immutable_s6_directory"
+    },
+    {
       "label": "test_testing_docs_name_top_level_pyroot_plot_module()",
       "file_type": "code",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L111",
+      "source_location": "L124",
       "_origin": "ast",
       "community": 33,
       "norm_label": "test_testing_docs_name_top_level_pyroot_plot_module()",
@@ -5185,7 +5209,7 @@
       "label": "test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs()",
       "file_type": "code",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L116",
+      "source_location": "L129",
       "_origin": "ast",
       "community": 33,
       "norm_label": "test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs()",
@@ -5229,12 +5253,12 @@
       "label": "Catch an added owner or a missing artifact handoff in the physics plan.",
       "file_type": "rationale",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L117",
+      "source_location": "L130",
       "_origin": "ast",
       "community": 33,
       "norm_label": "catch an added owner or a missing artifact handoff in the physics plan.",
       "community_name": "test_repository_contract.py",
-      "id": "00_common_tests_test_repository_contract_rationale_117"
+      "id": "00_common_tests_test_repository_contract_rationale_130"
     },
     {
       "label": "test_run_manifest.py",
@@ -5528,7 +5552,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_strip_energy_flux.py",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux"
@@ -5541,7 +5565,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "lookup()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_lookup"
     },
     {
@@ -5552,7 +5576,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "manifest()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_manifest"
     },
     {
@@ -5563,7 +5587,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_lookup_csv_has_fixed_schema_and_numeric_order()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_lookup_csv_has_fixed_schema_and_numeric_order"
     },
     {
@@ -5572,9 +5596,9 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L68",
       "_origin": "ast",
-      "community": 224,
+      "community": 175,
       "norm_label": "test_run_flux_csv_has_fixed_schema_and_numeric_order()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_run_flux_csv_has_fixed_schema_and_numeric_order"
     },
     {
@@ -5607,7 +5631,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "test_atomic_output_does_not_replace_destination_on_failure()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_tests_test_strip_energy_flux_test_atomic_output_does_not_replace_destination_on_failure"
     },
     {
@@ -5618,7 +5642,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "test_atomic_output_restores_destination_if_staging_replace_fails()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_tests_test_strip_energy_flux_test_atomic_output_restores_destination_if_staging_replace_fails"
     },
     {
@@ -5629,7 +5653,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "test_atomic_output_keeps_preexisting_backup_collision()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_tests_test_strip_energy_flux_test_atomic_output_keeps_preexisting_backup_collision"
     },
     {
@@ -5640,7 +5664,7 @@
       "_origin": "ast",
       "community": 224,
       "norm_label": "test_atomic_output_ignores_post_publish_backup_cleanup_failure()",
-      "community_name": "test_strip_energy_flux.py",
+      "community_name": "atomic_output_directory",
       "id": "00_common_tests_test_strip_energy_flux_test_atomic_output_ignores_post_publish_backup_cleanup_failure"
     },
     {
@@ -5649,7 +5673,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L210",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_ajaka_binning_presets_are_exact()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_ajaka_binning_presets_are_exact"
@@ -5662,7 +5686,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_energy_bins_are_left_closed_and_final_bin_is_right_closed()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_energy_bins_are_left_closed_and_final_bin_is_right_closed"
     },
     {
@@ -5704,7 +5728,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L282",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "_measure_disk_lookup()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_measure_disk_lookup"
@@ -5715,7 +5739,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L340",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_disk_backed_lookup_python_memory_is_event_count_bounded()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_disk_backed_lookup_python_memory_is_event_count_bounded"
@@ -5726,7 +5750,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L355",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "_measure_high_cardinality_extra_runs()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_measure_high_cardinality_extra_runs"
@@ -5737,7 +5761,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L410",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_disk_lookup_caps_high_cardinality_extra_run_diagnostics()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_disk_lookup_caps_high_cardinality_extra_run_diagnostics"
@@ -5794,7 +5818,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_flux_integration_sums_whole_strips_and_subtracts_brem_twice()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_flux_integration_sums_whole_strips_and_subtracts_brem_twice"
     },
     {
@@ -5805,7 +5829,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_nonzero_flux_without_lookup_is_fatal()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_nonzero_flux_without_lookup_is_fatal"
     },
     {
@@ -5816,7 +5840,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_negative_net_flux_preserves_raw_bin_with_invalid_status()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_negative_net_flux_preserves_raw_bin_with_invalid_status"
     },
     {
@@ -5827,7 +5851,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_group_aggregation_never_mixes_manifest_groups()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_group_aggregation_never_mixes_manifest_groups"
     },
     {
@@ -5836,7 +5860,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L540",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_group_aggregation_recomputes_net_flux_from_raw_sums()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_group_aggregation_recomputes_net_flux_from_raw_sums"
@@ -5847,7 +5871,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L565",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_group_aggregation_preserves_negative_net_flux_as_invalid()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_group_aggregation_preserves_negative_net_flux_as_invalid"
@@ -5858,7 +5882,7 @@
       "source_file": "00_common/tests/test_strip_energy_flux.py",
       "source_location": "L579",
       "_origin": "ast",
-      "community": 224,
+      "community": 9,
       "norm_label": "test_group_status_keeps_invalid_contributing_run_visible_after_offset()",
       "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_group_status_keeps_invalid_contributing_run_visible_after_offset"
@@ -5871,7 +5895,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_flux_run_conflict_error_includes_manifest_run_and_flux_strip()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_flux_run_conflict_error_includes_manifest_run_and_flux_strip"
     },
     {
@@ -5882,7 +5906,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_nonfinite_flux_error_includes_manifest_run_and_flux_strip()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_nonfinite_flux_error_includes_manifest_run_and_flux_strip"
     },
     {
@@ -5893,7 +5917,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_conservation_checks_included_plus_out_of_range_and_group_raw_totals()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_conservation_checks_included_plus_out_of_range_and_group_raw_totals"
     },
     {
@@ -5904,7 +5928,7 @@
       "_origin": "ast",
       "community": 9,
       "norm_label": "test_conservation_reports_run_and_group_raw_flux_mismatches()",
-      "community_name": "integrate_run_flux",
+      "community_name": "test_strip_energy_flux.py",
       "id": "00_common_tests_test_strip_energy_flux_test_conservation_reports_run_and_group_raw_flux_mismatches"
     },
     {
@@ -16552,7 +16576,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "kinematic_fit.py",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit"
     },
     {
@@ -16585,7 +16609,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "ndarray",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_py_ndarray"
     },
     {
@@ -16596,7 +16620,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "resolutionmodel",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_resolutionmodel"
     },
     {
@@ -16607,7 +16631,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "protocol",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "protocol"
     },
     {
@@ -16618,7 +16642,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": ".covariance_diag()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_resolutionmodel_covariance_diag"
     },
     {
@@ -16629,7 +16653,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "fitoptions",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_fitoptions"
     },
     {
@@ -16638,7 +16662,7 @@
       "source_file": "05_reconstruction/kinematic_fit.py",
       "source_location": "L83",
       "_origin": "ast",
-      "community": 16,
+      "community": 176,
       "norm_label": "fitresult",
       "community_name": "Pairing",
       "id": "05_reconstruction_kinematic_fit_fitresult"
@@ -16651,7 +16675,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "confidence_level()",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_kinematic_fit_confidence_level"
     },
     {
@@ -16660,7 +16684,7 @@
       "source_file": "05_reconstruction/kinematic_fit.py",
       "source_location": "L102",
       "_origin": "ast",
-      "community": 26,
+      "community": 16,
       "norm_label": "_vectors_to_params()",
       "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_vectors_to_params"
@@ -16673,7 +16697,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_params_to_vectors()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_params_to_vectors"
     },
     {
@@ -16684,7 +16708,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_canonicalize_angles()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_canonicalize_angles"
     },
     {
@@ -16695,7 +16719,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_covariance_diag()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_covariance_diag"
     },
     {
@@ -16706,7 +16730,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_constraints()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_constraints"
     },
     {
@@ -16717,7 +16741,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_jacobian()",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_jacobian"
     },
     {
@@ -16726,7 +16750,7 @@
       "source_file": "05_reconstruction/kinematic_fit.py",
       "source_location": "L176",
       "_origin": "ast",
-      "community": 26,
+      "community": 16,
       "norm_label": "fit_event()",
       "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_fit_event"
@@ -16739,7 +16763,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "6c kinematic fit for gamma p -> p eta pi0.  the reconstruction measures four pho",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_1"
     },
     {
@@ -16772,7 +16796,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "measurement-resolution boundary for future calibrated models.",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_67"
     },
     {
@@ -16783,7 +16807,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "return 16 variances in fitter parameter order.",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_70"
     },
     {
@@ -16794,7 +16818,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "probability that a correct fit would give a chi2 this large or larger.",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_kinematic_fit_rationale_95"
     },
     {
@@ -16805,7 +16829,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "normalize spherical coordinates in place without changing 4-vectors.",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_134"
     },
     {
@@ -16816,7 +16840,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "diagonal of v, in the same order as the params, evaluated at measured p.",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_145"
     },
     {
@@ -16827,7 +16851,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "d f / d p, 6 x 16, by central differences.",
-      "community_name": "Pairing",
+      "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_164"
     },
     {
@@ -16836,7 +16860,7 @@
       "source_file": "05_reconstruction/kinematic_fit.py",
       "source_location": "L181",
       "_origin": "ast",
-      "community": 26,
+      "community": 16,
       "norm_label": "fit one event onto 4-momentum conservation and the two pair masses.",
       "community_name": "fit_event",
       "id": "05_reconstruction_kinematic_fit_rationale_181"
@@ -17036,7 +17060,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "reco_physics.py",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics"
     },
     {
@@ -17047,7 +17071,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "channel",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_channel"
     },
     {
@@ -17058,7 +17082,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": ".heavy_label()",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_channel_heavy_label"
     },
     {
@@ -17069,7 +17093,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": ".light_label()",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_channel_light_label"
     },
     {
@@ -17080,7 +17104,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "invariant_mass()",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_invariant_mass"
     },
     {
@@ -17102,7 +17126,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "passes_missing_mass()",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_passes_missing_mass"
     },
     {
@@ -17113,7 +17137,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "channel definitions for the two-meson reconstruction.  the chi2 itself lives in",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_rationale_1"
     },
     {
@@ -17124,7 +17148,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "a two-meson final state the reconstruction can write out.",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_rationale_54"
     },
     {
@@ -17135,7 +17159,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "invariant mass of a single [px, py, pz, e] four-vector.",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_rationale_73"
     },
     {
@@ -17157,7 +17181,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "whether an event's eta-pi0 missing mass is close enough to the partner.      tru",
-      "community_name": "Channel",
+      "community_name": "Hypothesis",
       "id": "05_reconstruction_reco_physics_rationale_105"
     },
     {
@@ -17254,9 +17278,9 @@
       "source_file": "05_reconstruction/stage1_gate.py",
       "source_location": "L34",
       "_origin": "ast",
-      "community": 154,
+      "community": 17,
       "norm_label": ".__init__()",
-      "community_name": "Hypothesis",
+      "community_name": "Stage1Gate",
       "id": "05_reconstruction_stage1_gate_stage1gate_init"
     },
     {
@@ -17287,9 +17311,9 @@
       "source_file": "05_reconstruction/stage1_gate.py",
       "source_location": "L85",
       "_origin": "ast",
-      "community": 154,
+      "community": 17,
       "norm_label": ".check_hypothesis()",
-      "community_name": "Hypothesis",
+      "community_name": "Stage1Gate",
       "id": "05_reconstruction_stage1_gate_stage1gate_check_hypothesis"
     },
     {
@@ -17342,9 +17366,9 @@
       "source_file": "05_reconstruction/stage1_gate.py",
       "source_location": "L86",
       "_origin": "ast",
-      "community": 154,
+      "community": 17,
       "norm_label": "refuse to gate a reconstruction the model was not trained for.          the gate",
-      "community_name": "Hypothesis",
+      "community_name": "Stage1Gate",
       "id": "05_reconstruction_stage1_gate_rationale_86"
     },
     {
@@ -17375,9 +17399,9 @@
       "source_file": "05_reconstruction/tests/test_kinematic_fit.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 26,
+      "community": 176,
       "norm_label": "test_kinematic_fit.py",
-      "community_name": "fit_event",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit"
     },
     {
@@ -17388,7 +17412,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_photon()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_photon"
     },
     {
@@ -17399,7 +17423,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_conserving_event()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_conserving_event"
     },
     {
@@ -17410,7 +17434,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": "testconfidencelevel",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testconfidencelevel"
     },
     {
@@ -17421,7 +17445,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": ".test_a_chi2_equal_to_ndf_gives_a_moderate_cl()",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testconfidencelevel_test_a_chi2_equal_to_ndf_gives_a_moderate_cl"
     },
     {
@@ -17432,7 +17456,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": ".test_a_huge_chi2_gives_cl_near_zero()",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testconfidencelevel_test_a_huge_chi2_gives_cl_near_zero"
     },
     {
@@ -17443,7 +17467,7 @@
       "_origin": "ast",
       "community": 176,
       "norm_label": ".test_cl_is_one_at_zero_chi2()",
-      "community_name": "TestConfidenceLevel",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testconfidencelevel_test_cl_is_one_at_zero_chi2"
     },
     {
@@ -17498,7 +17522,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "testfitevent",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent"
     },
     {
@@ -17509,7 +17533,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_nonpositive_photon_energy_is_rejected()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_nonpositive_photon_energy_is_rejected"
     },
     {
@@ -17520,7 +17544,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_max_iteration_failure_has_structured_reason()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_max_iteration_failure_has_structured_reason"
     },
     {
@@ -17531,7 +17555,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_fit_does_not_use_explicit_inverse()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_fit_does_not_use_explicit_inverse"
     },
     {
@@ -17542,7 +17566,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_singular_constraint_matrix_has_structured_reason()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_singular_constraint_matrix_has_structured_reason"
     },
     {
@@ -17553,7 +17577,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_a_conserving_on_mass_event_barely_moves()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_a_conserving_on_mass_event_barely_moves"
     },
     {
@@ -17564,7 +17588,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_the_fitted_event_satisfies_the_constraints()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_the_fitted_event_satisfies_the_constraints"
     },
     {
@@ -17573,7 +17597,7 @@
       "source_file": "05_reconstruction/tests/test_kinematic_fit.py",
       "source_location": "L196",
       "_origin": "ast",
-      "community": 26,
+      "community": 16,
       "norm_label": ".test_fitted_cov_is_no_larger_than_the_measured_variance()",
       "community_name": "fit_event",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_fitted_cov_is_no_larger_than_the_measured_variance"
@@ -17586,7 +17610,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": ".test_non_convergence_is_flagged_not_crashed()",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_testfitevent_test_non_convergence_is_flagged_not_crashed"
     },
     {
@@ -17595,9 +17619,9 @@
       "source_file": "05_reconstruction/tests/test_kinematic_fit.py",
       "source_location": "L228",
       "_origin": "ast",
-      "community": 43,
+      "community": 176,
       "norm_label": "testchi2calibration",
-      "community_name": "FitCovariance",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_testchi2calibration"
     },
     {
@@ -17617,9 +17641,9 @@
       "source_file": "05_reconstruction/tests/test_kinematic_fit.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 26,
+      "community": 176,
       "norm_label": "tests for the 6c kinematic fit.  the fit adjusts measured photons/proton/beam wi",
-      "community_name": "fit_event",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_1"
     },
     {
@@ -17630,7 +17654,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "a gamma p -> p eta pi0 event that conserves and is on-mass, built forwards.",
-      "community_name": "fit_event",
+      "community_name": "TestFitEvent",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_38"
     },
     {
@@ -17639,9 +17663,9 @@
       "source_file": "05_reconstruction/tests/test_kinematic_fit.py",
       "source_location": "L229",
       "_origin": "ast",
-      "community": 43,
+      "community": 176,
       "norm_label": "pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      constraint",
-      "community_name": "FitCovariance",
+      "community_name": "Pairing",
       "id": "05_reconstruction_tests_test_kinematic_fit_rationale_229"
     },
     {
@@ -19177,7 +19201,7 @@
       "label": "_required_digest()",
       "file_type": "code",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L43",
+      "source_location": "L44",
       "_origin": "ast",
       "community": 198,
       "norm_label": "_required_digest()",
@@ -19188,7 +19212,7 @@
       "label": "_canonical_release_directory()",
       "file_type": "code",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L52",
+      "source_location": "L53",
       "_origin": "ast",
       "community": 198,
       "norm_label": "_canonical_release_directory()",
@@ -19210,7 +19234,7 @@
       "label": "validate_acceptance_handoff()",
       "file_type": "code",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L86",
+      "source_location": "L87",
       "_origin": "ast",
       "community": 198,
       "norm_label": "validate_acceptance_handoff()",
@@ -19232,12 +19256,12 @@
       "label": "Validate exact triplet, immutable location, QA decision, and cross-hashes.",
       "file_type": "rationale",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L92",
+      "source_location": "L93",
       "_origin": "ast",
       "community": 198,
       "norm_label": "validate exact triplet, immutable location, qa decision, and cross-hashes.",
       "community_name": "validate_acceptance_handoff",
-      "id": "08_polarization_acceptance_handoff_rationale_92"
+      "id": "08_polarization_acceptance_handoff_rationale_93"
     },
     {
       "label": "angles.py",
@@ -19476,9 +19500,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "closure_injected_sigma.py",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma"
     },
     {
@@ -19487,9 +19511,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L19",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "closureresult",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_closureresult"
     },
     {
@@ -19498,9 +19522,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L33",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "_closure_design()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_closure_design"
     },
     {
@@ -19509,9 +19533,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "ndarray",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_py_ndarray"
     },
     {
@@ -19520,9 +19544,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L85",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "run_injected_closure()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_run_injected_closure"
     },
     {
@@ -19531,9 +19555,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L145",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "main()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_main"
     },
     {
@@ -19542,9 +19566,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "injected-asymmetry closure and controlled orientation-sign test.",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_rationale_1"
     },
     {
@@ -19553,9 +19577,9 @@
       "source_file": "08_polarization/closure_injected_sigma.py",
       "source_location": "L94",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "run deterministic poisson ensemble and asimov sign inversion.",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_closure_injected_sigma_rationale_94"
     },
     {
@@ -19751,7 +19775,7 @@
       "source_file": "08_polarization/contracts.py",
       "source_location": "L29",
       "_origin": "ast",
-      "community": 173,
+      "community": 48,
       "norm_label": "polarizationcontracterror",
       "community_name": "PolarizationContractError",
       "id": "08_polarization_contracts_polarizationcontracterror"
@@ -19872,7 +19896,7 @@
       "source_file": "08_polarization/contracts.py",
       "source_location": "L30",
       "_origin": "ast",
-      "community": 173,
+      "community": 48,
       "norm_label": "raised when scientific input or provenance violates person 2's contract.",
       "community_name": "PolarizationContractError",
       "id": "08_polarization_contracts_rationale_30"
@@ -19949,9 +19973,9 @@
       "source_file": "08_polarization/exposures.py",
       "source_location": "L47",
       "_origin": "ast",
-      "community": 210,
+      "community": 48,
       "norm_label": "_validate_component_assignments()",
-      "community_name": "build_panel_exposures",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_exposures_validate_component_assignments"
     },
     {
@@ -20699,7 +20723,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "release.py",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release"
     },
     {
@@ -20710,7 +20734,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "sigmarelease",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_sigmarelease"
     },
     {
@@ -20721,7 +20745,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_sigmarows",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_sigmarows"
     },
     {
@@ -20732,7 +20756,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_positive_float()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_positive_float"
     },
     {
@@ -20743,7 +20767,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_acceptance_key()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_acceptance_key"
     },
     {
@@ -20754,7 +20778,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_read_sigma_csv()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_read_sigma_csv"
     },
     {
@@ -20765,7 +20789,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "path",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_py_path"
     },
     {
@@ -20776,7 +20800,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_covariance()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_covariance"
     },
     {
@@ -20787,7 +20811,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "ndarray",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_py_ndarray"
     },
     {
@@ -20798,7 +20822,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_required_digest()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_required_digest"
     },
     {
@@ -20809,7 +20833,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_finite_number()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_finite_number"
     },
     {
@@ -20820,7 +20844,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_validate_file_record()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_file_record"
     },
     {
@@ -20831,7 +20855,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_input_digest()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_input_digest"
     },
     {
@@ -20842,7 +20866,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_validate_acceptance_csv()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_acceptance_csv"
     },
     {
@@ -20853,25 +20877,25 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "_validate_inputs()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_inputs"
     },
     {
       "label": "_validate_qa()",
       "file_type": "code",
       "source_file": "08_polarization/release.py",
-      "source_location": "L564",
+      "source_location": "L574",
       "_origin": "ast",
       "community": 173,
       "norm_label": "_validate_qa()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_qa"
     },
     {
       "label": "validate_sigma_release()",
       "file_type": "code",
       "source_file": "08_polarization/release.py",
-      "source_location": "L714",
+      "source_location": "L738",
       "_origin": "ast",
       "community": 49,
       "norm_label": "validate_sigma_release()",
@@ -20882,22 +20906,22 @@
       "label": "validate_aggregation_mapping()",
       "file_type": "code",
       "source_file": "08_polarization/release.py",
-      "source_location": "L801",
+      "source_location": "L825",
       "_origin": "ast",
       "community": 173,
       "norm_label": "validate_aggregation_mapping()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_aggregation_mapping"
     },
     {
       "label": "validate_publication_mapping()",
       "file_type": "code",
       "source_file": "08_polarization/release.py",
-      "source_location": "L850",
+      "source_location": "L874",
       "_origin": "ast",
       "community": 173,
       "norm_label": "validate_publication_mapping()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_validate_publication_mapping"
     },
     {
@@ -20908,41 +20932,41 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "read-only validation of sigma release and publication-bin mappings.",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_release_rationale_1"
     },
     {
       "label": "Validate immutable S6 CSV, covariance archive, and QA cross-hashes.",
       "file_type": "rationale",
       "source_file": "08_polarization/release.py",
-      "source_location": "L715",
+      "source_location": "L739",
       "_origin": "ast",
       "community": 49,
       "norm_label": "validate immutable s6 csv, covariance archive, and qa cross-hashes.",
       "community_name": "test_release.py",
-      "id": "08_polarization_release_rationale_715"
+      "id": "08_polarization_release_rationale_739"
     },
     {
       "label": "Validate proposed P1/P2 aggregation without authorizing publication.",
       "file_type": "rationale",
       "source_file": "08_polarization/release.py",
-      "source_location": "L804",
+      "source_location": "L828",
       "_origin": "ast",
       "community": 173,
       "norm_label": "validate proposed p1/p2 aggregation without authorizing publication.",
-      "community_name": "PolarizationContractError",
-      "id": "08_polarization_release_rationale_804"
+      "community_name": "release.py",
+      "id": "08_polarization_release_rationale_828"
     },
     {
       "label": "Validate aggregation, then fail closed until joint P0 output is defined.",
       "file_type": "rationale",
       "source_file": "08_polarization/release.py",
-      "source_location": "L853",
+      "source_location": "L877",
       "_origin": "ast",
       "community": 173,
       "norm_label": "validate aggregation, then fail closed until joint p0 output is defined.",
-      "community_name": "PolarizationContractError",
-      "id": "08_polarization_release_rationale_853"
+      "community_name": "release.py",
+      "id": "08_polarization_release_rationale_877"
     },
     {
       "label": "root_events.py",
@@ -21183,7 +21207,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "state_mapping.py",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping"
     },
     {
@@ -21194,7 +21218,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "stateinterval",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_stateinterval"
     },
     {
@@ -21205,7 +21229,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": ".__post_init__()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_stateinterval_post_init"
     },
     {
@@ -21216,7 +21240,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "validate_intervals()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_validate_intervals"
     },
     {
@@ -21227,7 +21251,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "resolve_orientation()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_resolve_orientation"
     },
     {
@@ -21238,7 +21262,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "resolve_flux_component()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_resolve_flux_component"
     },
     {
@@ -21249,7 +21273,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "_resolve_interval()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_resolve_interval"
     },
     {
@@ -21260,7 +21284,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "_interval_from_mapping()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_interval_from_mapping"
     },
     {
@@ -21271,7 +21295,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "load_state_mapping()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_load_state_mapping"
     },
     {
@@ -21282,7 +21306,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "path",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_py_path"
     },
     {
@@ -21293,7 +21317,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "authoritative run/state-code to polarization-orientation mapping.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_1"
     },
     {
@@ -21304,7 +21328,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "one closed run interval for one recorded polarization state code.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_22"
     },
     {
@@ -21315,7 +21339,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "return sorted intervals after proving `(run, state)` uniqueness.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_56"
     },
     {
@@ -21326,7 +21350,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "resolve one measured state; reject gaps and ambiguity.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_80"
     },
     {
@@ -21337,7 +21361,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "resolve explicitly approved flux column for one measured state.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_89"
     },
     {
@@ -21348,7 +21372,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "load only an authority-approved state map from configuration.",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_state_mapping_rationale_134"
     },
     {
@@ -21476,7 +21500,7 @@
       "label": "test_accepts_exact_immutable_triplet_with_cross_hashes()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "_origin": "ast",
       "community": 198,
       "norm_label": "test_accepts_exact_immutable_triplet_with_cross_hashes()",
@@ -21487,7 +21511,7 @@
       "label": "test_rejects_incomplete_extra_or_tampered_publication()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L75",
+      "source_location": "L77",
       "_origin": "ast",
       "community": 198,
       "norm_label": "test_rejects_incomplete_extra_or_tampered_publication()",
@@ -21498,7 +21522,7 @@
       "label": "test_rejects_legacy_root_destination()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L83",
+      "source_location": "L85",
       "_origin": "ast",
       "community": 198,
       "norm_label": "test_rejects_legacy_root_destination()",
@@ -21506,10 +21530,21 @@
       "id": "08_polarization_tests_test_acceptance_handoff_test_rejects_legacy_root_destination"
     },
     {
+      "label": "test_rejects_missing_phi_response_schema_approval_id()",
+      "file_type": "code",
+      "source_file": "08_polarization/tests/test_acceptance_handoff.py",
+      "source_location": "L93",
+      "_origin": "ast",
+      "community": 198,
+      "norm_label": "test_rejects_missing_phi_response_schema_approval_id()",
+      "community_name": "validate_acceptance_handoff",
+      "id": "08_polarization_tests_test_acceptance_handoff_test_rejects_missing_phi_response_schema_approval_id"
+    },
+    {
       "label": "test_rejects_release_id_and_gate0_mismatch()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L91",
+      "source_location": "L104",
       "_origin": "ast",
       "community": 198,
       "norm_label": "test_rejects_release_id_and_gate0_mismatch()",
@@ -21599,9 +21634,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_closure.py",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure"
     },
     {
@@ -21610,9 +21645,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L11",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_injected_closure_recovers_sigma_and_passes_sign_check()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure_test_injected_closure_recovers_sigma_and_passes_sign_check"
     },
     {
@@ -21621,9 +21656,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L27",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_closure_is_deterministic_for_fixed_seed()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure_test_closure_is_deterministic_for_fixed_seed"
     },
     {
@@ -21632,9 +21667,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L34",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_closure_handles_physical_boundaries()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure_test_closure_handles_physical_boundaries"
     },
     {
@@ -21643,9 +21678,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L48",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_closure_design_uses_production_angle_and_state_mapping()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure_test_closure_design_uses_production_angle_and_state_mapping"
     },
     {
@@ -21654,9 +21689,9 @@
       "source_file": "08_polarization/tests/test_closure.py",
       "source_location": "L82",
       "_origin": "ast",
-      "community": 37,
+      "community": 48,
       "norm_label": "test_closure_rejects_invalid_controls()",
-      "community_name": "run_injected_closure",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_closure_test_closure_rejects_invalid_controls"
     },
     {
@@ -22598,7 +22633,7 @@
       "label": "repo_of()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L314",
+      "source_location": "L319",
       "_origin": "ast",
       "community": 49,
       "norm_label": "repo_of()",
@@ -22609,7 +22644,7 @@
       "label": "rewrite_config_binding()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L318",
+      "source_location": "L323",
       "_origin": "ast",
       "community": 49,
       "norm_label": "rewrite_config_binding()",
@@ -22620,7 +22655,7 @@
       "label": "rewrite_input_binding()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L341",
+      "source_location": "L346",
       "_origin": "ast",
       "community": 49,
       "norm_label": "rewrite_input_binding()",
@@ -22631,7 +22666,7 @@
       "label": "test_release_accepts_cross_hashed_csv_npz_and_valid_qa()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L356",
+      "source_location": "L361",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_accepts_cross_hashed_csv_npz_and_valid_qa()",
@@ -22642,7 +22677,7 @@
       "label": "test_release_rejects_noncanonical_or_extra_bundle_files()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L363",
+      "source_location": "L368",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_noncanonical_or_extra_bundle_files()",
@@ -22653,7 +22688,7 @@
       "label": "test_release_rejects_hash_order_covariance_and_qa_failures()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L375",
+      "source_location": "L380",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_hash_order_covariance_and_qa_failures()",
@@ -22664,7 +22699,7 @@
       "label": "test_release_preserves_precise_covariance_validation_error()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L408",
+      "source_location": "L413",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_preserves_precise_covariance_validation_error()",
@@ -22675,7 +22710,7 @@
       "label": "test_publication_aggregation_checks_w_c_wt()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L423",
+      "source_location": "L428",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_publication_aggregation_checks_w_c_wt()",
@@ -22686,7 +22721,7 @@
       "label": "test_publication_mapping_stays_blocked_until_shared_p0_interface_exists()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L444",
+      "source_location": "L449",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_publication_mapping_stays_blocked_until_shared_p0_interface_exists()",
@@ -22697,7 +22732,7 @@
       "label": "test_publication_cli_reads_mapping_outside_exact_s6_bundle()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L464",
+      "source_location": "L469",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_publication_cli_reads_mapping_outside_exact_s6_bundle()",
@@ -22708,7 +22743,7 @@
       "label": "test_release_cli_requires_explicit_full_checks()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_cli_requires_explicit_full_checks()",
@@ -22719,7 +22754,7 @@
       "label": "test_release_rejects_unapproved_qa_thresholds()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L503",
+      "source_location": "L508",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_unapproved_qa_thresholds()",
@@ -22730,7 +22765,7 @@
       "label": "test_release_rejects_qa_policy_not_approved_in_canonical_config()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L513",
+      "source_location": "L518",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_qa_policy_not_approved_in_canonical_config()",
@@ -22741,7 +22776,7 @@
       "label": "test_release_rejects_acceptance_not_approved_in_canonical_config()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L526",
+      "source_location": "L531",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_acceptance_not_approved_in_canonical_config()",
@@ -22752,7 +22787,7 @@
       "label": "test_release_rejects_unapproved_phi_response_schema()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L541",
+      "source_location": "L546",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_unapproved_phi_response_schema()",
@@ -22760,10 +22795,21 @@
       "id": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema"
     },
     {
+      "label": "test_release_rejects_phi_response_schema_approval_id_mismatch()",
+      "file_type": "code",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L565",
+      "_origin": "ast",
+      "community": 49,
+      "norm_label": "test_release_rejects_phi_response_schema_approval_id_mismatch()",
+      "community_name": "test_release.py",
+      "id": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch"
+    },
+    {
       "label": "test_release_rejects_acceptance_bound_to_different_n2_reconstruction()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L560",
+      "source_location": "L578",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_acceptance_bound_to_different_n2_reconstruction()",
@@ -22771,10 +22817,21 @@
       "id": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction"
     },
     {
+      "label": "test_release_rejects_fit_not_bound_to_phi_response()",
+      "file_type": "code",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L594",
+      "_origin": "ast",
+      "community": 49,
+      "norm_label": "test_release_rejects_fit_not_bound_to_phi_response()",
+      "community_name": "test_release.py",
+      "id": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response"
+    },
+    {
       "label": "test_release_applies_approved_numeric_qa_thresholds()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L575",
+      "source_location": "L609",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_applies_approved_numeric_qa_thresholds()",
@@ -22785,7 +22842,7 @@
       "label": "test_release_rejects_missing_acceptance_for_sigma_bin()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L588",
+      "source_location": "L622",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_missing_acceptance_for_sigma_bin()",
@@ -22796,7 +22853,7 @@
       "label": "test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L619",
+      "source_location": "L653",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa()",
@@ -22807,7 +22864,7 @@
       "label": "test_release_rejects_state_source_substituted_outside_canonical_config()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L647",
+      "source_location": "L681",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_state_source_substituted_outside_canonical_config()",
@@ -22818,7 +22875,7 @@
       "label": "test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash()",
       "file_type": "code",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L658",
+      "source_location": "L692",
       "_origin": "ast",
       "community": 49,
       "norm_label": "test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash()",
@@ -23009,7 +23066,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_state_mapping.py",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping"
     },
     {
@@ -23020,7 +23077,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_resolves_only_matching_run_and_state()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_resolves_only_matching_run_and_state"
     },
     {
@@ -23031,7 +23088,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_rejects_overlapping_same_state_intervals()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_rejects_overlapping_same_state_intervals"
     },
     {
@@ -23042,7 +23099,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_rejects_noncanonical_orientation()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_rejects_noncanonical_orientation"
     },
     {
@@ -23053,7 +23110,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_rejects_invalid_ranges_codes_and_periods()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_rejects_invalid_ranges_codes_and_periods"
     },
     {
@@ -23064,7 +23121,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_rejects_noncanonical_flux_component()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_rejects_noncanonical_flux_component"
     },
     {
@@ -23075,7 +23132,7 @@
       "_origin": "ast",
       "community": 48,
       "norm_label": "test_mapping_rejects_ambiguous_resolution_even_before_validation()",
-      "community_name": "StateInterval",
+      "community_name": "PolarizationContractError",
       "id": "08_polarization_tests_test_state_mapping_test_mapping_rejects_ambiguous_resolution_even_before_validation"
     },
     {
@@ -23119,7 +23176,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "validate_publication_binning.py",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_validate_publication_binning"
     },
     {
@@ -23130,7 +23187,7 @@
       "_origin": "ast",
       "community": 173,
       "norm_label": "main()",
-      "community_name": "PolarizationContractError",
+      "community_name": "release.py",
       "id": "08_polarization_validate_publication_binning_main"
     },
     {
@@ -23161,9 +23218,9 @@
       "source_file": "08_polarization/validate_state_mapping.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 48,
+      "community": 50,
       "norm_label": "validate_state_mapping.py",
-      "community_name": "StateInterval",
+      "community_name": "contracts.py",
       "id": "08_polarization_validate_state_mapping"
     },
     {
@@ -23172,9 +23229,9 @@
       "source_file": "08_polarization/validate_state_mapping.py",
       "source_location": "L13",
       "_origin": "ast",
-      "community": 48,
+      "community": 50,
       "norm_label": "main()",
-      "community_name": "StateInterval",
+      "community_name": "contracts.py",
       "id": "08_polarization_validate_state_mapping_main"
     },
     {
@@ -23183,9 +23240,9 @@
       "source_file": "08_polarization/validate_state_mapping.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 48,
+      "community": 50,
       "norm_label": "cli validation for s1 polarization-state mapping.",
-      "community_name": "StateInterval",
+      "community_name": "contracts.py",
       "id": "08_polarization_validate_state_mapping_rationale_1"
     },
     {
@@ -23268,9 +23325,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "benchmark_strip_energy_flux.py",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux"
     },
     {
@@ -23279,9 +23336,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L16",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "_import_root()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_import_root"
     },
     {
@@ -23290,9 +23347,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L24",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "_write_h80()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_write_h80"
     },
     {
@@ -23301,9 +23358,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "path",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_py_path"
     },
     {
@@ -23312,9 +23369,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L44",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "_write_flux()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_write_flux"
     },
     {
@@ -23323,9 +23380,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L62",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "_entries()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_entries"
     },
     {
@@ -23334,9 +23391,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L74",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "parse_args()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_parse_args"
     },
     {
@@ -23345,9 +23402,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "namespace",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_py_namespace"
     },
     {
@@ -23356,9 +23413,9 @@
       "source_file": "scripts/benchmark_strip_energy_flux.py",
       "source_location": "L86",
       "_origin": "ast",
-      "community": 223,
+      "community": 5,
       "norm_label": "main()",
-      "community_name": "main",
+      "community_name": "test_run_manifest.py",
       "id": "scripts_benchmark_strip_energy_flux_main"
     },
     {
@@ -30989,6 +31046,20 @@
       "id": "docs_physics_polarization_phi_response_joint_approval"
     },
     {
+      "label": "Forward-Folded Response Binding",
+      "file_type": "concept",
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 25,
+      "norm_label": "forward-folded response binding",
+      "community_name": "Immutable N3 Acceptance Handoff",
+      "id": "docs_physics_polarization_forward_folded_response_binding"
+    },
+    {
       "label": "Four-by-Three Sigma Diagnostic Grid",
       "file_type": "concept",
       "source_file": "docs/physics/polarization.md",
@@ -31001,6 +31072,20 @@
       "norm_label": "four-by-three sigma diagnostic grid",
       "community_name": "Immutable N3 Acceptance Handoff",
       "id": "docs_physics_polarization_figure4_diagnostic_grid"
+    },
+    {
+      "label": "Immutable Diagnostic Output Bundle",
+      "file_type": "concept",
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 25,
+      "norm_label": "immutable diagnostic output bundle",
+      "community_name": "Immutable N3 Acceptance Handoff",
+      "id": "docs_physics_polarization_diagnostic_output_bundle"
     },
     {
       "label": "S6 Sigma Release Contract",
@@ -44565,6 +44650,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L114",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "00_common_tests_test_repository_contract",
+      "target": "00_common_tests_test_repository_contract_test_default_test_discovery_includes_person2_polarization"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "00_common/tests/test_repository_contract.py",
       "source_location": "L47",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -44605,6 +44700,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L118",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "00_common_tests_test_repository_contract",
+      "target": "00_common_tests_test_repository_contract_test_polarization_diagnostics_do_not_share_immutable_s6_directory"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "00_common/tests/test_repository_contract.py",
       "source_location": "L95",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -44625,7 +44730,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L111",
+      "source_location": "L124",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "00_common_tests_test_repository_contract",
@@ -44635,7 +44740,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L116",
+      "source_location": "L129",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "00_common_tests_test_repository_contract",
@@ -44671,6 +44776,17 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "00_common_tests_test_repository_contract_test_agents_protects_untracked_user_data_from_unapproved_mutation",
+      "target": "00_common_tests_test_repository_contract_read"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L115",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "00_common_tests_test_repository_contract_test_default_test_discovery_includes_person2_polarization",
       "target": "00_common_tests_test_repository_contract_read"
     },
     {
@@ -44722,6 +44838,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
+      "source_location": "L119",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "00_common_tests_test_repository_contract_test_polarization_diagnostics_do_not_share_immutable_s6_directory",
+      "target": "00_common_tests_test_repository_contract_read"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "00_common/tests/test_repository_contract.py",
       "source_location": "L96",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -44744,7 +44871,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L112",
+      "source_location": "L125",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "00_common_tests_test_repository_contract_test_testing_docs_name_top_level_pyroot_plot_module",
@@ -44755,7 +44882,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L118",
+      "source_location": "L131",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "00_common_tests_test_repository_contract_test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs",
@@ -44806,10 +44933,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "00_common/tests/test_repository_contract.py",
-      "source_location": "L117",
+      "source_location": "L130",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "00_common_tests_test_repository_contract_rationale_117",
+      "source": "00_common_tests_test_repository_contract_rationale_130",
       "target": "00_common_tests_test_repository_contract_test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs"
     },
     {
@@ -62672,7 +62799,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L52",
+      "source_location": "L53",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff",
@@ -62682,7 +62809,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L43",
+      "source_location": "L44",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff",
@@ -62692,7 +62819,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L86",
+      "source_location": "L87",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff",
@@ -62756,7 +62883,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L86",
+      "source_location": "L87",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
@@ -62768,7 +62895,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "source": "08_polarization_acceptance_handoff_required_digest",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -62778,7 +62905,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L118",
+      "source_location": "L119",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
@@ -62789,7 +62916,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L52",
+      "source_location": "L53",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff_canonical_release_directory",
@@ -62801,7 +62928,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L61",
+      "source_location": "L62",
       "weight": 1.0,
       "source": "08_polarization_acceptance_handoff_canonical_release_directory",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -62811,7 +62938,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L93",
+      "source_location": "L94",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
@@ -62822,7 +62949,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L86",
+      "source_location": "L87",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
@@ -62832,10 +62959,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L92",
+      "source_location": "L93",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "08_polarization_acceptance_handoff_rationale_92",
+      "source": "08_polarization_acceptance_handoff_rationale_93",
       "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
     },
     {
@@ -62844,7 +62971,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "weight": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
       "target": "08_polarization_contracts_load_json"
@@ -62855,7 +62982,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -62866,7 +62993,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/acceptance_handoff.py",
-      "source_location": "L122",
+      "source_location": "L133",
       "weight": 1.0,
       "source": "08_polarization_acceptance_handoff_validate_acceptance_handoff",
       "target": "08_polarization_contracts_sha256_file"
@@ -62888,7 +63015,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_accepts_exact_immutable_triplet_with_cross_hashes",
       "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
@@ -62899,7 +63026,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L80",
+      "source_location": "L82",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_incomplete_extra_or_tampered_publication",
       "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
@@ -62910,7 +63037,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L88",
+      "source_location": "L90",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_legacy_root_destination",
       "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
@@ -62921,7 +63048,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L99",
+      "source_location": "L101",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_missing_phi_response_schema_approval_id",
+      "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_acceptance_handoff.py",
+      "source_location": "L112",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_release_id_and_gate0_mismatch",
       "target": "08_polarization_acceptance_handoff_validate_acceptance_handoff"
@@ -64610,7 +64748,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L522",
+      "source_location": "L526",
       "weight": 1.0,
       "source": "08_polarization_release_validate_inputs",
       "target": "08_polarization_compton_load_period_curves"
@@ -65635,7 +65773,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L806",
+      "source_location": "L830",
       "weight": 1.0,
       "source": "08_polarization_release_validate_aggregation_mapping",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65668,7 +65806,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L856",
+      "source_location": "L880",
       "weight": 1.0,
       "source": "08_polarization_release_validate_publication_mapping",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65679,7 +65817,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L569",
+      "source_location": "L579",
       "weight": 1.0,
       "source": "08_polarization_release_validate_qa",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65690,7 +65828,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L721",
+      "source_location": "L745",
       "weight": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65896,7 +66034,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L79",
+      "source_location": "L81",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_incomplete_extra_or_tampered_publication",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65907,7 +66045,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L87",
+      "source_location": "L89",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_legacy_root_destination",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -65918,7 +66056,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L98",
+      "source_location": "L100",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_missing_phi_response_schema_approval_id",
+      "target": "08_polarization_contracts_polarizationcontracterror"
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_acceptance_handoff.py",
+      "source_location": "L111",
       "weight": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_release_id_and_gate0_mismatch",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66226,7 +66375,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L440",
+      "source_location": "L445",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_aggregation_checks_w_c_wt",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66237,7 +66386,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L460",
+      "source_location": "L465",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_mapping_stays_blocked_until_shared_p0_interface_exists",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66248,7 +66397,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L584",
+      "source_location": "L618",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_applies_approved_numeric_qa_thresholds",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66259,7 +66408,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L419",
+      "source_location": "L424",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_preserves_precise_covariance_validation_error",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66270,7 +66419,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L571",
+      "source_location": "L589",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66281,7 +66430,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L533",
+      "source_location": "L538",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_not_approved_in_canonical_config",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66292,7 +66441,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L643",
+      "source_location": "L677",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66303,7 +66452,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L404",
+      "source_location": "L605",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response",
+      "target": "08_polarization_contracts_polarizationcontracterror"
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L409",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66314,7 +66474,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L679",
+      "source_location": "L713",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66325,7 +66485,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L615",
+      "source_location": "L649",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66336,7 +66496,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L367",
+      "source_location": "L372",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_noncanonical_or_extra_bundle_files",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66347,7 +66507,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L522",
+      "source_location": "L574",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch",
+      "target": "08_polarization_contracts_polarizationcontracterror"
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L527",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66358,7 +66529,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L654",
+      "source_location": "L688",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_state_source_substituted_outside_canonical_config",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66369,7 +66540,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L556",
+      "source_location": "L561",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66380,7 +66551,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L509",
+      "source_location": "L514",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_qa_thresholds",
       "target": "08_polarization_contracts_polarizationcontracterror"
@@ -66588,7 +66759,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L583",
+      "source_location": "L593",
       "weight": 1.0,
       "source": "08_polarization_release_validate_qa",
       "target": "08_polarization_contracts_sha256_file"
@@ -66599,7 +66770,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L797",
+      "source_location": "L821",
       "weight": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
       "target": "08_polarization_contracts_sha256_file"
@@ -66774,7 +66945,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L854",
+      "source_location": "L878",
       "weight": 1.0,
       "source": "08_polarization_release_validate_publication_mapping",
       "target": "08_polarization_contracts_load_json"
@@ -66785,7 +66956,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L794",
+      "source_location": "L818",
       "weight": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
       "target": "08_polarization_contracts_load_json"
@@ -66862,7 +67033,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L737",
+      "source_location": "L761",
       "weight": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
       "target": "08_polarization_contracts_resolved_regular_file"
@@ -68040,7 +68211,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L523",
+      "source_location": "L527",
       "weight": 1.0,
       "source": "08_polarization_release_validate_inputs",
       "target": "08_polarization_figure4_config_load_figure4_config"
@@ -68742,7 +68913,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L549",
+      "source_location": "L553",
       "weight": 1.0,
       "source": "08_polarization_release_validate_inputs",
       "target": "08_polarization_reco_inventory_load_gate0_run_numbers"
@@ -68839,7 +69010,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L553",
+      "source_location": "L557",
       "weight": 1.0,
       "source": "08_polarization_release_validate_inputs",
       "target": "08_polarization_reco_inventory_load_reco_inventory"
@@ -69003,7 +69174,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L801",
+      "source_location": "L825",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release",
@@ -69033,7 +69204,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L850",
+      "source_location": "L874",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release",
@@ -69043,7 +69214,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L564",
+      "source_location": "L574",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release",
@@ -69053,7 +69224,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L714",
+      "source_location": "L738",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release",
@@ -69118,7 +69289,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L801",
+      "source_location": "L825",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_aggregation_mapping",
@@ -69129,7 +69300,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L850",
+      "source_location": "L874",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_publication_mapping",
@@ -69140,7 +69311,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L714",
+      "source_location": "L738",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
@@ -69162,7 +69333,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L564",
+      "source_location": "L574",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69217,7 +69388,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L750",
+      "source_location": "L774",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
@@ -69261,7 +69432,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L850",
+      "source_location": "L874",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_publication_mapping",
@@ -69272,7 +69443,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L564",
+      "source_location": "L574",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69283,7 +69454,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L714",
+      "source_location": "L738",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
@@ -69305,7 +69476,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L838",
+      "source_location": "L862",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_aggregation_mapping",
@@ -69316,7 +69487,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L764",
+      "source_location": "L788",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
@@ -69327,7 +69498,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L603",
+      "source_location": "L613",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69338,7 +69509,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L642",
+      "source_location": "L666",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69360,7 +69531,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L701",
+      "source_location": "L725",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69371,7 +69542,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L561",
+      "source_location": "L568",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_inputs",
@@ -69394,7 +69565,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/release.py",
-      "source_location": "L521",
+      "source_location": "L525",
       "weight": 1.0,
       "source": "08_polarization_release_validate_inputs",
       "target": "08_polarization_state_mapping_load_state_mapping"
@@ -69404,7 +69575,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L604",
+      "source_location": "L620",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_qa",
@@ -69415,7 +69586,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L795",
+      "source_location": "L819",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_sigma_release",
@@ -69425,10 +69596,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L715",
+      "source_location": "L739",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "08_polarization_release_rationale_715",
+      "source": "08_polarization_release_rationale_739",
       "target": "08_polarization_release_validate_sigma_release"
     },
     {
@@ -69437,7 +69608,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L425",
+      "source_location": "L430",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_aggregation_checks_w_c_wt",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69448,7 +69619,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L446",
+      "source_location": "L451",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_mapping_stays_blocked_until_shared_p0_interface_exists",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69459,7 +69630,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L358",
+      "source_location": "L363",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_accepts_cross_hashed_csv_npz_and_valid_qa",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69470,7 +69641,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L585",
+      "source_location": "L619",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_applies_approved_numeric_qa_thresholds",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69481,7 +69652,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L420",
+      "source_location": "L425",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_preserves_precise_covariance_validation_error",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69492,7 +69663,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L572",
+      "source_location": "L590",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69503,7 +69674,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L534",
+      "source_location": "L539",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_not_approved_in_canonical_config",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69514,7 +69685,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L644",
+      "source_location": "L678",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69525,7 +69696,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L405",
+      "source_location": "L606",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response",
+      "target": "08_polarization_release_validate_sigma_release"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L410",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69536,7 +69718,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L680",
+      "source_location": "L714",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69547,7 +69729,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L616",
+      "source_location": "L650",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69558,7 +69740,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L368",
+      "source_location": "L373",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_noncanonical_or_extra_bundle_files",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69569,7 +69751,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L523",
+      "source_location": "L575",
+      "weight": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch",
+      "target": "08_polarization_release_validate_sigma_release"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L528",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69580,7 +69773,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L655",
+      "source_location": "L689",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_state_source_substituted_outside_canonical_config",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69591,7 +69784,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L557",
+      "source_location": "L562",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69602,7 +69795,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L510",
+      "source_location": "L515",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_qa_thresholds",
       "target": "08_polarization_release_validate_sigma_release"
@@ -69633,10 +69826,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L804",
+      "source_location": "L828",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "08_polarization_release_rationale_804",
+      "source": "08_polarization_release_rationale_828",
       "target": "08_polarization_release_validate_aggregation_mapping"
     },
     {
@@ -69644,7 +69837,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L855",
+      "source_location": "L879",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_release_validate_publication_mapping",
@@ -69656,7 +69849,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L436",
+      "source_location": "L441",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_aggregation_checks_w_c_wt",
       "target": "08_polarization_release_validate_aggregation_mapping"
@@ -69665,10 +69858,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/release.py",
-      "source_location": "L853",
+      "source_location": "L877",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "08_polarization_release_rationale_853",
+      "source": "08_polarization_release_rationale_877",
       "target": "08_polarization_release_validate_publication_mapping"
     },
     {
@@ -69677,7 +69870,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L461",
+      "source_location": "L466",
       "weight": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_mapping_stays_blocked_until_shared_p0_interface_exists",
       "target": "08_polarization_release_validate_publication_mapping"
@@ -70728,7 +70921,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff",
@@ -70738,7 +70931,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L75",
+      "source_location": "L77",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff",
@@ -70748,7 +70941,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L83",
+      "source_location": "L85",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff",
@@ -70758,7 +70951,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L91",
+      "source_location": "L93",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_acceptance_handoff",
+      "target": "08_polarization_tests_test_acceptance_handoff_test_rejects_missing_phi_response_schema_approval_id"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_acceptance_handoff.py",
+      "source_location": "L104",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff",
@@ -70812,7 +71015,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L49",
+      "source_location": "L50",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_accepts_exact_immutable_triplet_with_cross_hashes",
@@ -70823,7 +71026,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L76",
+      "source_location": "L78",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_incomplete_extra_or_tampered_publication",
@@ -70834,7 +71037,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_acceptance_handoff.py",
-      "source_location": "L92",
+      "source_location": "L94",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_missing_phi_response_schema_approval_id",
+      "target": "08_polarization_tests_test_acceptance_handoff_write_handoff"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_acceptance_handoff.py",
+      "source_location": "L105",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_acceptance_handoff_test_rejects_release_id_and_gate0_mismatch",
@@ -72305,7 +72519,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L314",
+      "source_location": "L319",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72315,7 +72529,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L318",
+      "source_location": "L323",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72325,7 +72539,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L341",
+      "source_location": "L346",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72355,7 +72569,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L423",
+      "source_location": "L428",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72365,7 +72579,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L464",
+      "source_location": "L469",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72375,7 +72589,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L444",
+      "source_location": "L449",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72385,7 +72599,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L356",
+      "source_location": "L361",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72395,7 +72609,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L575",
+      "source_location": "L609",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72405,7 +72619,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72415,7 +72629,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L408",
+      "source_location": "L413",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72425,7 +72639,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L560",
+      "source_location": "L578",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72435,7 +72649,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L526",
+      "source_location": "L531",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72445,7 +72659,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L619",
+      "source_location": "L653",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72455,7 +72669,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L375",
+      "source_location": "L594",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release",
+      "target": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L380",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72465,7 +72689,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L658",
+      "source_location": "L692",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72475,7 +72699,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L588",
+      "source_location": "L622",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72485,7 +72709,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L363",
+      "source_location": "L368",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72495,7 +72719,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L513",
+      "source_location": "L565",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release",
+      "target": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L518",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72505,7 +72739,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L647",
+      "source_location": "L681",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72515,7 +72749,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L541",
+      "source_location": "L546",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72525,7 +72759,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L503",
+      "source_location": "L508",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release",
@@ -72589,7 +72823,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L323",
+      "source_location": "L328",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_rewrite_config_binding",
@@ -72600,7 +72834,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L352",
+      "source_location": "L357",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_rewrite_input_binding",
@@ -72611,7 +72845,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L417",
+      "source_location": "L422",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_preserves_precise_covariance_validation_error",
@@ -72622,7 +72856,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L634",
+      "source_location": "L668",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
@@ -72633,7 +72867,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L386",
+      "source_location": "L391",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
@@ -72644,7 +72878,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L670",
+      "source_location": "L704",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
@@ -72655,7 +72889,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L598",
+      "source_location": "L632",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
@@ -72710,7 +72944,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L232",
+      "source_location": "L233",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_write_valid_release",
@@ -72721,7 +72955,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L180",
+      "source_location": "L181",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_write_valid_release",
@@ -72732,7 +72966,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L345",
+      "source_location": "L350",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_rewrite_input_binding",
@@ -72743,7 +72977,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L605",
+      "source_location": "L639",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
@@ -72754,7 +72988,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L250",
+      "source_location": "L251",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_write_valid_release",
@@ -72765,7 +72999,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L424",
+      "source_location": "L429",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_aggregation_checks_w_c_wt",
@@ -72776,7 +73010,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L465",
+      "source_location": "L470",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_cli_reads_mapping_outside_exact_s6_bundle",
@@ -72787,7 +73021,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L445",
+      "source_location": "L450",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_mapping_stays_blocked_until_shared_p0_interface_exists",
@@ -72798,7 +73032,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L357",
+      "source_location": "L362",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_accepts_cross_hashed_csv_npz_and_valid_qa",
@@ -72809,7 +73043,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L576",
+      "source_location": "L610",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_applies_approved_numeric_qa_thresholds",
@@ -72820,7 +73054,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L489",
+      "source_location": "L494",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_cli_requires_explicit_full_checks",
@@ -72831,7 +73065,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L409",
+      "source_location": "L414",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_preserves_precise_covariance_validation_error",
@@ -72842,7 +73076,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L561",
+      "source_location": "L579",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction",
@@ -72853,7 +73087,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L527",
+      "source_location": "L532",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_not_approved_in_canonical_config",
@@ -72864,7 +73098,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L620",
+      "source_location": "L654",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
@@ -72875,7 +73109,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L376",
+      "source_location": "L595",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response",
+      "target": "08_polarization_tests_test_release_write_valid_release"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L381",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
@@ -72886,7 +73131,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L659",
+      "source_location": "L693",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
@@ -72897,7 +73142,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L589",
+      "source_location": "L623",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
@@ -72908,7 +73153,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L364",
+      "source_location": "L369",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_noncanonical_or_extra_bundle_files",
@@ -72919,7 +73164,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L514",
+      "source_location": "L566",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch",
+      "target": "08_polarization_tests_test_release_write_valid_release"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L519",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
@@ -72930,7 +73186,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L648",
+      "source_location": "L682",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_state_source_substituted_outside_canonical_config",
@@ -72941,7 +73197,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L542",
+      "source_location": "L547",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema",
@@ -72952,7 +73208,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L504",
+      "source_location": "L509",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_qa_thresholds",
@@ -72963,7 +73219,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L319",
+      "source_location": "L324",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_rewrite_config_binding",
@@ -72974,7 +73230,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L425",
+      "source_location": "L430",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_aggregation_checks_w_c_wt",
@@ -72985,7 +73241,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L481",
+      "source_location": "L486",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_cli_reads_mapping_outside_exact_s6_bundle",
@@ -72996,7 +73252,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L446",
+      "source_location": "L451",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_publication_mapping_stays_blocked_until_shared_p0_interface_exists",
@@ -73007,7 +73263,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L358",
+      "source_location": "L363",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_accepts_cross_hashed_csv_npz_and_valid_qa",
@@ -73018,7 +73274,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L585",
+      "source_location": "L619",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_applies_approved_numeric_qa_thresholds",
@@ -73029,7 +73285,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L491",
+      "source_location": "L496",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_cli_requires_explicit_full_checks",
@@ -73040,7 +73296,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L420",
+      "source_location": "L425",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_preserves_precise_covariance_validation_error",
@@ -73051,7 +73307,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L562",
+      "source_location": "L580",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction",
@@ -73062,76 +73318,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L534",
+      "source_location": "L539",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_not_approved_in_canonical_config",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L621",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L405",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L660",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L591",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L368",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_noncanonical_or_extra_bundle_files",
-      "target": "08_polarization_tests_test_release_repo_of"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L523",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
       "target": "08_polarization_tests_test_release_repo_of"
     },
     {
@@ -73142,6 +73332,94 @@
       "source_location": "L655",
       "weight": 1.0,
       "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L606",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_fit_not_bound_to_phi_response",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L410",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_hash_order_covariance_and_qa_failures",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L694",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L625",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_missing_acceptance_for_sigma_bin",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L373",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_noncanonical_or_extra_bundle_files",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L575",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L528",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
+      "target": "08_polarization_tests_test_release_repo_of"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L689",
+      "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_state_source_substituted_outside_canonical_config",
       "target": "08_polarization_tests_test_release_repo_of"
     },
@@ -73150,7 +73428,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L557",
+      "source_location": "L562",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema",
@@ -73161,7 +73439,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L510",
+      "source_location": "L515",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_qa_thresholds",
@@ -73172,7 +73450,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L577",
+      "source_location": "L611",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_applies_approved_numeric_qa_thresholds",
@@ -73183,7 +73461,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L528",
+      "source_location": "L533",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_not_approved_in_canonical_config",
@@ -73194,7 +73472,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L515",
+      "source_location": "L567",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "08_polarization_tests_test_release_test_release_rejects_phi_response_schema_approval_id_mismatch",
+      "target": "08_polarization_tests_test_release_rewrite_config_binding"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "08_polarization/tests/test_release.py",
+      "source_location": "L520",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_qa_policy_not_approved_in_canonical_config",
@@ -73205,7 +73494,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L555",
+      "source_location": "L560",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_unapproved_phi_response_schema",
@@ -73216,7 +73505,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L570",
+      "source_location": "L588",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_bound_to_different_n2_reconstruction",
@@ -73227,7 +73516,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L642",
+      "source_location": "L676",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa",
@@ -73238,7 +73527,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L678",
+      "source_location": "L712",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash",
@@ -73249,7 +73538,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "08_polarization/tests/test_release.py",
-      "source_location": "L653",
+      "source_location": "L687",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "08_polarization_tests_test_release_test_release_rejects_state_source_substituted_outside_canonical_config",
@@ -81082,8 +81371,28 @@
       "source_file": "docs/physics/polarization.md",
       "source_location": null,
       "weight": 1.0,
+      "source": "docs_physics_polarization_forward_folded_response_binding",
+      "target": "docs_physics_polarization_acceptance_phi_response_v1_csv"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "weight": 1.0,
       "source": "docs_physics_polarization_phi_response_joint_approval",
       "target": "docs_physics_polarization_acceptance_phi_response_v1_csv"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "docs_physics_polarization_acceptance_qa_json",
+      "target": "docs_physics_polarization_phi_response_joint_approval"
     },
     {
       "relation": "references",
@@ -81104,6 +81413,26 @@
       "weight": 1.0,
       "source": "docs_physics_polarization_phi_response_joint_approval",
       "target": "docs_physics_polarization_s6_sigma_release_contract"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "docs_physics_polarization_forward_folded_response_binding",
+      "target": "docs_physics_polarization_s6_sigma_release_contract"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/physics/polarization.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "docs_physics_polarization_figure4_diagnostic_grid",
+      "target": "docs_physics_polarization_diagnostic_output_bundle"
     },
     {
       "relation": "references",
@@ -81174,14 +81503,16 @@
       "source_file": "docs/physics/polarization.md"
     },
     {
-      "id": "docs_physics_polarization_sigma_release_inputs",
-      "label": "Sigma Release Validated Inputs",
+      "id": "docs_physics_polarization_sigma_release_gate",
+      "label": "Sigma Release Gate Inputs and Approvals",
       "nodes": [
         "docs_physics_polarization_gate_0_observable_handoff",
         "docs_physics_polarization_reconstruction_inventory",
         "docs_physics_polarization_approved_state_mapping",
         "docs_physics_polarization_period_specific_compton_polarization",
         "docs_physics_polarization_immutable_n3_acceptance_handoff",
+        "docs_physics_polarization_phi_response_joint_approval",
+        "docs_physics_polarization_forward_folded_response_binding",
         "docs_physics_polarization_s6_sigma_release_contract"
       ],
       "relation": "participate_in",
@@ -81373,5 +81704,5 @@
       "source_file": "results/plots/kinfit_validation.png"
     }
   ],
-  "built_at_commit": "fac0106a0adf044c0ab7adf687fc368a3a3b4354"
+  "built_at_commit": "d78c10f78d94f888ec48fe4db5ab5dfa69736c35"
 }

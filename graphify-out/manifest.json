@@ -855,9 +855,9 @@
     "semantic_hash": "c8c52ad3db9ff91f221848dbc72ebee5"
   },
   "pyproject.toml": {
-    "mtime": 1789029359.4272354,
-    "ast_hash": "69acda347c06e284afad90311901a138",
-    "semantic_hash": "69acda347c06e284afad90311901a138"
+    "mtime": 1789298264.196842,
+    "ast_hash": "3bb5f7432dc39dadf4401cd014a1d689",
+    "semantic_hash": ""
   },
   "run_pipeline.sh": {
     "mtime": 1789029360.0499494,
@@ -1085,13 +1085,13 @@
     "semantic_hash": "7c7de4341909bfe32dcb44a2b2e6f17c"
   },
   "00_common/tests/test_repository_contract.py": {
-    "mtime": 1789224685.7842627,
-    "ast_hash": "997a1424c21072a5636c8aaa7ed9f41e",
+    "mtime": 1789298245.5189788,
+    "ast_hash": "8f99ad498224ac5f67deca09607de682",
     "semantic_hash": ""
   },
   "ARTIFACTS.json": {
-    "mtime": 1789225715.6790433,
-    "ast_hash": "e8adbba18c6f6f1046b4e7023a2ca2ab",
+    "mtime": 1789297708.468152,
+    "ast_hash": "cb20dc6f3deb656154c8d3376c0fbd54",
     "semantic_hash": ""
   },
   "results/observable_runs/observable_run_qa.json": {
@@ -1260,8 +1260,8 @@
     "semantic_hash": "de930122ba62c03785e2e127544b9bca"
   },
   "08_polarization/acceptance_handoff.py": {
-    "mtime": 1789224950.568479,
-    "ast_hash": "7925b75f51ceb5b401e6705bbec74f89",
+    "mtime": 1789298424.1252146,
+    "ast_hash": "5403194608cb11b853a34f60b3d4fe07",
     "semantic_hash": ""
   },
   "08_polarization/angles.py": {
@@ -1330,8 +1330,8 @@
     "semantic_hash": ""
   },
   "08_polarization/release.py": {
-    "mtime": 1789297271.9200006,
-    "ast_hash": "8f239a21e5b03647cb7abfc84ffbc335",
+    "mtime": 1789298424.1755772,
+    "ast_hash": "672815d9df56d97988aea7d5ac93c7c7",
     "semantic_hash": ""
   },
   "08_polarization/root_events.py": {
@@ -1360,8 +1360,8 @@
     "semantic_hash": ""
   },
   "08_polarization/tests/test_acceptance_handoff.py": {
-    "mtime": 1789224905.7611816,
-    "ast_hash": "02a946054f80b35caa2dce402fa002c9",
+    "mtime": 1789298409.0329647,
+    "ast_hash": "e3a7903c23f28c3fe895e16123d3a1fc",
     "semantic_hash": ""
   },
   "08_polarization/tests/test_angles.py": {
@@ -1430,8 +1430,8 @@
     "semantic_hash": ""
   },
   "08_polarization/tests/test_release.py": {
-    "mtime": 1789297289.4200706,
-    "ast_hash": "924d98e4494d51921c52f12e0251f553",
+    "mtime": 1789298409.0814033,
+    "ast_hash": "b3fcb4e67f41dfe63047eacc152f2fee",
     "semantic_hash": ""
   },
   "08_polarization/tests/test_root_events.py": {
@@ -1480,8 +1480,8 @@
     "semantic_hash": ""
   },
   "docs/physics/polarization.md": {
-    "mtime": 1789297307.3134525,
-    "ast_hash": "1f46f31215293bdafe7db5d49c24fa92",
+    "mtime": 1789298436.0398076,
+    "ast_hash": "a3e91a37bee54fd05ef065577e8e2b08",
     "semantic_hash": ""
   },
   "docs/superpowers/plans/2026-09-10-person2-polarization-sigma.md": {

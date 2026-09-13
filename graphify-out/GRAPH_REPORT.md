@@ -4,12 +4,12 @@
 - cluster-only mode — file stats not available
 
 ## Summary
-- 2740 nodes · 4728 edges · 305 communities (113 shown, 192 thin omitted)
-- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 907 edges (avg confidence: 0.77)
+- 2747 nodes · 4751 edges · 303 communities (111 shown, 192 thin omitted)
+- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 913 edges (avg confidence: 0.77)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fac0106a`
+- Built from commit: `d78c10f7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,24 +23,24 @@
 - [[_COMMUNITY_LossParams|LossParams]]
 - [[_COMMUNITY_Two-Person AI Handoff Design|Two-Person AI Handoff Design]]
 - [[_COMMUNITY_GRAAL Analysis maintenance contract|GRAAL Analysis: maintenance contract]]
-- [[_COMMUNITY_integrate_run_flux|integrate_run_flux]]
+- [[_COMMUNITY_test_strip_energy_flux.py|test_strip_energy_flux.py]]
 - [[_COMMUNITY_get_channel|get_channel]]
 - [[_COMMUNITY_from_energies|from_energies]]
 - [[_COMMUNITY_build_artifact_inventory.py|build_artifact_inventory.py]]
 - [[_COMMUNITY_pair_masses|pair_masses]]
 - [[_COMMUNITY_figure4_analysis.py|figure4_analysis.py]]
 - [[_COMMUNITY_run_reconstruction|run_reconstruction]]
-- [[_COMMUNITY_Pairing|Pairing]]
+- [[_COMMUNITY_fit_event|fit_event]]
 - [[_COMMUNITY_Stage1Gate|Stage1Gate]]
 - [[_COMMUNITY_fit_signal_mc|fit_signal_mc]]
 - [[_COMMUNITY_Stage-1 Validation Metrics|Stage-1 Validation Metrics]]
-- [[_COMMUNITY_Channel|Channel]]
+- [[_COMMUNITY_Hypothesis|Hypothesis]]
 - [[_COMMUNITY_TqdmCallback|TqdmCallback]]
 - [[_COMMUNITY_test_mc_status.py|test_mc_status.py]]
 - [[_COMMUNITY_dalitz.py|dalitz.py]]
 - [[_COMMUNITY_smearing.h|smearing.h]]
 - [[_COMMUNITY_Immutable N3 Acceptance Handoff|Immutable N3 Acceptance Handoff]]
-- [[_COMMUNITY_fit_event|fit_event]]
+- [[_COMMUNITY_TestFitEvent|TestFitEvent]]
 - [[_COMMUNITY_M(eta p) MC Raw Fit Truth|M(eta p) MC Raw Fit Truth]]
 - [[_COMMUNITY_PreAnalysis.h|PreAnalysis.h]]
 - [[_COMMUNITY_test_reco_physics.py|test_reco_physics.py]]
@@ -50,7 +50,7 @@
 - [[_COMMUNITY_test_repository_contract.py|test_repository_contract.py]]
 - [[_COMMUNITY_Compton Polarization Transfer Figure|Compton Polarization Transfer Figure]]
 - [[_COMMUNITY_test_generator_physics.py|test_generator_physics.py]]
-- [[_COMMUNITY_run_injected_closure|run_injected_closure]]
+- [[_COMMUNITY_test_build_observable_run_database.py|test_build_observable_run_database.py]]
 - [[_COMMUNITY__train_single|_train_single]]
 - [[_COMMUNITY_Eta Reconstructed Mass|Eta Reconstructed Mass]]
 - [[_COMMUNITY_Pi0 Reconstructed Mass|Pi0 Reconstructed Mass]]
@@ -60,7 +60,7 @@
 - [[_COMMUNITY_Pi0 Mass Fit and Raw Curves|Pi0 Mass Fit and Raw Curves]]
 - [[_COMMUNITY_Chi2 BDT Comparison|Chi2 BDT Comparison]]
 - [[_COMMUNITY_Gate BDT Eta-Pi0 Mass Correlation|Gate BDT Eta-Pi0 Mass Correlation]]
-- [[_COMMUNITY_StateInterval|StateInterval]]
+- [[_COMMUNITY_PolarizationContractError|PolarizationContractError]]
 - [[_COMMUNITY_test_release.py|test_release.py]]
 - [[_COMMUNITY_contracts.py|contracts.py]]
 - [[_COMMUNITY_PolarizationCurve|PolarizationCurve]]
@@ -165,7 +165,6 @@
 - [[_COMMUNITY_ProtonFwdCut_2005_d2|ProtonFwdCut_2005_d2]]
 - [[_COMMUNITY_ProtonFwdCut_2006_d|ProtonFwdCut_2006_d]]
 - [[_COMMUNITY_select_events.py|select_events.py]]
-- [[_COMMUNITY_Hypothesis|Hypothesis]]
 - [[_COMMUNITY_Dalitz Four-Panel Chi2 vs BDT Comparison|Dalitz Four-Panel Chi2 vs BDT Comparison]]
 - [[_COMMUNITY_sync-wiki.sh|sync-wiki.sh]]
 - [[_COMMUNITY_Measured Beam-spectrum Reweighting|Measured Beam-spectrum Reweighting]]
@@ -173,10 +172,10 @@
 - [[_COMMUNITY_Neutron Eta-prime Feasibility|Neutron Eta-prime Feasibility]]
 - [[_COMMUNITY_BDT Training Software Stack|BDT Training Software Stack]]
 - [[_COMMUNITY_graal-analysis|graal-analysis]]
-- [[_COMMUNITY_PolarizationContractError|PolarizationContractError]]
+- [[_COMMUNITY_release.py|release.py]]
 - [[_COMMUNITY_Design lookup strip→Eγ e integrazione dei flussi|Design: lookup strip→Eγ e integrazione dei flussi]]
 - [[_COMMUNITY_strip_energy_flux.py|strip_energy_flux.py]]
-- [[_COMMUNITY_TestConfidenceLevel|TestConfidenceLevel]]
+- [[_COMMUNITY_Pairing|Pairing]]
 - [[_COMMUNITY_sha256_file|sha256_file]]
 - [[_COMMUNITY__Sidebar|_Sidebar.md]]
 - [[_COMMUNITY_reaction_plane_phi|reaction_plane_phi]]
@@ -222,8 +221,7 @@
 - [[_COMMUNITY_Authoritative Run Manifest|Authoritative Run Manifest]]
 - [[_COMMUNITY_Persona 1 — guida operativa alla normalizzazione|Persona 1 — guida operativa alla normalizzazione]]
 - [[_COMMUNITY_Approved comparison extension|Approved comparison extension]]
-- [[_COMMUNITY_main|main]]
-- [[_COMMUNITY_test_strip_energy_flux.py|test_strip_energy_flux.py]]
+- [[_COMMUNITY_atomic_output_directory|atomic_output_directory]]
 - [[_COMMUNITY_Eta Raw Mass Chi2 vs BDT Comparison|Eta Raw Mass Chi2 vs BDT Comparison]]
 - [[_COMMUNITY_run_pipeline.sh|run_pipeline.sh]]
 - [[_COMMUNITY_PionCntCut_2002_uv2|PionCntCut_2002_uv2]]
@@ -307,14 +305,14 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `PreAnalysis` - 381 edges
-2. `PolarizationContractError` - 151 edges
+2. `PolarizationContractError` - 154 edges
 3. `ObservableRunError` - 56 edges
 4. `StripEnergyFluxError` - 43 edges
 5. `RunRecord` - 39 edges
 6. `make_complete_fixture()` - 32 edges
-7. `MCChannel` - 30 edges
-8. `compute_stage1_features()` - 29 edges
-9. `validate_sigma_release()` - 29 edges
+7. `validate_sigma_release()` - 31 edges
+8. `MCChannel` - 30 edges
+9. `compute_stage1_features()` - 29 edges
 10. `run()` - 27 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -335,7 +333,7 @@
 ## Hyperedges (group relationships)
 - **Immutable N3 Acceptance Handoff Triplet** — docs_physics_polarization_acceptance_v1_csv, docs_physics_polarization_acceptance_phi_response_v1_csv, docs_physics_polarization_acceptance_qa_json [EXTRACTED 1.00]
 - **S6 Sigma Release Triplet** — docs_physics_polarization_sigma_v1_csv, docs_physics_polarization_sigma_covariance_npz, docs_physics_polarization_polarization_qa_json [EXTRACTED 1.00]
-- **Sigma Release Validated Inputs** — docs_physics_polarization_gate_0_observable_handoff, docs_physics_polarization_reconstruction_inventory, docs_physics_polarization_approved_state_mapping, docs_physics_polarization_period_specific_compton_polarization, docs_physics_polarization_immutable_n3_acceptance_handoff, docs_physics_polarization_s6_sigma_release_contract [EXTRACTED 1.00]
+- **Sigma Release Gate Inputs and Approvals** — docs_physics_polarization_gate_0_observable_handoff, docs_physics_polarization_reconstruction_inventory, docs_physics_polarization_approved_state_mapping, docs_physics_polarization_period_specific_compton_polarization, docs_physics_polarization_immutable_n3_acceptance_handoff, docs_physics_polarization_phi_response_joint_approval, docs_physics_polarization_forward_folded_response_binding, docs_physics_polarization_s6_sigma_release_contract [EXTRACTED 1.00]
 - **Clone-Ready AI Handoff Package** — docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package, docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_git_lfs_snapshot, docs_artifact_policy_artifacts_inventory, requirements_dev_python_dependency_contract, docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh [EXTRACTED 1.00]
 - **Eta Pi0 Reconstruction Chain** — wiki_05_reconstruction_bdt_gate_stage1_gate, wiki_05_reconstruction_chi2_photon_pairing, wiki_05_reconstruction_kinematic_fit_six_constraint_fit, wiki_06_plots_dalitz_analysis [EXTRACTED 1.00]
 - **Observable Run Curation Artifact Flow** — agents_authoritative_run_manifest, wiki_data_formats_strip_energy_lookup_csv, wiki_data_formats_flux_by_run_energy_csv, docs_superpowers_specs_2026_09_08_observable_run_database_design_observable_run_qa, agents_accepted_observable_bundle [EXTRACTED 1.00]
@@ -350,7 +348,7 @@
 - **Dalitz Chi2 BDT Measured Implicit Comparison Set** — results_plots_dalitz_chi2_misurato_chi2_measured_proton_dalitz, results_plots_dalitz_bdt_misurato_gate_bdt_measured_proton_dalitz, results_plots_dalitz_chi2_implicito_chi2_implicit_proton_dalitz, results_plots_dalitz_bdt_implicito_gate_bdt_implicit_proton_dalitz, results_plots_dalitz_confronto_dalitz_four_panel_comparison [EXTRACTED 1.00]
 - **Kinfit Validation Diagnostics** — results_plots_kinfit_validation_fit_chi2_ndf_6, results_plots_kinfit_validation_pull_eta_gamma1_e, results_plots_kinfit_validation_eta_mass_distribution [INFERRED 0.85]
 
-## Communities (305 total, 192 thin omitted)
+## Communities (303 total, 192 thin omitted)
 
 ### Community 0 - "PreAnalysis Scalars"
 Cohesion: 0.01
@@ -373,8 +371,8 @@ Cohesion: 0.08
 Nodes (61): append_histogram(), checkpoint_path(), complete_flux_runs(), make_complete_fixture(), Path, run_cli(), test_checkpoint_contains_complete_h80_qa(), test_cli_bounded_lookup_is_exact_for_runs_spanning_multi_run_files() (+53 more)
 
 ### Community 5 - "test_run_manifest.py"
-Cohesion: 0.06
-Nodes (68): classify_period(), ManifestError, Path, Write records to a manifest with the canonical schema., Read manifest rows without applying semantic validation., Read and validate every row in a manifest., Report an invalid or unusable manifest., Classify a source-period name into target, beam, group, and source. (+60 more)
+Cohesion: 0.08
+Nodes (47): classify_period(), ManifestError, Path, Scan, serialize, read, and validate run manifests., Write records to a manifest with the canonical schema., Read manifest rows without applying semantic validation., Read and validate every row in a manifest., Report an invalid or unusable manifest. (+39 more)
 
 ### Community 6 - "LossParams"
 Cohesion: 0.11
@@ -388,9 +386,9 @@ Nodes (22): Agent operating contract, Clone and environment contract, `data/`, `
 Cohesion: 0.25
 Nodes (7): Flux farm operation, GRAAL Analysis: maintenance contract, Graph, provenance, and documentation, Pipeline and packages, Scientific authorities and protected rules, Work discipline, Project-Local Graphify 0.9.7 Dependency
 
-### Community 9 - "integrate_run_flux"
-Cohesion: 0.23
-Nodes (22): check_flux_conservation(), energy_bin_index(), EnergyBinning, integrate_run_flux(), Store three raw flux components for one run and strip., Define named, strictly increasing energy-bin edges in GeV., Return the bin containing an energy, or ``None`` when out of range., Assign strip flux to energy bins and compute net polarization flux. (+14 more)
+### Community 9 - "test_strip_energy_flux.py"
+Cohesion: 0.16
+Nodes (31): aggregate_group_flux(), check_flux_conservation(), energy_bin_index(), EnergyBinning, integrate_run_flux(), Store three raw flux components for one run and strip., Define named, strictly increasing energy-bin edges in GeV., Return the bin containing an energy, or ``None`` when out of range. (+23 more)
 
 ### Community 10 - "get_channel"
 Cohesion: 0.07
@@ -416,21 +414,21 @@ Nodes (55): analyze_sigma_grid(), _edges(), event_pair_observables(), fit_panel_
 Cohesion: 0.12
 Nodes (20): _as_array(), _build_chain(), Gate, ndarray, Path, TChain, ROOT IO for the two-meson reconstruction: chain, branches, event loop, write.  T, Reconstruct one channel. Returns the number of events written. (+12 more)
 
-### Community 16 - "Pairing"
-Cohesion: 0.16
-Nodes (18): Pairing, One hypothesis about which photons made which meson., _canonicalize_angles(), _constraints(), _covariance_diag(), FitOptions, FitResult, _jacobian() (+10 more)
+### Community 16 - "fit_event"
+Cohesion: 0.19
+Nodes (18): _canonicalize_angles(), _constraints(), _covariance_diag(), fit_event(), FitOptions, _jacobian(), _params_to_vectors(), ndarray (+10 more)
 
 ### Community 17 - "Stage1Gate"
-Cohesion: 0.15
-Nodes (21): ndarray, Path, Stage-1 BDT gate: rejects background-like events before the chi2 pairing.  The f, Score a whole chunk of events at once.          photons: (N,4,4); protons, beams, Accept an event if the stage-1 BDT scores it at or above the threshold., Stage1Gate, _events(), FakeModel (+13 more)
+Cohesion: 0.12
+Nodes (22): ndarray, Path, Stage-1 BDT gate: rejects background-like events before the chi2 pairing.  The f, Score a whole chunk of events at once.          photons: (N,4,4); protons, beams, Accept an event if the stage-1 BDT scores it at or above the threshold., Refuse to gate a reconstruction the model was not trained for.          The gate, Stage1Gate, _events() (+14 more)
 
 ### Community 18 - "fit_signal_mc"
 Cohesion: 0.10
 Nodes (26): lorentz_array(), ndarray, Read a ROOT TLorentzVector branch as a plain (N, 4) [px, py, pz, E] array., An uproot TTree branch of TLorentzVector as an (N, 4) [px, py, pz, E]., dalitz_limit(), invariant_mass(), invariant_masses(), ndarray (+18 more)
 
-### Community 20 - "Channel"
-Cohesion: 0.20
-Nodes (7): Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru, A two-meson final state the reconstruction can write out., Invariant mass of a single [px, py, pz, E] four-vector.
+### Community 20 - "Hypothesis"
+Cohesion: 0.14
+Nodes (10): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Channel, invariant_mass(), passes_missing_mass(), Channel definitions for the two-meson reconstruction.  The chi2 itself lives in, Whether an event's eta-pi0 missing mass is close enough to the partner.      Tru (+2 more)
 
 ### Community 21 - "TqdmCallback"
 Cohesion: 0.09
@@ -450,11 +448,11 @@ Nodes (25): BuildCutMap(), ExtractFolderFromCutFile(), GetCut(), GetRunFolder(),
 
 ### Community 25 - "Immutable N3 Acceptance Handoff"
 Cohesion: 0.12
-Nodes (22): acceptance_phi_response_v1.csv, acceptance_qa.json, acceptance_v1.csv, Approved Polarization State Mapping, Beam Polarization and Sigma, Common-Acceptance Cancellation Diagnostic, Current Experimental Release Blockers, Fail-Closed Experimental Release (+14 more)
+Nodes (24): acceptance_phi_response_v1.csv, acceptance_qa.json, acceptance_v1.csv, Approved Polarization State Mapping, Beam Polarization and Sigma, Common-Acceptance Cancellation Diagnostic, Current Experimental Release Blockers, Immutable Diagnostic Output Bundle (+16 more)
 
-### Community 26 - "fit_event"
-Cohesion: 0.24
-Nodes (8): fit_event(), Fit one event onto 4-momentum conservation and the two pair masses., _vectors_to_params(), _conserving_event(), _photon(), Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
+### Community 26 - "TestFitEvent"
+Cohesion: 0.27
+Nodes (4): _conserving_event(), _photon(), A gamma p -> p eta pi0 event that conserves and is on-mass, built forwards., TestFitEvent
 
 ### Community 27 - "M(eta p) MC Raw Fit Truth"
 Cohesion: 0.14
@@ -477,8 +475,8 @@ Cohesion: 0.80
 Nodes (6): Gate BDT Implicit Proton Dalitz Plot, Gate BDT Measured Proton Dalitz Plot, M(eta p) Axis, M(pi0 p) Axis, Chi2-Only Implicit Proton Dalitz Plot, Chi2-Only Measured Proton Dalitz Plot
 
 ### Community 33 - "test_repository_contract.py"
-Cohesion: 0.20
-Nodes (16): Catch an added owner or a missing artifact handoff in the physics plan., A user-global Graphify executable would make clone bootstrap non-portable., Published graph labels must identify which document owns a generic heading., Verification must fail on drift, not replace the provenance it is checking., read(), test_agents_file_names_authoritative_observable_bundle(), test_agents_protects_untracked_user_data_from_unapproved_mutation(), test_graphify_disambiguates_repeated_document_headings() (+8 more)
+Cohesion: 0.18
+Nodes (18): Catch an added owner or a missing artifact handoff in the physics plan., A user-global Graphify executable would make clone bootstrap non-portable., Published graph labels must identify which document owns a generic heading., Verification must fail on drift, not replace the provenance it is checking., read(), test_agents_file_names_authoritative_observable_bundle(), test_agents_protects_untracked_user_data_from_unapproved_mutation(), test_default_test_discovery_includes_person2_polarization() (+10 more)
 
 ### Community 35 - "Compton Polarization Transfer Figure"
 Cohesion: 0.40
@@ -488,9 +486,9 @@ Nodes (6): 351 nm Laser Polarization Curve, 514 nm Laser Polarization Curve, 550
 Cohesion: 0.33
 Nodes (7): Path, Physics invariants shared by every ROOT Monte Carlo generator., test_generated_tagged_beam_is_massless(), test_generator_does_not_smear_beam_components_independently(), test_phase_space_acceptance_tolerates_observed_root_roundoff(), test_phase_space_generate_weight_is_not_ignored(), test_unweighted_phase_space_matches_weighted_reference()
 
-### Community 37 - "run_injected_closure"
-Cohesion: 0.22
-Nodes (11): _closure_design(), ClosureResult, main(), ndarray, Injected-asymmetry closure and controlled orientation-sign test., Run deterministic Poisson ensemble and Asimov sign inversion., run_injected_closure(), test_closure_handles_physical_boundaries() (+3 more)
+### Community 37 - "test_build_observable_run_database.py"
+Cohesion: 0.13
+Nodes (30): _build_source_bundle(), _load_cli_module(), _manifest_records(), Path, Integration tests for the artifact-only observable-run database CLI., Hashing originals after parsing would let QA describe different input bytes., Equating raw triplet count with integrated CSV rows rejects valid curation., Relaxing raw-flux semantics must not relax canonical manifest consistency. (+22 more)
 
 ### Community 38 - "_train_single"
 Cohesion: 0.32
@@ -509,8 +507,8 @@ Cohesion: 0.40
 Nodes (6): Boosting Rounds, Convergent BDT Learning, Small Generalization Gap, BDT Training Curve, Training Logloss, Validation Logloss
 
 ### Community 43 - "FitCovariance"
-Cohesion: 0.17
-Nodes (10): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint, TestChi2Calibration, TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default (+2 more)
+Cohesion: 0.19
+Nodes (8): FitCovariance, Per-measurement sigmas, straight from smearing.h.      photon_E_rel and proton_P, Diagonal measurement covariance for one event., TestValidationStatus, main(), Validate kinematic-fit closure or an independently sourced calibration.  Default, Describe what evidence this validation run can support., validation_status()
 
 ### Community 44 - "Global Constraints"
 Cohesion: 0.25
@@ -524,17 +522,17 @@ Nodes (15): Cartelle dati del rivelatore e `--test-data`, Curazione delle run pe
 Cohesion: 0.83
 Nodes (4): Gate BDT Eta-Pi0 Mass Correlation, M(eta) Axis, M(pi0) Axis, Chi2-Only Eta-Pi0 Mass Correlation
 
-### Community 48 - "StateInterval"
-Cohesion: 0.14
-Nodes (22): _interval_from_mapping(), load_state_mapping(), Path, Authoritative run/state-code to polarization-orientation mapping., Load only an authority-approved state map from configuration., One closed run interval for one recorded Polarization state code., Return sorted intervals after proving `(run, state)` uniqueness., Resolve one measured state; reject gaps and ambiguity. (+14 more)
+### Community 48 - "PolarizationContractError"
+Cohesion: 0.11
+Nodes (34): _closure_design(), ClosureResult, main(), ndarray, Injected-asymmetry closure and controlled orientation-sign test., Run deterministic Poisson ensemble and Asimov sign inversion., run_injected_closure(), PolarizationContractError (+26 more)
 
 ### Community 49 - "test_release.py"
-Cohesion: 0.22
-Nodes (30): Validate immutable S6 CSV, covariance archive, and QA cross-hashes., validate_sigma_release(), combined_input_sha256(), file_record(), repo_of(), rewrite_config_binding(), rewrite_input_binding(), sha() (+22 more)
+Cohesion: 0.21
+Nodes (32): Validate immutable S6 CSV, covariance archive, and QA cross-hashes., validate_sigma_release(), combined_input_sha256(), file_record(), repo_of(), rewrite_config_binding(), rewrite_input_binding(), sha() (+24 more)
 
 ### Community 50 - "contracts.py"
-Cohesion: 0.18
-Nodes (24): load_json(), Path, Fail-closed provenance contracts for beam-polarization analysis., Validate one authority-approved, content-addressed experimental source., Validate Gate 0 identity, bundle completeness, QA, and exact bytes., Load one JSON object, translating parse and shape failures., _required_digest(), _required_text() (+16 more)
+Cohesion: 0.15
+Nodes (26): load_json(), Path, Fail-closed provenance contracts for beam-polarization analysis., Validate one authority-approved, content-addressed experimental source., Validate Gate 0 identity, bundle completeness, QA, and exact bytes., Load one JSON object, translating parse and shape failures., _required_digest(), _required_text() (+18 more)
 
 ### Community 51 - "PolarizationCurve"
 Cohesion: 0.12
@@ -550,7 +548,7 @@ Nodes (3): Resolve preselection tree names for ROOT and uproot readers., Resolve
 
 ### Community 56 - "ObservableRunError"
 Cohesion: 0.05
-Nodes (119): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+111 more)
+Nodes (118): _add_qa_reasons(), _artifact_error(), BremMetric, calculate_brem_metrics(), classify_run_quality(), _entries(), _manifest_by_run(), ObservableRunError (+110 more)
 
 ### Community 57 - "Pipeline Script"
 Cohesion: 0.18
@@ -580,29 +578,25 @@ Nodes (5): Three-Slot Confusion Matrix, Slot 0 Classification, Slot 0 Prediction
 Cohesion: 0.50
 Nodes (5): Block-1 Feature Dominance, chi2_block1, dm_eta_block1, m_high_block1, Top-20 Feature Importance
 
-### Community 154 - "Hypothesis"
-Cohesion: 0.29
-Nodes (4): Hypothesis, Two mesons the four observed photons are tested against.      `heavy` is the mor, True when both mesons are the same particle., Refuse to gate a reconstruction the model was not trained for.          The gate
-
 ### Community 155 - "Dalitz Four-Panel Chi2 vs BDT Comparison"
 Cohesion: 0.40
 Nodes (5): Dalitz Four-Panel Chi2 vs BDT Comparison, Implicit Proton Panels, Measured Proton Panels, BDT Panel, Raw Sigma 0.052 GeV
 
-### Community 173 - "PolarizationContractError"
-Cohesion: 0.20
-Nodes (23): PolarizationContractError, Raised when scientific input or provenance violates Person 2's contract., _acceptance_key(), _covariance(), _finite_number(), _input_digest(), _positive_float(), ndarray (+15 more)
+### Community 173 - "release.py"
+Cohesion: 0.17
+Nodes (21): _acceptance_key(), _covariance(), _finite_number(), _input_digest(), _positive_float(), ndarray, Path, Read-only validation of Sigma release and publication-bin mappings. (+13 more)
 
 ### Community 174 - "Design: lookup strip→Eγ e integrazione dei flussi"
 Cohesion: 0.08
 Nodes (26): Aggregazione, Asimmetria di fascio Ajaka, Binning energetico, Controlli sul lookup, Costruzione del lookup, Dati pre-analizzati, Design: lookup strip→Eγ e integrazione dei flussi, Errori fatali (+18 more)
 
 ### Community 175 - "strip_energy_flux.py"
-Cohesion: 0.18
-Nodes (16): GroupFluxBinRecord, Path, Build strip-energy lookups and energy-binned flux products., Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records. (+8 more)
+Cohesion: 0.17
+Nodes (17): GroupFluxBinRecord, Path, Build strip-energy lookups and energy-binned flux products., Store aggregated raw and net flux for one group and energy bin., Write dictionaries to a CSV file with a fixed schema., Write strip-energy records with manifest metadata., Write sorted per-run flux-bin records., Write sorted group-level flux-bin records. (+9 more)
 
-### Community 176 - "TestConfidenceLevel"
-Cohesion: 0.47
-Nodes (3): confidence_level(), Probability that a correct fit would give a chi2 this large or larger., TestConfidenceLevel
+### Community 176 - "Pairing"
+Cohesion: 0.22
+Nodes (9): Pairing, One hypothesis about which photons made which meson., confidence_level(), FitResult, Probability that a correct fit would give a chi2 this large or larger., Tests for the 6C kinematic fit.  The fit adjusts measured photons/proton/beam wi, Pin chi2's calibration: it must scale as 1/sigma^2, not 1/sigma.      Constraint, TestChi2Calibration (+1 more)
 
 ### Community 177 - "sha256_file"
 Cohesion: 0.19
@@ -662,7 +656,7 @@ Nodes (15): normalize_xstrip(), Report invalid strip-energy or flux input., Roun
 
 ### Community 198 - "validate_acceptance_handoff"
 Cohesion: 0.23
-Nodes (14): AcceptanceHandoff, _canonical_release_directory(), Path, Validate Person 1's immutable N3 acceptance handoff., Validate exact triplet, immutable location, QA decision, and cross-hashes., _required_digest(), validate_acceptance_handoff(), Path (+6 more)
+Nodes (15): AcceptanceHandoff, _canonical_release_directory(), Path, Validate Person 1's immutable N3 acceptance handoff., Validate exact triplet, immutable location, QA decision, and cross-hashes., _required_digest(), validate_acceptance_handoff(), Path (+7 more)
 
 ### Community 200 - "Ricostruzione chi2"
 Cohesion: 0.22
@@ -705,8 +699,8 @@ Cohesion: 0.29
 Nodes (7): Fit cinematico 6C, I 6 Constraint, Il risolutore: moltiplicatori di Lagrange, iterativo, Il taglio in confidence level sostituisce la massa mancante, Parametrizzazione e covarianza, Rami di output, Validazione su MC di segnale
 
 ### Community 210 - "build_panel_exposures"
-Cohesion: 0.30
-Nodes (15): build_panel_exposures(), Path, Flux and polarization exposures for Sigma energy panels., Aggregate accepted run flux and flux-weighted Compton polarization., _validate_component_assignments(), _validate_orientation_signs(), curves(), intervals() (+7 more)
+Cohesion: 0.33
+Nodes (14): build_panel_exposures(), Path, Flux and polarization exposures for Sigma energy panels., Aggregate accepted run flux and flux-weighted Compton polarization., _validate_orientation_signs(), curves(), intervals(), test_exposure_aggregates_explicit_flux_components_and_flux_weights_polarization() (+6 more)
 
 ### Community 213 - "02 — Selezione eventi"
 Cohesion: 0.40
@@ -728,13 +722,9 @@ Nodes (11): Comandi futuri — interface to implement, Consegna dell'accettanza 
 Cohesion: 0.20
 Nodes (9): Approved comparison extension, Global Constraints, Independent pre-handoff hardening, Person 2 Polarization and Sigma Implementation Plan, Task 1: Provenance and Configuration Contracts, Task 2: S1 State Mapping and S2 Compton Polarization, Task 3: S3 Periodic Reaction-Plane Angle, Task 4: S4 Acceptance-Aware Fit and S5 Injected Closure (+1 more)
 
-### Community 223 - "main"
-Cohesion: 0.42
-Nodes (8): _entries(), _import_root(), main(), parse_args(), Namespace, Path, _write_flux(), _write_h80()
-
-### Community 224 - "test_strip_energy_flux.py"
-Cohesion: 0.16
-Nodes (16): aggregate_group_flux(), atomic_output_directory(), Yield a staging directory and publish it atomically on success., Sum run-level flux records by group and energy bin., _measure_disk_lookup(), _measure_high_cardinality_extra_runs(), test_atomic_output_does_not_replace_destination_on_failure(), test_atomic_output_ignores_post_publish_backup_cleanup_failure() (+8 more)
+### Community 224 - "atomic_output_directory"
+Cohesion: 0.33
+Nodes (6): atomic_output_directory(), Yield a staging directory and publish it atomically on success., test_atomic_output_does_not_replace_destination_on_failure(), test_atomic_output_ignores_post_publish_backup_cleanup_failure(), test_atomic_output_keeps_preexisting_backup_collision(), test_atomic_output_restores_destination_if_staging_replace_fails()
 
 ### Community 225 - "Eta Raw Mass Chi2 vs BDT Comparison"
 Cohesion: 0.83
@@ -745,21 +735,21 @@ Cohesion: 0.83
 Nodes (3): run_pipeline.sh script, stage(), stage_done()
 
 ## Knowledge Gaps
-- **715 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+710 more)
+- **716 isolated node(s):** `h70chain`, `fChain`, `fCurrent`, `Idrun`, `Idevt` (+711 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **192 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `main()` connect `FitCovariance` to `ObservableRunError`, `fit_event`?**
+- **Why does `main()` connect `FitCovariance` to `fit_event`, `ObservableRunError`?**
   _High betweenness centrality (0.103) - this node is a cross-community bridge._
-- **Why does `Hypothesis` connect `Hypothesis` to `MCChannel`, `get_channel`, `FitCovariance`, `pair_masses`, `Pairing`, `Stage1Gate`, `Channel`, `fit_event`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
-- **Why does `PolarizationContractError` connect `PolarizationContractError` to `fit_sigma_binned`, `run_injected_closure`, `validate_acceptance_handoff`, `figure4_analysis.py`, `StateInterval`, `sha256_file`, `contracts.py`, `reaction_plane_phi`, `build_figure4_comparison.py`, `PolarizationCurve`, `build_panel_exposures`, `load_reco_inventory`, `ObservableRunError`, `test_release.py`, `root_events.py`?**
+- **Why does `Hypothesis` connect `Hypothesis` to `MCChannel`, `get_channel`, `FitCovariance`, `pair_masses`, `Pairing`, `fit_event`, `Stage1Gate`?**
+  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+- **Why does `PolarizationContractError` connect `PolarizationContractError` to `fit_sigma_binned`, `validate_acceptance_handoff`, `release.py`, `figure4_analysis.py`, `sha256_file`, `contracts.py`, `reaction_plane_phi`, `build_figure4_comparison.py`, `PolarizationCurve`, `build_panel_exposures`, `load_reco_inventory`, `ObservableRunError`, `test_release.py`, `root_events.py`?**
   _High betweenness centrality (0.079) - this node is a cross-community bridge._
-- **Are the 141 inferred relationships involving `PolarizationContractError` (e.g. with `AcceptanceHandoff` and `_canonical_release_directory()`) actually correct?**
-  _`PolarizationContractError` has 141 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 144 inferred relationships involving `PolarizationContractError` (e.g. with `AcceptanceHandoff` and `_canonical_release_directory()`) actually correct?**
+  _`PolarizationContractError` has 144 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 31 inferred relationships involving `ObservableRunError` (e.g. with `RunRecord` and `FluxBinRecord`) actually correct?**
   _`ObservableRunError` has 31 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 31 inferred relationships involving `StripEnergyFluxError` (e.g. with `RunRecord` and `test_flux_reader_rejects_duplicate_root_key_cycles()`) actually correct?**
