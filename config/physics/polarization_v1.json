@@ -20,7 +20,9 @@
       "acceptance_phi_response_v1.csv",
       "acceptance_qa.json"
     ],
-    "phi_response_schema_status": "pending_joint_approval"
+    "phi_response_schema_status": "pending_joint_approval",
+    "phi_response_schema_approval_id": null,
+    "phi_response_schema_reviewers": []
   },
   "state_mapping": {
     "status": "blocked",

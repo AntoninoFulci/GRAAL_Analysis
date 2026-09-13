@@ -171,6 +171,9 @@ def write_valid_release(path):
                     "status": "approved",
                     "release_id": acceptance_dir.name,
                     "handoff_directory": str(acceptance_dir.relative_to(repo)),
+                    "phi_response_schema_status": "approved",
+                    "phi_response_schema_approval_id": "fixture-phi-response",
+                    "phi_response_schema_reviewers": ["test-a", "test-b"],
                 },
                 "state_mapping": {
                     "status": "ready",
@@ -231,6 +234,9 @@ def write_valid_release(path):
             }
         )
     )
+    acceptance_qa_payload = json.loads(acceptance_qa.read_text())
+    acceptance_qa_payload["n2_reconstruction_sha256"] = sha(reconstruction)
+    acceptance_qa.write_text(json.dumps(acceptance_qa_payload))
     inputs = {
         "config": file_record(config, repo),
         "gate0_handoff": file_record(gate0, repo),
@@ -528,6 +534,44 @@ def test_release_rejects_acceptance_not_approved_in_canonical_config(tmp_path):
         validate_sigma_release(release, repo_of(release))
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing_status", "pending_status", "missing_approval_id", "one_reviewer"],
+)
+def test_release_rejects_unapproved_phi_response_schema(tmp_path, mutation):
+    release = write_valid_release(tmp_path / "release")
+
+    def mutate(payload):
+        acceptance = payload["acceptance"]
+        if mutation == "missing_status":
+            acceptance.pop("phi_response_schema_status")
+        elif mutation == "pending_status":
+            acceptance["phi_response_schema_status"] = "pending_joint_approval"
+        elif mutation == "missing_approval_id":
+            acceptance.pop("phi_response_schema_approval_id")
+        else:
+            acceptance["phi_response_schema_reviewers"] = ["test-a"]
+
+    rewrite_config_binding(release, mutate, sync_qa_policy=True)
+    with pytest.raises(PolarizationContractError, match="phi-response schema approval"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_acceptance_bound_to_different_n2_reconstruction(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    inventory = repo_of(release) / "results/reconstruction/inventory.json"
+    payload = json.loads(inventory.read_text())
+    payload["producer_commit"] = "d" * 40
+    inventory.write_text(json.dumps(payload))
+
+    def refresh_inventory(qa):
+        qa["inputs"]["reconstruction_inventory"]["sha256"] = sha(inventory)
+
+    rewrite_input_binding(release, refresh_inventory)
+    with pytest.raises(PolarizationContractError, match="N2 reconstruction"):
+        validate_sigma_release(release, repo_of(release))
+
+
 def test_release_applies_approved_numeric_qa_thresholds(tmp_path):
     release = write_valid_release(tmp_path / "release")
     rewrite_config_binding(
@@ -613,14 +657,24 @@ def test_release_rejects_state_source_substituted_outside_canonical_config(tmp_p
 
 def test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash(tmp_path):
     release = write_valid_release(tmp_path / "release")
-    inventory = repo_of(release) / "results/reconstruction/inventory.json"
+    repo = repo_of(release)
+    inventory = repo / "results/reconstruction/inventory.json"
     payload = json.loads(inventory.read_text())
     payload["complete_run_coverage"] = False
     inventory.write_text(json.dumps(payload))
+    acceptance_qa_path = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_qa.json"
+    )
+    acceptance_qa = json.loads(acceptance_qa_path.read_text())
+    acceptance_qa["n2_reconstruction_sha256"] = sha(inventory)
+    acceptance_qa_path.write_text(json.dumps(acceptance_qa))
 
     def refresh_inventory(qa):
         qa["inputs"]["reconstruction_inventory"]["sha256"] = sha(inventory)
+        qa["inputs"]["acceptance_qa"]["sha256"] = sha(acceptance_qa_path)
+        qa["acceptance_qa_sha256"] = sha(acceptance_qa_path)
 
     rewrite_input_binding(release, refresh_inventory)
     with pytest.raises(PolarizationContractError, match="complete_run_coverage"):
-        validate_sigma_release(release, repo_of(release))
+        validate_sigma_release(release, repo)

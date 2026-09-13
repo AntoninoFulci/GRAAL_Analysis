@@ -84,10 +84,13 @@ is atomic and contains exactly `acceptance_v1.csv`,
 `acceptance_phi_response_v1.csv`, and `acceptance_qa.json`. Release validation
 rejects legacy root-level destinations, incomplete or extra files, symlinks,
 release-ID mismatch, invalid QA, Gate 0 mismatch, missing N2 linkage, or any
-CSV hash mismatch. Canonical polarization config must explicitly approve same
-release ID and directory. Concrete response columns and forward-folding CLI
-remain blocked pending joint schema approval; scalar/common-acceptance
-diagnostics cannot satisfy this release gate.
+CSV hash mismatch. N2 reconstruction digest in acceptance QA must equal actual
+reconstruction-inventory digest consumed by S6. Canonical polarization config
+must explicitly approve same release ID and directory. Phi-response schema
+approval additionally requires non-empty approval ID and two distinct
+reviewers. Concrete response columns and forward-folding CLI remain blocked
+pending that joint approval; scalar/common-acceptance diagnostics cannot
+satisfy this release gate.
 
 ## Comparison grid
 
@@ -197,7 +200,8 @@ recovered Sigma plus CSV/PNG/QA. No experimental or published values enter.
 - metadata-bearing proton reconstruction missing;
 - Person 1 immutable acceptance table/phi-response/QA handoff missing for final
   S6 release;
-- concrete phi-response schema and forward-folding CLI pending joint approval;
+- concrete phi-response schema and forward-folding CLI pending joint approval
+  with approval ID and two distinct reviewers;
 - shared P0 validator/output artifact still needs joint implementation and
   two-reviewer approval before S7 mappings can pass.
 

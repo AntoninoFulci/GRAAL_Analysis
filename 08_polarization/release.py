@@ -452,6 +452,10 @@ def _validate_inputs(
         raise PolarizationContractError(
             "acceptance input records disagree with immutable handoff"
         )
+    if reconstruction_digest != handoff.n2_reconstruction_sha256:
+        raise PolarizationContractError(
+            "acceptance handoff is bound to a different N2 reconstruction"
+        )
     acceptance_qa = handoff.qa
     acceptance_input_digest, acceptance_config_digest = _validate_acceptance_csv(
         acceptance_csv, required_acceptance_keys
@@ -493,6 +497,26 @@ def _validate_inputs(
     ):
         raise PolarizationContractError(
             "acceptance handoff disagrees with approved canonical config"
+        )
+    phi_response_reviewers = acceptance_config.get(
+        "phi_response_schema_reviewers"
+    )
+    normalized_phi_response_reviewers = {
+        reviewer.strip()
+        for reviewer in phi_response_reviewers or []
+        if isinstance(reviewer, str) and reviewer.strip()
+    }
+    phi_response_approval_id = acceptance_config.get(
+        "phi_response_schema_approval_id"
+    )
+    if (
+        acceptance_config.get("phi_response_schema_status") != "approved"
+        or not isinstance(phi_response_approval_id, str)
+        or not phi_response_approval_id.strip()
+        or len(normalized_phi_response_reviewers) < 2
+    ):
+        raise PolarizationContractError(
+            "phi-response schema approval requires id and two reviewers"
         )
     load_state_mapping(config_path, repository_root)
     load_period_curves(config_path, repository_root)
