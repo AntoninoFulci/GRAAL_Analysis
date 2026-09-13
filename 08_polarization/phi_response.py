@@ -120,8 +120,12 @@ def _authority(repository_root: Path, config: AnalysisConfig, release_id: str) -
         if (isinstance(value, bool) or not isinstance(value, (float, int))
                 or not math.isfinite(value) or value < 0):
             raise PolarizationContractError(f"response validation {name} must be finite and nonnegative")
-    if config.response_validation.minimum_generated_effective_events_per_true_phi <= 0:
-        raise PolarizationContractError("response minimum effective events must be positive")
+    for name in (
+        "minimum_generated_effective_events_per_true_phi",
+        "finite_difference_relative_step", "finite_difference_absolute_step",
+    ):
+        if getattr(config.response_validation, name) <= 0:
+            raise PolarizationContractError(f"response validation {name} must be positive")
 
 
 def _parse_row(raw: dict[str, str], config: AnalysisConfig, release_id: str) -> dict:

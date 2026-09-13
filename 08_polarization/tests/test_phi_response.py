@@ -154,6 +154,14 @@ def test_response_rejects_wrong_config_authorities(response_fixture, field, valu
         load(response_fixture, config=replace(response_fixture.config, **{field: value}))
 
 
+@pytest.mark.parametrize("field", ["finite_difference_relative_step", "finite_difference_absolute_step"])
+def test_response_rejects_zero_finite_difference_steps(response_fixture, field):
+    validation = replace(response_fixture.config.response_validation, **{field: 0.})
+    config = replace(response_fixture.config, response_validation=validation)
+    with pytest.raises(PolarizationContractError, match=f"{field} must be positive"):
+        load(response_fixture, config=config)
+
+
 @pytest.mark.parametrize("mask", ["invalid_zero_generated", "invalid_low_effective_statistics",
                                   "invalid_nonphysical_weights", "invalid_incomplete_coverage"])
 def test_invalid_blocks_retain_cartesian_cells_and_validity(response_fixture, mask):
