@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
+import stat
 from typing import Mapping
 
 
@@ -51,24 +52,31 @@ def load_json(path: Path) -> dict[str, object]:
     return payload
 
 
-def _resolved_regular_file(root: Path, raw_path: object, label: str) -> Path:
+def canonical_relative_file(root: Path, raw_path: object, label: str) -> tuple[str, Path]:
+    """Return a canonical repository-relative identity and verified file path."""
     if not isinstance(raw_path, str) or not raw_path:
         raise PolarizationContractError(f"{label} path must be a non-empty string")
+    if (
+        "\\" in raw_path
+        or Path(raw_path).is_absolute()
+        or PurePosixPath(raw_path).as_posix() != raw_path
+    ):
+        raise PolarizationContractError(
+            f"{label} path must be canonical repository-relative POSIX"
+        )
+    parts = PurePosixPath(raw_path).parts
+    if any(component in {"", ".", ".."} for component in parts):
+        raise PolarizationContractError(f"{label} path contains forbidden component")
     repository_root = Path(root).resolve()
-    lexical = Path(raw_path)
-    if lexical.is_absolute():
-        candidate = lexical
-    else:
-        candidate = repository_root / lexical
-    absolute = candidate.absolute()
-    try:
-        relative = absolute.relative_to(repository_root)
-    except ValueError as exc:
-        raise PolarizationContractError(f"{label} path is outside repository: {raw_path}") from exc
+    candidate = repository_root.joinpath(*parts)
     current = repository_root
-    for component in relative.parts:
+    for component in parts:
         current /= component
-        if current.is_symlink():
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError as exc:
+            raise PolarizationContractError(f"{label} does not exist: {raw_path}") from exc
+        if stat.S_ISLNK(mode):
             raise PolarizationContractError(f"{label} path contains a symbolic link: {raw_path}")
     try:
         resolved = candidate.resolve(strict=True)
@@ -78,9 +86,14 @@ def _resolved_regular_file(root: Path, raw_path: object, label: str) -> Path:
         resolved.relative_to(repository_root)
     except ValueError as exc:
         raise PolarizationContractError(f"{label} path is outside repository: {raw_path}") from exc
-    if not resolved.is_file():
+    if not stat.S_ISREG(resolved.stat().st_mode):
         raise PolarizationContractError(f"{label} is not a regular file: {raw_path}")
-    return resolved
+    return raw_path, resolved
+
+
+def _resolved_regular_file(root: Path, raw_path: object, label: str) -> Path:
+    """Compatibility wrapper for readers that only need the verified path."""
+    return canonical_relative_file(root, raw_path, label)[1]
 
 
 def _required_text(payload: Mapping[str, object], key: str, label: str) -> str:

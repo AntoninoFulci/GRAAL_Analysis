@@ -20,7 +20,10 @@
       "acceptance_phi_response_v1.csv",
       "acceptance_qa.json"
     ],
+    "acceptance_qa_sha256": null,
     "phi_response_schema_status": "pending_joint_approval",
+    "phi_response_schema_path": null,
+    "phi_response_schema_sha256": null,
     "phi_response_schema_approval_id": null,
     "phi_response_schema_reviewers": []
   },
@@ -62,6 +65,25 @@
     "pull_mean_absolute_max": 0.2,
     "pull_width_tolerance": 0.2,
     "require_sign_check": true
+  },
+  "response_validation": {
+    "minimum_generated_effective_events_per_true_phi": null,
+    "probability_absolute_tolerance": null,
+    "uncertainty_absolute_tolerance": null,
+    "uncertainty_relative_tolerance": null,
+    "covariance_eigenvalue_absolute_tolerance": null,
+    "finite_difference_relative_step": null,
+    "finite_difference_absolute_step": null,
+    "replay_absolute_tolerance": null,
+    "replay_relative_tolerance": null
+  },
+  "bootstrap": {
+    "replicas": null,
+    "algorithm_version": "poisson1-sha256-v1",
+    "seed": null,
+    "maximum_failed_fraction": null,
+    "hessian_diagonal_ratio_min": null,
+    "hessian_diagonal_ratio_max": null
   },
   "release_qa_thresholds": {
     "status": "pending_owner_approval",

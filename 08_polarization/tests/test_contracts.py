@@ -8,6 +8,7 @@ import pytest
 
 from contracts import (
     PolarizationContractError,
+    canonical_relative_file,
     load_json,
     sha256_file,
     validate_gate0_handoff,
@@ -86,6 +87,21 @@ def test_sha256_file_hashes_exact_bytes(tmp_path):
     assert sha256_file(target) == digest(b"exact bytes\x00")
 
 
+@pytest.mark.parametrize("raw", ["/tmp/input.csv", "a/../b.csv", "./a.csv", "a\\b.csv", ""])
+def test_canonical_relative_file_rejects_noncanonical_paths(tmp_path, raw):
+    with pytest.raises(PolarizationContractError):
+        canonical_relative_file(tmp_path, raw, "fixture")
+
+
+def test_canonical_relative_file_returns_posix_identity(tmp_path):
+    target = tmp_path / "data" / "input.csv"
+    target.parent.mkdir()
+    target.write_text("x\n")
+    assert canonical_relative_file(tmp_path, "data/input.csv", "fixture") == (
+        "data/input.csv", target.resolve()
+    )
+
+
 def test_load_json_rejects_non_object_payload(tmp_path):
     target = put(tmp_path, "array.json", b"[]")
     with pytest.raises(PolarizationContractError, match="JSON object"):
@@ -112,7 +128,7 @@ def test_source_rejects_paths_outside_root_and_symlinks(tmp_path):
     source = valid_source(tmp_path)
     source["path"] = str(outside)
     source["sha256"] = sha256_file(outside)
-    with pytest.raises(PolarizationContractError, match="outside repository"):
+    with pytest.raises(PolarizationContractError, match="canonical repository-relative POSIX"):
         validate_source(source, tmp_path)
 
     link = tmp_path / "sources/link.pdf"
