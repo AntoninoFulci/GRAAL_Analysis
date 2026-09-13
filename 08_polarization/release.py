@@ -12,6 +12,7 @@ from typing import Mapping
 import numpy as np
 
 from acceptance_handoff import validate_acceptance_handoff
+from analysis_config import load_analysis_config
 from compton import load_period_curves
 from contracts import (
     COMMIT_PATTERN,
@@ -417,6 +418,9 @@ def _validate_inputs(
         inputs["config"], repository_root, "config",
         canonical_path="config/physics/polarization_v1.json",
     )
+    analysis_config = load_analysis_config(
+        config_path, repository_root, require_approved=True
+    )
     gate0_path, gate0_digest = _validate_file_record(
         inputs["gate0_handoff"], repository_root, "gate0_handoff",
         canonical_path="results/observable_runs/HANDOFF.json",
@@ -439,6 +443,7 @@ def _validate_inputs(
     handoff = validate_acceptance_handoff(
         acceptance_qa_path.parent,
         repository_root,
+        config=analysis_config,
         expected_gate0_sha256=gate0_digest,
     )
     if (

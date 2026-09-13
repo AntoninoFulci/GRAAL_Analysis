@@ -6,13 +6,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from analysis_config import AnalysisConfig
 from contracts import (
     COMMIT_PATTERN,
     SHA256_PATTERN,
     PolarizationContractError,
+    canonical_relative_file,
     load_json,
     sha256_file,
 )
+from phi_response import PhiResponse, load_phi_response
 
 
 HANDOFF_PARENT = Path("results/physics/normalization/handoffs")
@@ -35,6 +38,10 @@ class AcceptanceHandoff:
     acceptance_sha256: str
     phi_response_sha256: str
     phi_response_schema_approval_id: str
+    schema_path: Path
+    schema_sha256: str
+    approval_id: str
+    response: PhiResponse
     qa_sha256: str
     gate0_handoff_sha256: str
     n2_reconstruction_sha256: str
@@ -88,9 +95,10 @@ def validate_acceptance_handoff(
     release_dir: Path,
     repository_root: Path,
     *,
+    config: AnalysisConfig,
     expected_gate0_sha256: str | None = None,
 ) -> AcceptanceHandoff:
-    """Validate exact triplet, immutable location, QA decision, and cross-hashes."""
+    """Validate one externally anchored N3 triplet and parse its response."""
     directory = _canonical_release_directory(release_dir, repository_root)
     entries = {entry.name: entry for entry in directory.iterdir()}
     if frozenset(entries) != HANDOFF_FILENAMES:
@@ -106,6 +114,24 @@ def validate_acceptance_handoff(
     response = entries["acceptance_phi_response_v1.csv"].resolve()
     qa_path = entries["acceptance_qa.json"].resolve()
     qa = load_json(qa_path)
+    qa_digest = sha256_file(qa_path)
+    if config.status != "approved":
+        raise PolarizationContractError(
+            "acceptance handoff requires approved canonical config"
+        )
+    if config.acceptance_release_id != directory.name:
+        raise PolarizationContractError(
+            "acceptance handoff release ID disagrees with canonical config"
+        )
+    expected_directory = directory.relative_to(Path(repository_root).resolve()).as_posix()
+    if config.acceptance_handoff_directory != expected_directory:
+        raise PolarizationContractError(
+            "acceptance handoff directory disagrees with canonical config"
+        )
+    if config.acceptance_qa_sha256 != qa_digest:
+        raise PolarizationContractError(
+            "acceptance QA SHA-256 disagrees with canonical config"
+        )
     if qa.get("schema_version") != 1 or qa.get("valid") is not True:
         raise PolarizationContractError("acceptance QA is not valid schema v1")
     if qa.get("acceptance_release_id") != directory.name:
@@ -118,6 +144,23 @@ def validate_acceptance_handoff(
 
     acceptance_digest = _required_digest(qa, "acceptance_csv_sha256")
     response_digest = _required_digest(qa, "acceptance_phi_response_csv_sha256")
+    schema_relative = qa.get("phi_response_schema_path")
+    if schema_relative != config.phi_response_schema_path:
+        raise PolarizationContractError(
+            "acceptance QA phi-response schema path disagrees with config"
+        )
+    _, schema_path = canonical_relative_file(
+        repository_root, schema_relative, "acceptance QA phi-response schema"
+    )
+    schema_digest = _required_digest(qa, "phi_response_schema_sha256")
+    if schema_digest != config.phi_response_schema_sha256:
+        raise PolarizationContractError(
+            "acceptance QA phi-response schema SHA-256 disagrees with config"
+        )
+    if sha256_file(schema_path) != schema_digest:
+        raise PolarizationContractError(
+            "acceptance QA phi-response schema SHA-256 mismatch"
+        )
     phi_response_schema_approval_id = qa.get(
         "phi_response_schema_approval_id"
     )
@@ -128,23 +171,51 @@ def validate_acceptance_handoff(
         raise PolarizationContractError(
             "acceptance QA requires phi-response schema approval ID"
         )
+    if phi_response_schema_approval_id != config.phi_response_schema_approval_id:
+        raise PolarizationContractError(
+            "acceptance QA phi-response schema approval ID disagrees with config"
+        )
     gate0_digest = _required_digest(qa, "gate0_handoff_sha256")
     n2_digest = _required_digest(qa, "n2_reconstruction_sha256")
+    input_digest = _required_digest(qa, "input_sha256")
+    config_digest = _required_digest(qa, "config_sha256")
     if sha256_file(acceptance) != acceptance_digest:
         raise PolarizationContractError("acceptance CSV SHA-256 mismatch")
     if sha256_file(response) != response_digest:
         raise PolarizationContractError("acceptance response SHA-256 mismatch")
     if expected_gate0_sha256 is not None and gate0_digest != expected_gate0_sha256:
         raise PolarizationContractError("acceptance QA Gate 0 SHA-256 mismatch")
-    if (
-        not isinstance(qa.get("count_checks"), Mapping)
-        or qa["count_checks"].get("valid") is not True
-        or not isinstance(qa.get("closure"), Mapping)
-        or qa["closure"].get("valid") is not True
+    for check in (
+        "count_checks", "matrix_checks", "weighted_covariance_checks", "closure"
     ):
+        result = qa.get(check)
+        if not isinstance(result, Mapping) or result.get("valid") is not True:
+            raise PolarizationContractError(f"acceptance QA {check} is invalid")
+
+    parsed_response = load_phi_response(
+        response,
+        repository_root=repository_root,
+        config=config,
+        expected_release_id=directory.name,
+    )
+    if parsed_response.source_sha256 != response_digest:
         raise PolarizationContractError(
-            "acceptance count checks or closure are invalid"
+            "parsed response SHA-256 disagrees with acceptance QA"
         )
+    if parsed_response.input_sha256 != input_digest:
+        raise PolarizationContractError(
+            "response input_sha256 disagrees with acceptance QA"
+        )
+    if parsed_response.config_sha256 != config_digest:
+        raise PolarizationContractError(
+            "response config_sha256 disagrees with acceptance QA"
+        )
+    if any(mask != "valid" for mask in parsed_response.validity.values()):
+        raise PolarizationContractError(
+            "acceptance response contains an invalid true-cell block"
+        )
+    if sha256_file(qa_path) != qa_digest:
+        raise PolarizationContractError("acceptance QA changed during validation")
     return AcceptanceHandoff(
         release_id=directory.name,
         directory=directory,
@@ -154,7 +225,11 @@ def validate_acceptance_handoff(
         acceptance_sha256=acceptance_digest,
         phi_response_sha256=response_digest,
         phi_response_schema_approval_id=phi_response_schema_approval_id,
-        qa_sha256=sha256_file(qa_path),
+        schema_path=schema_path,
+        schema_sha256=schema_digest,
+        approval_id=phi_response_schema_approval_id,
+        response=parsed_response,
+        qa_sha256=qa_digest,
         gate0_handoff_sha256=gate0_digest,
         n2_reconstruction_sha256=n2_digest,
         qa=qa,
