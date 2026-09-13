@@ -399,8 +399,8 @@ Canonical S4 invocation is:
 ```bash
 python 08_polarization/fit_sigma.py \
   --acceptance-handoff results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json \
-  --reco-inventory results/reco/<reconstruction_release_id>/inventory.json \
-  --config config/polarization_analysis.json \
+  --reco-inventory results/reconstruction/inventory.json \
+  --config config/physics/polarization_v1.json \
   --fit-release-id <fit_release_id> \
   --output-root results/physics/polarization_fits
 ```
