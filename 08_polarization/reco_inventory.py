@@ -11,6 +11,7 @@ from contracts import (
     COMMIT_PATTERN,
     SHA256_PATTERN,
     PolarizationContractError,
+    canonical_relative_file,
     load_json,
     sha256_file,
 )
@@ -109,22 +110,7 @@ def load_processed_run_ledger(path: Path) -> frozenset[int]:
 
 
 def _inside_root_file(root: Path, raw: object) -> Path:
-    if not isinstance(raw, str) or not raw:
-        raise PolarizationContractError("reconstruction file path must be non-empty")
-    repository = root.resolve()
-    candidate = repository / raw if not Path(raw).is_absolute() else Path(raw)
-    try:
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(repository)
-    except (FileNotFoundError, ValueError) as exc:
-        raise PolarizationContractError(
-            f"reconstruction file is missing or outside repository: {raw}"
-        ) from exc
-    if not resolved.is_file() or candidate.is_symlink():
-        raise PolarizationContractError(
-            f"reconstruction path must be a regular non-symlink file: {raw}"
-        )
-    return resolved
+    return canonical_relative_file(root, raw, "reconstruction file")[1]
 
 
 def load_reco_inventory(

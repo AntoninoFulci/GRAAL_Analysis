@@ -71,6 +71,8 @@ REQUIRED_ACCEPTANCE_FILES = (
     "acceptance_v1.csv", "acceptance_phi_response_v1.csv", "acceptance_qa.json",
 )
 BOOTSTRAP_ALGORITHM_VERSION = "poisson1-sha256-v1"
+RESPONSE_SCHEMA_PATH = "config/schemas/acceptance_phi_response_v1.schema.json"
+RESPONSE_SCHEMA_APPROVAL_ID = "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
 
 
 @dataclass(frozen=True)
@@ -276,8 +278,17 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
     payload = load_json(path)
     if set(payload) != TOP_LEVEL_KEYS:
         raise PolarizationContractError("analysis config must contain exactly its required keys")
-    if payload.get("schema_version") != 1 or payload.get("analysis_version") != "polarization-v1":
-        raise PolarizationContractError("analysis config has unsupported release identity")
+    schema_version = payload.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != 1
+        or payload.get("analysis_version") != "polarization-v1"
+    ):
+        raise PolarizationContractError(
+            "analysis config schema_version must be non-boolean integer 1 and "
+            "analysis_version must be polarization-v1"
+        )
     status = payload.get("status")
     blockers = payload.get("blocked_reasons")
     if status not in {"blocked", "approved"} or not isinstance(blockers, list) or any(not isinstance(item, str) or not item.strip() for item in blockers):
@@ -286,7 +297,9 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
         raise PolarizationContractError("approved config requires no blockers; blocked config requires blockers")
     if require_approved and (status != "approved" or blockers or _has_null(payload)):
         raise PolarizationContractError("release requires an approved configuration without null values")
-    _canonical_relative_path(payload.get("gate0_handoff"), "gate0_handoff")
+    gate0_handoff = _canonical_relative_path(payload.get("gate0_handoff"), "gate0_handoff")
+    if require_approved:
+        canonical_relative_file(root, gate0_handoff, "gate0_handoff")
 
     acceptance = _mapping(payload, "acceptance", ACCEPTANCE_KEYS)
     acceptance_approved = acceptance.get("status") == "approved"
@@ -320,6 +333,14 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
     schema_approval_id = acceptance.get("phi_response_schema_approval_id")
     schema_reviewers = _reviewers(acceptance.get("phi_response_schema_reviewers"), "phi-response schema", required=schema_approved)
     if schema_approved:
+        if schema_path != RESPONSE_SCHEMA_PATH:
+            raise PolarizationContractError(
+                f"phi-response schema path must be {RESPONSE_SCHEMA_PATH}"
+            )
+        if schema_approval_id != RESPONSE_SCHEMA_APPROVAL_ID:
+            raise PolarizationContractError(
+                "phi-response schema approval ID does not match the canonical authority"
+            )
         schema_path, resolved_schema = canonical_relative_file(root, schema_path, "phi-response schema")
         schema_digest = _digest(schema_digest, "phi_response_schema_sha256", required=True)
         if sha256_file(resolved_schema) != schema_digest:

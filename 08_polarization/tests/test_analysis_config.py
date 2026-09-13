@@ -87,6 +87,9 @@ def repo(tmp_path):
     schema = root / "config/schemas/acceptance_phi_response_v1.schema.json"
     schema.parent.mkdir(parents=True)
     schema.write_text('{"schema_version":1}\n', encoding="utf-8")
+    handoff = root / "results/observable_runs/HANDOFF.json"
+    handoff.parent.mkdir(parents=True)
+    handoff.write_text('{"schema_version":1}\n', encoding="utf-8")
     return root
 
 
@@ -120,12 +123,63 @@ def test_release_config_requires_exact_approved_identity(valid_config, repo):
     assert loaded.acceptance_qa_sha256 == "a" * 64
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("phi_response_schema_path", "config/schemas/substituted.schema.json"),
+        ("phi_response_schema_approval_id", "other-approval"),
+    ],
+)
+def test_release_config_rejects_substituted_schema_authority(valid_config, repo, field, value):
+    schema = repo / "config/schemas/acceptance_phi_response_v1.schema.json"
+    substituted = repo / "config/schemas/substituted.schema.json"
+    substituted.write_bytes(schema.read_bytes())
+    payload = _payload(_digest(schema), status="approved")
+    payload["acceptance"][field] = value
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="phi-response schema (path|approval ID)"):
+        load_analysis_config(valid_config, repo, require_approved=True)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "symlink", "non_regular"])
+def test_release_config_requires_regular_gate0_handoff(valid_config, repo, mutation):
+    handoff = repo / "results/observable_runs/HANDOFF.json"
+    payload = _payload(
+        _digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"),
+        status="approved",
+    )
+    if mutation == "missing":
+        handoff.unlink()
+    elif mutation == "symlink":
+        target = repo / "results/observable_runs/HANDOFF-target.json"
+        target.write_text('{"schema_version":1}\n', encoding="utf-8")
+        handoff.unlink()
+        handoff.symlink_to(target)
+    else:
+        handoff.unlink()
+        handoff.mkdir()
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError):
+        load_analysis_config(valid_config, repo, require_approved=True)
+
+
 @pytest.mark.parametrize("field,value", [("schema_version", 2), ("analysis_version", "other"), ("status", "blocked"), ("blocked_reasons", ["x"])])
 def test_release_config_rejects_wrong_identity(valid_config, repo, field, value):
     payload = _payload(_digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"), status="approved")
     payload[field] = value
     valid_config.write_text(json.dumps(payload))
     with pytest.raises(PolarizationContractError):
+        load_analysis_config(valid_config, repo, require_approved=True)
+
+
+def test_release_config_rejects_boolean_schema_version(valid_config, repo):
+    payload = _payload(
+        _digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"),
+        status="approved",
+    )
+    payload["schema_version"] = True
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="schema_version"):
         load_analysis_config(valid_config, repo, require_approved=True)
 
 

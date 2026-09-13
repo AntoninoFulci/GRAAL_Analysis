@@ -52,6 +52,58 @@ def test_reco_inventory_binds_files_runs_tree_vectors_and_gate0(tmp_path):
     assert inventory.zero_selected_event_run_numbers == frozenset({8})
 
 
+@pytest.mark.parametrize("raw_path", ["./reco.root", "a/../reco.root", "reco\\.root"])
+def test_reco_inventory_rejects_noncanonical_serialized_paths(tmp_path, raw_path):
+    reco = tmp_path / "reco.root"
+    reco.write_bytes(b"root")
+    (tmp_path / "a").mkdir()
+    ledger = write_ledger(tmp_path / "processed_runs.csv", runs=(7,))
+    payload = {
+        "schema_version": 1, "producer_commit": "b" * 40,
+        "gate0_handoff_sha256": "a" * 64, "complete_run_coverage": True,
+        "tree": "tree", "vectors": "raw", "run_numbers": [7],
+        "observed_event_run_numbers": [7], "zero_selected_event_run_numbers": [],
+        "processed_run_ledger": ledger,
+        "files": [{"path": raw_path, "sha256": digest(b"root")}],
+    }
+    path = tmp_path / "inventory.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="canonical repository-relative POSIX|forbidden component"):
+        load_reco_inventory(
+            path, tmp_path, expected_handoff_sha256="a" * 64,
+            expected_tree="tree", expected_vectors="raw", expected_run_numbers={7},
+        )
+
+
+def test_reco_inventory_rejects_absolute_and_intermediate_symlink_paths(tmp_path):
+    reco = tmp_path / "reco.root"
+    reco.write_bytes(b"root")
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "reco.root").write_bytes(b"root")
+    (tmp_path / "linked").symlink_to(nested, target_is_directory=True)
+    ledger = write_ledger(tmp_path / "processed_runs.csv", runs=(7,))
+    base = {
+        "schema_version": 1, "producer_commit": "b" * 40,
+        "gate0_handoff_sha256": "a" * 64, "complete_run_coverage": True,
+        "tree": "tree", "vectors": "raw", "run_numbers": [7],
+        "observed_event_run_numbers": [7], "zero_selected_event_run_numbers": [],
+        "processed_run_ledger": ledger,
+    }
+    for raw_path in (str(reco), "linked/reco.root"):
+        payload = {
+            **base,
+            "files": [{"path": raw_path, "sha256": digest(b"root")}],
+        }
+        path = tmp_path / "inventory.json"
+        path.write_text(json.dumps(payload))
+        with pytest.raises(PolarizationContractError):
+            load_reco_inventory(
+                path, tmp_path, expected_handoff_sha256="a" * 64,
+                expected_tree="tree", expected_vectors="raw", expected_run_numbers={7},
+            )
+
+
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
