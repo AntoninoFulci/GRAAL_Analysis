@@ -49,6 +49,9 @@ def write_config(tmp_path: Path, payload: dict[str, object]) -> Path:
     schema = root / "config/schemas/acceptance_phi_response_v1.schema.json"
     schema.parent.mkdir(parents=True, exist_ok=True)
     schema.write_text('{"schema_version":1}\n')
+    handoff = root / "results/observable_runs/HANDOFF.json"
+    handoff.parent.mkdir(parents=True, exist_ok=True)
+    handoff.write_text('{"schema_version":1}\n')
     acceptance = payload["acceptance"]
     acceptance["phi_response_schema_sha256"] = hashlib.sha256(schema.read_bytes()).hexdigest()
     path = root / "config/physics/polarization_v1.json"

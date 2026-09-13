@@ -298,7 +298,7 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
     if require_approved and (status != "approved" or blockers or _has_null(payload)):
         raise PolarizationContractError("release requires an approved configuration without null values")
     gate0_handoff = _canonical_relative_path(payload.get("gate0_handoff"), "gate0_handoff")
-    if require_approved:
+    if status == "approved":
         canonical_relative_file(root, gate0_handoff, "gate0_handoff")
 
     acceptance = _mapping(payload, "acceptance", ACCEPTANCE_KEYS)

@@ -142,7 +142,10 @@ def test_release_config_rejects_substituted_schema_authority(valid_config, repo,
 
 
 @pytest.mark.parametrize("mutation", ["missing", "symlink", "non_regular"])
-def test_release_config_requires_regular_gate0_handoff(valid_config, repo, mutation):
+@pytest.mark.parametrize("require_approved", [False, True])
+def test_approved_config_requires_regular_gate0_handoff(
+    valid_config, repo, mutation, require_approved
+):
     handoff = repo / "results/observable_runs/HANDOFF.json"
     payload = _payload(
         _digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"),
@@ -160,7 +163,7 @@ def test_release_config_requires_regular_gate0_handoff(valid_config, repo, mutat
         handoff.mkdir()
     valid_config.write_text(json.dumps(payload))
     with pytest.raises(PolarizationContractError):
-        load_analysis_config(valid_config, repo, require_approved=True)
+        load_analysis_config(valid_config, repo, require_approved=require_approved)
 
 
 @pytest.mark.parametrize("field,value", [("schema_version", 2), ("analysis_version", "other"), ("status", "blocked"), ("blocked_reasons", ["x"])])
