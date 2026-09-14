@@ -186,6 +186,7 @@ def count_authority_repo(response_fixture):
         json.dumps(
             {
                 "schema_version": 1,
+                "artifact_kind": "n2_metadata_reconstruction",
                 "producer_commit": "b" * 40,
                 "gate0_handoff_sha256": sha256_file(gate0_path),
                 "complete_run_coverage": True,

@@ -2,10 +2,10 @@ PYTHON ?= python
 GRAPHIFY ?= $(PYTHON) -m graphify
 export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH))
 
-.PHONY: help setup syntax test-root-free test validate-manifest observable-runs graph-update graph-query artifact-inventory verify
+.PHONY: help setup syntax test-root-free test validate-manifest observable-runs fit-sigma graph-update graph-query artifact-inventory verify
 
 help:
-	@echo "Targets: setup syntax test-root-free test validate-manifest observable-runs graph-update graph-query artifact-inventory verify"
+	@echo "Targets: setup syntax test-root-free test validate-manifest observable-runs fit-sigma graph-update graph-query artifact-inventory verify"
 	@echo "Use an interpreter compatible with external ROOT/PyROOT. verify is read-only and never starts farm processing."
 
 setup:
@@ -30,6 +30,11 @@ validate-manifest:
 
 observable-runs:
 	$(PYTHON) scripts/build_observable_run_database.py --manifest config/run_manifest.csv --strip-energy-dir results/strip_energy_flux --output-dir results/observable_runs
+
+FIT_CONFIG ?= config/physics/polarization_v1.json
+
+fit-sigma:
+	$(PYTHON) 08_polarization/fit_sigma.py --acceptance-handoff $(FIT_ACCEPTANCE_HANDOFF) --reco-inventory $(FIT_RECO_INVENTORY) --config $(FIT_CONFIG) --fit-release-id $(FIT_RELEASE_ID) --output-root results/physics/polarization_fits
 
 graph-update:
 	$(GRAPHIFY) update .

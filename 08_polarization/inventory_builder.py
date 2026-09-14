@@ -82,6 +82,7 @@ def build_reco_inventory(
         ) from exc
     payload = {
         "schema_version": 1,
+        "artifact_kind": "n2_metadata_reconstruction",
         "producer_commit": producer_commit,
         "gate0_handoff_sha256": gate0_handoff_sha256,
         "complete_run_coverage": True,

@@ -36,6 +36,7 @@ def test_builder_writes_loadable_inventory_and_records_zero_event_runs(tmp_path)
         producer_commit="b" * 40,
     )
     payload = json.loads(output.read_text())
+    assert payload["artifact_kind"] == "n2_metadata_reconstruction"
     assert payload["zero_selected_event_run_numbers"] == [8]
     assert payload["processed_run_ledger"]["sha256"] == sha256_file(ledger)
     loaded = load_reco_inventory(
