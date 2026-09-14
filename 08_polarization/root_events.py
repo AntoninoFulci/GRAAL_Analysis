@@ -8,7 +8,7 @@ from typing import Iterable
 
 import numpy as np
 
-from contracts import PolarizationContractError
+from contracts import PolarizationContractError, sha256_file
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,8 @@ class EventSample:
     proton: np.ndarray
     eta: np.ndarray
     pi0: np.ndarray
+    file_sha256: np.ndarray
+    tree_entry: np.ndarray
 
 
 def select_vector_branches(
@@ -107,6 +109,7 @@ def read_reco_root(
         ) from exc
     for path in files:
         _validate_file_schema(ROOT, path, tree_name, vectors)
+    file_digests = tuple(sha256_file(path) for path in files)
     chain = ROOT.TChain(tree_name)
     for path in files:
         if chain.Add(str(path)) == 0:
@@ -122,7 +125,11 @@ def read_reco_root(
     proton = []
     eta = []
     pi0 = []
+    file_sha256 = []
+    tree_entry = []
     for event in chain:
+        tree_number = int(chain.GetTreeNumber())
+        local_entry = int(chain.GetTree().GetReadEntry())
         if vectors == "kinematic_fit" and int(event.fit_converged) != 1:
             continue
         beam_energy.append(float(event.beam.E()))
@@ -132,8 +139,14 @@ def read_reco_root(
         proton.append(_vector4(getattr(event, proton_branch)))
         eta.append(_vector4(getattr(event, eta_branch)))
         pi0.append(_vector4(getattr(event, pi0_branch)))
+        file_sha256.append(file_digests[tree_number])
+        tree_entry.append(local_entry)
     if not beam_energy:
         raise PolarizationContractError("reconstruction selection contains no events")
+    if tuple(sha256_file(path) for path in files) != file_digests:
+        raise PolarizationContractError(
+            "reconstruction ROOT file changed while events were being read"
+        )
     sample = EventSample(
         beam_energy=np.asarray(beam_energy, dtype=float),
         run_number=np.asarray(run_number, dtype=int),
@@ -142,6 +155,8 @@ def read_reco_root(
         proton=np.asarray(proton, dtype=float),
         eta=np.asarray(eta, dtype=float),
         pi0=np.asarray(pi0, dtype=float),
+        file_sha256=np.asarray(file_sha256, dtype=str),
+        tree_entry=np.asarray(tree_entry, dtype=np.int64),
     )
     if any(
         not np.all(np.isfinite(values))
