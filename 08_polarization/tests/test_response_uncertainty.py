@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+from dataclasses import replace
+import importlib.util
+from pathlib import Path
+from types import MappingProxyType
+
+import numpy as np
+import pytest
+
+from contracts import PolarizationContractError
+from azimuth_counts import AzimuthCountTable
+from phi_response import TrueCellKey
+import response_uncertainty
+from response_uncertainty import (
+    _covariance_eigenmodes,
+    propagate_response_covariance,
+)
+
+
+def _task5_problem():
+    path = Path(__file__).with_name("test_sigma_fit.py")
+    spec = importlib.util.spec_from_file_location("task5_sigma_fit_tests", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.asimov_problem.__wrapped__()
+
+
+def test_covariance_eigenmodes_reconstruct_linear_reference():
+    covariance = np.array([[0.04, 0.012], [0.012, 0.01]])
+    jacobian = np.array([[2.0, -0.5], [0.3, 1.2]])
+
+    modes = _covariance_eigenmodes(covariance, tolerance=1e-14)
+    assert [value for value, _ in modes] == sorted(
+        (value for value, _ in modes), reverse=True
+    )
+    assert all(
+        vector[np.argmax(np.abs(vector))] > 0.0 for _, vector in modes
+    )
+    propagated = sum(
+        np.outer(jacobian @ vector, jacobian @ vector) * eigenvalue
+        for eigenvalue, vector in modes
+    )
+
+    np.testing.assert_allclose(
+        propagated,
+        jacobian @ covariance @ jacobian.T,
+        rtol=1e-13,
+        atol=1e-15,
+    )
+
+
+@pytest.fixture
+def response_problem():
+    problem = _task5_problem()
+    response = problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    direction = np.zeros(16)
+    direction[0] = 1.0 / np.sqrt(2.0)
+    direction[1] = -1.0 / np.sqrt(2.0)
+    covariance = dict(response.covariance_by_true_cell)
+    covariance[cell] = 1e-4 * np.outer(direction, direction)
+    problem["response"] = replace(
+        response,
+        covariance_by_true_cell=MappingProxyType(covariance),
+    )
+    return problem
+
+
+def test_propagation_refits_full_sigma_and_is_byte_deterministic(response_problem):
+    first = propagate_response_covariance(**response_problem)
+    second = propagate_response_covariance(**response_problem)
+
+    assert first.valid
+    assert len(first.retained_modes) == 1
+    assert len(first.refits) == 1
+    assert first.covariance.shape == (2, 2)
+    assert first.covariance[0, 1] != 0.0
+    assert np.linalg.eigvalsh(first.covariance)[0] >= -1e-18
+    assert first.covariance.tobytes() == second.covariance.tobytes()
+    assert first.retained_modes == second.retained_modes
+    assert first.refits[0].derivative.tobytes() == second.refits[0].derivative.tobytes()
+    with pytest.raises(ValueError):
+        first.covariance[0, 0] = 1.0
+
+
+def test_propagation_matches_exact_linear_jacobian_reference(
+    response_problem, monkeypatch
+):
+    nominal = response_uncertainty._fit_sigma_forward_folded_core(
+        **response_problem
+    )
+    response = response_problem["response"]
+    key = response.keys[0]
+    base = response.matrix(key, "parallel")[:, 0].copy()
+    jacobian = np.vstack(
+        (
+            np.linspace(-0.4, 0.7, 16),
+            np.linspace(0.8, -0.2, 16),
+        )
+    )
+    block = response.covariance_by_true_cell[
+        TrueCellKey(key, "parallel", 0)
+    ]
+
+    def linear_core(counts, varied, *, config, replica_id=0):
+        delta = varied.matrix(key, "parallel")[:, 0] - base
+        return replace(nominal, sigma=nominal.sigma + jacobian @ delta)
+
+    monkeypatch.setattr(
+        response_uncertainty, "_fit_sigma_forward_folded_core", linear_core
+    )
+
+    result = propagate_response_covariance(**response_problem)
+
+    np.testing.assert_allclose(
+        result.covariance,
+        jacobian @ block @ jacobian.T,
+        rtol=2e-12,
+        atol=1e-16,
+    )
+
+
+def test_physical_boundary_uses_one_sided_refit(response_problem, monkeypatch):
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    direction = np.zeros(16)
+    direction[2] = 1.0
+    covariance = dict(response.covariance_by_true_cell)
+    covariance[cell] = 1e-4 * np.outer(direction, direction)
+    response_problem["response"] = replace(
+        response,
+        covariance_by_true_cell=MappingProxyType(covariance),
+    )
+    nominal = response_uncertainty._fit_sigma_forward_folded_core(
+        **response_problem
+    )
+    base = response.matrix(key, "parallel")[:, 0].copy()
+    jacobian = np.vstack((np.arange(16), -np.arange(16))) / 100.0
+
+    def linear_core(counts, varied, *, config, replica_id=0):
+        delta = varied.matrix(key, "parallel")[:, 0] - base
+        return replace(nominal, sigma=nominal.sigma + jacobian @ delta)
+
+    monkeypatch.setattr(
+        response_uncertainty, "_fit_sigma_forward_folded_core", linear_core
+    )
+
+    result = propagate_response_covariance(**response_problem)
+
+    assert result.refits[0].scheme == "forward"
+    assert result.refits[0].lower_sigma is None
+    assert result.refits[0].upper_sigma is not None
+
+
+def test_zero_modes_are_skipped_and_negative_mode_is_rejected(response_problem):
+    zero = _task5_problem()
+    result = propagate_response_covariance(**zero)
+    assert result.retained_modes == ()
+    np.testing.assert_array_equal(result.covariance, np.zeros((2, 2)))
+
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    covariance = dict(response.covariance_by_true_cell)
+    covariance[cell] = np.diag([-1e-4] + [0.0] * 15)
+    response_problem["response"] = replace(
+        response,
+        covariance_by_true_cell=MappingProxyType(covariance),
+    )
+    with pytest.raises(PolarizationContractError, match="negative eigenvalue"):
+        propagate_response_covariance(**response_problem)
+
+
+@pytest.mark.parametrize("claim", ["shared", "cross"])
+def test_v1_rejects_cross_block_covariance_claims(response_problem, claim):
+    response = response_problem["response"]
+    if claim == "shared":
+        object.__setattr__(response, "qa", {"shared_mc_across_blocks": True})
+        match = "shared MC"
+    else:
+        object.__setattr__(response, "cross_block_covariance", [[1.0]])
+        match = "cross-block covariance"
+
+    with pytest.raises(PolarizationContractError, match=match):
+        propagate_response_covariance(**response_problem)
+
+
+def test_v1_rejects_numeric_cross_block_covariance_claim(response_problem):
+    object.__setattr__(
+        response_problem["response"], "cross_block_covariance", np.eye(2)
+    )
+
+    with pytest.raises(PolarizationContractError, match="cross-block covariance"):
+        propagate_response_covariance(**response_problem)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "shape", "nonnumeric", "step"])
+def test_propagation_rejects_malformed_authorities(response_problem, mutation):
+    response = response_problem["response"]
+    if mutation == "missing":
+        covariance = dict(response.covariance_by_true_cell)
+        covariance.pop(next(iter(covariance)))
+        response_problem["response"] = replace(
+            response,
+            covariance_by_true_cell=MappingProxyType(covariance),
+        )
+        match = "exactly cover"
+    elif mutation == "shape":
+        covariance = dict(response.covariance_by_true_cell)
+        covariance[next(iter(covariance))] = np.zeros((2, 2))
+        response_problem["response"] = replace(
+            response,
+            covariance_by_true_cell=MappingProxyType(covariance),
+        )
+        match = "shape"
+    elif mutation == "nonnumeric":
+        covariance = dict(response.covariance_by_true_cell)
+        covariance[next(iter(covariance))] = [["bad"]]
+        response_problem["response"] = replace(
+            response,
+            covariance_by_true_cell=MappingProxyType(covariance),
+        )
+        match = "numeric"
+    else:
+        config = response_problem["config"]
+        response_problem["config"] = replace(
+            config,
+            response_validation=replace(
+                config.response_validation,
+                finite_difference_absolute_step=None,
+            ),
+        )
+        match = "finite tolerances"
+
+    with pytest.raises(PolarizationContractError, match=match):
+        propagate_response_covariance(**response_problem)
+
+
+def test_propagation_fails_closed_when_mode_refit_fails(
+    response_problem, monkeypatch
+):
+    real_core = response_uncertainty._fit_sigma_forward_folded_core
+    calls = 0
+
+    def failing_core(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise PolarizationContractError("synthetic refit failure")
+        return real_core(*args, **kwargs)
+
+    monkeypatch.setattr(
+        response_uncertainty, "_fit_sigma_forward_folded_core", failing_core
+    )
+
+    with pytest.raises(PolarizationContractError, match="synthetic refit failure"):
+        propagate_response_covariance(**response_problem)
+
+
+def test_propagation_rejects_stateful_count_subtype(response_problem):
+    class StatefulCounts(AzimuthCountTable):
+        pass
+
+    counts = response_problem["counts"]
+    response_problem["counts"] = StatefulCounts(
+        counts.rows, counts.expected_universe, counts.expected_replica_ids
+    )
+
+    with pytest.raises(PolarizationContractError, match="exact count table"):
+        propagate_response_covariance(**response_problem)
