@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 from pathlib import Path
+import threading
 
 import numpy as np
 import pytest
@@ -231,7 +233,60 @@ def test_fit_publication_no_replace_survives_empty_destination_race(
     assert destination.is_dir()
     assert list(destination.iterdir()) == []
     assert not list(output_root.glob(".fit-test.staging-*"))
-    assert not (output_root / ".fit-test.publish.lock").exists()
+
+
+def test_stale_publish_lock_cannot_block_kernel_serialized_publication(cli_problem):
+    _paths, authority, output_root, _replica_order = cli_problem
+    output_root.mkdir(parents=True, exist_ok=True)
+    stale = output_root / ".fit-test.publish.lock"
+    stale.mkdir()
+
+    evidence = publish_fit_release(
+        authority=authority,
+        output_root=output_root,
+        producer_commit="a" * 40,
+    )
+
+    assert evidence.directory == output_root / "fit-test"
+    assert stale.is_dir()
+
+
+def test_kernel_no_replace_serializes_concurrent_publishers(
+    cli_problem, monkeypatch
+):
+    _paths, authority, output_root, _replica_order = cli_problem
+    rendezvous = threading.Barrier(2)
+    original_rename = fit_sigma._rename_directory_no_replace
+
+    def simultaneous_rename(source, destination):
+        rendezvous.wait(timeout=10)
+        return original_rename(source, destination)
+
+    monkeypatch.setattr(
+        fit_sigma, "_rename_directory_no_replace", simultaneous_rename
+    )
+
+    def publish():
+        try:
+            return publish_fit_release(
+                authority=authority,
+                output_root=output_root,
+                producer_commit="a" * 40,
+            )
+        except PolarizationContractError as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = tuple(pool.map(lambda _index: publish(), range(2)))
+
+    assert sum(isinstance(item, fit_evidence.FitEvidence) for item in outcomes) == 1
+    failures = [item for item in outcomes if isinstance(item, PolarizationContractError)]
+    assert len(failures) == 1
+    assert "overwrite" in str(failures[0])
+    assert {item.name for item in (output_root / "fit-test").iterdir()} == (
+        FIT_EVIDENCE_FILENAMES
+    )
+    assert not list(output_root.glob(".fit-test.staging-*"))
 
 
 def test_fit_publication_removes_staging_after_independent_validation_failure(
@@ -252,6 +307,83 @@ def test_fit_publication_removes_staging_after_independent_validation_failure(
 
     assert not (output_root / "fit-test").exists()
     assert not list(output_root.glob(".fit-test.staging-*"))
+
+
+def test_fit_publication_rejects_staged_bytes_changed_after_validation(
+    cli_problem, monkeypatch
+):
+    _paths, authority, output_root, _replica_order = cli_problem
+    original_validate = fit_sigma.validate_fit_evidence
+
+    def mutate_after_validation(directory, *args, **kwargs):
+        evidence = original_validate(directory, *args, **kwargs)
+        (Path(directory) / "sigma_fit_v1.csv").write_bytes(b"changed after validation")
+        return evidence
+
+    monkeypatch.setattr(fit_sigma, "validate_fit_evidence", mutate_after_validation)
+    with pytest.raises(PolarizationContractError, match="staged S4 evidence changed"):
+        publish_fit_release(
+            authority=authority,
+            output_root=output_root,
+            producer_commit="a" * 40,
+        )
+
+    assert not (output_root / "fit-test").exists()
+    assert not list(output_root.glob(".fit-test.staging-*"))
+
+
+def test_fit_publication_rejects_authority_changed_after_validation(
+    cli_problem, monkeypatch
+):
+    paths, authority, output_root, _replica_order = cli_problem
+    original_validate = fit_sigma.validate_fit_evidence
+
+    def mutate_authority_after_validation(directory, *args, **kwargs):
+        evidence = original_validate(directory, *args, **kwargs)
+        paths["flux"].write_bytes(b"changed after validation")
+        return evidence
+
+    monkeypatch.setattr(
+        fit_sigma, "validate_fit_evidence", mutate_authority_after_validation
+    )
+    with pytest.raises(PolarizationContractError):
+        publish_fit_release(
+            authority=authority,
+            output_root=output_root,
+            producer_commit="a" * 40,
+        )
+
+    assert not (output_root / "fit-test").exists()
+    assert not list(output_root.glob(".fit-test.staging-*"))
+
+
+@pytest.mark.parametrize(
+    "release_id",
+    (
+        ".fit-v1",
+        "fit v1",
+        "fit/v1",
+        r"fit\v1",
+        ".",
+        "..",
+        "../fit-v1",
+        "/fit-v1",
+        " fit-v1",
+        "fit-v1 ",
+    ),
+)
+def test_fit_publication_rejects_noncanonical_release_ids(
+    cli_problem, release_id
+):
+    _paths, authority, output_root, _replica_order = cli_problem
+    object.__setattr__(authority, "fit_release_id", release_id)
+
+    with pytest.raises(PolarizationContractError, match="release ID"):
+        publish_fit_release(
+            authority=authority,
+            output_root=output_root,
+            producer_commit="a" * 40,
+        )
 
 
 def test_fit_publication_rejects_release_id_path_traversal(cli_problem):

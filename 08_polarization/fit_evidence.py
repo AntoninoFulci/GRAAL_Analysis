@@ -6,7 +6,7 @@ import csv
 from dataclasses import dataclass, fields
 import json
 import math
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
@@ -48,6 +48,7 @@ from sigma_fit import (
     _sigma_bin_key,
     canonical_count_row_key,
 )
+from scripts.s4_release_id import validate_fit_release_id
 
 
 FIT_EVIDENCE_FILENAMES = frozenset(
@@ -202,17 +203,10 @@ def _text(value: object, label: str) -> str:
 
 
 def _release_id(value: object) -> str:
-    result = _text(value, "S4 fit_release_id")
-    if (
-        result != result.strip()
-        or "\\" in result
-        or PurePosixPath(result).parts != (result,)
-        or result in {".", ".."}
-    ):
-        raise PolarizationContractError(
-            "S4 fit release ID must be one canonical path component"
-        )
-    return result
+    try:
+        return validate_fit_release_id(value)
+    except ValueError as exc:
+        raise PolarizationContractError(str(exc)) from exc
 
 
 def _digest(value: object, label: str) -> str:

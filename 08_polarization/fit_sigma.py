@@ -6,6 +6,7 @@ import argparse
 import ctypes
 from dataclasses import replace
 import errno
+import hashlib
 import os
 import shutil
 from pathlib import Path, PurePosixPath
@@ -24,7 +25,12 @@ from azimuth_counts import (
     load_count_authority,
 )
 from contracts import PolarizationContractError
-from fit_evidence import FitEvidence, validate_fit_evidence, write_fit_evidence
+from fit_evidence import (
+    FIT_EVIDENCE_FILENAMES,
+    FitEvidence,
+    validate_fit_evidence,
+    write_fit_evidence,
+)
 from response_uncertainty import propagate_response_covariance
 from sigma_fit import (
     JointSigmaFitResult,
@@ -32,6 +38,7 @@ from sigma_fit import (
     bootstrap_sigma_covariance,
     fit_sigma_forward_folded,
 )
+from scripts.s4_release_id import validate_fit_release_id
 
 
 CANONICAL_OUTPUT_ROOT = "results/physics/polarization_fits"
@@ -92,44 +99,58 @@ def _rename_directory_no_replace(source: Path, destination: Path) -> None:
         raise OSError(error, os.strerror(error), str(destination))
 
 
-def _acquire_publish_lock(lock: Path) -> tuple[int, int]:
-    try:
-        lock.mkdir(mode=0o700)
-    except FileExistsError as exc:
-        raise PolarizationContractError(
-            "S4 fit release publication is already locked"
-        ) from exc
-    metadata = lock.stat(follow_symlinks=False)
-    return metadata.st_dev, metadata.st_ino
-
-
-def _release_owned_publish_lock(lock: Path, identity: tuple[int, int]) -> None:
-    """Remove only still-empty lock directory created by this process."""
-    try:
-        metadata = lock.stat(follow_symlinks=False)
-    except FileNotFoundError:
-        return
-    if (metadata.st_dev, metadata.st_ino) != identity or lock.is_symlink():
-        return
-    try:
-        lock.rmdir()
-    except OSError:
-        return
-
-
 def _fit_release_id(value: object) -> str:
-    if (
-        not isinstance(value, str)
-        or not value.strip()
-        or value != value.strip()
-        or "\\" in value
-        or PurePosixPath(value).parts != (value,)
-        or value in {".", ".."}
-    ):
-        raise PolarizationContractError(
-            "S4 fit release ID must be one canonical path component"
+    try:
+        return validate_fit_release_id(value)
+    except ValueError as exc:
+        raise PolarizationContractError(str(exc)) from exc
+
+
+def _snapshot_staged_triplet(directory: Path) -> tuple[tuple[str, int, str], ...]:
+    """Hash exact stable bytes, detecting replacement or mutation while read."""
+    entries = tuple(directory.iterdir())
+    if {entry.name for entry in entries} != FIT_EVIDENCE_FILENAMES:
+        raise PolarizationContractError("staged S4 evidence changed during publication")
+    snapshots = []
+    identities = {}
+    for name in sorted(FIT_EVIDENCE_FILENAMES):
+        path = directory / name
+        if path.is_symlink() or not path.is_file():
+            raise PolarizationContractError(
+                "staged S4 evidence changed during publication"
+            )
+        with path.open("rb") as stream:
+            before = os.fstat(stream.fileno())
+            payload = stream.read()
+            after = os.fstat(stream.fileno())
+        identity_before = (
+            before.st_dev, before.st_ino, before.st_size,
+            before.st_mtime_ns, before.st_ctime_ns,
         )
-    return value
+        identity_after = (
+            after.st_dev, after.st_ino, after.st_size,
+            after.st_mtime_ns, after.st_ctime_ns,
+        )
+        if identity_before != identity_after or len(payload) != after.st_size:
+            raise PolarizationContractError(
+                "staged S4 evidence changed during publication"
+            )
+        identities[name] = identity_after
+        snapshots.append((name, len(payload), hashlib.sha256(payload).hexdigest()))
+    if {entry.name for entry in directory.iterdir()} != FIT_EVIDENCE_FILENAMES:
+        raise PolarizationContractError(
+            "staged S4 evidence changed during publication"
+        )
+    for name, identity in identities.items():
+        current = (directory / name).stat(follow_symlinks=False)
+        if (
+            current.st_dev, current.st_ino, current.st_size,
+            current.st_mtime_ns, current.st_ctime_ns,
+        ) != identity:
+            raise PolarizationContractError(
+                "staged S4 evidence changed during publication"
+            )
+    return tuple(snapshots)
 
 
 def _same_fit(left: JointSigmaFitResult, right: JointSigmaFitResult) -> bool:
@@ -264,8 +285,6 @@ def publish_fit_release(
         tempfile.mkdtemp(prefix=f".{fresh.fit_release_id}.staging-", dir=parent)
     )
     renamed = False
-    lock = parent / f".{fresh.fit_release_id}.publish.lock"
-    lock_identity = None
     try:
         write_fit_evidence(
             staging,
@@ -279,23 +298,25 @@ def publish_fit_release(
             response_propagation=response,
             producer_commit=producer_commit,
         )
-        lock_identity = _acquire_publish_lock(lock)
+        written_snapshot = _snapshot_staged_triplet(staging)
+        staged_evidence = validate_fit_evidence(
+            staging,
+            stable.repository_root,
+            config=stable.config,
+            _allow_staging=True,
+        )
         final_authority = _reload_count_authority(stable)
         if _authority_fingerprint(final_authority) != original:
             raise PolarizationContractError(
                 "S4 authority changed before atomic publication"
             )
-        staged_evidence = validate_fit_evidence(
-            staging,
-            final_authority.repository_root,
-            config=final_authority.config,
-            _allow_staging=True,
-        )
+        if _snapshot_staged_triplet(staging) != written_snapshot:
+            raise PolarizationContractError(
+                "staged S4 evidence changed before atomic publication"
+            )
         _rename_directory_no_replace(staging, destination)
         renamed = True
     finally:
-        if lock_identity is not None:
-            _release_owned_publish_lock(lock, lock_identity)
         if not renamed and staging.exists():
             shutil.rmtree(staging)
     return replace(staged_evidence, directory=destination)

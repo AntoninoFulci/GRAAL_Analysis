@@ -10,6 +10,11 @@ from pathlib import Path
 import tempfile
 from typing import Iterable
 
+from scripts.s4_release_id import (
+    is_owned_fit_staging_name,
+    validate_fit_release_id,
+)
+
 
 CHUNK_BYTES = 1024 * 1024
 SCHEMA_VERSION = 1
@@ -199,11 +204,20 @@ def _artifact_paths(repo_root: Path, roots: Iterable[Path | str]) -> list[Path]:
             if not any(_is_within(release, root) for root in resolved_roots):
                 continue
             if (
+                is_owned_fit_staging_name(release.name)
+                and not release.is_symlink()
+                and release.is_dir()
+            ):
+                continue
+            try:
+                validate_fit_release_id(release.name)
+            except ValueError as exc:
+                raise ArtifactInventoryError(
+                    f"noncanonical S4 fit release entry: {release}"
+                ) from exc
+            if (
                 release.is_symlink()
                 or not release.is_dir()
-                or not release.name
-                or release.name.startswith(".")
-                or Path(release.name).parts != (release.name,)
             ):
                 raise ArtifactInventoryError(
                     f"noncanonical S4 fit release entry: {release}"

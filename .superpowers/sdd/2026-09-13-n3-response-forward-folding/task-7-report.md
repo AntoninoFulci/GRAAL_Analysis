@@ -126,3 +126,44 @@ Fresh verification:
    Figure-4 config-fixture failures remain. No Task 8 file changed;
 5. Graphify snapshot and `ARTIFACTS.json` regeneration remain Task 9. Runtime
    inventory recognition and tests are included here.
+
+## Independent-review fix round 2
+
+Regression tests against `cf2c02f` reproduced three remaining publication
+hazards: a crashed process left a permanent destination lock, publisher and
+inventory disagreed on valid release IDs, and staged bytes could change after
+independent validation but before rename.
+
+Fixes:
+
+- user-space publication locks were removed. Kernel no-replace rename is the
+  sole publisher serialization boundary. A real two-thread rendezvous at the
+  rename syscall proves exactly one publisher succeeds; the other receives an
+  overwrite rejection. Existing empty-destination race coverage remains;
+- stale `.publish.lock` state is neither consulted nor removed. It cannot block
+  publication, and foreign state is never cleaned up by this command;
+- `scripts/s4_release_id.py` defines one shared portable grammar:
+  `[A-Za-z0-9][A-Za-z0-9._-]*`. Publisher, evidence reader, and inventory use
+  it. Therefore `.fit-v1` is intentionally invalid: leading dots are reserved
+  for owned staging. Whitespace, slash, backslash, dot segments, absolute paths,
+  and traversal are rejected consistently;
+- inventory ignores only strict publisher staging names
+  `.<valid-release-id>.staging-<8 tempfile chars>` that are real directories.
+  Arbitrary dot entries, stale locks, symlinks, and malformed releases fail;
+- publication snapshots exact triplet bytes before independent validation and
+  compares a second stable snapshot plus freshly reloaded authority fingerprint
+  immediately before kernel rename. Each snapshot hashes bytes read from an
+  open file descriptor, compares pre/post `fstat`, then re-stats every pathname
+  and exact directory membership. Normal concurrent write, replacement, link,
+  truncation, or entry mutation during final hashing therefore fails. No claim
+  is made against a privileged adversary able to alter bytes after the final
+  checks and before the syscall; staging is publisher-owned private state.
+
+Fresh verification:
+
+1. focused publisher/reader/count/inventory: 128 passed;
+2. `make verify PYTHON=/opt/local/bin/python`: exit 0; manifest valid, 339
+   common and 433 root-free polarization tests passed, saved inventory valid;
+3. `make test PYTHON=/opt/local/bin/python`: 896 passed with PyROOT; exactly
+   four known Task 8 legacy Figure-4 fixture failures remain;
+4. `git diff --check`: clean.

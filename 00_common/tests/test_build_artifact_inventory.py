@@ -159,6 +159,42 @@ def test_inventory_recognizes_only_complete_canonical_s4_triplets(tmp_path):
         build_inventory(tmp_path, "abc123")
 
 
+@pytest.mark.parametrize(
+    "release_id",
+    (
+        ".fit-v1",
+        "fit v1",
+        "fit\\v1",
+    ),
+)
+def test_inventory_rejects_same_noncanonical_s4_release_ids_as_publisher(
+    tmp_path, release_id
+):
+    for name in (
+        "azimuth_counts_v1.csv",
+        "sigma_fit_v1.csv",
+        "sigma_fit_qa.json",
+    ):
+        put(
+            tmp_path,
+            f"results/physics/polarization_fits/{release_id}/{name}",
+        )
+
+    with pytest.raises(ArtifactInventoryError, match="noncanonical S4 fit release"):
+        build_inventory(tmp_path, "abc123")
+
+
+def test_inventory_ignores_only_owned_s4_staging_pattern(tmp_path):
+    owned = tmp_path / "results/physics/polarization_fits/.fit-v1.staging-abcdefgh"
+    owned.mkdir(parents=True)
+
+    assert build_inventory(tmp_path, "abc123")["artifacts"] == []
+
+    (owned.parent / ".scratch").mkdir()
+    with pytest.raises(ArtifactInventoryError, match="noncanonical S4 fit release"):
+        build_inventory(tmp_path, "abc123")
+
+
 def _inventory_fixture(tmp_path: Path) -> Path:
     """Create a minimal valid published bundle and return its inventory path."""
     inputs = {
