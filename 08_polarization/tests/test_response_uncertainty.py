@@ -85,6 +85,13 @@ def test_covariance_eigenmode_at_cutoff_is_retained():
     assert [value for value, _ in modes] == [2.0 * tolerance, tolerance]
 
 
+def test_eigenvalue_tolerance_does_not_relax_covariance_symmetry():
+    covariance = np.array([[1.0, 1e-3], [0.0, 1.0]])
+
+    with pytest.raises(PolarizationContractError, match="symmetric"):
+        _covariance_eigenmodes(covariance, tolerance=0.1)
+
+
 @pytest.fixture
 def response_problem():
     problem = _task5_problem()

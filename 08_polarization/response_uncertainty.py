@@ -63,7 +63,15 @@ def _covariance_eigenmodes(
         raise PolarizationContractError(
             "response covariance and eigenvalue tolerance must be finite"
         )
-    if not np.allclose(matrix, matrix.T, rtol=0.0, atol=tolerance):
+    symmetry_tolerance = (
+        64.0
+        * np.finfo(float).eps
+        * matrix.shape[0]
+        * max(1.0, float(np.max(np.abs(matrix))))
+    )
+    if not np.allclose(
+        matrix, matrix.T, rtol=0.0, atol=symmetry_tolerance
+    ):
         raise PolarizationContractError("response covariance must be symmetric")
     eigenvalues, eigenvectors = np.linalg.eigh((matrix + matrix.T) / 2.0)
     if eigenvalues[0] < -tolerance:
