@@ -72,7 +72,7 @@ REQUIRED_ACCEPTANCE_FILES = (
 )
 BOOTSTRAP_ALGORITHM_VERSION = "poisson1-sha256-v1"
 RESPONSE_SCHEMA_PATH = "config/schemas/acceptance_phi_response_v1.schema.json"
-RESPONSE_SCHEMA_APPROVAL_ID = "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
+RESPONSE_SCHEMA_APPROVAL_ID = "N3-MASS-PHI-RESPONSE-V1-2026-09-15"
 
 
 @dataclass(frozen=True)
@@ -374,8 +374,10 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
     schema_approved = acceptance.get("phi_response_schema_status") == "approved"
     if acceptance.get("phi_response_schema_status") not in {"pending_joint_approval", "approved"}:
         raise PolarizationContractError("phi-response schema status is invalid")
-    if schema_approved != acceptance_approved:
-        raise PolarizationContractError("phi-response schema approval must match acceptance status")
+    if acceptance_approved and not schema_approved:
+        raise PolarizationContractError(
+            "acceptance release requires independent phi-response schema approval"
+        )
     schema_path = acceptance.get("phi_response_schema_path")
     schema_digest = acceptance.get("phi_response_schema_sha256")
     schema_approval_id = acceptance.get("phi_response_schema_approval_id")
@@ -394,7 +396,10 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
         if sha256_file(resolved_schema) != schema_digest:
             raise PolarizationContractError("phi-response schema SHA-256 mismatch")
         schema_approval_id = _text(schema_approval_id, "phi_response_schema_approval_id")
-    elif any(value is not None for value in (schema_path, schema_digest, schema_approval_id)):
+    elif (
+        any(value is not None for value in (schema_path, schema_digest, schema_approval_id))
+        or schema_reviewers
+    ):
         raise PolarizationContractError("pending phi-response schema authority values must be null")
 
     sign = _mapping(payload, "sign_convention", SIGN_KEYS)

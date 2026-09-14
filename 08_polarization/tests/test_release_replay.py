@@ -121,8 +121,10 @@ def replay_release(tmp_path, response_fixture, monkeypatch):
     qa = {
         "schema_version": 1,
         "analysis_version": authority.config.analysis_version,
+        "status": "approved",
         "producer_commit": "d" * 40,
         "valid": True,
+        "blocked_reasons": [],
         "files": {
             "sigma_v1.csv": sha256_file(csv_path),
             "sigma_covariance.npz": sha256_file(npz_path),

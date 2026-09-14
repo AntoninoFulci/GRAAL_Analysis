@@ -58,6 +58,15 @@ NPZ_FIELDS = frozenset(
     }
 )
 OBSERVABLES = frozenset({"p_pi0", "p_eta", "eta_pi0"})
+QA_KEYS = frozenset(
+    {
+        "schema_version", "analysis_version", "status", "producer_commit",
+        "valid", "blocked_reasons", "files", "fit_evidence", "fit_qa",
+        "closure", "systematic_sources", "systematic_covariances", "inputs",
+        "input_sha256", "config_sha256", "gate0_handoff_sha256",
+        "acceptance_qa_sha256", "qa_thresholds",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -120,6 +129,8 @@ def _acceptance_key(row: Mapping[str, str], label: str) -> tuple[object, ...]:
     ):
         raise PolarizationContractError(f"{label} has invalid physical bin edges")
     analysis, channel, target, beam_group, observable, selection = text_values
+    if channel != "eta_pi0":
+        raise PolarizationContractError(f"{label} channel must be canonical eta_pi0")
     return (
         analysis, channel, target, beam_group, energy_low, energy_high,
         cos_low, cos_high, observable, selection,
@@ -738,8 +749,13 @@ def _validate_qa(
     repository_root: Path, rows: _SigmaRows,
     statistical: np.ndarray, systematic: np.ndarray,
 ) -> FitEvidence:
-    if qa.get("schema_version") != 1 or qa.get("valid") is not True:
-        raise PolarizationContractError("polarization QA must be schema v1 and valid")
+    if (set(qa) != QA_KEYS or qa.get("schema_version") != 1
+            or qa.get("status") != "approved" or qa.get("valid") is not True
+            or qa.get("blocked_reasons") != []):
+        raise PolarizationContractError(
+            "polarization QA top-level contract and S4 triplet pin must be exact "
+            "approved/valid/unblocked schema v1"
+        )
     if not isinstance(qa.get("analysis_version"), str) or not qa["analysis_version"]:
         raise PolarizationContractError("polarization QA requires analysis_version")
     if qa["analysis_version"] != rows.analysis_version:

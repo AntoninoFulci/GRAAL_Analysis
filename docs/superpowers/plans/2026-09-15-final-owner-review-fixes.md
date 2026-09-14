@@ -25,6 +25,14 @@
 
 Gate: focused tests, `make verify`, independent shared-interface review.
 
+Wave A implementation record (2026-09-15): schema approval was decoupled from
+acceptance approval and pinned in blocked canonical config; exact channel,
+angle, period-coverage, S4/S6 state, atomic N2 publication, and dynamic
+N3/S4/S6 inventory contracts were added with mutation tests. Verification at
+implementation HEAD: 149 coupled focused tests, `make verify` (359 + 465), and
+`make test` (952) passed. Independent shared-interface review remains required
+before Wave A gate closes.
+
 ## Wave B — event geometry, normalization completeness, period coverage
 
 - Parse frozen `AngleConfig`; retain beam four-vector in `EventSample`; compute one reaction-plane phi per event from beam and proton for all three mass observables.

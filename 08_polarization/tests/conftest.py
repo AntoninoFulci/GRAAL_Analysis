@@ -60,7 +60,7 @@ def response_fixture(tmp_path):
         acceptance_handoff_directory="results/physics/normalization/handoffs/n3-test",
         acceptance_qa_sha256="a" * 64, phi_response_schema_path=schema_path,
         phi_response_schema_sha256=sha256_file(POLARIZATION_DIR.parent / schema_path),
-        phi_response_schema_approval_id="N3-MASS-PHI-RESPONSE-V1-2026-09-13",
+        phi_response_schema_approval_id="N3-MASS-PHI-RESPONSE-V1-2026-09-15",
         phi_response_schema_reviewers=("one", "two"), sign_status="approved",
         sign_approval_id="sign-test", sign_reviewers=("one", "two"),
         orientation_signs=(("parallel", -1), ("perpendicular", 1)),

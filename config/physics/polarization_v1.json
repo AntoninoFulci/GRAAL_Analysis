@@ -21,11 +21,11 @@
       "acceptance_qa.json"
     ],
     "acceptance_qa_sha256": null,
-    "phi_response_schema_status": "pending_joint_approval",
-    "phi_response_schema_path": null,
-    "phi_response_schema_sha256": null,
-    "phi_response_schema_approval_id": null,
-    "phi_response_schema_reviewers": []
+    "phi_response_schema_status": "approved",
+    "phi_response_schema_path": "config/schemas/acceptance_phi_response_v1.schema.json",
+    "phi_response_schema_sha256": "a86cf3d81ae53bf239ef783d73a07a43411476bc97a97dc97667feba98dbd9d0",
+    "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+    "phi_response_schema_reviewers": ["Persona 1", "Persona 2"]
   },
   "state_mapping": {
     "status": "blocked",

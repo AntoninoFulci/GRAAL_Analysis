@@ -34,6 +34,7 @@ sumw2_selected_migration response_probability response_stat_uncertainty
 validity_mask input_sha256 config_sha256
 """.split())
 ORIENTATIONS = ("parallel", "perpendicular")
+CHANNELS = ("eta_pi0",)
 VALIDITY_MASKS = (
     "valid", "invalid_zero_generated", "invalid_low_effective_statistics",
     "invalid_nonphysical_weights", "invalid_incomplete_coverage",
@@ -114,8 +115,31 @@ def _authority(repository_root: Path, config: AnalysisConfig, release_id: str) -
             or schema.get("schema_id") != "graal.acceptance_phi_response.v1"
             or schema.get("approval_id") != RESPONSE_SCHEMA_APPROVAL_ID
             or schema.get("columns") != list(RESPONSE_FIELDS)
+            or schema.get("channels") != list(CHANNELS)
             or schema.get("orientations") != list(ORIENTATIONS)
-            or schema.get("validity_masks") != list(VALIDITY_MASKS)):
+            or schema.get("validity_masks") != list(VALIDITY_MASKS)
+            or schema.get("angle_convention") != {
+                "observable": "reaction_plane_phi",
+                "period_radians": "pi",
+                "range_radians": [0, "pi"],
+                "interval": "[0, pi)",
+                "reference_axis_lab": [1, 0, 0],
+                "reaction_momentum": "proton",
+                "degenerate_plane_policy": "reject_publication",
+                "tolerance_authority": "approved canonical config angle.tolerance",
+            }
+            or schema.get("acceptance_qa_contract") != {
+                "field": "response_period_coverage",
+                "record_keys": [
+                    "beam_group", "covered_source_periods", "coverage_valid",
+                    "detector_conditions_sha256", "mc_config_sha256",
+                    "selection_sha256",
+                ],
+                "coverage": "exactly one record per response beam_group",
+                "periods": "non-empty unique canonical source periods in ascending order",
+                "validity": "coverage_valid must be true for a releasable N3 handoff",
+                "hashes": "lowercase SHA-256 identities for detector conditions, MC configuration, and selection",
+            }):
         raise PolarizationContractError("unsupported response schema authority")
     for name, value in vars(config.response_validation).items():
         if (isinstance(value, bool) or not isinstance(value, (float, int))
@@ -154,6 +178,8 @@ def _parse_row(raw: dict[str, str], config: AnalysisConfig, release_id: str) -> 
         raise PolarizationContractError("response schema/analysis version mismatch")
     if row["acceptance_release_id"] != release_id:
         raise PolarizationContractError("response release ID mismatch")
+    if row["channel"] != CHANNELS[0]:
+        raise PolarizationContractError("response channel must be canonical eta_pi0")
     if row["orientation"] not in ORIENTATIONS or row["validity_mask"] not in VALIDITY_MASKS:
         raise PolarizationContractError("response orientation or validity mask is invalid")
     for field in ("input_sha256", "config_sha256"):

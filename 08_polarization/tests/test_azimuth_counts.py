@@ -288,7 +288,7 @@ def count_authority_repo(response_fixture):
                 ),
                 "phi_response_schema_sha256": response_fixture.config.phi_response_schema_sha256,
                 "phi_response_schema_approval_id": (
-                    "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
+                    "N3-MASS-PHI-RESPONSE-V1-2026-09-15"
                 ),
                 "gate0_handoff_sha256": sha256_file(gate0_path),
                 "n2_reconstruction_sha256": sha256_file(inventory_path),
@@ -336,7 +336,7 @@ def count_authority_repo(response_fixture):
                     ),
                     "phi_response_schema_sha256": response_fixture.config.phi_response_schema_sha256,
                     "phi_response_schema_approval_id": (
-                        "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
+                        "N3-MASS-PHI-RESPONSE-V1-2026-09-15"
                     ),
                     "phi_response_schema_reviewers": ["test-a", "test-b"],
                 },

@@ -29,11 +29,11 @@ def _payload(schema_digest: str, *, status: str = "blocked") -> dict[str, object
             "handoff_directory": "results/physics/normalization/handoffs/acceptance-fixture-v1" if approved else None,
             "required_files": ["acceptance_v1.csv", "acceptance_phi_response_v1.csv", "acceptance_qa.json"],
             "acceptance_qa_sha256": "a" * 64 if approved else None,
-            "phi_response_schema_status": "approved" if approved else "pending_joint_approval",
-            "phi_response_schema_path": "config/schemas/acceptance_phi_response_v1.schema.json" if approved else None,
-            "phi_response_schema_sha256": schema_digest if approved else None,
-            "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-13" if approved else None,
-            "phi_response_schema_reviewers": ["reviewer-one", "reviewer-two"] if approved else [],
+            "phi_response_schema_status": "approved",
+            "phi_response_schema_path": "config/schemas/acceptance_phi_response_v1.schema.json",
+            "phi_response_schema_sha256": schema_digest,
+            "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+            "phi_response_schema_reviewers": ["reviewer-one", "reviewer-two"],
         },
         "state_mapping": {"status": "approved" if approved else "blocked", "source": {"fixture": "state"} if approved else None, "intervals": []},
         "compton_polarization": {"status": "approved" if approved else "blocked", "sources": [], "periods": []},
@@ -107,11 +107,50 @@ def test_blocked_config_validates_complete_release_sections(valid_config, repo):
     assert loaded.bootstrap.algorithm_version == "poisson1-sha256-v1"
     assert loaded.bootstrap.replicas is None
     assert loaded.response_validation.replay_relative_tolerance is None
+    assert loaded.phi_response_schema_approval_id == (
+        "N3-MASS-PHI-RESPONSE-V1-2026-09-15"
+    )
+    assert loaded.phi_response_schema_reviewers == ("reviewer-one", "reviewer-two")
 
 
 def test_blocked_config_cannot_be_used_as_release(valid_config, repo):
     with pytest.raises(PolarizationContractError, match="approved"):
         load_analysis_config(valid_config, repo, require_approved=True)
+
+
+def test_approved_acceptance_requires_independently_approved_schema(valid_config, repo):
+    payload = _payload(
+        _digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"),
+        status="approved",
+    )
+    payload["acceptance"].update(
+        phi_response_schema_status="pending_joint_approval",
+        phi_response_schema_path=None,
+        phi_response_schema_sha256=None,
+        phi_response_schema_approval_id=None,
+        phi_response_schema_reviewers=[],
+    )
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="schema approval"):
+        load_analysis_config(valid_config, repo, require_approved=False)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("phi_response_schema_sha256", "0" * 64),
+        ("phi_response_schema_approval_id", "other"),
+        ("phi_response_schema_reviewers", ["only-one"]),
+    ],
+)
+def test_blocked_release_still_authenticates_approved_schema(
+    valid_config, repo, field, value
+):
+    payload = json.loads(valid_config.read_text())
+    payload["acceptance"][field] = value
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="schema|reviewer"):
+        load_analysis_config(valid_config, repo, require_approved=False)
 
 
 def test_release_config_requires_exact_approved_identity(valid_config, repo):

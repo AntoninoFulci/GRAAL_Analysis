@@ -49,6 +49,75 @@ def records(payload: dict) -> dict[str, dict]:
     return {row["path"]: row for row in payload["artifacts"]}
 
 
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def put_n3_bundle(root: Path, release_id="n3-v1", *, valid=True) -> Path:
+    release = root / f"results/physics/normalization/handoffs/{release_id}"
+    acceptance = put(root, f"{release.relative_to(root)}/acceptance_v1.csv", b"acceptance\n")
+    response = put(root, f"{release.relative_to(root)}/acceptance_phi_response_v1.csv", b"response\n")
+    put(
+        root,
+        f"{release.relative_to(root)}/acceptance_qa.json",
+        json.dumps(
+            {
+                "schema_version": 1,
+                "acceptance_release_id": release_id,
+                "valid": valid,
+                "acceptance_csv_sha256": digest(acceptance),
+                "acceptance_phi_response_csv_sha256": digest(response),
+            }
+        ).encode(),
+    )
+    return release
+
+
+def put_s4_bundle(root: Path, release_id="fit-v1", *, approved=True) -> Path:
+    release = root / f"results/physics/polarization_fits/{release_id}"
+    counts = put(root, f"{release.relative_to(root)}/azimuth_counts_v1.csv", b"counts\n")
+    fit = put(root, f"{release.relative_to(root)}/sigma_fit_v1.csv", b"fit\n")
+    put(
+        root,
+        f"{release.relative_to(root)}/sigma_fit_qa.json",
+        json.dumps(
+            {
+                "schema_version": 1,
+                "fit_release_id": release_id,
+                "status": "approved" if approved else "blocked",
+                "valid": approved,
+                "blocked_reasons": [] if approved else ["pending review"],
+                "counts": {"path": counts.relative_to(root).as_posix(), "sha256": digest(counts)},
+                "fit": {"path": fit.relative_to(root).as_posix(), "sha256": digest(fit)},
+            }
+        ).encode(),
+    )
+    return release
+
+
+def put_s6_bundle(root: Path, *, approved=True) -> Path:
+    release = root / "results/physics/polarization"
+    csv_path = put(root, f"{release.relative_to(root)}/sigma_v1.csv", b"sigma\n")
+    npz_path = put(root, f"{release.relative_to(root)}/sigma_covariance.npz", b"npz\n")
+    put(
+        root,
+        f"{release.relative_to(root)}/polarization_qa.json",
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "approved" if approved else "blocked",
+                "valid": approved,
+                "blocked_reasons": [] if approved else ["pending review"],
+                "files": {
+                    "sigma_v1.csv": digest(csv_path),
+                    "sigma_covariance.npz": digest(npz_path),
+                },
+            }
+        ).encode(),
+    )
+    return release
+
+
 def test_inventory_is_sorted_and_hashes_file_bytes(tmp_path):
     """Changing sort order or hashing any bytes other than file contents fails."""
     put(tmp_path, "results/plots/massa_eta.pdf", b"z")
@@ -155,13 +224,7 @@ def test_inventory_selects_only_explicitly_published_paths(tmp_path):
 
 
 def test_inventory_recognizes_only_complete_canonical_s4_triplets(tmp_path):
-    release = tmp_path / "results/physics/polarization_fits/fit-v1"
-    for name in (
-        "azimuth_counts_v1.csv",
-        "sigma_fit_v1.csv",
-        "sigma_fit_qa.json",
-    ):
-        put(tmp_path, f"results/physics/polarization_fits/fit-v1/{name}")
+    release = put_s4_bundle(tmp_path)
     assert set(records(build_inventory(tmp_path, "abc123"))) == {
         f"results/physics/polarization_fits/fit-v1/{name}"
         for name in (
@@ -174,9 +237,69 @@ def test_inventory_recognizes_only_complete_canonical_s4_triplets(tmp_path):
     (release / "sigma_fit_v1.csv").unlink()
     with pytest.raises(ArtifactInventoryError, match="exact S4 triplet"):
         build_inventory(tmp_path, "abc123")
-    put(tmp_path, "results/physics/polarization_fits/fit-v1/sigma_fit_v1.csv")
+    put(tmp_path, "results/physics/polarization_fits/fit-v1/sigma_fit_v1.csv", b"fit\n")
     put(tmp_path, "results/physics/polarization_fits/fit-v1/legacy_sigma.csv")
     with pytest.raises(ArtifactInventoryError, match="exact S4 triplet"):
+        build_inventory(tmp_path, "abc123")
+
+
+def test_inventory_discovers_exact_n3_s4_s6_and_propagates_qa_state(tmp_path):
+    put_n3_bundle(tmp_path)
+    put_s4_bundle(tmp_path, approved=False)
+    put_s6_bundle(tmp_path)
+    indexed = records(build_inventory(tmp_path, "abc123"))
+    assert len(indexed) == 9
+    assert indexed["results/physics/normalization/handoffs/n3-v1/acceptance_v1.csv"]["valid"] is True
+    assert indexed["results/physics/polarization_fits/fit-v1/sigma_fit_v1.csv"]["valid"] is False
+    assert indexed["results/physics/polarization/sigma_v1.csv"]["valid"] is True
+
+
+@pytest.mark.parametrize("bundle", ["n3", "s4", "s6"])
+def test_inventory_rejects_internal_hash_tampering_and_garbage_qa(tmp_path, bundle):
+    release = {
+        "n3": put_n3_bundle,
+        "s4": put_s4_bundle,
+        "s6": put_s6_bundle,
+    }[bundle](tmp_path)
+    qa_name = {
+        "n3": "acceptance_qa.json",
+        "s4": "sigma_fit_qa.json",
+        "s6": "polarization_qa.json",
+    }[bundle]
+    qa_path = release / qa_name
+    qa = json.loads(qa_path.read_text())
+    if bundle == "n3":
+        qa["acceptance_csv_sha256"] = "0" * 64
+    elif bundle == "s4":
+        qa["counts"]["sha256"] = "0" * 64
+    else:
+        qa["files"]["sigma_v1.csv"] = "0" * 64
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(ArtifactInventoryError, match="hash|SHA"):
+        build_inventory(tmp_path, "abc123")
+
+    qa_path.write_text("{}")
+    with pytest.raises(ArtifactInventoryError):
+        build_inventory(tmp_path, "abc123")
+
+
+@pytest.mark.parametrize("bundle", ["s4", "s6"])
+def test_inventory_rejects_incoherent_release_state(tmp_path, bundle):
+    release = (put_s4_bundle if bundle == "s4" else put_s6_bundle)(tmp_path)
+    qa_name = "sigma_fit_qa.json" if bundle == "s4" else "polarization_qa.json"
+    qa_path = release / qa_name
+    qa = json.loads(qa_path.read_text())
+    qa["valid"] = False
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(ArtifactInventoryError, match="state"):
+        build_inventory(tmp_path, "abc123")
+
+
+def test_inventory_rejects_dangling_dynamic_bundle_parent_symlink(tmp_path):
+    parent = tmp_path / "results/physics/normalization/handoffs"
+    parent.parent.mkdir(parents=True)
+    parent.symlink_to(tmp_path / "missing", target_is_directory=True)
+    with pytest.raises(ArtifactInventoryError, match="symlink"):
         build_inventory(tmp_path, "abc123")
 
 
@@ -278,12 +401,14 @@ def test_verifier_accepts_complete_observable_bundle_and_false_source_diagnostic
         "invalid_observable_qa",
         "bad_recorded_hash",
         "lfs_pointer",
+        "record_role",
+        "record_valid",
+        "record_allowed_use",
     ),
 )
 def test_verifier_rejects_snapshot_mutations_without_rewriting_inventory(tmp_path, mutation):
     """A bad publication must fail verification while its reference inventory stays intact."""
     inventory_path = _inventory_fixture(tmp_path)
-    before = inventory_path.read_bytes()
     target = tmp_path / "results/observable_runs/run_quality.csv"
     if mutation == "missing":
         target.unlink()
@@ -301,15 +426,23 @@ def test_verifier_rejects_snapshot_mutations_without_rewriting_inventory(tmp_pat
         qa = json.loads(qa_path.read_text())
         qa["output_sha256"]["run_quality.csv"] = "0" * 64
         qa_path.write_text(json.dumps(qa), encoding="utf-8")
+    elif mutation.startswith("record_"):
+        inventory = json.loads(inventory_path.read_text())
+        field = mutation.removeprefix("record_")
+        inventory["artifacts"][0][field] = (
+            False if field == "valid" else "forged"
+        )
+        inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
     else:
         put(
             tmp_path,
             "data/flux/flux.root",
             b"version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n",
         )
+    expected_inventory_bytes = inventory_path.read_bytes()
     with pytest.raises(ArtifactInventoryError):
         verify_inventory(tmp_path, inventory_path)
-    assert inventory_path.read_bytes() == before
+    assert inventory_path.read_bytes() == expected_inventory_bytes
 
 
 def test_inventory_cli_rejects_output_outside_repo_and_symlinked_parent(tmp_path):

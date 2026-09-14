@@ -219,7 +219,7 @@ def write_valid_release(path):
                     "config/schemas/acceptance_phi_response_v1.schema.json"
                 ),
                 "phi_response_schema_sha256": sha(schema),
-                "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-13",
+                "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
                 "gate0_handoff_sha256": sha(gate0),
                 "n2_reconstruction_sha256": "3" * 64,
                 "input_sha256": "1" * 64,
@@ -264,7 +264,7 @@ def write_valid_release(path):
                         "config/schemas/acceptance_phi_response_v1.schema.json"
                     ),
                     "phi_response_schema_sha256": sha(schema),
-                    "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-13",
+                    "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
                     "phi_response_schema_reviewers": ["test-a", "test-b"],
                 },
                 "state_mapping": {
@@ -410,8 +410,10 @@ def write_valid_release(path):
     qa = {
         "schema_version": 1,
         "analysis_version": "polarization-v1",
+        "status": "approved",
         "producer_commit": "a" * 40,
         "valid": True,
+        "blocked_reasons": [],
         "files": {
             "sigma_v1.csv": sha(csv_path),
             "sigma_covariance.npz": sha(npz_path),
@@ -420,6 +422,11 @@ def write_valid_release(path):
             "valid": True,
             "acceptance_phi_response_sha256": sha(acceptance_response),
             "response_application": "forward_folded",
+        },
+        "fit_evidence": {
+            "fit_release_id": "fixture-fit-v1",
+            "path": "results/physics/polarization_fits/fixture-fit-v1",
+            "qa_sha256": "f" * 64,
         },
         "closure": {
             "valid": True, "sign_check_passed": True,
@@ -432,6 +439,9 @@ def write_valid_release(path):
                 "sha256": inputs["config"]["sha256"],
             }
         ],
+        "systematic_covariances": {
+            "beam_polarization": systematic.tolist()
+        },
         "inputs": inputs,
         "input_sha256": input_digest,
         "config_sha256": sha(config),
@@ -441,6 +451,24 @@ def write_valid_release(path):
     }
     (path / "polarization_qa.json").write_text(json.dumps(qa))
     return path
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("status", "blocked"),
+        ("valid", False),
+        ("blocked_reasons", ["not approved"]),
+    ],
+)
+def test_sigma_release_requires_exact_approved_qa_state(tmp_path, field, value):
+    valid_release = write_valid_release(tmp_path / "release")
+    qa_path = valid_release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa[field] = value
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="top-level|approved|valid"):
+        validate_sigma_release(valid_release, repo_of(valid_release))
 
 
 def repo_of(release):
@@ -490,6 +518,23 @@ def test_release_accepts_cross_hashed_csv_npz_and_valid_qa(tmp_path):
     summary = validate_sigma_release(release, repo_of(release))
     assert summary.bin_keys == ("e0:p_pi0:m0", "e0:p_pi0:m1")
     assert summary.total_covariance.shape == (2, 2)
+
+
+def test_release_rejects_noncanonical_eta_pi0_channel(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    csv_path = release / "sigma_v1.csv"
+    rows = list(csv.reader(csv_path.open()))
+    channel_index = rows[0].index("channel")
+    for row in rows[1:]:
+        row[channel_index] = "other_channel"
+    with csv_path.open("w", newline="") as stream:
+        csv.writer(stream).writerows(rows)
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["files"]["sigma_v1.csv"] = sha(csv_path)
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="channel"):
+        validate_sigma_release(release, repo_of(release))
 
 
 def test_release_rejects_noncanonical_or_extra_bundle_files(tmp_path):

@@ -42,6 +42,26 @@ def test_response_requires_every_joint_mass_phi_cell(response_fixture):
         load(response_fixture)
 
 
+def test_response_rejects_noncanonical_channel(response_fixture):
+    response_fixture.rows[0]["channel"] = "p_eta_pi0"
+    response_fixture.write()
+    with pytest.raises(PolarizationContractError, match="channel"):
+        load(response_fixture)
+
+
+def test_response_rejects_schema_without_exact_channel_authority(response_fixture):
+    schema = response_fixture.path.parent / response_fixture.config.phi_response_schema_path
+    import json
+    payload = json.loads(schema.read_text(encoding="utf-8"))
+    payload["channels"] = ["eta_pi0", "other"]
+    schema.write_text(json.dumps(payload), encoding="utf-8")
+    response_fixture.config = replace(
+        response_fixture.config, phi_response_schema_sha256=sha256_file(schema)
+    )
+    with pytest.raises(PolarizationContractError, match="schema authority"):
+        load(response_fixture)
+
+
 def test_response_reconstructs_mass_major_phi_matrix_without_renormalizing(response_fixture):
     response = load(response_fixture)
     matrix = response.matrix(response_fixture.key, "parallel")

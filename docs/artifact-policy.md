@@ -25,6 +25,7 @@ python scripts/build_artifact_inventory.py \
 | `results/observable_runs/` | Accepted derived bundle | Use for normalization only when `observable_run_qa.json` reports `valid: true`. |
 | `results/reco/` | Legacy reconstruction snapshots | Reproduce legacy plots only. These files predate required metadata propagation and are not valid for run-flux normalization. |
 | `results/plots/` and `results/strip_energy_flux.run.log` | Diagnostic-only derived evidence | Visual and historical diagnostics; never a physics-normalization source. |
+| `results/physics/normalization/handoffs/<acceptance_release_id>/` | Immutable N3 acceptance handoff | Exactly `acceptance_v1.csv`, `acceptance_phi_response_v1.csv`, and `acceptance_qa.json`; inventory verifies internal hashes and records QA validity without substituting for authority-bound validation. |
 | `results/physics/polarization_fits/<fit_release_id>/` | Immutable replayable S4 evidence | Exactly `azimuth_counts_v1.csv`, `sigma_fit_v1.csv`, and `sigma_fit_qa.json`; valid only after authority-bound replay. |
 | `results/physics/polarization/` | Shared S6 handoff | Exactly `sigma_v1.csv`, `sigma_covariance.npz`, and `polarization_qa.json`; valid only after full replay of its pinned S4 evidence. |
 
@@ -32,6 +33,14 @@ The inventory's `valid` field says whether the published file itself is an
 accepted snapshot. It does not override the bundle-level QA gate: the
 observable-run bundle is usable only when its QA file is valid and its recorded
 hashes match the current files.
+
+Dynamic N3, S4, and S6 discovery is fail-closed. Incomplete or extra bundles,
+non-regular files, symlinks including dangling parents, malformed release
+state, and mismatched internal hashes reject inventory generation. S4/S6 are
+classified valid only for exact `status=approved`, `valid=true`, and empty
+`blocked_reasons`; coherent blocked bundles remain recorded with `valid=false`.
+Inventory verification recomputes `role`, `valid`, and `allowed_use` as well as
+bytes and SHA-256.
 
 S4 publication is no-overwrite: one sibling staging directory is validated and
 atomically renamed to a canonical release ID. Inventory discovery accepts only

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 
@@ -71,15 +72,22 @@ def build_reco_inventory(
     ]
     if not resolved_reco:
         raise PolarizationContractError("at least one reconstruction ROOT file is required")
-    output = Path(output_path)
-    if output.exists():
-        raise PolarizationContractError("refusing overwrite of reconstruction inventory")
+    candidate = Path(output_path)
+    output = candidate if candidate.is_absolute() else root / candidate
+    output = output.absolute()
     try:
-        output.resolve().relative_to(root)
+        output.relative_to(root)
     except ValueError as exc:
         raise PolarizationContractError(
             "reconstruction inventory output must stay inside repository"
         ) from exc
+    current = root
+    for component in output.relative_to(root).parts:
+        current /= component
+        if current.is_symlink():
+            raise PolarizationContractError(
+                "reconstruction inventory output must not contain symlinks"
+            )
     payload = {
         "schema_version": 1,
         "artifact_kind": "n2_metadata_reconstruction",
@@ -100,11 +108,37 @@ def build_reco_inventory(
             for path, relative in resolved_reco
         ],
     }
+    encoded = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=f".{output.name}-", dir=output.parent
     ) as temporary:
         staged = Path(temporary) / output.name
-        staged.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-        staged.rename(output)
+        with staged.open("wb") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(staged, output, follow_symlinks=False)
+        except FileExistsError as exc:
+            if output.is_symlink() or not output.is_file():
+                raise PolarizationContractError(
+                    "refusing overwrite of non-regular or symlink reconstruction inventory"
+                ) from exc
+            try:
+                existing = output.read_bytes()
+            except OSError as read_exc:
+                raise PolarizationContractError(
+                    "cannot authenticate existing reconstruction inventory"
+                ) from read_exc
+            if existing != encoded:
+                raise PolarizationContractError(
+                    "refusing overwrite: existing reconstruction inventory has different bytes"
+                ) from exc
+        else:
+            directory_fd = os.open(output.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
     return payload

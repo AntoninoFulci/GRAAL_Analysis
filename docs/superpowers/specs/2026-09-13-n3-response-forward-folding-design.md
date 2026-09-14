@@ -3,7 +3,7 @@
 **Status:** proposed; architecture approved jointly, written specification
 pending final owner review
 
-**Approval ID:** `N3-MASS-PHI-RESPONSE-V1-2026-09-13`
+**Approval ID:** `N3-MASS-PHI-RESPONSE-V1-2026-09-15`
 
 ## Goal
 
@@ -81,7 +81,10 @@ It contains `schema_version=1`,
 enums, the period `[0, pi)`, normalization definition, covariance equations,
 and matrix-completeness rules. Canonical polarization config and N3 QA both
 record its repository-relative path, exact SHA-256, and approval ID
-`N3-MASS-PHI-RESPONSE-V1-2026-09-13`.
+`N3-MASS-PHI-RESPONSE-V1-2026-09-15`. This schema approval is independent
+from acceptance-release approval: canonical config may pin approved schema
+bytes while acceptance and overall analysis remain blocked. An approved
+acceptance release, however, always requires approved schema authority.
 
 The schema file is an authority, not a generated artifact. Changing any field,
 equation, enum, bin-coverage rule, or tolerance requires a new schema version,

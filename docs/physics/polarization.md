@@ -90,7 +90,12 @@ must explicitly approve same release ID and directory. Phi-response schema
 approval additionally requires non-empty approval ID and two distinct
 reviewers; `acceptance_qa.json` must carry same approval ID. Schema authority
 `config/schemas/acceptance_phi_response_v1.schema.json` fixes exact response
-columns, masks, weighted-covariance equations and complete joint mass-phi grid.
+columns, canonical `eta_pi0` channel, reaction-plane angle convention, N3 QA
+period-coverage records, masks, weighted-covariance equations and complete
+joint mass-phi grid. Schema v1 is jointly approved as
+`N3-MASS-PHI-RESPONSE-V1-2026-09-15` even while canonical acceptance release
+and overall analysis stay blocked; acceptance approval requires this schema
+approval, not conversely.
 Scalar/common-acceptance diagnostics cannot satisfy this release gate.
 
 ## Comparison grid

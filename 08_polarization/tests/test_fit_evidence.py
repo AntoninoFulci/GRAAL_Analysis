@@ -242,7 +242,15 @@ def test_fit_evidence_rejects_release_qa_sign_or_closure_claim_tamper(
         validate_fit_evidence(output, paths["root"], config=authority.config)
 
 
-@pytest.mark.parametrize("field,value", [("valid", False), ("analysis_version", "legacy")])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("status", "blocked"),
+        ("valid", False),
+        ("blocked_reasons", ["not approved"]),
+        ("analysis_version", "legacy"),
+    ],
+)
 def test_fit_evidence_rejects_qa_semantic_tampering(
     evidence_problem, field, value
 ):
@@ -254,6 +262,14 @@ def test_fit_evidence_rejects_qa_semantic_tampering(
 
     with pytest.raises(PolarizationContractError):
         validate_fit_evidence(output, paths["root"], config=authority.config)
+
+
+def test_fit_evidence_writer_emits_exact_approved_state(evidence_problem):
+    paths, authority, output = evidence_problem
+    qa = json.loads((output / "sigma_fit_qa.json").read_text(encoding="utf-8"))
+    assert qa["status"] == "approved"
+    assert qa["valid"] is True
+    assert qa["blocked_reasons"] == []
 
 
 def test_fit_evidence_rejects_n4_claim_and_extra_file(evidence_problem):

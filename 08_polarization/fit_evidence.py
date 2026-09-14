@@ -66,7 +66,7 @@ _FIT_PARENT = "results/physics/polarization_fits"
 _QA_KEYS = frozenset(
     {
         "schema_version", "analysis_version", "fit_release_id",
-        "producer_commit", "valid", "blocked_reasons", "bin_set_id",
+        "producer_commit", "status", "valid", "blocked_reasons", "bin_set_id",
         "counts", "fit", "authorities", "optimizer", "bootstrap",
         "nominal_fit", "response_propagation", "release_qa",
     }
@@ -487,6 +487,7 @@ def write_fit_evidence(
         "analysis_version": fresh.config.analysis_version,
         "fit_release_id": fresh.fit_release_id,
         "producer_commit": producer_commit,
+        "status": "approved",
         "valid": True,
         "blocked_reasons": [],
         "bin_set_id": fresh.bin_set_id,
@@ -685,7 +686,10 @@ def validate_fit_evidence(
     if {item.name for item in resolved.iterdir()} != FIT_EVIDENCE_FILENAMES or any(item.is_symlink() or not item.is_file() for item in resolved.iterdir()):
         raise PolarizationContractError("S4 evidence directory must contain exact triplet")
     qa = load_json(resolved / "sigma_fit_qa.json")
-    if set(qa) != _QA_KEYS or qa.get("schema_version") != 1 or qa.get("analysis_version") != "polarization-v1" or qa.get("valid") is not True or qa.get("blocked_reasons") != []:
+    if (set(qa) != _QA_KEYS or qa.get("schema_version") != 1
+            or qa.get("analysis_version") != "polarization-v1"
+            or qa.get("status") != "approved" or qa.get("valid") is not True
+            or qa.get("blocked_reasons") != []):
         raise PolarizationContractError("S4 QA top-level contract is invalid")
     release_id = _release_id(qa.get("fit_release_id"))
     if not _allow_staging and release_id != resolved.name:
