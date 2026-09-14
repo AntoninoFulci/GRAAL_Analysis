@@ -26,26 +26,26 @@
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 64114,
+      "bytes": 67020,
       "path": "graphify-out/GRAPH_REPORT.md",
       "role": "derived",
-      "sha256": "00d16605e2016e11532aff31361adb38269bee912930b58dd74c8c2849c73d21",
+      "sha256": "cec4971b54869a9b7f96db6de8f0a1998ec6fbab7aa6b51269075a596e5c4f97",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 3314618,
+      "bytes": 3318983,
       "path": "graphify-out/graph.html",
       "role": "derived",
-      "sha256": "0308001f3b8dbab858c648e6061e624ed5ab91cdf96eb744b511e233c962a341",
+      "sha256": "92f19fd27e56cbd0a3936820d64ac13d712dc64ec5ff05558e3223c9f89c1f35",
       "valid": true
     },
     {
       "allowed_use": "portable repository knowledge-graph artifact",
-      "bytes": 3810515,
+      "bytes": 3821103,
       "path": "graphify-out/graph.json",
       "role": "derived",
-      "sha256": "d8cd107a20fddd01822426af84701f52e9f9882442f9de1e3538b4896701d607",
+      "sha256": "5ac5d742ad60e9c007f911d935e71146fed273d8d77efac7268188f31e32eec1",
       "valid": true
     },
     {
@@ -321,6 +321,6 @@
       "valid": true
     }
   ],
-  "generated_at_commit": "ea47b41ee28f9ba23c2b016b63c40a48a3451e05",
+  "generated_at_commit": "6c743e896b39287e30963ea173fe2d4e73309670",
   "schema_version": 1
 }
