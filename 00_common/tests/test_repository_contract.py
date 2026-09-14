@@ -2,12 +2,37 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def _exact_fenced_triplet_under_heading(
+    text: str, heading: str, expected: tuple[str, str, str]
+) -> None:
+    """Require one exact path-only text fence in the named Markdown section."""
+    marker = re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE)
+    assert marker is not None, f"missing exact heading: {heading}"
+    level = len(heading) - len(heading.lstrip("#"))
+    following = text[marker.end() :]
+    boundary = re.search(rf"^#{{1,{level}}}\s+", following, re.MULTILINE)
+    section = following[: boundary.start()] if boundary else following
+    candidates = []
+    for block in re.findall(
+        r"^\s*```text\s*\n(.*?)^\s*```\s*$", section, re.MULTILINE | re.DOTALL
+    ):
+        lines = tuple(line.strip() for line in block.splitlines() if line.strip())
+        if any(line.startswith("results/physics/polarization") for line in lines):
+            candidates.append(lines)
+    assert candidates == [expected], (
+        f"{heading} must contain exactly one fenced triplet equal to {expected}; "
+        f"found {candidates}"
+    )
 
 
 def test_agents_file_names_authoritative_observable_bundle():
@@ -171,22 +196,76 @@ def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
 def test_shared_docs_publish_exact_s4_and_s6_triplets():
     roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
     polarization = read("docs/physics/polarization.md")
-    expected_s4 = {
+    expected_s4 = (
         "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
         "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv",
         "results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json",
-    }
-    expected_s6 = {
+    )
+    expected_s6 = (
         "results/physics/polarization/sigma_v1.csv",
         "results/physics/polarization/sigma_covariance.npz",
         "results/physics/polarization/polarization_qa.json",
-    }
-    for text in (roadmap, polarization):
-        assert expected_s4 <= set(text.splitlines())
-        assert expected_s6 <= set(text.splitlines())
+    )
+    documents = (
+        (
+            roadmap,
+            "### S4 — fit `cos(2phi)` consapevole dell'accettanza",
+            "### S6 — release `Σ`, covarianza e sistematiche",
+        ),
+        (
+            polarization,
+            "## S4 forward-folded fit evidence",
+            "## S6 release contract",
+        ),
+    )
+    for text, s4_heading, s6_heading in documents:
+        _exact_fenced_triplet_under_heading(text, s4_heading, expected_s4)
+        _exact_fenced_triplet_under_heading(text, s6_heading, expected_s6)
         assert "azimuth_counts_v1.csv" in text
         assert "immutable" in text.lower() or "immutabile" in text.lower()
         assert "no-overwrite" in text.lower()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda block: block.replace(
+            "\n```",
+            "\nresults/physics/polarization_fits/<fit_release_id>/extra.json\n```",
+            1,
+        ),
+        lambda block: block.replace(
+            "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv\n",
+            "",
+            1,
+        ),
+        lambda block: block.replace("polarization_fits", "polarization_fit", 1),
+        lambda block: block.replace(
+            "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+            "results/physics/polarization/azimuth_counts_v1.csv",
+            1,
+        ),
+        lambda block: block + "\n\n" + block,
+        lambda block: block
+        + "\n\n"
+        + block.replace("sigma_fit_v1.csv", "sigma_fit_v2.csv", 1),
+    ),
+    ids=("fourth-path", "incomplete", "wrong-directory", "legacy", "duplicate", "divergent"),
+)
+def test_exact_s4_triplet_parser_rejects_concrete_mutations(mutation):
+    heading = "## S4 forward-folded fit evidence"
+    expected = (
+        "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json",
+    )
+    fenced = "```text\n" + "\n".join(expected) + "\n```"
+    with pytest.raises(AssertionError):
+        _exact_fenced_triplet_under_heading(
+            heading + "\n\n" + mutation(fenced) + "\n\n## Next section\n",
+            heading,
+            expected,
+        )
 
 
 def test_shared_docs_define_canonical_s4_cli_and_release_edges():
