@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8d341f89`
+- Built from commit: `e7c2ac4a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -378,17 +378,25 @@
 - None detected.
 
 ## Hyperedges (group relationships)
-- **S4 Authenticated Provenance** — docs_collaboration_two_person_physics_roadmap_n2_metadata_reconstruction, docs_collaboration_two_person_physics_roadmap_n3_acceptance_handoff, docs_collaboration_two_person_physics_roadmap_s4_forward_folded_sigma_fit [EXTRACTED 1.00]
-- **N3 Response Uncertainty Chain** — docs_physics_normalization_joint_mass_phi_response, docs_physics_normalization_weighted_response_covariance, docs_physics_normalization_response_validity_masks, docs_physics_normalization_n3_trust_anchor [EXTRACTED 1.00]
-- **S4 to S6 Replay Chain** — docs_physics_polarization_s4_forward_folded_fit_evidence, docs_physics_polarization_shared_event_poisson_bootstrap, docs_physics_polarization_response_covariance_systematic, docs_physics_polarization_s6_full_replay [EXTRACTED 1.00]
 - **Stage-1 ROC Evaluation** — 04_bdt_training_model_stage1_roc_true_positive_rate, 04_bdt_training_model_stage1_roc_false_positive_rate, 04_bdt_training_model_stage1_roc_auc_0_999 [EXTRACTED 1.00]
 - **Stage-1 Decision Boundary** — 04_bdt_training_model_stage1_score_dist_signal_scores, 04_bdt_training_model_stage1_score_dist_background_scores, 04_bdt_training_model_stage1_score_dist_threshold_0_28 [EXTRACTED 1.00]
 - **Three-Slot Classification** — 04_bdt_training_plots_confusion_slot_0_classification, 04_bdt_training_plots_confusion_slot_1_classification, 04_bdt_training_plots_confusion_slot_2_classification [EXTRACTED 1.00]
 - **Eta-Mass Reconstruction Comparison** — 04_bdt_training_plots_mass_eta_chi2_reconstruction, 04_bdt_training_plots_mass_eta_bdt_reconstruction, 04_bdt_training_plots_mass_eta_truth_distribution [EXTRACTED 1.00]
 - **Pi0-Mass Reconstruction Comparison** — 04_bdt_training_plots_mass_pi0_chi2_reconstruction, 04_bdt_training_plots_mass_pi0_bdt_reconstruction, 04_bdt_training_plots_mass_pi0_truth_distribution [EXTRACTED 1.00]
 - **Training and Validation Loss Trajectory** — 04_bdt_training_plots_training_curve_training_logloss, 04_bdt_training_plots_training_curve_validation_logloss, 04_bdt_training_plots_training_curve_boosting_rounds [EXTRACTED 1.00]
+- **Clone-Ready AI Handoff Package** — docs_superpowers_plans_2026_09_09_two_person_ai_handoff_clone_ready_project_package, docs_superpowers_specs_2026_09_09_two_person_ai_handoff_design_git_lfs_snapshot, docs_artifact_policy_artifacts_inventory, requirements_dev_python_dependency_contract, docs_superpowers_plans_2026_09_09_two_person_ai_handoff_graphify_refresh [EXTRACTED 1.00]
+- **Immutable N3 Acceptance Handoff Triplet** — docs_physics_polarization_acceptance_v1_csv, docs_physics_polarization_acceptance_phi_response_v1_csv, docs_physics_polarization_acceptance_qa_json [EXTRACTED 1.00]
+- **Sigma Release Gate Inputs and Approvals** — docs_physics_polarization_gate_0_observable_handoff, docs_physics_polarization_reconstruction_inventory, docs_physics_polarization_approved_state_mapping, docs_physics_polarization_period_specific_compton_polarization, docs_physics_polarization_immutable_n3_acceptance_handoff, docs_physics_polarization_phi_response_joint_approval, docs_physics_polarization_forward_folded_response_binding, docs_physics_polarization_s6_sigma_release_contract [EXTRACTED 1.00]
+- **S6 Sigma Release Triplet** — docs_physics_polarization_sigma_v1_csv, docs_physics_polarization_sigma_covariance_npz, docs_physics_polarization_polarization_qa_json [EXTRACTED 1.00]
+- **Eta Pi0 Reconstruction Chain** — wiki_05_reconstruction_bdt_gate_stage1_gate, wiki_05_reconstruction_chi2_photon_pairing, wiki_05_reconstruction_kinematic_fit_six_constraint_fit, wiki_06_plots_dalitz_analysis [EXTRACTED 1.00]
+- **Observable Run Curation Artifact Flow** — agents_authoritative_run_manifest, wiki_data_formats_strip_energy_lookup_csv, wiki_data_formats_flux_by_run_energy_csv, docs_superpowers_specs_2026_09_08_observable_run_database_design_observable_run_qa, agents_accepted_observable_bundle [EXTRACTED 1.00]
+- **Person 1 Normalization Chain** — docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff, docs_collaboration_two_person_physics_roadmap_n1_congelare_gate_0_e_schema_di_accettanza, docs_collaboration_two_person_physics_roadmap_n2_rigenerare_ricostruzione_con_metadati, docs_collaboration_two_person_physics_roadmap_n3_efficienza_mc_e_accettanza, docs_physics_normalization_acceptance_handoff_after_n3, docs_collaboration_two_person_physics_roadmap_s4_fit_cos_2phi_consapevole_dell_accettanza, docs_physics_normalization_final_normalization_release_n7 [EXTRACTED 1.00]
 - **Dalitz Chi2 BDT Measured Implicit Comparison Set** — results_plots_dalitz_chi2_misurato_chi2_measured_proton_dalitz, results_plots_dalitz_bdt_misurato_gate_bdt_measured_proton_dalitz, results_plots_dalitz_chi2_implicito_chi2_implicit_proton_dalitz, results_plots_dalitz_bdt_implicito_gate_bdt_implicit_proton_dalitz, results_plots_dalitz_confronto_dalitz_four_panel_comparison [EXTRACTED 1.00]
 - **Kinfit Validation Diagnostics** — results_plots_kinfit_validation_fit_chi2_ndf_6, results_plots_kinfit_validation_pull_eta_gamma1_e, results_plots_kinfit_validation_eta_mass_distribution [INFERRED 0.85]
+- **N3 Response Uncertainty Chain** — docs_physics_normalization_joint_mass_phi_response, docs_physics_normalization_weighted_response_covariance, docs_physics_normalization_response_validity_masks, docs_physics_normalization_n3_trust_anchor [EXTRACTED 1.00]
+- **S4 Authenticated Provenance** — docs_collaboration_two_person_physics_roadmap_n2_metadata_reconstruction, docs_collaboration_two_person_physics_roadmap_acceptance_handoff, docs_collaboration_two_person_physics_roadmap_s4_forward_folded_sigma_fit [EXTRACTED 1.00]
+- **S4 to S6 Replay Chain** — docs_physics_polarization_s4_forward_folded_fit_evidence, docs_physics_polarization_shared_event_poisson_bootstrap, docs_physics_polarization_response_covariance_systematic, docs_physics_polarization_s6_full_replay [EXTRACTED 1.00]
+- **Two-Person P0 Release Contract** — docs_collaboration_two_person_physics_roadmap_gate_0_observable_handoff, docs_collaboration_two_person_physics_roadmap_person_1_normalization_cross_sections, docs_collaboration_two_person_physics_roadmap_person_2_polarization_sigma, docs_collaboration_two_person_physics_roadmap_acceptance_handoff, docs_collaboration_two_person_physics_roadmap_sigma_release_handoff, docs_collaboration_two_person_physics_roadmap_p0_release_gate [EXTRACTED 1.00]
 
 ## Communities (349 total, 216 thin omitted)
 
