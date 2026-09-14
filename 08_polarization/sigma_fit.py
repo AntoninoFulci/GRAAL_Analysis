@@ -15,7 +15,14 @@ from analysis_config import (
     RESPONSE_SCHEMA_APPROVAL_ID,
     RESPONSE_SCHEMA_PATH,
 )
-from azimuth_counts import AzimuthCountRow, AzimuthCountTable
+from azimuth_counts import (
+    AzimuthCountRow,
+    AzimuthCountTable,
+    CountAuthority,
+    _authority_fingerprint,
+    _reload_count_authority,
+    _validate_table_for_publication,
+)
 from contracts import PolarizationContractError, SHA256_PATTERN
 from phi_response import PhiResponse, ResponseKey, TrueCellKey
 
@@ -619,14 +626,14 @@ def _fit_one_response_key(
     )
 
 
-def fit_sigma_forward_folded(
+def _fit_sigma_forward_folded_core(
     counts: AzimuthCountTable,
     response: PhiResponse,
     *,
     config: AnalysisConfig,
     replica_id: int = 0,
 ) -> JointSigmaFitResult:
-    """Fit every canonical physical group and aggregate its ordered Sigma vector."""
+    """Fit trusted inputs or synthetic fixtures through the numerical core."""
     signs = _require_approved_fit_config(config)
     _require_approved_bootstrap_config(config)
     axes = _require_valid_response_blocks(response, config)
@@ -703,6 +710,38 @@ def fit_sigma_forward_folded(
         ndof=len(ordered_rows) - 2 * sigma_all.size,
         converged=True,
         rank=sum(ranks),
+        replica_id=replica_id,
+    )
+
+
+def fit_sigma_forward_folded(
+    counts: AzimuthCountTable,
+    *,
+    authority: CountAuthority,
+    replica_id: int = 0,
+) -> JointSigmaFitResult:
+    """Fit counts using only freshly authenticated config and N3 response bytes.
+
+    ``CountAuthority`` is loader-sealed and retains every transitive source
+    byte used by N2 count construction and the N3 handoff.  Reloading from its
+    canonical paths prevents caller-provided digest strings or detached
+    ``AnalysisConfig``/``PhiResponse`` objects from becoming fit authority.
+    """
+    if type(authority) is not CountAuthority:
+        raise PolarizationContractError(
+            "forward-folded fit requires authenticated authority"
+        )
+    original_fingerprint = _authority_fingerprint(authority)
+    fresh = _reload_count_authority(authority)
+    if _authority_fingerprint(fresh) != original_fingerprint:
+        raise PolarizationContractError(
+            "forward-folded fit authority changed after authentication"
+        )
+    _validate_table_for_publication(counts, fresh)
+    return _fit_sigma_forward_folded_core(
+        counts,
+        fresh.response,
+        config=fresh.config,
         replica_id=replica_id,
     )
 

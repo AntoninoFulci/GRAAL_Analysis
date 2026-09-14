@@ -394,7 +394,7 @@ def test_fit_rejects_shape_mismatch_and_nonfinite_values():
 def test_forward_folded_joint_fit_recovers_sigma_with_mass_and_phi_migration(
     asimov_problem,
 ):
-    result = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+    result = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
     np.testing.assert_allclose(result.sigma, [-0.35, 0.20], atol=2e-4)
     assert abs(result.hessian_covariance[0, 1]) > 0.0
@@ -405,7 +405,7 @@ def test_forward_folded_aggregate_has_canonical_group_and_row_alignment(
 ):
     _with_second_response_group(asimov_problem)
 
-    result = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+    result = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
     assert result.bin_keys == tuple(sorted(result.bin_keys))
     assert len(result.bin_keys) == 4
@@ -427,7 +427,7 @@ def test_forward_folded_fit_rejects_unapproved_config(asimov_problem):
     asimov_problem["config"] = replace(asimov_problem["config"], status="blocked")
 
     with pytest.raises(PolarizationContractError, match="approved canonical config"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 @pytest.mark.parametrize(
@@ -458,7 +458,7 @@ def test_forward_folded_fit_rejects_forged_config_authorities(
     asimov_problem["config"] = replace(asimov_problem["config"], **changes)
 
     with pytest.raises(PolarizationContractError, match=match):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_counts_analysis_version_mismatch(asimov_problem):
@@ -469,7 +469,7 @@ def test_forward_folded_fit_rejects_counts_analysis_version_mismatch(asimov_prob
     object.__setattr__(counts, "rows", altered)
 
     with pytest.raises(PolarizationContractError, match="analysis version"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_bootstrap_universe_mismatch(asimov_problem):
@@ -478,7 +478,7 @@ def test_forward_folded_fit_rejects_bootstrap_universe_mismatch(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="replica universe"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_unapproved_bootstrap_authority(asimov_problem):
@@ -488,7 +488,7 @@ def test_forward_folded_fit_rejects_unapproved_bootstrap_authority(asimov_proble
     )
 
     with pytest.raises(PolarizationContractError, match="approved bootstrap"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_forged_response_identity(asimov_problem):
@@ -497,7 +497,7 @@ def test_forward_folded_fit_rejects_forged_response_identity(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="response.*identity"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_count_axis_mismatch(asimov_problem):
@@ -507,7 +507,7 @@ def test_forward_folded_fit_rejects_count_axis_mismatch(asimov_problem):
     object.__setattr__(counts, "rows", tuple(altered))
 
     with pytest.raises(PolarizationContractError, match="count.*axis"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_noncanonical_expected_universe(asimov_problem):
@@ -519,7 +519,7 @@ def test_forward_folded_fit_rejects_noncanonical_expected_universe(asimov_proble
     )
 
     with pytest.raises(PolarizationContractError, match="expected universe"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_response_count_key_mismatch(asimov_problem):
@@ -552,7 +552,7 @@ def test_forward_folded_fit_rejects_response_count_key_mismatch(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="response/count.*key"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_nonfinite_state_inputs(asimov_problem):
@@ -562,7 +562,7 @@ def test_forward_folded_fit_rejects_nonfinite_state_inputs(asimov_problem):
     object.__setattr__(counts, "rows", tuple(altered))
 
     with pytest.raises(PolarizationContractError, match="finite.*polarization"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_enforces_minimum_event_qa(asimov_problem):
@@ -573,7 +573,7 @@ def test_forward_folded_fit_enforces_minimum_event_qa(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="minimum event"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_enforces_deviance_qa(asimov_problem):
@@ -584,18 +584,18 @@ def test_forward_folded_fit_enforces_deviance_qa(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="deviance/ndof"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_sign_mapping_inverts_sigma(asimov_problem):
-    nominal = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+    nominal = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
     config = asimov_problem["config"]
     asimov_problem["config"] = replace(
         config,
         orientation_signs=(("parallel", 1), ("perpendicular", -1)),
     )
 
-    inverted = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+    inverted = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
     np.testing.assert_allclose(inverted.sigma, -nominal.sigma, atol=2e-4)
 
@@ -608,7 +608,7 @@ def test_forward_folded_fit_rejects_invalid_sign_mapping(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="sign mapping"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_pending_sign_authority(asimov_problem):
@@ -616,12 +616,12 @@ def test_forward_folded_fit_rejects_pending_sign_authority(asimov_problem):
     asimov_problem["config"] = replace(config, sign_status="pending")
 
     with pytest.raises(PolarizationContractError, match="approved sign authority"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_is_deterministic(asimov_problem):
-    first = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
-    second = sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+    first = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
+    second = sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
     np.testing.assert_array_equal(first.sigma, second.sigma)
     np.testing.assert_array_equal(first.log_yield, second.log_yield)
@@ -638,7 +638,7 @@ def test_forward_folded_fit_rejects_optimizer_failure(asimov_problem, monkeypatc
     )
 
     with pytest.raises(PolarizationContractError, match="did not converge"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_nonpositive_expectation(asimov_problem):
@@ -654,7 +654,7 @@ def test_forward_folded_fit_rejects_nonpositive_expectation(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="positive finite expected"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_bootstrap_covariance_preserves_cross_observable_covariance(
@@ -791,7 +791,7 @@ def test_forward_folded_fit_rejects_indefinite_fisher_covariance(
         PolarizationContractError,
         match="fit covariance.*positive definite",
     ):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 @pytest.mark.parametrize(
@@ -855,7 +855,7 @@ def test_forward_folded_fit_rejects_invalid_response_block(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="response block"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_lost_angular_rank(asimov_problem):
@@ -874,14 +874,14 @@ def test_forward_folded_fit_rejects_lost_angular_rank(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="rank"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_boundary_pathology(asimov_problem):
     _replace_injected_sigma(asimov_problem, [0.999, -0.999])
 
     with pytest.raises(PolarizationContractError, match="boundary"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
 
 
 def test_forward_folded_fit_rejects_incomplete_count_grid(asimov_problem):
@@ -893,4 +893,26 @@ def test_forward_folded_fit_rejects_incomplete_count_grid(asimov_problem):
     )
 
     with pytest.raises(PolarizationContractError, match="complete.*count"):
-        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+        sigma_fit._fit_sigma_forward_folded_core(**asimov_problem)
+
+
+def test_forward_folded_fit_rejects_mutually_unanchored_valid_digests(
+    asimov_problem,
+):
+    """Syntactically valid hashes cannot authenticate unrelated artifacts."""
+    counts = asimov_problem["counts"]
+    asimov_problem["counts"] = AzimuthCountTable(
+        tuple(replace(row, config_sha256="f" * 64) for row in counts.rows),
+        counts.expected_universe,
+        counts.expected_replica_ids,
+    )
+    asimov_problem["response"] = replace(
+        asimov_problem["response"],
+        config_sha256="e" * 64,
+        input_sha256="d" * 64,
+    )
+
+    with pytest.raises(PolarizationContractError, match="authenticated authority"):
+        sigma_fit.fit_sigma_forward_folded(
+            asimov_problem["counts"], authority=object()
+        )
