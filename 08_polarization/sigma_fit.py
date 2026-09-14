@@ -19,9 +19,11 @@ from azimuth_counts import (
     AzimuthCountRow,
     AzimuthCountTable,
     CountAuthority,
+    ExpectedRecoGrid,
     _authority_fingerprint,
     _reload_count_authority,
     _validate_table_for_publication,
+    build_azimuth_counts,
 )
 from contracts import PolarizationContractError, SHA256_PATTERN
 from phi_response import PhiResponse, ResponseKey, TrueCellKey
@@ -714,18 +716,38 @@ def _fit_sigma_forward_folded_core(
     )
 
 
+def _immutable_count_snapshot(counts: object) -> AzimuthCountTable:
+    """Copy one exact count value graph across the public trust boundary."""
+    if type(counts) is not AzimuthCountTable:
+        raise PolarizationContractError(
+            "forward-folded fit requires an exact immutable count table"
+        )
+    rows = counts.rows
+    expected = counts.expected_universe
+    replicas = counts.expected_replica_ids
+    if (
+        type(rows) is not tuple
+        or any(type(row) is not AzimuthCountRow for row in rows)
+        or type(expected) is not tuple
+        or any(type(item) is not ExpectedRecoGrid for item in expected)
+        or type(replicas) is not tuple
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit requires an exact immutable count table"
+        )
+    return AzimuthCountTable(tuple(rows), tuple(expected), tuple(replicas))
+
+
 def fit_sigma_forward_folded(
-    counts: AzimuthCountTable,
-    *,
-    authority: CountAuthority,
-    replica_id: int = 0,
+    *, authority: CountAuthority, replica_id: int = 0
 ) -> JointSigmaFitResult:
-    """Fit counts using only freshly authenticated config and N3 response bytes.
+    """Build and fit counts using only freshly authenticated authority bytes.
 
     ``CountAuthority`` is loader-sealed and retains every transitive source
     byte used by N2 count construction and the N3 handoff.  Reloading from its
-    canonical paths prevents caller-provided digest strings or detached
-    ``AnalysisConfig``/``PhiResponse`` objects from becoming fit authority.
+    canonical paths around the authenticated ROOT read prevents caller counts,
+    detached config/response objects, or concurrent authority changes from
+    becoming fit inputs.
     """
     if type(authority) is not CountAuthority:
         raise PolarizationContractError(
@@ -737,11 +759,18 @@ def fit_sigma_forward_folded(
         raise PolarizationContractError(
             "forward-folded fit authority changed after authentication"
         )
-    _validate_table_for_publication(counts, fresh)
+    counts = build_azimuth_counts(authority=fresh)
+    stable = _reload_count_authority(fresh)
+    if _authority_fingerprint(stable) != original_fingerprint:
+        raise PolarizationContractError(
+            "forward-folded fit authority changed while counts were built"
+        )
+    counts = _immutable_count_snapshot(counts)
+    _validate_table_for_publication(counts, stable)
     return _fit_sigma_forward_folded_core(
         counts,
-        fresh.response,
-        config=fresh.config,
+        stable.response,
+        config=stable.config,
         replica_id=replica_id,
     )
 

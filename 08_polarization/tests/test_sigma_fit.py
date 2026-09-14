@@ -913,6 +913,4 @@ def test_forward_folded_fit_rejects_mutually_unanchored_valid_digests(
     )
 
     with pytest.raises(PolarizationContractError, match="authenticated authority"):
-        sigma_fit.fit_sigma_forward_folded(
-            asimov_problem["counts"], authority=object()
-        )
+        sigma_fit.fit_sigma_forward_folded(authority=object())

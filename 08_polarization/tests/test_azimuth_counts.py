@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import azimuth_counts
+import sigma_fit
 from azimuth_counts import (
     AZIMUTH_COUNT_FIELDS,
     build_azimuth_counts,
@@ -651,6 +652,93 @@ def test_public_builder_rejects_caller_supplied_event_sample(
 ):
     with pytest.raises(TypeError):
         build_azimuth_counts(event_sample, authority=count_authority)
+
+
+def test_public_fit_cannot_accept_caller_forged_observed_counts(
+    monkeypatch, event_sample, count_authority
+):
+    """Removing the public ``counts`` argument must make forged data unusable."""
+    table = _project(event_sample, count_authority)
+    forged = replace(
+        table,
+        rows=(
+            replace(table.rows[0], observed_count=table.rows[0].observed_count + 10_000),
+            *table.rows[1:],
+        ),
+    )
+    monkeypatch.setattr(
+        azimuth_counts,
+        "read_reco_root",
+        lambda *_args, **_kwargs: event_sample,
+    )
+
+    with pytest.raises(TypeError):
+        sigma_fit.fit_sigma_forward_folded(
+            counts=forged,
+            authority=count_authority,
+        )
+
+
+def test_public_fit_rejects_stateful_count_table_subclass(
+    monkeypatch, event_sample, count_authority
+):
+    """An alternating ``rows`` property must not cross the fit trust boundary."""
+    table = _project(event_sample, count_authority)
+    forged_rows = (
+        replace(table.rows[0], observed_count=table.rows[0].observed_count + 10_000),
+        *table.rows[1:],
+    )
+
+    class StatefulCountTable(azimuth_counts.AzimuthCountTable):
+        def __getattribute__(self, name):
+            if name == "rows" and getattr(self, "_armed", False):
+                current = object.__getattribute__(self, "_return_forged")
+                object.__setattr__(self, "_return_forged", not current)
+                if current:
+                    return object.__getattribute__(self, "_forged_rows")
+            return super().__getattribute__(name)
+
+    stateful = StatefulCountTable(
+        table.rows,
+        table.expected_universe,
+        table.expected_replica_ids,
+    )
+    object.__setattr__(stateful, "_armed", False)
+    object.__setattr__(stateful, "_return_forged", False)
+    object.__setattr__(stateful, "_forged_rows", forged_rows)
+    object.__setattr__(stateful, "_armed", True)
+    monkeypatch.setattr(
+        sigma_fit,
+        "build_azimuth_counts",
+        lambda *, authority: stateful,
+        raising=False,
+    )
+
+    with pytest.raises(PolarizationContractError, match="exact immutable"):
+        sigma_fit.fit_sigma_forward_folded(authority=count_authority)
+
+
+def test_public_fit_rejects_reanchored_authority_change_after_count_build(
+    monkeypatch, event_sample, count_authority, count_authority_repo
+):
+    """Post-build reload must catch a coherent authority swap after ROOT read."""
+    real_builder = sigma_fit.build_azimuth_counts
+    monkeypatch.setattr(
+        azimuth_counts,
+        "read_reco_root",
+        lambda *_args, **_kwargs: event_sample,
+    )
+
+    def build_then_replace(*, authority):
+        table = real_builder(authority=authority)
+        _replace_file(count_authority_repo["manifest"])
+        _reanchor_transitive_replacement(count_authority_repo, "manifest")
+        return table
+
+    monkeypatch.setattr(sigma_fit, "build_azimuth_counts", build_then_replace)
+
+    with pytest.raises(PolarizationContractError, match="changed while counts"):
+        sigma_fit.fit_sigma_forward_folded(authority=count_authority)
 
 
 def test_writer_requires_fresh_authority(
