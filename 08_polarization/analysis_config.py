@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from pathlib import Path, PurePosixPath
 from typing import Mapping
@@ -99,6 +99,20 @@ class BootstrapConfig:
 
 
 @dataclass(frozen=True)
+class ReleaseQAConfig:
+    status: str
+    approval_id: str | None
+    reviewers: tuple[str, ...]
+    minimum_events_per_bin: int | None
+    maximum_deviance_per_ndof: float | None
+    closure_bias_absolute_max: float | None
+    closure_pull_mean_absolute_max: float | None
+    closure_pull_width_tolerance: float | None
+    minimum_systematic_sources: int | None
+    systematic_combination_policy: str | None
+
+
+@dataclass(frozen=True)
 class AnalysisConfig:
     schema_version: int
     analysis_version: str
@@ -123,6 +137,20 @@ class AnalysisConfig:
     figure4_vectors: str
     response_validation: ResponseValidationConfig
     bootstrap: BootstrapConfig
+    release_qa: ReleaseQAConfig = field(
+        default_factory=lambda: ReleaseQAConfig(
+            "pending_owner_approval",
+            None,
+            (),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    )
 
 
 def _mapping(payload: Mapping[str, object], key: str, keys: frozenset[str]) -> Mapping[str, object]:
@@ -234,7 +262,9 @@ def _validate_bootstrap(section: Mapping[str, object], *, approved: bool) -> Boo
     return BootstrapConfig(replicas, BOOTSTRAP_ALGORITHM_VERSION, seed, failed_fraction, minimum, maximum)
 
 
-def _validate_release_qa(section: Mapping[str, object], *, release_approved: bool) -> None:
+def _validate_release_qa(
+    section: Mapping[str, object], *, release_approved: bool
+) -> ReleaseQAConfig:
     if set(section) != RELEASE_QA_KEYS:
         raise PolarizationContractError("release_qa_thresholds must contain exactly its required keys")
     status = section.get("status")
@@ -245,15 +275,18 @@ def _validate_release_qa(section: Mapping[str, object], *, release_approved: boo
         raise PolarizationContractError("release_qa_thresholds status must match release status")
     approval_id = section.get("approval_id")
     if approved:
-        _text(approval_id, "release_qa_thresholds approval_id")
+        approval_id = _text(approval_id, "release_qa_thresholds approval_id")
     elif approval_id is not None:
         raise PolarizationContractError("pending release_qa_thresholds approval_id must be null")
-    _reviewers(section.get("reviewers"), "release QA", required=approved)
+    reviewers = _reviewers(
+        section.get("reviewers"), "release QA", required=approved
+    )
     integer_keys = {"minimum_events_per_bin", "minimum_systematic_sources"}
     numeric_keys = {
         "maximum_deviance_per_ndof", "closure_bias_absolute_max",
         "closure_pull_mean_absolute_max", "closure_pull_width_tolerance",
     }
+    integers = {}
     for key in integer_keys:
         value = section.get(key)
         if approved:
@@ -261,16 +294,31 @@ def _validate_release_qa(section: Mapping[str, object], *, release_approved: boo
                 raise PolarizationContractError(f"release_qa_thresholds {key} must be a positive integer")
         elif value is not None:
             raise PolarizationContractError(f"pending release_qa_thresholds {key} must be null")
+        integers[key] = value
+    numbers = {}
     for key in numeric_keys:
         value = _number(section.get(key), f"release_qa_thresholds {key}", required=approved)
         if not approved and value is not None:
             raise PolarizationContractError(f"pending release_qa_thresholds {key} must be null")
+        numbers[key] = value
     policy = section.get("systematic_combination_policy")
     if approved:
         if policy != "independent_sources_quadrature":
             raise PolarizationContractError("release_qa_thresholds systematic_combination_policy is invalid")
     elif policy is not None:
         raise PolarizationContractError("pending release_qa_thresholds systematic_combination_policy must be null")
+    return ReleaseQAConfig(
+        status=status,
+        approval_id=approval_id,
+        reviewers=reviewers,
+        minimum_events_per_bin=integers["minimum_events_per_bin"],
+        maximum_deviance_per_ndof=numbers["maximum_deviance_per_ndof"],
+        closure_bias_absolute_max=numbers["closure_bias_absolute_max"],
+        closure_pull_mean_absolute_max=numbers["closure_pull_mean_absolute_max"],
+        closure_pull_width_tolerance=numbers["closure_pull_width_tolerance"],
+        minimum_systematic_sources=integers["minimum_systematic_sources"],
+        systematic_combination_policy=policy,
+    )
 
 
 def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> AnalysisConfig:
@@ -390,7 +438,7 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
         _mapping(payload, "bootstrap", BOOTSTRAP_KEYS),
         approved=release_values_approved,
     )
-    _validate_release_qa(
+    release_qa = _validate_release_qa(
         _mapping(payload, "release_qa_thresholds", RELEASE_QA_KEYS),
         release_approved=release_values_approved,
     )
@@ -409,4 +457,5 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
         figure4_energy_edges_gev=edges, figure4_mass_bins=mass_bins,
         figure4_phi_bins=phi_bins, figure4_target=target, figure4_tree=tree,
         figure4_vectors=vectors, response_validation=response, bootstrap=bootstrap,
+        release_qa=release_qa,
     )

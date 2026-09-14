@@ -123,6 +123,24 @@ def test_release_config_requires_exact_approved_identity(valid_config, repo):
     assert loaded.acceptance_qa_sha256 == "a" * 64
 
 
+def test_release_config_retains_validated_qa_policy(valid_config, repo):
+    payload = _payload(
+        _digest(repo / "config/schemas/acceptance_phi_response_v1.schema.json"),
+        status="approved",
+    )
+    valid_config.write_text(json.dumps(payload))
+
+    loaded = load_analysis_config(valid_config, repo, require_approved=True)
+
+    assert loaded.release_qa.status == "approved"
+    assert loaded.release_qa.reviewers == ("reviewer-one", "reviewer-two")
+    assert loaded.release_qa.minimum_events_per_bin == 10
+    assert loaded.release_qa.maximum_deviance_per_ndof == 2.0
+    assert loaded.release_qa.systematic_combination_policy == (
+        "independent_sources_quadrature"
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
