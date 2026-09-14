@@ -51,6 +51,22 @@ def _vector4(value) -> tuple[float, float, float, float]:
     return (float(value.Px()), float(value.Py()), float(value.Pz()), float(value.E()))
 
 
+def _stable_event_identity(
+    file_digests: tuple[str, ...], *, tree_number: int, local_entry: int
+) -> tuple[str, int]:
+    """Return the file-local replay key captured before selection."""
+    if (
+        isinstance(tree_number, bool)
+        or not isinstance(tree_number, int)
+        or not 0 <= tree_number < len(file_digests)
+        or isinstance(local_entry, bool)
+        or not isinstance(local_entry, int)
+        or local_entry < 0
+    ):
+        raise PolarizationContractError("invalid ROOT tree-local event identity")
+    return file_digests[tree_number], local_entry
+
+
 def _validate_file_schema(ROOT, path: Path, tree_name: str, vectors: str) -> None:
     root_file = ROOT.TFile.Open(str(path), "READ")
     if not root_file or root_file.IsZombie():
@@ -139,8 +155,11 @@ def read_reco_root(
         proton.append(_vector4(getattr(event, proton_branch)))
         eta.append(_vector4(getattr(event, eta_branch)))
         pi0.append(_vector4(getattr(event, pi0_branch)))
-        file_sha256.append(file_digests[tree_number])
-        tree_entry.append(local_entry)
+        digest, entry = _stable_event_identity(
+            file_digests, tree_number=tree_number, local_entry=local_entry
+        )
+        file_sha256.append(digest)
+        tree_entry.append(entry)
     if not beam_energy:
         raise PolarizationContractError("reconstruction selection contains no events")
     if tuple(sha256_file(path) for path in files) != file_digests:

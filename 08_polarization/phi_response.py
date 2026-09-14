@@ -81,6 +81,7 @@ class PhiResponse:
     source_sha256: str
     input_sha256: str
     config_sha256: str
+    mass_edges: Mapping[ResponseKey, tuple[float, ...]]
     phi_edges: Mapping[ResponseKey, tuple[float, ...]]
 
     def matrix(self, key: ResponseKey, orientation: str) -> np.ndarray:
@@ -298,7 +299,7 @@ def load_phi_response(path: Path, *, repository_root: Path, config: AnalysisConf
     if sha256_file(path) != source_digest:
         raise PolarizationContractError("response CSV changed during validation")
     keys = tuple(sorted({key for key, _ in groups}))
-    matrices, covariance, validity, phi_edges = {}, {}, {}, {}
+    matrices, covariance, validity, mass_edges, phi_edges = {}, {}, {}, {}, {}
     m, p = config.figure4_mass_bins, config.figure4_phi_bins
     size = m * p
     for key in keys:
@@ -319,6 +320,13 @@ def load_phi_response(path: Path, *, repository_root: Path, config: AnalysisConf
                 if kind == "mass":
                     if not np.allclose(true, expected_mass[key.observable], rtol=0, atol=EDGE_ATOL):
                         raise PolarizationContractError("response mass edges disagree with approved fit binning")
+                    if key in mass_edges and not np.allclose(
+                        mass_edges[key], true, rtol=0, atol=EDGE_ATOL
+                    ):
+                        raise PolarizationContractError(
+                            "response orientations must share equal mass axes"
+                        )
+                    mass_edges[key] = true
                 else:
                     if not math.isclose(true[0], 0, abs_tol=EDGE_ATOL, rel_tol=0) or not math.isclose(true[-1], math.pi, abs_tol=EDGE_ATOL, rel_tol=0):
                         raise PolarizationContractError("response phi axes must cover [0,pi) without wrap")
@@ -336,4 +344,4 @@ def load_phi_response(path: Path, *, repository_root: Path, config: AnalysisConf
     input_digest, config_digest = hashes.pop()
     return PhiResponse(keys, MappingProxyType(matrices), MappingProxyType(covariance),
                        MappingProxyType(validity), source_digest, input_digest, config_digest,
-                       MappingProxyType(phi_edges))
+                       MappingProxyType(mass_edges), MappingProxyType(phi_edges))

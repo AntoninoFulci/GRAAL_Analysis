@@ -8,19 +8,15 @@ import numpy as np
 import pytest
 
 import azimuth_counts
-from analysis_config import BootstrapConfig
 from azimuth_counts import (
     AZIMUTH_COUNT_FIELDS,
-    AzimuthCountTable,
-    CountExposure,
     build_azimuth_counts,
     event_bootstrap_weight,
     write_azimuth_counts,
 )
-from compton import PolarizationCurve
 from contracts import PolarizationContractError, sha256_file
+from figure4_analysis import PAIR_NAMES, physical_mass_edges
 from root_events import EventSample
-from state_mapping import StateInterval
 
 
 FILE_HASH = "0123456789abcdef" * 4
@@ -45,82 +41,26 @@ input_sha256
 )
 
 
-@pytest.fixture
-def event_sample():
-    proton = np.tile([0.10, 0.20, 0.00, 1.00], (4, 1))
-    eta = np.tile([0.20, 0.10, 0.00, 0.70], (4, 1))
-    pi0 = np.tile([0.30, 0.10, 0.00, 0.50], (4, 1))
+def _event_sample(paths):
+    proton = np.tile([0.10, 0.05, 0.00, 1.00], (4, 1))
+    eta = np.tile([0.10, 0.10, 0.00, 0.65], (4, 1))
+    pi0 = np.tile([0.10, -0.05, 0.00, 0.20], (4, 1))
     return EventSample(
         beam_energy=np.full(4, 1.15),
-        run_number=np.array([100, 100, 101, 101]),
+        run_number=np.array([101, 101, 101, 101]),
         state_code=np.array([1, 1, 2, 2]),
         xstrip=np.array([40.0, 41.0, 42.0, 43.0]),
         proton=proton,
         eta=eta,
         pi0=pi0,
-        file_sha256=np.array([FILE_HASH] * 4),
+        file_sha256=np.array([sha256_file(paths["reco"])] * 4),
         tree_entry=np.arange(4),
     )
 
 
 @pytest.fixture
-def authorities(response_fixture):
-    config = replace(
-        response_fixture.config,
-        figure4_energy_edges_gev=(1.1, 1.2),
-        figure4_phi_bins=4,
-        bootstrap=BootstrapConfig(
-            8, "poisson1-sha256-v1", 1701, 0.05, 0.5, 2.0
-        ),
-    )
-    state_map = (
-        StateInterval(100, 100, 1, "parallel", "period-a", "pol1_net"),
-        StateInterval(101, 101, 2, "perpendicular", "period-a", "pol2_net"),
-    )
-    compton = {
-        "period-a": PolarizationCurve(
-            [1100.0, 1200.0], [0.8, 0.8], [[0.01, 0.0], [0.0, 0.01]]
-        )
-    }
-    common = dict(
-        fit_release_id="fit-test",
-        bin_set_id="figure4-v1",
-        channel="eta_pi0",
-        target="P",
-        beam_group="group-a",
-        source_period="period-a",
-        Egamma_low=1.1,
-        Egamma_high=1.2,
-        cos_theta_low=-1.0,
-        cos_theta_high=1.0,
-        selection_id="selection-v1",
-        exposure=1000.0,
-        beam_polarization=0.8,
-        beam_polarization_variance=0.005,
-        source_stage="N2",
-        n2_inventory_path="results/reconstruction/inventory.json",
-        gate0_handoff_sha256="a" * 64,
-        n2_reconstruction_sha256="b" * 64,
-        state_mapping_sha256="c" * 64,
-        compton_source_sha256="d" * 64,
-        config_sha256="e" * 64,
-        input_sha256="f" * 64,
-    )
-    exposures = (
-        CountExposure(orientation="parallel", **common),
-        CountExposure(orientation="perpendicular", **common),
-    )
-    return {
-        "config": config,
-        "state_map": state_map,
-        "exposures": exposures,
-        "compton": compton,
-        "mass_edges": {
-            "p_pi0": np.array([1.0, 1.5, 2.0]),
-            "p_eta": np.array([1.0, 1.7, 2.4]),
-            "eta_pi0": np.array([0.5, 1.2, 2.0]),
-        },
-    }
+def event_sample(count_authority_repo):
+    return _event_sample(count_authority_repo)
 
 
 def _authority_source(path, repository_root):
@@ -147,17 +87,23 @@ def count_authority_repo(response_fixture):
     bundle_dir.mkdir(parents=True)
     manifest = repository_root / "config/run_manifest.csv"
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text("run_number,target\n101,P\n", encoding="utf-8")
+    manifest.write_text(
+        "run_number,target\n101,P\n102,P\n103,P\n", encoding="utf-8"
+    )
     (bundle_dir / "run_manifest_observables.csv").write_text(
         "run_number,source_period,target,beam_type,group,classification_source,source_file\n"
-        "101,period-a,P,UV,group-a,synthetic,reco.root\n",
+        "101,period-a,P,UV,group-a,synthetic,reco.root\n"
+        "102,period-b,P,UV,group-a,synthetic,reco.root\n"
+        "103,period-a,P,UV,group-a,synthetic,reco.root\n",
         encoding="utf-8",
     )
     (bundle_dir / "run_quality.csv").write_text(
-        "run_number,status\n101,good\n", encoding="utf-8"
+        "run_number,status\n101,good\n102,good\n103,good\n", encoding="utf-8"
     )
     (bundle_dir / "strip_energy_lookup.csv").write_text(
-        "run_number,xstrip,energy_median_gev\n101,42,1.15\n", encoding="utf-8"
+        "run_number,xstrip,energy_median_gev\n"
+        "101,42,1.15\n102,42,1.15\n103,42,1.15\n",
+        encoding="utf-8",
     )
     flux_path = bundle_dir / "flux_by_run_energy.csv"
     flux_fields = (
@@ -168,26 +114,31 @@ def count_authority_repo(response_fixture):
     with flux_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=flux_fields)
         writer.writeheader()
-        for low in (1.1, 1.2, 1.3, 1.4):
-            writer.writerow(
-                {
-                    "binning": "ajaka_sigma",
-                    "run_number": 101,
-                    "source_period": "period-a",
-                    "target": "P",
-                    "beam_type": "UV",
-                    "group": "group-a",
-                    "energy_low_gev": low,
-                    "energy_high_gev": low + 0.1,
-                    "pol1": 101.0,
-                    "brem": 1.0,
-                    "pol2": 101.0,
-                    "pol1_net": 100.0,
-                    "pol2_net": 100.0,
-                    "total_net": 200.0,
-                    "status": "valid",
-                }
-            )
+        for run, period, pol1_net, pol2_net in (
+            (101, "period-a", 100.0, 80.0),
+            (102, "period-b", 30.0, 40.0),
+            (103, "period-a", 50.0, 60.0),
+        ):
+            for low, high in ((1.1, 1.2), (1.2, 1.3), (1.3, 1.4), (1.4, 1.5)):
+                writer.writerow(
+                    {
+                        "binning": "ajaka_sigma",
+                        "run_number": run,
+                        "source_period": period,
+                        "target": "P",
+                        "beam_type": "UV",
+                        "group": "group-a",
+                        "energy_low_gev": low,
+                        "energy_high_gev": high,
+                        "pol1": pol1_net + 1.0,
+                        "brem": 1.0,
+                        "pol2": pol2_net + 1.0,
+                        "pol1_net": pol1_net,
+                        "pol2_net": pol2_net,
+                        "total_net": pol1_net + pol2_net,
+                        "status": "valid",
+                    }
+                )
     (bundle_dir / "flux_by_group_energy.csv").write_text(
         "status\nvalid\n", encoding="utf-8"
     )
@@ -225,7 +176,10 @@ def count_authority_repo(response_fixture):
     reco_path = reconstruction_dir / "reco.root"
     reco_path.write_bytes(b"synthetic N2 ROOT bytes")
     ledger_path = reconstruction_dir / "processed_runs.csv"
-    ledger_path.write_text("run_number,status\n101,complete\n", encoding="utf-8")
+    ledger_path.write_text(
+        "run_number,status\n101,complete\n102,complete\n103,complete\n",
+        encoding="utf-8",
+    )
     inventory_path = reconstruction_dir / "inventory.json"
     inventory_path.write_text(
         json.dumps(
@@ -236,9 +190,9 @@ def count_authority_repo(response_fixture):
                 "complete_run_coverage": True,
                 "tree": "reco_eta_pi0_chi2",
                 "vectors": "kinematic_fit",
-                "run_numbers": [101],
+                "run_numbers": [101, 102, 103],
                 "observed_event_run_numbers": [101],
-                "zero_selected_event_run_numbers": [],
+                "zero_selected_event_run_numbers": [102, 103],
                 "processed_run_ledger": _authority_file(
                     ledger_path, repository_root
                 ),
@@ -251,10 +205,16 @@ def count_authority_repo(response_fixture):
     authority_dir = repository_root / "data/authorities"
     authority_dir.mkdir(parents=True)
     state_source = authority_dir / "state.csv"
-    state_source.write_text("run,state\n101,1\n", encoding="utf-8")
+    state_source.write_text(
+        "run,state\n101,1\n102,1\n103,1\n", encoding="utf-8"
+    )
     compton_source = authority_dir / "compton.csv"
     compton_source.write_text(
         "energy_mev,polarization\n1100,0.8\n1500,0.8\n", encoding="utf-8"
+    )
+    compton_source_b = authority_dir / "compton-b.csv"
+    compton_source_b.write_text(
+        "energy_mev,polarization\n1100,0.7\n1500,0.7\n", encoding="utf-8"
     )
 
     release_dir = (
@@ -267,7 +227,40 @@ def count_authority_repo(response_fixture):
         "channel,acceptance\neta_pi0,0.5\n", encoding="utf-8"
     )
     response_path = release_dir / "acceptance_phi_response_v1.csv"
-    response_path.write_bytes(response_fixture.path.read_bytes())
+    response_rows = []
+    mass_edges = physical_mass_edges(
+        1.2,
+        bins=2,
+        masses_gev={"proton": 0.938272, "eta": 0.547862, "pi0": 0.134977},
+    )
+    for observable in PAIR_NAMES:
+        for original in response_fixture.rows:
+            row = dict(original)
+            row["observable"] = observable
+            true_bin = row["true_mass_bin"]
+            reco_bin = row["reco_mass_bin"]
+            row["true_mass_low_gev"] = mass_edges[observable][true_bin]
+            row["true_mass_high_gev"] = mass_edges[observable][true_bin + 1]
+            row["reco_mass_low_gev"] = mass_edges[observable][reco_bin]
+            row["reco_mass_high_gev"] = mass_edges[observable][reco_bin + 1]
+            response_rows.append(row)
+    response_rows.sort(
+        key=lambda row: (
+            *(row[name] for name in (
+                "channel", "target", "beam_group", "Egamma_low", "Egamma_high",
+                "cos_theta_low", "cos_theta_high", "observable", "selection_id",
+            )),
+            row["orientation"],
+            row["true_mass_bin"],
+            row["true_phi_bin"],
+            row["reco_mass_bin"],
+            row["reco_phi_bin"],
+        )
+    )
+    with response_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=tuple(response_rows[0]))
+        writer.writeheader()
+        writer.writerows(response_rows)
     acceptance_qa_path = release_dir / "acceptance_qa.json"
     acceptance_qa_path.write_text(
         json.dumps(
@@ -351,6 +344,38 @@ def count_authority_repo(response_fixture):
                             "source_period": "period-a",
                             "flux_component": "pol2_net",
                         },
+                        {
+                            "run_start": 102,
+                            "run_end": 102,
+                            "state_code": 1,
+                            "orientation": "parallel",
+                            "source_period": "period-b",
+                            "flux_component": "pol1_net",
+                        },
+                        {
+                            "run_start": 102,
+                            "run_end": 102,
+                            "state_code": 2,
+                            "orientation": "perpendicular",
+                            "source_period": "period-b",
+                            "flux_component": "pol2_net",
+                        },
+                        {
+                            "run_start": 103,
+                            "run_end": 103,
+                            "state_code": 1,
+                            "orientation": "parallel",
+                            "source_period": "period-a",
+                            "flux_component": "pol1_net",
+                        },
+                        {
+                            "run_start": 103,
+                            "run_end": 103,
+                            "state_code": 2,
+                            "orientation": "perpendicular",
+                            "source_period": "period-a",
+                            "flux_component": "pol2_net",
+                        },
                     ],
                 },
                 "compton_polarization": {
@@ -364,7 +389,16 @@ def count_authority_repo(response_fixture):
                             "energies_mev": [1100.0, 1500.0],
                             "polarization": [0.8, 0.8],
                             "covariance": [[0.0001, 0.0], [0.0, 0.0001]],
-                        }
+                        },
+                        {
+                            "source_period": "period-b",
+                            "source": _authority_source(
+                                compton_source_b, repository_root
+                            ),
+                            "energies_mev": [1100.0, 1500.0],
+                            "polarization": [0.7, 0.7],
+                            "covariance": [[0.0004, 0.0], [0.0, 0.0004]],
+                        },
                     ],
                 },
                 "angle": {
@@ -444,6 +478,7 @@ def count_authority_repo(response_fixture):
         "reco": reco_path,
         "state": state_source,
         "compton": compton_source,
+        "compton_b": compton_source_b,
         "acceptance_qa": acceptance_qa_path,
         "response": response_path,
     }
@@ -460,6 +495,22 @@ def _load_count_authority(paths):
         fit_release_id="fit-test",
         bin_set_id="figure4-v1",
     )
+
+
+@pytest.fixture
+def count_authority(count_authority_repo):
+    return _load_count_authority(count_authority_repo)
+
+
+def _reanchor_response(paths):
+    qa = json.loads(paths["acceptance_qa"].read_text(encoding="utf-8"))
+    qa["acceptance_phi_response_csv_sha256"] = sha256_file(paths["response"])
+    paths["acceptance_qa"].write_text(json.dumps(qa), encoding="utf-8")
+    config = json.loads(paths["config"].read_text(encoding="utf-8"))
+    config["acceptance"]["acceptance_qa_sha256"] = sha256_file(
+        paths["acceptance_qa"]
+    )
+    paths["config"].write_text(json.dumps(config), encoding="utf-8")
 
 
 def test_count_authority_loader_retains_only_actual_authenticated_bytes(
@@ -497,7 +548,8 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     assert authority.response.source_sha256 == sha256_file(
         count_authority_repo["response"]
     )
-    assert len(authority.flux_rows) == 4
+    assert len(authority.flux_rows) == 12
+    assert {key.observable for key in authority.response.keys} == set(PAIR_NAMES)
 
 
 def _break_authority_file(path, mutation):
@@ -550,6 +602,26 @@ def test_count_authority_cannot_be_rebuilt_with_forged_hash_strings(
         replace(authority, config_file=forged)
 
 
+def test_count_authority_binds_n2_file_to_inventory_recorded_digest(
+    count_authority_repo, monkeypatch
+):
+    original = azimuth_counts.load_reco_inventory
+
+    def mutate_after_inventory_validation(*args, **kwargs):
+        inventory = original(*args, **kwargs)
+        count_authority_repo["reco"].write_bytes(b"substituted after inventory read")
+        return inventory
+
+    monkeypatch.setattr(
+        azimuth_counts,
+        "load_reco_inventory",
+        mutate_after_inventory_validation,
+    )
+
+    with pytest.raises(PolarizationContractError, match="N2 reconstruction file SHA-256"):
+        _load_count_authority(count_authority_repo)
+
+
 def test_poisson_multiplier_has_frozen_versioned_vectors():
     assert event_bootstrap_weight(
         FILE_HASH,
@@ -596,21 +668,25 @@ def test_poisson_multiplier_rejects_noncanonical_identity_or_config(change):
         event_bootstrap_weight(**arguments)
 
 
-def test_bootstrap_multiplier_is_shared_across_observables(event_sample, authorities):
-    table = build_azimuth_counts(event_sample, **authorities)
+def test_bootstrap_multiplier_is_shared_across_observables(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
     totals = [
         table.sum_for(name, replica_id=7)
         for name in ("p_pi0", "p_eta", "eta_pi0")
     ]
     assert len(set(totals)) == 1
-    assert [table.sum_for(name, replica_id=0) for name in authorities["mass_edges"]] == [4, 4, 4]
+    assert [table.sum_for(name, replica_id=0) for name in PAIR_NAMES] == [4, 4, 4]
 
 
-def test_shared_replicas_retain_nonzero_cross_observable_covariance(event_sample, authorities):
-    table = build_azimuth_counts(event_sample, **authorities)
+def test_shared_replicas_retain_nonzero_cross_observable_covariance(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
     replica_totals = np.array(
         [
-            [table.sum_for(name, replica_id=replica_id) for name in authorities["mass_edges"]]
+            [table.sum_for(name, replica_id=replica_id) for name in PAIR_NAMES]
             for replica_id in table.replica_ids[1:]
         ]
     )
@@ -619,54 +695,65 @@ def test_shared_replicas_retain_nonzero_cross_observable_covariance(event_sample
     assert covariance[0, 2] > 0.0
 
 
-def test_counts_publish_complete_nominal_and_replica_grids(event_sample, authorities):
-    table = build_azimuth_counts(event_sample, **authorities)
+def test_counts_publish_complete_nominal_and_replica_grids(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
     assert table.replica_ids == tuple(
-        range(authorities["config"].bootstrap.replicas + 1)
+        range(count_authority.config.bootstrap.replicas + 1)
     )
     assert table.has_every_reco_cell()
-    assert len(table.rows) == 2 * 9 * 3 * 2 * 4
+    assert len(table.rows) == 3 * 2 * 2 * 33 * 2 * 12
     assert any(row.observed_count == 0 for row in table.rows)
+    assert all(
+        row.observed_count == 0
+        for row in table.rows
+        if row.source_period == "period-b"
+    )
 
 
 def test_counts_require_more_replicas_than_the_published_sigma_dimension(
-    event_sample, authorities
+    event_sample, count_authority_repo
 ):
-    undersized = replace(
-        authorities["config"],
-        bootstrap=BootstrapConfig(6, "poisson1-sha256-v1", 1701, 0.05, 0.5, 2.0),
-    )
+    payload = json.loads(count_authority_repo["config"].read_text(encoding="utf-8"))
+    payload["bootstrap"]["replicas"] = 6
+    count_authority_repo["config"].write_text(json.dumps(payload), encoding="utf-8")
+    authority = _load_count_authority(count_authority_repo)
+    sample = _event_sample(count_authority_repo)
 
     with pytest.raises(PolarizationContractError, match="Sigma-vector dimension"):
-        build_azimuth_counts(event_sample, **{**authorities, "config": undersized})
+        build_azimuth_counts(sample, authority=authority)
 
 
-def test_complete_grid_check_detects_wholly_missing_orientation(event_sample, authorities):
-    table = build_azimuth_counts(event_sample, **authorities)
-    incomplete = AzimuthCountTable(
-        tuple(row for row in table.rows if row.orientation != "parallel")
-    )
-    assert not incomplete.has_every_reco_cell()
+def test_expected_universe_rejects_wholly_missing_orientation(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+    with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
+        replace(
+            table,
+            rows=tuple(row for row in table.rows if row.orientation != "parallel"),
+        )
 
 
 def test_count_grid_rejects_noncontiguous_azimuth_partition(
-    event_sample, authorities, tmp_path
+    event_sample, count_authority, tmp_path
 ):
-    table = build_azimuth_counts(event_sample, **authorities)
-    malformed = AzimuthCountTable(
-        tuple(
-            replace(row, reco_phi_high=0.7) if row.reco_phi_bin == 0 else row
-            for row in table.rows
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+    with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
+        replace(
+            table,
+            rows=tuple(
+                replace(row, reco_phi_high=0.7) if row.reco_phi_bin == 0 else row
+                for row in table.rows
+            ),
         )
-    )
-
-    assert not malformed.has_every_reco_cell()
-    with pytest.raises(PolarizationContractError, match="incomplete"):
-        write_azimuth_counts(malformed, tmp_path / "azimuth_counts_v1.csv")
 
 
-def test_counts_serialize_exact_ordered_schema_and_hash(event_sample, authorities, tmp_path):
-    table = build_azimuth_counts(event_sample, **authorities)
+def test_counts_serialize_exact_ordered_schema_and_hash(
+    event_sample, count_authority, tmp_path
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
     output = tmp_path / "azimuth_counts_v1.csv"
 
     digest = write_azimuth_counts(table, output)
@@ -681,8 +768,10 @@ def test_counts_serialize_exact_ordered_schema_and_hash(event_sample, authoritie
     assert rows[0]["replica_id"] == "0"
     assert rows[0]["reco_mass_bin"] == "0"
     assert rows[0]["reco_phi_bin"] == "0"
-    assert rows[0]["n2_reconstruction_sha256"] == "b" * 64
-    assert rows[0]["input_sha256"] == "f" * 64
+    assert rows[0]["n2_reconstruction_sha256"] == (
+        count_authority.n2_inventory_file.sha256
+    )
+    assert rows[0]["input_sha256"] == count_authority.flux_file.sha256
 
 
 @pytest.mark.parametrize(
@@ -694,40 +783,189 @@ def test_counts_serialize_exact_ordered_schema_and_hash(event_sample, authoritie
     ],
 )
 def test_count_table_rejects_malformed_serialized_rows(
-    event_sample, authorities, mutation, match
+    event_sample, count_authority, mutation, match
 ):
-    table = build_azimuth_counts(event_sample, **authorities)
+    table = build_azimuth_counts(event_sample, authority=count_authority)
     rows = (replace(table.rows[0], **mutation), *table.rows[1:])
     with pytest.raises(PolarizationContractError, match=match):
-        AzimuthCountTable(rows)
+        replace(table, rows=rows)
 
 
-@pytest.mark.parametrize(
-    "mutation,match",
-    [
-        ({"source_stage": "N4"}, "N2"),
-        ({"n2_reconstruction_sha256": "not-a-hash"}, "SHA-256"),
-        ({"beam_polarization": 0.7}, "Compton"),
-        ({"beam_polarization_variance": 0.004}, "Compton"),
-    ],
-)
-def test_counts_reject_non_n2_or_unbound_authority(
-    event_sample, authorities, mutation, match
+def test_sample_digest_must_be_present_in_authenticated_n2_inventory(
+    event_sample, count_authority
 ):
-    exposures = tuple(replace(item, **mutation) for item in authorities["exposures"])
-    with pytest.raises(PolarizationContractError, match=match):
-        build_azimuth_counts(event_sample, **{**authorities, "exposures": exposures})
+    unrelated = replace(event_sample, file_sha256=np.array(["f" * 64] * 4))
+
+    with pytest.raises(PolarizationContractError, match="N2 inventory"):
+        build_azimuth_counts(unrelated, authority=count_authority)
 
 
-def test_counts_require_both_orientations_for_each_physical_period(event_sample, authorities):
+def test_n4_or_unrelated_sample_cannot_claim_n2_provenance(
+    event_sample, count_authority, count_authority_repo
+):
+    n4_path = count_authority_repo["root"] / "results/reco/n4.root"
+    n4_path.parent.mkdir(parents=True)
+    n4_path.write_bytes(b"synthetic N4 yields")
+    n4_sample = replace(
+        event_sample,
+        file_sha256=np.array([sha256_file(n4_path)] * len(event_sample.file_sha256)),
+    )
+
+    with pytest.raises(PolarizationContractError, match="N2 inventory"):
+        build_azimuth_counts(n4_sample, authority=count_authority)
+
+
+def test_exposure_polarization_and_provenance_are_derived_from_authority(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+    nominal = [row for row in table.rows if row.replica_id == 0]
+    exposures = {
+        (row.observable, row.source_period, row.orientation): row.exposure
+        for row in nominal
+    }
+    for observable in PAIR_NAMES:
+        assert exposures[observable, "period-a", "parallel"] == pytest.approx(150.0)
+        assert exposures[observable, "period-a", "perpendicular"] == pytest.approx(140.0)
+        assert exposures[observable, "period-b", "parallel"] == pytest.approx(30.0)
+        assert exposures[observable, "period-b", "perpendicular"] == pytest.approx(40.0)
+    polarization = {
+        row.source_period: (
+            row.beam_polarization,
+            row.beam_polarization_variance,
+        )
+        for row in nominal
+    }
+    assert polarization["period-a"] == pytest.approx((0.8, 0.000078125))
+    assert polarization["period-b"] == pytest.approx((0.7, 0.0003125))
+    assert {row.gate0_handoff_sha256 for row in nominal} == {
+        count_authority.gate0_handoff_file.sha256
+    }
+    assert {row.state_mapping_sha256 for row in nominal} == {
+        count_authority.state_mapping_file.sha256
+    }
+    assert {row.config_sha256 for row in nominal} == {
+        count_authority.config_file.sha256
+    }
+
+
+def test_caller_cannot_replace_authenticated_flux_with_altered_exposure(
+    count_authority,
+):
+    altered_rows = tuple(
+        replace(row, pol1_net=999999.0) for row in count_authority.flux_rows
+    )
+    with pytest.raises(PolarizationContractError, match="load_count_authority"):
+        replace(count_authority, flux_rows=altered_rows)
+
+
+def test_counts_require_both_orientations_for_each_physical_period(
+    event_sample, count_authority_repo
+):
+    payload = json.loads(count_authority_repo["config"].read_text(encoding="utf-8"))
+    payload["state_mapping"]["intervals"] = [
+        interval
+        for interval in payload["state_mapping"]["intervals"]
+        if not (
+            interval["source_period"] == "period-b"
+            and interval["orientation"] == "perpendicular"
+        )
+    ]
+    count_authority_repo["config"].write_text(json.dumps(payload), encoding="utf-8")
+    authority = _load_count_authority(count_authority_repo)
+    sample = _event_sample(count_authority_repo)
+
     with pytest.raises(PolarizationContractError, match="both orientations"):
-        build_azimuth_counts(
-            event_sample,
-            **{**authorities, "exposures": authorities["exposures"][:1]},
+        build_azimuth_counts(sample, authority=authority)
+
+
+def test_counts_reject_duplicate_stable_event_identity(event_sample, count_authority):
+    duplicate = replace(event_sample, tree_entry=np.array([0, 0, 2, 3]))
+    with pytest.raises(PolarizationContractError, match="event identity"):
+        build_azimuth_counts(duplicate, authority=count_authority)
+
+
+def test_expected_universe_rejects_entire_missing_source_period(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+    with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
+        replace(
+            table,
+            rows=tuple(row for row in table.rows if row.source_period != "period-b"),
         )
 
 
-def test_counts_reject_duplicate_stable_event_identity(event_sample, authorities):
-    duplicate = replace(event_sample, tree_entry=np.array([0, 0, 2, 3]))
-    with pytest.raises(PolarizationContractError, match="event identity"):
-        build_azimuth_counts(duplicate, **authorities)
+def test_expected_universe_rejects_entire_missing_response_physical_key(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+    missing = count_authority.response.keys[0]
+    with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
+        replace(
+            table,
+            rows=tuple(
+                row
+                for row in table.rows
+                if not (
+                    row.channel == missing.channel
+                    and row.target == missing.target
+                    and row.beam_group == missing.beam_group
+                    and row.Egamma_low == missing.Egamma_low
+                    and row.Egamma_high == missing.Egamma_high
+                    and row.cos_theta_low == missing.cos_theta_low
+                    and row.cos_theta_high == missing.cos_theta_high
+                    and row.observable == missing.observable
+                    and row.selection_id == missing.selection_id
+                )
+            ),
+        )
+
+
+def test_count_axes_are_exactly_the_authenticated_response_reco_axes(
+    event_sample, count_authority
+):
+    table = build_azimuth_counts(event_sample, authority=count_authority)
+
+    for expected in table.expected_universe:
+        key = next(
+            key
+            for key in count_authority.response.keys
+            if (
+                key.channel,
+                key.target,
+                key.beam_group,
+                key.Egamma_low,
+                key.Egamma_high,
+                key.cos_theta_low,
+                key.cos_theta_high,
+                key.observable,
+                key.selection_id,
+            )
+            == expected.response_key
+        )
+        assert expected.reco_mass_edges == count_authority.response.mass_edges[key]
+        assert expected.reco_phi_edges == count_authority.response.phi_edges[key]
+
+
+def test_subdivided_cos_theta_response_is_rejected_fail_closed(
+    event_sample, count_authority_repo
+):
+    with count_authority_repo["response"].open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+        fields = tuple(rows[0])
+    for row in rows:
+        row["cos_theta_low"] = "-0.5"
+        row["cos_theta_high"] = "0.5"
+    with count_authority_repo["response"].open(
+        "w", newline="", encoding="utf-8"
+    ) as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    _reanchor_response(count_authority_repo)
+    authority = _load_count_authority(count_authority_repo)
+    sample = _event_sample(count_authority_repo)
+
+    with pytest.raises(PolarizationContractError, match="cos_theta"):
+        build_azimuth_counts(sample, authority=authority)

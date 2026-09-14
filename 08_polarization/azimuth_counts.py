@@ -30,7 +30,7 @@ from contracts import (
     validate_gate0_handoff,
 )
 from figure4_analysis import PAIR_NAMES, event_pair_observables
-from phi_response import PhiResponse
+from phi_response import PhiResponse, ResponseKey
 from reco_inventory import RecoInventory, load_gate0_run_numbers, load_reco_inventory
 from root_events import EventSample
 from state_mapping import (
@@ -157,6 +157,11 @@ class CountAuthority:
     @property
     def state_mapping_sha256(self) -> str:
         return self.state_mapping_file.sha256
+
+    @property
+    def n2_file_sha256s(self) -> frozenset[str]:
+        """Return the exact reconstruction-file digest set authenticated by N2."""
+        return frozenset(item.sha256 for item in self.n2_files)
 
 
 def _canonical_input_path(raw_path: str | Path, label: str) -> str:
@@ -398,6 +403,7 @@ def load_count_authority(
     inventory_file = _authenticated_file(
         root, n2_inventory_path, "N2 reconstruction inventory"
     )
+    raw_inventory = load_json(inventory_file.path)
     inventory = load_reco_inventory(
         inventory_file.path,
         root,
@@ -410,20 +416,29 @@ def load_count_authority(
         raise PolarizationContractError(
             "N2 reconstruction inventory changed during validation"
         )
+    raw_n2_files = raw_inventory.get("files")
+    if not isinstance(raw_n2_files, list):
+        raise PolarizationContractError(
+            "N2 reconstruction inventory file records are unavailable"
+        )
     n2_files = tuple(
         sorted(
             (
-                _relative_authenticated_file(
+                _authenticated_file(
                     root,
-                    path,
+                    record.get("path"),
                     "N2 reconstruction file",
-                    expected_sha256=sha256_file(path),
+                    expected_sha256=record.get("sha256"),
                 )
-                for path in inventory.paths
+                for record in raw_n2_files
             ),
             key=lambda item: item.relative_path,
         )
     )
+    if tuple(item.path for item in n2_files) != tuple(sorted(inventory.paths)):
+        raise PolarizationContractError(
+            "authenticated N2 files disagree with reconstruction inventory"
+        )
 
     acceptance_relative = _canonical_input_path(
         acceptance_handoff_path, "N3 acceptance handoff QA"
@@ -573,41 +588,6 @@ def load_count_authority(
 
 
 @dataclass(frozen=True)
-class CountExposure:
-    """One validated flux/Compton authority cell used by the N2 projector.
-
-    ``input_sha256`` identifies the exact observable-run flux input. The
-    unsaved ``source_stage`` and ``n2_inventory_path`` fields make the N2
-    origin explicit at construction time; only their anchored inventory
-    digest is repeated in the count CSV schema.
-    """
-
-    fit_release_id: str
-    bin_set_id: str
-    channel: str
-    target: str
-    beam_group: str
-    source_period: str
-    Egamma_low: float
-    Egamma_high: float
-    cos_theta_low: float
-    cos_theta_high: float
-    selection_id: str
-    orientation: str
-    exposure: float
-    beam_polarization: float
-    beam_polarization_variance: float
-    source_stage: str
-    n2_inventory_path: str
-    gate0_handoff_sha256: str
-    n2_reconstruction_sha256: str
-    state_mapping_sha256: str
-    compton_source_sha256: str
-    config_sha256: str
-    input_sha256: str
-
-
-@dataclass(frozen=True)
 class AzimuthCountRow:
     schema_version: int
     analysis_version: str
@@ -643,6 +623,29 @@ class AzimuthCountRow:
     input_sha256: str
 
 
+@dataclass(frozen=True)
+class ExpectedRecoGrid:
+    """One response-defined count grid retained even when every count is zero."""
+
+    analysis_version: str
+    fit_release_id: str
+    bin_set_id: str
+    response_key: ResponseKey
+    source_period: str
+    orientation: str
+    reco_mass_edges: tuple[float, ...]
+    reco_phi_edges: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class _DerivedCountCell:
+    expected: ExpectedRecoGrid
+    exposure: float
+    beam_polarization: float
+    beam_polarization_variance: float
+    compton_source_sha256: str
+
+
 def _row_order(row: AzimuthCountRow) -> tuple:
     return (
         row.schema_version,
@@ -670,6 +673,27 @@ def _count_group(row: AzimuthCountRow) -> tuple:
     return _row_order(row)[:15]
 
 
+def _expected_group(expected: ExpectedRecoGrid) -> tuple:
+    key = expected.response_key
+    return (
+        1,
+        expected.analysis_version,
+        expected.fit_release_id,
+        expected.bin_set_id,
+        key.channel,
+        key.target,
+        key.beam_group,
+        expected.source_period,
+        key.Egamma_low,
+        key.Egamma_high,
+        key.cos_theta_low,
+        key.cos_theta_high,
+        key.observable,
+        key.selection_id,
+        expected.orientation,
+    )
+
+
 def _physical_count_group(row: AzimuthCountRow) -> tuple:
     return (
         row.schema_version,
@@ -686,6 +710,10 @@ def _physical_count_group(row: AzimuthCountRow) -> tuple:
         row.cos_theta_high,
         row.selection_id,
     )
+
+
+def _physical_expected_group(expected: ExpectedRecoGrid) -> tuple:
+    return _expected_group(expected)[:-1]
 
 
 def _has_contiguous_partition(
@@ -729,8 +757,55 @@ def _has_contiguous_partition(
 @dataclass(frozen=True)
 class AzimuthCountTable:
     rows: tuple[AzimuthCountRow, ...]
+    expected_universe: tuple[ExpectedRecoGrid, ...]
+    expected_replica_ids: tuple[int, ...]
 
     def __post_init__(self) -> None:
+        if (
+            type(self.expected_universe) is not tuple
+            or not self.expected_universe
+            or any(
+                not isinstance(expected, ExpectedRecoGrid)
+                for expected in self.expected_universe
+            )
+        ):
+            raise PolarizationContractError(
+                "azimuth count table requires a frozen expected universe"
+            )
+        expected_order = tuple(
+            _expected_group(expected) for expected in self.expected_universe
+        )
+        if (
+            expected_order != tuple(sorted(expected_order))
+            or len(set(expected_order)) != len(expected_order)
+        ):
+            raise PolarizationContractError(
+                "azimuth count expected universe must be unique and canonical"
+            )
+        for expected in self.expected_universe:
+            _validate_expected_grid(expected)
+        expected_orientations: dict[tuple, set[str]] = {}
+        for expected in self.expected_universe:
+            expected_orientations.setdefault(
+                _physical_expected_group(expected), set()
+            ).add(expected.orientation)
+        if any(
+            orientations != set(ORIENTATIONS)
+            for orientations in expected_orientations.values()
+        ):
+            raise PolarizationContractError(
+                "azimuth count expected universe requires both orientations"
+            )
+        if (
+            type(self.expected_replica_ids) is not tuple
+            or not self.expected_replica_ids
+            or any(type(replica) is not int for replica in self.expected_replica_ids)
+            or self.expected_replica_ids
+            != tuple(range(self.expected_replica_ids[-1] + 1))
+        ):
+            raise PolarizationContractError(
+                "azimuth count expected replica IDs must be contiguous from zero"
+            )
         if not self.rows:
             raise PolarizationContractError("azimuth count table must contain rows")
         ordering = tuple(_row_order(row) for row in self.rows)
@@ -762,11 +837,15 @@ class AzimuthCountTable:
             raise PolarizationContractError(
                 "azimuth count rows mix Compton authorities within a source period"
             )
+        if not self.has_every_reco_cell():
+            raise PolarizationContractError(
+                "azimuth count rows must contain the complete reconstructed grid"
+            )
 
     @property
     def replica_ids(self) -> tuple[int, ...]:
         """Return the complete ordered nominal-plus-bootstrap replica IDs."""
-        return tuple(sorted({row.replica_id for row in self.rows}))
+        return self.expected_replica_ids
 
     def sum_for(self, observable: str, replica_id: int) -> int:
         """Sum all reconstructed cells for one observable and replica."""
@@ -781,72 +860,38 @@ class AzimuthCountTable:
         )
 
     def has_every_reco_cell(self) -> bool:
-        """Report whether every present physical group has a full replica grid."""
-        replicas = self.replica_ids
-        if not replicas or replicas != tuple(range(replicas[-1] + 1)):
-            return False
-        coverage: dict[tuple, set[tuple[str, str]]] = {}
-        for row in self.rows:
-            coverage.setdefault(_physical_count_group(row), set()).add(
-                (row.observable, row.orientation)
-            )
-        expected_coverage = {
-            (observable, orientation)
-            for observable in PAIR_NAMES
-            for orientation in ORIENTATIONS
-        }
-        if any(pairs != expected_coverage for pairs in coverage.values()):
+        """Report whether every response-defined group has its exact full grid."""
+        replicas = self.expected_replica_ids
+        if {row.replica_id for row in self.rows} != set(replicas):
             return False
         grouped: dict[tuple, dict[int, list[AzimuthCountRow]]] = {}
         for row in self.rows:
             grouped.setdefault(_count_group(row), {}).setdefault(
                 row.replica_id, []
             ).append(row)
-        for by_replica in grouped.values():
-            if tuple(sorted(by_replica)) != replicas:
-                return False
-            reference = by_replica[0]
-            mass_bins = sorted({row.reco_mass_bin for row in reference})
-            phi_bins = sorted({row.reco_phi_bin for row in reference})
-            if mass_bins != list(range(len(mass_bins))) or phi_bins != list(
-                range(len(phi_bins))
-            ):
-                return False
-            if not _has_contiguous_partition(
-                reference,
-                index_name="reco_mass_bin",
-                low_name="reco_mass_low_gev",
-                high_name="reco_mass_high_gev",
-            ) or not _has_contiguous_partition(
-                reference,
-                index_name="reco_phi_bin",
-                low_name="reco_phi_low",
-                high_name="reco_phi_high",
-                required_low=0.0,
-                required_high=math.pi,
-            ):
+        expected_by_group = {
+            _expected_group(expected): expected for expected in self.expected_universe
+        }
+        if set(grouped) != set(expected_by_group):
+            return False
+        for group, expected_grid in expected_by_group.items():
+            by_replica = grouped[group]
+            if set(by_replica) != set(replicas):
                 return False
             expected = {
-                (mass_bin, phi_bin)
-                for mass_bin in mass_bins
-                for phi_bin in phi_bins
-            }
-            reference_edges = {
                 (
-                    row.reco_mass_bin,
-                    row.reco_phi_bin,
-                    row.reco_mass_low_gev,
-                    row.reco_mass_high_gev,
-                    row.reco_phi_low,
-                    row.reco_phi_high,
+                    mass_bin,
+                    phi_bin,
+                    expected_grid.reco_mass_edges[mass_bin],
+                    expected_grid.reco_mass_edges[mass_bin + 1],
+                    expected_grid.reco_phi_edges[phi_bin],
+                    expected_grid.reco_phi_edges[phi_bin + 1],
                 )
-                for row in reference
+                for mass_bin in range(len(expected_grid.reco_mass_edges) - 1)
+                for phi_bin in range(len(expected_grid.reco_phi_edges) - 1)
             }
             for rows in by_replica.values():
-                cells = [(row.reco_mass_bin, row.reco_phi_bin) for row in rows]
-                if len(cells) != len(expected) or set(cells) != expected:
-                    return False
-                if {
+                actual = {
                     (
                         row.reco_mass_bin,
                         row.reco_phi_bin,
@@ -856,7 +901,8 @@ class AzimuthCountTable:
                         row.reco_phi_high,
                     )
                     for row in rows
-                } != reference_edges:
+                }
+                if len(rows) != len(expected) or actual != expected:
                     return False
         return True
 
@@ -880,6 +926,85 @@ def _finite(value: object, label: str) -> float:
     if not math.isfinite(result):
         raise PolarizationContractError(f"{label} must be finite")
     return result
+
+
+def _validate_expected_axis(
+    raw: tuple[float, ...],
+    label: str,
+    *,
+    required_low: float | None = None,
+    required_high: float | None = None,
+) -> None:
+    if (
+        type(raw) is not tuple
+        or len(raw) < 2
+        or any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            for value in raw
+        )
+        or any(right <= left for left, right in zip(raw, raw[1:]))
+    ):
+        raise PolarizationContractError(
+            f"azimuth count expected {label} must be a frozen finite partition"
+        )
+    if required_low is not None and not math.isclose(
+        raw[0], required_low, rel_tol=0.0, abs_tol=1e-14
+    ):
+        raise PolarizationContractError(
+            f"azimuth count expected {label} has the wrong lower boundary"
+        )
+    if required_high is not None and not math.isclose(
+        raw[-1], required_high, rel_tol=0.0, abs_tol=1e-14
+    ):
+        raise PolarizationContractError(
+            f"azimuth count expected {label} has the wrong upper boundary"
+        )
+
+
+def _validate_expected_grid(expected: ExpectedRecoGrid) -> None:
+    _canonical_text(expected.analysis_version, "expected analysis_version")
+    _canonical_text(expected.fit_release_id, "expected fit_release_id")
+    _canonical_text(expected.bin_set_id, "expected bin_set_id")
+    _canonical_text(expected.source_period, "expected source_period")
+    if not isinstance(expected.response_key, ResponseKey):
+        raise PolarizationContractError(
+            "azimuth count expected universe requires response keys"
+        )
+    key = expected.response_key
+    for name in ("channel", "target", "beam_group", "observable", "selection_id"):
+        _canonical_text(getattr(key, name), f"expected response {name}")
+    if key.observable not in PAIR_NAMES:
+        raise PolarizationContractError(
+            "azimuth count expected response observable is invalid"
+        )
+    if expected.orientation not in ORIENTATIONS:
+        raise PolarizationContractError(
+            "azimuth count expected orientation is invalid"
+        )
+    for value, label in (
+        (key.Egamma_low, "energy lower edge"),
+        (key.Egamma_high, "energy upper edge"),
+        (key.cos_theta_low, "cosine lower edge"),
+        (key.cos_theta_high, "cosine upper edge"),
+    ):
+        _finite(value, f"expected response {label}")
+    if key.Egamma_low >= key.Egamma_high:
+        raise PolarizationContractError(
+            "azimuth count expected response energy bin is reversed"
+        )
+    if not -1.0 <= key.cos_theta_low < key.cos_theta_high <= 1.0:
+        raise PolarizationContractError(
+            "azimuth count expected response cosine bin is invalid"
+        )
+    _validate_expected_axis(expected.reco_mass_edges, "mass axis")
+    _validate_expected_axis(
+        expected.reco_phi_edges,
+        "azimuth axis",
+        required_low=0.0,
+        required_high=math.pi,
+    )
 
 
 def _validate_count_row(row: AzimuthCountRow) -> None:
@@ -992,7 +1117,13 @@ def event_bootstrap_weight(
     return value
 
 
-def _validate_sample(sample: EventSample, tree: str) -> int:
+def _validate_sample(
+    sample: EventSample,
+    tree: str,
+    *,
+    n2_file_sha256s: frozenset[str],
+    observed_run_numbers: frozenset[int],
+) -> int:
     if not isinstance(sample, EventSample):
         raise PolarizationContractError("counts require an EventSample derived from N2")
     one_dimensional = (
@@ -1030,182 +1161,207 @@ def _validate_sample(sample: EventSample, tree: str) -> int:
         raise PolarizationContractError("N2 tree entries must be nonnegative integers")
     identities = []
     for digest, entry in zip(sample.file_sha256, entries):
-        identities.append((_digest(str(digest), "N2 file SHA-256"), tree, int(entry)))
+        file_digest = _digest(str(digest), "N2 file SHA-256")
+        if file_digest not in n2_file_sha256s:
+            raise PolarizationContractError(
+                "N2 event file SHA-256 is absent from authenticated N2 inventory"
+            )
+        identities.append((file_digest, tree, int(entry)))
     if len(set(identities)) != event_count:
         raise PolarizationContractError("N2 stable event identity must be unique")
+    if not set(int(run) for run in runs).issubset(observed_run_numbers):
+        raise PolarizationContractError(
+            "N2 event runs disagree with authenticated reconstruction inventory"
+        )
     return event_count
 
 
-def _exposure_group(exposure: CountExposure) -> tuple:
+def _retained_count_authority_files(
+    authority: CountAuthority,
+) -> tuple[AuthenticatedFile, ...]:
     return (
-        exposure.fit_release_id,
-        exposure.bin_set_id,
-        exposure.channel,
-        exposure.target,
-        exposure.beam_group,
-        exposure.source_period,
-        exposure.Egamma_low,
-        exposure.Egamma_high,
-        exposure.cos_theta_low,
-        exposure.cos_theta_high,
-        exposure.selection_id,
-        exposure.source_stage,
-        exposure.n2_inventory_path,
-        exposure.gate0_handoff_sha256,
-        exposure.n2_reconstruction_sha256,
-        exposure.state_mapping_sha256,
-        exposure.compton_source_sha256,
-        exposure.config_sha256,
-        exposure.input_sha256,
+        authority.config_file,
+        authority.gate0_handoff_file,
+        *authority.gate0_bundle_files,
+        authority.n2_inventory_file,
+        *authority.n2_files,
+        authority.state_mapping_file,
+        *[item.file for item in authority.compton_files],
+        *authority.acceptance_files,
     )
 
 
-def _exposure_order(exposure: CountExposure) -> tuple:
-    return _exposure_group(exposure)[:11] + (exposure.orientation,)
-
-
-def _validate_exposures(
-    raw: Sequence[CountExposure],
-    *,
-    config: AnalysisConfig,
-    state_map: tuple[StateInterval, ...],
-    compton: Mapping[str, PolarizationCurve],
-) -> tuple[CountExposure, ...]:
-    try:
-        exposures = tuple(raw)
-    except TypeError as exc:
-        raise PolarizationContractError("count exposures must be a sequence") from exc
-    if not exposures or any(
-        not isinstance(item, CountExposure) for item in exposures
+def _validate_count_authority(authority: CountAuthority) -> None:
+    if not isinstance(authority, CountAuthority):
+        raise PolarizationContractError(
+            "azimuth counts require CountAuthority from load_count_authority"
+        )
+    config = authority.config
+    if config.status != "approved" or config.blocked_reasons:
+        raise PolarizationContractError(
+            "azimuth counts require approved canonical config"
+        )
+    if tuple(item.path for item in authority.n2_files) != tuple(
+        sorted(authority.n2_inventory.paths)
     ):
-        raise PolarizationContractError("count exposures must contain CountExposure records")
-    energy_bins = tuple(
-        zip(config.figure4_energy_edges_gev, config.figure4_energy_edges_gev[1:])
+        raise PolarizationContractError(
+            "authenticated N2 files disagree with reconstruction inventory"
+        )
+    retained = _retained_count_authority_files(authority)
+    if any(sha256_file(item.path) != item.sha256 for item in retained):
+        raise PolarizationContractError(
+            "count authority bytes changed after authentication"
+        )
+    response_files = tuple(
+        item
+        for item in authority.acceptance_files
+        if item.relative_path.endswith("/acceptance_phi_response_v1.csv")
     )
-    keys = set()
-    groups: dict[tuple, set[str]] = {}
-    release_ids = set()
-    common_provenance = set()
-    for item in exposures:
-        for name in (
-            "fit_release_id", "bin_set_id", "channel", "target", "beam_group",
-            "source_period", "selection_id",
-        ):
-            _canonical_text(getattr(item, name), name)
-        if item.source_stage != "N2":
+    if (
+        len(response_files) != 1
+        or response_files[0].sha256 != authority.response.source_sha256
+    ):
+        raise PolarizationContractError(
+            "count response disagrees with authenticated N3 bytes"
+        )
+    response_keys = set(authority.response.keys)
+    if (
+        response_keys
+        != {key for key, _orientation in authority.response.matrices}
+        or response_keys != set(authority.response.mass_edges)
+        or response_keys != set(authority.response.phi_edges)
+    ):
+        raise PolarizationContractError(
+            "count response axes do not cover its physical key universe"
+        )
+
+
+def _flux_exposure_totals(authority: CountAuthority) -> dict[tuple, float]:
+    totals: dict[tuple, float] = {}
+    for row in authority.flux_rows:
+        matching = tuple(
+            interval
+            for interval in authority.state_map
+            if interval.source_period == row.source_period
+            and interval.run_start <= row.run_number <= interval.run_end
+        )
+        if not matching:
             raise PolarizationContractError(
-                "count construction accepts N2 events only; N4 is forbidden"
+                "valid count flux row lacks state-map coverage"
             )
-        for name in (
-            "gate0_handoff_sha256", "n2_reconstruction_sha256",
-            "state_mapping_sha256", "compton_source_sha256", "config_sha256",
-            "input_sha256",
+        orientation_components: dict[str, set[str]] = {}
+        component_orientations: dict[str, set[str]] = {}
+        for interval in matching:
+            orientation_components.setdefault(interval.orientation, set()).add(
+                interval.flux_component
+            )
+            component_orientations.setdefault(interval.flux_component, set()).add(
+                interval.orientation
+            )
+        if any(len(values) != 1 for values in orientation_components.values()) or any(
+            len(values) != 1 for values in component_orientations.values()
         ):
-            _digest(getattr(item, name), name)
-        if item.orientation not in ORIENTATIONS:
-            raise PolarizationContractError("count exposure orientation is invalid")
-        values = {
-            name: _finite(getattr(item, name), name)
-            for name in (
-                "Egamma_low", "Egamma_high", "cos_theta_low", "cos_theta_high",
-                "exposure", "beam_polarization", "beam_polarization_variance",
+            raise PolarizationContractError(
+                "state mapping ambiguously assigns count flux components"
             )
+        for orientation, components in orientation_components.items():
+            component = next(iter(components))
+            flux = getattr(row, component)
+            group = (
+                row.target,
+                row.beam_group,
+                row.energy_low_gev,
+                row.energy_high_gev,
+                row.source_period,
+                orientation,
+            )
+            totals[group] = totals.get(group, 0.0) + flux
+    return totals
+
+
+def _derive_count_cells(authority: CountAuthority) -> tuple[_DerivedCountCell, ...]:
+    totals = _flux_exposure_totals(authority)
+    compton_files = {item.source_period: item.file for item in authority.compton_files}
+    cells = []
+    for key in authority.response.keys:
+        if key.cos_theta_low != -1.0 or key.cos_theta_high != 1.0:
+            raise PolarizationContractError(
+                "azimuth_counts_v1 requires response cos_theta=[-1,1]"
+            )
+        mass_edges = authority.response.mass_edges[key]
+        phi_edges = authority.response.phi_edges[key]
+        expected_size = (len(mass_edges) - 1) * (len(phi_edges) - 1)
+        for orientation in ORIENTATIONS:
+            matrix = authority.response.matrix(key, orientation)
+            if matrix.shape != (expected_size, expected_size):
+                raise PolarizationContractError(
+                    "response matrix shape disagrees with authenticated axes"
+                )
+        applicable = {
+            group[4:]
+            for group, exposure in totals.items()
+            if group[:4]
+            == (key.target, key.beam_group, key.Egamma_low, key.Egamma_high)
+            and exposure > 0.0
         }
-        if values["Egamma_low"] >= values["Egamma_high"] or (
-            values["Egamma_low"], values["Egamma_high"]
-        ) not in energy_bins:
-            raise PolarizationContractError("count exposure energy bin disagrees with config")
-        if not -1.0 <= values["cos_theta_low"] < values["cos_theta_high"] <= 1.0:
-            raise PolarizationContractError("count exposure cosine bin is invalid")
-        if values["exposure"] <= 0.0:
-            raise PolarizationContractError("count exposure must be positive")
-        if not 0.0 < values["beam_polarization"] <= 1.0:
-            raise PolarizationContractError("count beam polarization must lie in (0,1]")
-        if values["beam_polarization_variance"] < 0.0:
-            raise PolarizationContractError("count beam polarization variance must be nonnegative")
-        if item.target != config.figure4_target:
-            raise PolarizationContractError("count exposure target disagrees with config")
-        curve = compton.get(item.source_period)
-        if not isinstance(curve, PolarizationCurve):
+        periods = sorted({source_period for source_period, _ in applicable})
+        if not periods:
             raise PolarizationContractError(
-                f"approved Compton curve missing for source_period {item.source_period}"
+                "response physical key has no authenticated valid flux exposure"
             )
-        expected_polarization, expected_variance = curve.bin_average(
-            1000.0 * item.Egamma_low, 1000.0 * item.Egamma_high
-        )
-        polarization_matches = np.isclose(
-            item.beam_polarization,
-            expected_polarization,
-            rtol=1e-12,
-            atol=1e-14,
-        )
-        variance_matches = np.isclose(
-            item.beam_polarization_variance,
-            expected_variance,
-            rtol=1e-12,
-            atol=1e-14,
-        )
-        if not polarization_matches or not variance_matches:
-            raise PolarizationContractError(
-                "count beam polarization/variance disagrees with Compton authority"
+        for source_period in periods:
+            orientations = {
+                orientation
+                for period, orientation in applicable
+                if period == source_period
+            }
+            if orientations != set(ORIENTATIONS):
+                raise PolarizationContractError(
+                    "each response physical key/source_period requires both orientations"
+                )
+            curve = authority.compton.get(source_period)
+            compton_file = compton_files.get(source_period)
+            if not isinstance(curve, PolarizationCurve) or compton_file is None:
+                raise PolarizationContractError(
+                    f"approved Compton authority missing for {source_period}"
+                )
+            polarization, variance = curve.bin_average(
+                1000.0 * key.Egamma_low, 1000.0 * key.Egamma_high
             )
-        if not any(
-            interval.source_period == item.source_period
-            and interval.orientation == item.orientation
-            for interval in state_map
-        ):
-            raise PolarizationContractError(
-                "count exposure period/orientation lacks state-map coverage"
-            )
-        key = _exposure_order(item)
-        if key in keys:
-            raise PolarizationContractError("count exposures must be canonically unique")
-        keys.add(key)
-        groups.setdefault(_exposure_group(item), set()).add(item.orientation)
-        release_ids.add(item.fit_release_id)
-        common_provenance.add(
-            (
-                item.n2_inventory_path,
-                item.gate0_handoff_sha256,
-                item.n2_reconstruction_sha256,
-                item.state_mapping_sha256,
-                item.config_sha256,
-                item.input_sha256,
-            )
-        )
-    if len(release_ids) != 1:
-        raise PolarizationContractError("count exposures require one fit_release_id")
-    if len(common_provenance) != 1:
-        raise PolarizationContractError(
-            "count exposures must share Gate 0, N2, state-map, config, and flux provenance"
-        )
-    if any(orientations != set(ORIENTATIONS) for orientations in groups.values()):
-        raise PolarizationContractError(
-            "each physical key/source_period requires both orientations"
-        )
-    return tuple(sorted(exposures, key=_exposure_order))
-
-
-def _validate_mass_edges(
-    raw: Mapping[str, np.ndarray], bins: int
-) -> dict[str, np.ndarray]:
-    if not isinstance(raw, Mapping) or set(raw) != set(PAIR_NAMES):
-        raise PolarizationContractError(
-            "mass_edges must define exactly the three pair observables"
-        )
-    result = {}
-    for observable in PAIR_NAMES:
-        edges = np.asarray(raw[observable], dtype=float)
-        if (
-            edges.shape != (bins + 1,)
-            or not np.all(np.isfinite(edges))
-            or not np.all(np.diff(edges) > 0.0)
-        ):
-            raise PolarizationContractError(
-                f"{observable} mass edges must define the approved finite partition"
-            )
-        result[observable] = edges
-    return result
+            if not 0.0 < polarization <= 1.0 or variance < 0.0:
+                raise PolarizationContractError(
+                    "derived count beam polarization is not physical"
+                )
+            for orientation in ORIENTATIONS:
+                exposure = totals[
+                    (
+                        key.target,
+                        key.beam_group,
+                        key.Egamma_low,
+                        key.Egamma_high,
+                        source_period,
+                        orientation,
+                    )
+                ]
+                cells.append(
+                    _DerivedCountCell(
+                        ExpectedRecoGrid(
+                            analysis_version=authority.config.analysis_version,
+                            fit_release_id=authority.fit_release_id,
+                            bin_set_id=authority.bin_set_id,
+                            response_key=key,
+                            source_period=source_period,
+                            orientation=orientation,
+                            reco_mass_edges=mass_edges,
+                            reco_phi_edges=phi_edges,
+                        ),
+                        exposure,
+                        polarization,
+                        variance,
+                        compton_file.sha256,
+                    )
+                )
+    return tuple(sorted(cells, key=lambda cell: _expected_group(cell.expected)))
 
 
 def _event_interval(
@@ -1242,19 +1398,11 @@ def _histogram_bin(value: float, edges: np.ndarray) -> int | None:
 def build_azimuth_counts(
     sample: EventSample,
     *,
-    config: AnalysisConfig,
-    state_map,
-    exposures,
-    compton,
-    mass_edges: Mapping[str, np.ndarray],
+    authority: CountAuthority,
 ) -> AzimuthCountTable:
     """Project metadata-bearing N2 events into complete replayable count grids."""
-    if (
-        not isinstance(config, AnalysisConfig)
-        or config.status != "approved"
-        or config.blocked_reasons
-    ):
-        raise PolarizationContractError("azimuth counts require approved canonical config")
+    _validate_count_authority(authority)
+    config = authority.config
     bootstrap = config.bootstrap
     if (
         bootstrap.algorithm_version != BOOTSTRAP_ALGORITHM_VERSION
@@ -1266,45 +1414,52 @@ def build_azimuth_counts(
         or bootstrap.seed < 0
     ):
         raise PolarizationContractError("azimuth counts require approved bootstrap configuration")
-    event_count = _validate_sample(sample, config.figure4_tree)
-    intervals = validate_intervals(state_map)
-    if not isinstance(compton, Mapping):
-        raise PolarizationContractError("Compton authority must map source periods to curves")
-    authority_cells = _validate_exposures(
-        exposures, config=config, state_map=intervals, compton=compton
+    event_count = _validate_sample(
+        sample,
+        config.figure4_tree,
+        n2_file_sha256s=authority.n2_file_sha256s,
+        observed_run_numbers=authority.n2_inventory.observed_event_run_numbers,
     )
-    sigma_keys = {
-        (
-            cell.fit_release_id,
-            cell.bin_set_id,
-            cell.channel,
-            cell.target,
-            cell.beam_group,
-            cell.Egamma_low,
-            cell.Egamma_high,
-            cell.cos_theta_low,
-            cell.cos_theta_high,
-            cell.selection_id,
-        )
-        for cell in authority_cells
-    }
-    sigma_vector_dimension = (
-        len(sigma_keys) * len(PAIR_NAMES) * config.figure4_mass_bins
+    intervals = validate_intervals(authority.state_map)
+    authority_cells = _derive_count_cells(authority)
+    sigma_vector_dimension = sum(
+        len(authority.response.mass_edges[key]) - 1
+        for key in authority.response.keys
     )
     if bootstrap.replicas <= sigma_vector_dimension:
         raise PolarizationContractError(
             "bootstrap replicas must exceed the published Sigma-vector dimension"
         )
-    edges_by_observable = _validate_mass_edges(mass_edges, config.figure4_mass_bins)
-    phi_edges = np.linspace(0.0, np.pi, config.figure4_phi_bins + 1)
+    replica_ids = tuple(range(bootstrap.replicas + 1))
     observables = event_pair_observables(sample.proton, sample.eta, sample.pi0)
-    counts: dict[tuple[int, int, str, int, int], int] = {}
+    counts: dict[tuple[int, int, int, int], int] = {}
     for exposure_index in range(len(authority_cells)):
-        for replica_id in range(bootstrap.replicas + 1):
-            for observable in PAIR_NAMES:
-                for mass_bin in range(config.figure4_mass_bins):
-                    for phi_bin in range(config.figure4_phi_bins):
-                        counts[exposure_index, replica_id, observable, mass_bin, phi_bin] = 0
+        expected = authority_cells[exposure_index].expected
+        for replica_id in replica_ids:
+            for mass_bin in range(len(expected.reco_mass_edges) - 1):
+                for phi_bin in range(len(expected.reco_phi_edges) - 1):
+                    counts[exposure_index, replica_id, mass_bin, phi_bin] = 0
+
+    cells_by_exposure_group: dict[tuple, list[int]] = {}
+    for index, cell in enumerate(authority_cells):
+        key = cell.expected.response_key
+        group = (
+            cell.expected.source_period,
+            cell.expected.orientation,
+            key.beam_group,
+            key.Egamma_low,
+            key.Egamma_high,
+        )
+        cells_by_exposure_group.setdefault(group, []).append(index)
+    for indices in cells_by_exposure_group.values():
+        projected_observables = [
+            authority_cells[index].expected.response_key.observable
+            for index in indices
+        ]
+        if len(set(projected_observables)) != len(projected_observables):
+            raise PolarizationContractError(
+                "N2 event projection has ambiguous response physical keys"
+            )
 
     energy_edges = config.figure4_energy_edges_gev
     for event_index in range(event_count):
@@ -1316,20 +1471,32 @@ def build_azimuth_counts(
         if energy_index is None:
             continue
         low, high = energy_edges[energy_index], energy_edges[energy_index + 1]
-        matching_exposures = [
-            index
-            for index, cell in enumerate(authority_cells)
-            if cell.source_period == interval.source_period
-            and cell.orientation == interval.orientation
-            and cell.Egamma_low == low
-            and cell.Egamma_high == high
-        ]
-        if len(matching_exposures) != 1:
-            qualifier = "missing" if not matching_exposures else "ambiguous"
-            raise PolarizationContractError(
-                f"{qualifier} count exposure for mapped N2 event"
+        beam_groups = {
+            row.beam_group
+            for row in authority.flux_rows
+            if row.run_number == run_number
+            and row.source_period == interval.source_period
+            and row.energy_low_gev == low
+            and row.energy_high_gev == high
+            and (
+                interval.source_period,
+                interval.orientation,
+                row.beam_group,
+                low,
+                high,
             )
-        exposure_index = matching_exposures[0]
+            in cells_by_exposure_group
+        }
+        if not beam_groups:
+            continue
+        if len(beam_groups) != 1:
+            raise PolarizationContractError(
+                "ambiguous authenticated beam group for mapped N2 event"
+            )
+        beam_group = next(iter(beam_groups))
+        matching_cells = cells_by_exposure_group[
+            (interval.source_period, interval.orientation, beam_group, low, high)
+        ]
         weights = tuple(
             event_bootstrap_weight(
                 str(sample.file_sha256[event_index]),
@@ -1339,71 +1506,80 @@ def build_azimuth_counts(
                 algorithm=bootstrap.algorithm_version,
                 seed=bootstrap.seed,
             )
-            for replica_id in range(bootstrap.replicas + 1)
+            for replica_id in replica_ids
         )
-        for observable, projected in observables.items():
+        for exposure_index in matching_cells:
+            expected = authority_cells[exposure_index].expected
+            projected = observables[expected.response_key.observable]
             if not projected.valid_phi[event_index]:
                 continue
             mass_bin = _histogram_bin(
-                float(projected.mass[event_index]), edges_by_observable[observable]
+                float(projected.mass[event_index]),
+                np.asarray(expected.reco_mass_edges),
             )
-            phi_bin = _histogram_bin(float(projected.phi[event_index]), phi_edges)
+            phi_bin = _histogram_bin(
+                float(projected.phi[event_index]),
+                np.asarray(expected.reco_phi_edges),
+            )
             if mass_bin is None or phi_bin is None:
                 continue
             for replica_id, weight in enumerate(weights):
-                counts[exposure_index, replica_id, observable, mass_bin, phi_bin] += weight
+                counts[exposure_index, replica_id, mass_bin, phi_bin] += weight
 
     rows = []
-    for exposure_index, authority in enumerate(authority_cells):
-        for observable in sorted(PAIR_NAMES):
-            observable_edges = edges_by_observable[observable]
-            for replica_id in range(bootstrap.replicas + 1):
-                for mass_bin in range(config.figure4_mass_bins):
-                    for phi_bin in range(config.figure4_phi_bins):
+    for exposure_index, cell in enumerate(authority_cells):
+        expected = cell.expected
+        key = expected.response_key
+        for replica_id in replica_ids:
+            for mass_bin in range(len(expected.reco_mass_edges) - 1):
+                for phi_bin in range(len(expected.reco_phi_edges) - 1):
                         rows.append(
                             AzimuthCountRow(
                                 schema_version=1,
                                 analysis_version=config.analysis_version,
                                 fit_release_id=authority.fit_release_id,
                                 bin_set_id=authority.bin_set_id,
-                                channel=authority.channel,
-                                target=authority.target,
-                                beam_group=authority.beam_group,
-                                source_period=authority.source_period,
-                                Egamma_low=authority.Egamma_low,
-                                Egamma_high=authority.Egamma_high,
-                                cos_theta_low=authority.cos_theta_low,
-                                cos_theta_high=authority.cos_theta_high,
-                                observable=observable,
-                                selection_id=authority.selection_id,
-                                orientation=authority.orientation,
+                                channel=key.channel,
+                                target=key.target,
+                                beam_group=key.beam_group,
+                                source_period=expected.source_period,
+                                Egamma_low=key.Egamma_low,
+                                Egamma_high=key.Egamma_high,
+                                cos_theta_low=key.cos_theta_low,
+                                cos_theta_high=key.cos_theta_high,
+                                observable=key.observable,
+                                selection_id=key.selection_id,
+                                orientation=expected.orientation,
                                 replica_id=replica_id,
                                 reco_mass_bin=mass_bin,
-                                reco_mass_low_gev=float(observable_edges[mass_bin]),
-                                reco_mass_high_gev=float(observable_edges[mass_bin + 1]),
+                                reco_mass_low_gev=expected.reco_mass_edges[mass_bin],
+                                reco_mass_high_gev=expected.reco_mass_edges[mass_bin + 1],
                                 reco_phi_bin=phi_bin,
-                                reco_phi_low=float(phi_edges[phi_bin]),
-                                reco_phi_high=float(phi_edges[phi_bin + 1]),
+                                reco_phi_low=expected.reco_phi_edges[phi_bin],
+                                reco_phi_high=expected.reco_phi_edges[phi_bin + 1],
                                 observed_count=counts[
                                     exposure_index,
                                     replica_id,
-                                    observable,
                                     mass_bin,
                                     phi_bin,
                                 ],
-                                exposure=authority.exposure,
-                                beam_polarization=authority.beam_polarization,
-                                beam_polarization_variance=authority.beam_polarization_variance,
+                                exposure=cell.exposure,
+                                beam_polarization=cell.beam_polarization,
+                                beam_polarization_variance=cell.beam_polarization_variance,
                                 gate0_handoff_sha256=authority.gate0_handoff_sha256,
                                 n2_reconstruction_sha256=authority.n2_reconstruction_sha256,
                                 state_mapping_sha256=authority.state_mapping_sha256,
-                                compton_source_sha256=authority.compton_source_sha256,
+                                compton_source_sha256=cell.compton_source_sha256,
                                 config_sha256=authority.config_sha256,
-                                input_sha256=authority.input_sha256,
+                                input_sha256=authority.flux_file.sha256,
                             )
                         )
     rows.sort(key=_row_order)
-    table = AzimuthCountTable(tuple(rows))
+    table = AzimuthCountTable(
+        tuple(rows),
+        tuple(cell.expected for cell in authority_cells),
+        replica_ids,
+    )
     if not table.has_every_reco_cell():
         raise PolarizationContractError("azimuth count table is missing reconstructed cells")
     return table
