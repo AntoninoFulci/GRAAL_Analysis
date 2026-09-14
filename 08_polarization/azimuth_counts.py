@@ -32,7 +32,7 @@ from contracts import (
 from figure4_analysis import PAIR_NAMES, event_pair_observables
 from phi_response import PhiResponse, ResponseKey
 from reco_inventory import RecoInventory, load_gate0_run_numbers, load_reco_inventory
-from root_events import EventSample
+from root_events import EventSample, read_reco_root
 from state_mapping import (
     StateInterval,
     load_state_mapping,
@@ -121,14 +121,17 @@ class CountAuthority:
     config: AnalysisConfig
     config_file: AuthenticatedFile
     gate0_handoff_file: AuthenticatedFile
+    gate0_manifest_file: AuthenticatedFile
     gate0_bundle_files: tuple[AuthenticatedFile, ...]
     flux_file: AuthenticatedFile
     gate0_run_numbers: frozenset[int]
     n2_inventory: RecoInventory
     n2_inventory_file: AuthenticatedFile
+    n2_processed_run_ledger_file: AuthenticatedFile
     n2_files: tuple[AuthenticatedFile, ...]
     response: PhiResponse
     acceptance_files: tuple[AuthenticatedFile, ...]
+    n3_schema_file: AuthenticatedFile
     state_map: tuple[StateInterval, ...]
     state_mapping_file: AuthenticatedFile
     compton: Mapping[str, PolarizationCurve]
@@ -394,6 +397,12 @@ def load_count_authority(
     gate0 = validate_gate0_handoff(gate0_file.path, root)
     if sha256_file(gate0_file.path) != gate0_file.sha256:
         raise PolarizationContractError("Gate 0 HANDOFF changed during validation")
+    gate0_manifest_file = _authenticated_file(
+        root,
+        gate0.get("manifest_path"),
+        "Gate 0 curated manifest",
+        expected_sha256=gate0.get("manifest_sha256"),
+    )
     bundle_files = _gate0_bundle_files(root, gate0)
     bundle_by_path = {item.relative_path: item for item in bundle_files}
     flux_file = bundle_by_path[CANONICAL_FLUX_PATH]
@@ -439,6 +448,17 @@ def load_count_authority(
         raise PolarizationContractError(
             "authenticated N2 files disagree with reconstruction inventory"
         )
+    ledger_record = raw_inventory.get("processed_run_ledger")
+    if not isinstance(ledger_record, Mapping):
+        raise PolarizationContractError(
+            "N2 reconstruction inventory processed-run ledger is unavailable"
+        )
+    ledger_file = _authenticated_file(
+        root,
+        ledger_record.get("path"),
+        "N2 processed-run ledger",
+        expected_sha256=ledger_record.get("sha256"),
+    )
 
     acceptance_relative = _canonical_input_path(
         acceptance_handoff_path, "N3 acceptance handoff QA"
@@ -485,6 +505,12 @@ def load_count_authority(
         raise PolarizationContractError(
             "N3 acceptance QA path or digest changed during validation"
         )
+    n3_schema_file = _relative_authenticated_file(
+        root,
+        acceptance.schema_path,
+        "N3 phi-response schema",
+        expected_sha256=acceptance.schema_sha256,
+    )
 
     state_map = load_state_mapping(config_file.path, root)
     state_section = raw_config.get("state_mapping")
@@ -552,12 +578,15 @@ def load_count_authority(
     retained_files = (
         config_file,
         gate0_file,
+        gate0_manifest_file,
         *bundle_files,
         inventory_file,
+        ledger_file,
         *n2_files,
         state_file,
         *[item.file for item in compton_files],
         *acceptance_files,
+        n3_schema_file,
     )
     if any(sha256_file(item.path) != item.sha256 for item in retained_files):
         raise PolarizationContractError(
@@ -570,14 +599,17 @@ def load_count_authority(
         config=config,
         config_file=config_file,
         gate0_handoff_file=gate0_file,
+        gate0_manifest_file=gate0_manifest_file,
         gate0_bundle_files=bundle_files,
         flux_file=flux_file,
         gate0_run_numbers=gate0_runs,
         n2_inventory=inventory,
         n2_inventory_file=inventory_file,
+        n2_processed_run_ledger_file=ledger_file,
         n2_files=n2_files,
         response=acceptance.response,
         acceptance_files=acceptance_files,
+        n3_schema_file=n3_schema_file,
         state_map=state_map,
         state_mapping_file=state_file,
         compton=immutable_curves,
@@ -1182,20 +1214,69 @@ def _retained_count_authority_files(
     return (
         authority.config_file,
         authority.gate0_handoff_file,
+        authority.gate0_manifest_file,
         *authority.gate0_bundle_files,
         authority.n2_inventory_file,
+        authority.n2_processed_run_ledger_file,
         *authority.n2_files,
         authority.state_mapping_file,
         *[item.file for item in authority.compton_files],
         *authority.acceptance_files,
+        authority.n3_schema_file,
+    )
+
+
+def _require_count_authority(authority: CountAuthority) -> None:
+    if type(authority) is not CountAuthority:
+        raise PolarizationContractError(
+            "azimuth counts require CountAuthority from load_count_authority"
+        )
+
+
+def _authority_acceptance_qa_file(authority: CountAuthority) -> AuthenticatedFile:
+    qa_files = tuple(
+        item
+        for item in authority.acceptance_files
+        if item.relative_path.endswith("/acceptance_qa.json")
+    )
+    if len(qa_files) != 1:
+        raise PolarizationContractError(
+            "CountAuthority lacks one canonical N3 acceptance QA file"
+        )
+    return qa_files[0]
+
+
+def _reload_count_authority(authority: CountAuthority) -> CountAuthority:
+    """Reload one authority from its canonical identifiers, never its values."""
+    _require_count_authority(authority)
+    qa_file = _authority_acceptance_qa_file(authority)
+    return load_count_authority(
+        repository_root=authority.repository_root,
+        config_path=authority.config_file.relative_path,
+        gate0_handoff_path=authority.gate0_handoff_file.relative_path,
+        n2_inventory_path=authority.n2_inventory_file.relative_path,
+        acceptance_handoff_path=qa_file.relative_path,
+        fit_release_id=authority.fit_release_id,
+        bin_set_id=authority.bin_set_id,
+    )
+
+
+def _authority_fingerprint(authority: CountAuthority) -> tuple[object, ...]:
+    """Return the full transitive byte identity used across a ROOT read."""
+    _require_count_authority(authority)
+    return (
+        authority.repository_root,
+        authority.fit_release_id,
+        authority.bin_set_id,
+        tuple(
+            (item.relative_path, item.sha256)
+            for item in _retained_count_authority_files(authority)
+        ),
     )
 
 
 def _validate_count_authority(authority: CountAuthority) -> None:
-    if not isinstance(authority, CountAuthority):
-        raise PolarizationContractError(
-            "azimuth counts require CountAuthority from load_count_authority"
-        )
+    _require_count_authority(authority)
     config = authority.config
     if config.status != "approved" or config.blocked_reasons:
         raise PolarizationContractError(
@@ -1395,12 +1476,10 @@ def _histogram_bin(value: float, edges: np.ndarray) -> int | None:
     return min(index, len(edges) - 2)
 
 
-def build_azimuth_counts(
-    sample: EventSample,
-    *,
+def _count_layout(
     authority: CountAuthority,
-) -> AzimuthCountTable:
-    """Project metadata-bearing N2 events into complete replayable count grids."""
+) -> tuple[AnalysisConfig, tuple[_DerivedCountCell, ...], tuple[int, ...]]:
+    """Derive the entire publishable grid from one authenticated authority."""
     _validate_count_authority(authority)
     config = authority.config
     bootstrap = config.bootstrap
@@ -1413,15 +1492,10 @@ def build_azimuth_counts(
         or not isinstance(bootstrap.seed, int)
         or bootstrap.seed < 0
     ):
-        raise PolarizationContractError("azimuth counts require approved bootstrap configuration")
-    event_count = _validate_sample(
-        sample,
-        config.figure4_tree,
-        n2_file_sha256s=authority.n2_file_sha256s,
-        observed_run_numbers=authority.n2_inventory.observed_event_run_numbers,
-    )
-    intervals = validate_intervals(authority.state_map)
-    authority_cells = _derive_count_cells(authority)
+        raise PolarizationContractError(
+            "azimuth counts require approved bootstrap configuration"
+        )
+    cells = _derive_count_cells(authority)
     sigma_vector_dimension = sum(
         len(authority.response.mass_edges[key]) - 1
         for key in authority.response.keys
@@ -1430,7 +1504,72 @@ def build_azimuth_counts(
         raise PolarizationContractError(
             "bootstrap replicas must exceed the published Sigma-vector dimension"
         )
-    replica_ids = tuple(range(bootstrap.replicas + 1))
+    return config, cells, tuple(range(bootstrap.replicas + 1))
+
+
+def _count_row(
+    authority: CountAuthority,
+    cell: _DerivedCountCell,
+    *,
+    replica_id: int,
+    mass_bin: int,
+    phi_bin: int,
+    observed_count: int,
+) -> AzimuthCountRow:
+    """Build one authority-derived row; only the projected count is variable."""
+    expected = cell.expected
+    key = expected.response_key
+    return AzimuthCountRow(
+        schema_version=1,
+        analysis_version=authority.config.analysis_version,
+        fit_release_id=authority.fit_release_id,
+        bin_set_id=authority.bin_set_id,
+        channel=key.channel,
+        target=key.target,
+        beam_group=key.beam_group,
+        source_period=expected.source_period,
+        Egamma_low=key.Egamma_low,
+        Egamma_high=key.Egamma_high,
+        cos_theta_low=key.cos_theta_low,
+        cos_theta_high=key.cos_theta_high,
+        observable=key.observable,
+        selection_id=key.selection_id,
+        orientation=expected.orientation,
+        replica_id=replica_id,
+        reco_mass_bin=mass_bin,
+        reco_mass_low_gev=expected.reco_mass_edges[mass_bin],
+        reco_mass_high_gev=expected.reco_mass_edges[mass_bin + 1],
+        reco_phi_bin=phi_bin,
+        reco_phi_low=expected.reco_phi_edges[phi_bin],
+        reco_phi_high=expected.reco_phi_edges[phi_bin + 1],
+        observed_count=observed_count,
+        exposure=cell.exposure,
+        beam_polarization=cell.beam_polarization,
+        beam_polarization_variance=cell.beam_polarization_variance,
+        gate0_handoff_sha256=authority.gate0_handoff_sha256,
+        n2_reconstruction_sha256=authority.n2_reconstruction_sha256,
+        state_mapping_sha256=authority.state_mapping_sha256,
+        compton_source_sha256=cell.compton_source_sha256,
+        config_sha256=authority.config_sha256,
+        input_sha256=authority.flux_file.sha256,
+    )
+
+
+def _project_azimuth_counts(
+    sample: EventSample,
+    *,
+    authority: CountAuthority,
+) -> AzimuthCountTable:
+    """Project a reader-produced N2 sample; this is not a release API."""
+    config, authority_cells, replica_ids = _count_layout(authority)
+    bootstrap = config.bootstrap
+    event_count = _validate_sample(
+        sample,
+        config.figure4_tree,
+        n2_file_sha256s=authority.n2_file_sha256s,
+        observed_run_numbers=authority.n2_inventory.observed_event_run_numbers,
+    )
+    intervals = validate_intervals(authority.state_map)
     observables = event_pair_observables(sample.proton, sample.eta, sample.pi0)
     counts: dict[tuple[int, int, int, int], int] = {}
     for exposure_index in range(len(authority_cells)):
@@ -1529,51 +1668,24 @@ def build_azimuth_counts(
     rows = []
     for exposure_index, cell in enumerate(authority_cells):
         expected = cell.expected
-        key = expected.response_key
         for replica_id in replica_ids:
             for mass_bin in range(len(expected.reco_mass_edges) - 1):
                 for phi_bin in range(len(expected.reco_phi_edges) - 1):
-                        rows.append(
-                            AzimuthCountRow(
-                                schema_version=1,
-                                analysis_version=config.analysis_version,
-                                fit_release_id=authority.fit_release_id,
-                                bin_set_id=authority.bin_set_id,
-                                channel=key.channel,
-                                target=key.target,
-                                beam_group=key.beam_group,
-                                source_period=expected.source_period,
-                                Egamma_low=key.Egamma_low,
-                                Egamma_high=key.Egamma_high,
-                                cos_theta_low=key.cos_theta_low,
-                                cos_theta_high=key.cos_theta_high,
-                                observable=key.observable,
-                                selection_id=key.selection_id,
-                                orientation=expected.orientation,
-                                replica_id=replica_id,
-                                reco_mass_bin=mass_bin,
-                                reco_mass_low_gev=expected.reco_mass_edges[mass_bin],
-                                reco_mass_high_gev=expected.reco_mass_edges[mass_bin + 1],
-                                reco_phi_bin=phi_bin,
-                                reco_phi_low=expected.reco_phi_edges[phi_bin],
-                                reco_phi_high=expected.reco_phi_edges[phi_bin + 1],
-                                observed_count=counts[
-                                    exposure_index,
-                                    replica_id,
-                                    mass_bin,
-                                    phi_bin,
-                                ],
-                                exposure=cell.exposure,
-                                beam_polarization=cell.beam_polarization,
-                                beam_polarization_variance=cell.beam_polarization_variance,
-                                gate0_handoff_sha256=authority.gate0_handoff_sha256,
-                                n2_reconstruction_sha256=authority.n2_reconstruction_sha256,
-                                state_mapping_sha256=authority.state_mapping_sha256,
-                                compton_source_sha256=cell.compton_source_sha256,
-                                config_sha256=authority.config_sha256,
-                                input_sha256=authority.flux_file.sha256,
-                            )
+                    rows.append(
+                        _count_row(
+                            authority,
+                            cell,
+                            replica_id=replica_id,
+                            mass_bin=mass_bin,
+                            phi_bin=phi_bin,
+                            observed_count=counts[
+                                exposure_index,
+                                replica_id,
+                                mass_bin,
+                                phi_bin,
+                            ],
                         )
+                    )
     rows.sort(key=_row_order)
     table = AzimuthCountTable(
         tuple(rows),
@@ -1585,10 +1697,80 @@ def build_azimuth_counts(
     return table
 
 
-def write_azimuth_counts(table: AzimuthCountTable, path: Path) -> str:
+def build_azimuth_counts(*, authority: CountAuthority) -> AzimuthCountTable:
+    """Build release counts from freshly authenticated N2 ROOT bytes only."""
+    before = _reload_count_authority(authority)
+    before_fingerprint = _authority_fingerprint(before)
+    sample = read_reco_root(
+        before.n2_inventory.paths,
+        tree_name=before.config.figure4_tree,
+        vectors=before.config.figure4_vectors,
+    )
+    after = _reload_count_authority(before)
+    if _authority_fingerprint(after) != before_fingerprint:
+        raise PolarizationContractError(
+            "count authority changed while authenticated N2 ROOT data were read"
+        )
+    return _project_azimuth_counts(sample, authority=after)
+
+
+def _validate_table_for_publication(
+    table: AzimuthCountTable,
+    authority: CountAuthority,
+) -> None:
+    """Compare an in-memory table with freshly derived authority descriptors."""
+    if not isinstance(table, AzimuthCountTable):
+        raise PolarizationContractError("cannot serialize a non-count table")
+    _config, cells, replica_ids = _count_layout(authority)
+    expected_universe = tuple(cell.expected for cell in cells)
+    if table.expected_universe != expected_universe:
+        raise PolarizationContractError(
+            "azimuth count expected universe disagrees with fresh authority"
+        )
+    if table.expected_replica_ids != replica_ids:
+        raise PolarizationContractError(
+            "azimuth count replica IDs disagree with fresh authority"
+        )
+    templates = {}
+    for cell in cells:
+        expected = cell.expected
+        for replica_id in replica_ids:
+            for mass_bin in range(len(expected.reco_mass_edges) - 1):
+                for phi_bin in range(len(expected.reco_phi_edges) - 1):
+                    template = _count_row(
+                        authority,
+                        cell,
+                        replica_id=replica_id,
+                        mass_bin=mass_bin,
+                        phi_bin=phi_bin,
+                        observed_count=0,
+                    )
+                    templates[_row_order(template)] = template
+    if tuple(_row_order(row) for row in table.rows) != tuple(sorted(templates)):
+        raise PolarizationContractError(
+            "azimuth count rows disagree with fresh authority grid"
+        )
+    for row in table.rows:
+        template = templates[_row_order(row)]
+        if any(
+            getattr(row, field.name) != getattr(template, field.name)
+            for field in fields(AzimuthCountRow)
+            if field.name != "observed_count"
+        ):
+            raise PolarizationContractError(
+                "azimuth count row metadata disagrees with fresh authority"
+            )
+
+
+def write_azimuth_counts(
+    table: AzimuthCountTable,
+    path: Path,
+    *,
+    authority: CountAuthority,
+) -> str:
     """Write the exact canonical CSV schema and return its lowercase SHA-256."""
-    if not isinstance(table, AzimuthCountTable) or not table.has_every_reco_cell():
-        raise PolarizationContractError("cannot serialize an incomplete azimuth count table")
+    fresh_authority = _reload_count_authority(authority)
+    _validate_table_for_publication(table, fresh_authority)
     path = Path(path)
     try:
         with path.open("w", newline="", encoding="utf-8") as stream:

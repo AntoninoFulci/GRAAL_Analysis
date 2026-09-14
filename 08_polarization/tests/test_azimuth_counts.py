@@ -473,9 +473,12 @@ def count_authority_repo(response_fixture):
         "root": repository_root,
         "config": config_path,
         "gate0": gate0_path,
+        "manifest": manifest,
         "flux": flux_path,
         "inventory": inventory_path,
         "reco": reco_path,
+        "ledger": ledger_path,
+        "schema": repository_root / "config/schemas/acceptance_phi_response_v1.schema.json",
         "state": state_source,
         "compton": compton_source,
         "compton_b": compton_source_b,
@@ -495,6 +498,11 @@ def _load_count_authority(paths):
         fit_release_id="fit-test",
         bin_set_id="figure4-v1",
     )
+
+
+def _project(sample, authority):
+    """Exercise the non-release array projector without supplying public input."""
+    return azimuth_counts._project_azimuth_counts(sample, authority=authority)
 
 
 @pytest.fixture
@@ -522,9 +530,18 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     assert authority.gate0_handoff_file.sha256 == sha256_file(
         count_authority_repo["gate0"]
     )
+    assert authority.gate0_manifest_file.sha256 == sha256_file(
+        count_authority_repo["manifest"]
+    )
     assert authority.flux_file.sha256 == sha256_file(count_authority_repo["flux"])
     assert authority.n2_inventory_file.sha256 == sha256_file(
         count_authority_repo["inventory"]
+    )
+    assert authority.n2_processed_run_ledger_file.sha256 == sha256_file(
+        count_authority_repo["ledger"]
+    )
+    assert authority.n3_schema_file.sha256 == sha256_file(
+        count_authority_repo["schema"]
     )
     assert tuple(
         (record.relative_path, record.sha256) for record in authority.n2_files
@@ -537,12 +554,15 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     retained = (
         authority.config_file,
         authority.gate0_handoff_file,
+        authority.gate0_manifest_file,
         *authority.gate0_bundle_files,
         authority.n2_inventory_file,
+        authority.n2_processed_run_ledger_file,
         *authority.n2_files,
         authority.state_mapping_file,
         *[item.file for item in authority.compton_files],
         *authority.acceptance_files,
+        authority.n3_schema_file,
     )
     assert all(record.sha256 == sha256_file(record.path) for record in retained)
     assert authority.response.source_sha256 == sha256_file(
@@ -600,6 +620,195 @@ def test_count_authority_cannot_be_rebuilt_with_forged_hash_strings(
 
     with pytest.raises(PolarizationContractError, match="load_count_authority"):
         replace(authority, config_file=forged)
+
+
+def test_public_builder_reloads_authority_and_reads_authenticated_inventory(
+    monkeypatch, count_authority, count_authority_repo
+):
+    sample = _event_sample(count_authority_repo)
+    calls = []
+
+    def read_authenticated(paths, *, tree_name, vectors):
+        calls.append((tuple(paths), tree_name, vectors))
+        return sample
+
+    monkeypatch.setattr(
+        azimuth_counts, "read_reco_root", read_authenticated, raising=False
+    )
+
+    table = build_azimuth_counts(authority=count_authority)
+
+    assert calls == [(
+        count_authority.n2_inventory.paths,
+        count_authority.config.figure4_tree,
+        count_authority.config.figure4_vectors,
+    )]
+    assert table.has_every_reco_cell()
+
+
+def test_public_builder_rejects_caller_supplied_event_sample(
+    event_sample, count_authority
+):
+    with pytest.raises(TypeError):
+        build_azimuth_counts(event_sample, authority=count_authority)
+
+
+def test_writer_requires_fresh_authority(
+    event_sample, count_authority, tmp_path
+):
+    table = _project(event_sample, count_authority)
+    output = tmp_path / "azimuth_counts_v1.csv"
+
+    digest = write_azimuth_counts(table, output, authority=count_authority)
+
+    assert digest == sha256_file(output)
+
+
+def _replace_file(path):
+    replacement = path.with_name(f"{path.name}.replacement")
+    replacement.write_bytes(path.read_bytes() + b"\n")
+    replacement.replace(path)
+
+
+def _reanchor_transitive_replacement(paths, authority_name):
+    if authority_name == "manifest":
+        gate0 = json.loads(paths["gate0"].read_text(encoding="utf-8"))
+        gate0["manifest_sha256"] = sha256_file(paths["manifest"])
+        paths["gate0"].write_text(json.dumps(gate0), encoding="utf-8")
+    if authority_name in {"manifest", "ledger"}:
+        inventory = json.loads(paths["inventory"].read_text(encoding="utf-8"))
+        if authority_name == "manifest":
+            inventory["gate0_handoff_sha256"] = sha256_file(paths["gate0"])
+        else:
+            inventory["processed_run_ledger"]["sha256"] = sha256_file(
+                paths["ledger"]
+            )
+        paths["inventory"].write_text(json.dumps(inventory), encoding="utf-8")
+    qa = json.loads(paths["acceptance_qa"].read_text(encoding="utf-8"))
+    if authority_name == "manifest":
+        qa["gate0_handoff_sha256"] = sha256_file(paths["gate0"])
+        qa["n2_reconstruction_sha256"] = sha256_file(paths["inventory"])
+    elif authority_name == "ledger":
+        qa["n2_reconstruction_sha256"] = sha256_file(paths["inventory"])
+    else:
+        qa["phi_response_schema_sha256"] = sha256_file(paths["schema"])
+    paths["acceptance_qa"].write_text(json.dumps(qa), encoding="utf-8")
+    config = json.loads(paths["config"].read_text(encoding="utf-8"))
+    config["acceptance"]["acceptance_qa_sha256"] = sha256_file(
+        paths["acceptance_qa"]
+    )
+    if authority_name == "schema":
+        config["acceptance"]["phi_response_schema_sha256"] = sha256_file(
+            paths["schema"]
+        )
+    paths["config"].write_text(json.dumps(config), encoding="utf-8")
+
+
+@pytest.mark.parametrize("authority_name", ("manifest", "ledger", "schema"))
+def test_public_builder_rejects_transitive_authority_replaced_during_root_read(
+    monkeypatch, count_authority, count_authority_repo, authority_name
+):
+    sample = _event_sample(count_authority_repo)
+
+    def read_then_replace(*_args, **_kwargs):
+        _replace_file(count_authority_repo[authority_name])
+        return sample
+
+    monkeypatch.setattr(azimuth_counts, "read_reco_root", read_then_replace)
+
+    with pytest.raises(PolarizationContractError, match="SHA-256"):
+        build_azimuth_counts(authority=count_authority)
+
+
+@pytest.mark.parametrize("authority_name", ("manifest", "ledger", "schema"))
+def test_public_builder_rejects_reanchored_transitive_change_by_fingerprint(
+    monkeypatch, count_authority, count_authority_repo, authority_name
+):
+    sample = _event_sample(count_authority_repo)
+
+    def read_then_reanchor(*_args, **_kwargs):
+        _replace_file(count_authority_repo[authority_name])
+        _reanchor_transitive_replacement(count_authority_repo, authority_name)
+        return sample
+
+    monkeypatch.setattr(azimuth_counts, "read_reco_root", read_then_reanchor)
+
+    with pytest.raises(PolarizationContractError, match="changed while"):
+        build_azimuth_counts(authority=count_authority)
+
+
+def test_public_builder_uses_fresh_compton_values_not_mutable_caller_bundle(
+    monkeypatch, count_authority, count_authority_repo
+):
+    curve = count_authority.compton["period-a"]
+    curve.values.setflags(write=True)
+    curve.values[:] = 0.1
+    sample = _event_sample(count_authority_repo)
+    monkeypatch.setattr(azimuth_counts, "read_reco_root", lambda *_args, **_kwargs: sample)
+
+    table = build_azimuth_counts(authority=count_authority)
+
+    assert all(
+        row.beam_polarization == pytest.approx(0.8)
+        for row in table.rows
+        if row.source_period == "period-a"
+    )
+
+
+def test_writer_rejects_coforged_missing_authority_period(
+    event_sample, count_authority, tmp_path
+):
+    table = _project(event_sample, count_authority)
+    forged = replace(
+        table,
+        rows=tuple(row for row in table.rows if row.source_period != "period-b"),
+        expected_universe=tuple(
+            expected
+            for expected in table.expected_universe
+            if expected.source_period != "period-b"
+        ),
+    )
+    assert forged.has_every_reco_cell()
+
+    with pytest.raises(PolarizationContractError, match="expected universe"):
+        write_azimuth_counts(
+            forged,
+            tmp_path / "azimuth_counts_v1.csv",
+            authority=count_authority,
+        )
+
+
+def test_writer_rejects_coforged_shrunken_replica_ids(
+    event_sample, count_authority, tmp_path
+):
+    table = _project(event_sample, count_authority)
+    forged = replace(
+        table,
+        rows=tuple(row for row in table.rows if row.replica_id <= 1),
+        expected_replica_ids=(0, 1),
+    )
+    assert forged.has_every_reco_cell()
+
+    with pytest.raises(PolarizationContractError, match="replica IDs"):
+        write_azimuth_counts(
+            forged,
+            tmp_path / "azimuth_counts_v1.csv",
+            authority=count_authority,
+        )
+
+
+def test_writer_reloads_and_rejects_changed_authority_bytes(
+    event_sample, count_authority, count_authority_repo, tmp_path
+):
+    table = _project(event_sample, count_authority)
+    _replace_file(count_authority_repo["manifest"])
+
+    with pytest.raises(PolarizationContractError, match="SHA-256"):
+        write_azimuth_counts(
+            table,
+            tmp_path / "azimuth_counts_v1.csv",
+            authority=count_authority,
+        )
 
 
 def test_count_authority_binds_n2_file_to_inventory_recorded_digest(
@@ -671,7 +880,7 @@ def test_poisson_multiplier_rejects_noncanonical_identity_or_config(change):
 def test_bootstrap_multiplier_is_shared_across_observables(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     totals = [
         table.sum_for(name, replica_id=7)
         for name in ("p_pi0", "p_eta", "eta_pi0")
@@ -683,7 +892,7 @@ def test_bootstrap_multiplier_is_shared_across_observables(
 def test_shared_replicas_retain_nonzero_cross_observable_covariance(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     replica_totals = np.array(
         [
             [table.sum_for(name, replica_id=replica_id) for name in PAIR_NAMES]
@@ -698,7 +907,7 @@ def test_shared_replicas_retain_nonzero_cross_observable_covariance(
 def test_counts_publish_complete_nominal_and_replica_grids(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     assert table.replica_ids == tuple(
         range(count_authority.config.bootstrap.replicas + 1)
     )
@@ -722,13 +931,13 @@ def test_counts_require_more_replicas_than_the_published_sigma_dimension(
     sample = _event_sample(count_authority_repo)
 
     with pytest.raises(PolarizationContractError, match="Sigma-vector dimension"):
-        build_azimuth_counts(sample, authority=authority)
+        _project(sample, authority)
 
 
 def test_expected_universe_rejects_wholly_missing_orientation(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
         replace(
             table,
@@ -739,7 +948,7 @@ def test_expected_universe_rejects_wholly_missing_orientation(
 def test_count_grid_rejects_noncontiguous_azimuth_partition(
     event_sample, count_authority, tmp_path
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
         replace(
             table,
@@ -753,10 +962,10 @@ def test_count_grid_rejects_noncontiguous_azimuth_partition(
 def test_counts_serialize_exact_ordered_schema_and_hash(
     event_sample, count_authority, tmp_path
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     output = tmp_path / "azimuth_counts_v1.csv"
 
-    digest = write_azimuth_counts(table, output)
+    digest = write_azimuth_counts(table, output, authority=count_authority)
 
     assert digest == sha256_file(output)
     with output.open(newline="", encoding="utf-8") as stream:
@@ -785,7 +994,7 @@ def test_counts_serialize_exact_ordered_schema_and_hash(
 def test_count_table_rejects_malformed_serialized_rows(
     event_sample, count_authority, mutation, match
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     rows = (replace(table.rows[0], **mutation), *table.rows[1:])
     with pytest.raises(PolarizationContractError, match=match):
         replace(table, rows=rows)
@@ -797,7 +1006,7 @@ def test_sample_digest_must_be_present_in_authenticated_n2_inventory(
     unrelated = replace(event_sample, file_sha256=np.array(["f" * 64] * 4))
 
     with pytest.raises(PolarizationContractError, match="N2 inventory"):
-        build_azimuth_counts(unrelated, authority=count_authority)
+        _project(unrelated, count_authority)
 
 
 def test_n4_or_unrelated_sample_cannot_claim_n2_provenance(
@@ -812,13 +1021,13 @@ def test_n4_or_unrelated_sample_cannot_claim_n2_provenance(
     )
 
     with pytest.raises(PolarizationContractError, match="N2 inventory"):
-        build_azimuth_counts(n4_sample, authority=count_authority)
+        _project(n4_sample, count_authority)
 
 
 def test_exposure_polarization_and_provenance_are_derived_from_authority(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     nominal = [row for row in table.rows if row.replica_id == 0]
     exposures = {
         (row.observable, row.source_period, row.orientation): row.exposure
@@ -876,19 +1085,19 @@ def test_counts_require_both_orientations_for_each_physical_period(
     sample = _event_sample(count_authority_repo)
 
     with pytest.raises(PolarizationContractError, match="both orientations"):
-        build_azimuth_counts(sample, authority=authority)
+        _project(sample, authority)
 
 
 def test_counts_reject_duplicate_stable_event_identity(event_sample, count_authority):
     duplicate = replace(event_sample, tree_entry=np.array([0, 0, 2, 3]))
     with pytest.raises(PolarizationContractError, match="event identity"):
-        build_azimuth_counts(duplicate, authority=count_authority)
+        _project(duplicate, count_authority)
 
 
 def test_expected_universe_rejects_entire_missing_source_period(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
         replace(
             table,
@@ -899,7 +1108,7 @@ def test_expected_universe_rejects_entire_missing_source_period(
 def test_expected_universe_rejects_entire_missing_response_physical_key(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
     missing = count_authority.response.keys[0]
     with pytest.raises(PolarizationContractError, match="complete reconstructed grid"):
         replace(
@@ -925,7 +1134,7 @@ def test_expected_universe_rejects_entire_missing_response_physical_key(
 def test_count_axes_are_exactly_the_authenticated_response_reco_axes(
     event_sample, count_authority
 ):
-    table = build_azimuth_counts(event_sample, authority=count_authority)
+    table = _project(event_sample, count_authority)
 
     for expected in table.expected_universe:
         key = next(
@@ -968,4 +1177,4 @@ def test_subdivided_cos_theta_response_is_rejected_fail_closed(
     sample = _event_sample(count_authority_repo)
 
     with pytest.raises(PolarizationContractError, match="cos_theta"):
-        build_azimuth_counts(sample, authority=authority)
+        _project(sample, authority)
