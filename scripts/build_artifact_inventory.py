@@ -271,8 +271,7 @@ def _validate_dynamic_bundle(release: Path, label: str) -> bool:
             raise ArtifactInventoryError("S4 QA has invalid structural identity")
         for key, filename in (("counts", "azimuth_counts_v1.csv"), ("fit", "sigma_fit_v1.csv")):
             record = qa.get(key)
-            expected_path = (release / filename).relative_to(release.parents[3]).as_posix()
-            if not isinstance(record, dict) or set(record) != {"path", "sha256"} or record.get("path") != expected_path:
+            if not isinstance(record, dict) or set(record) != {"path", "sha256"} or record.get("path") != filename:
                 raise ArtifactInventoryError(f"S4 QA {key} record is invalid")
             _internal_digest(entries[filename], record.get("sha256"), f"S4 {filename}")
         return _release_state(qa, label)

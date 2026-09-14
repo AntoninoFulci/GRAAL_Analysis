@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -128,3 +129,124 @@ def test_builder_rejects_dangling_symlink_destination_without_touching_target(tm
         build_reco_inventory(**arguments)
     assert output.is_symlink()
     assert not target.exists()
+
+
+@pytest.mark.parametrize(
+    "output_path",
+    (
+        Path("nested/../inventory.json"),
+        Path("../escaped-inventory.json"),
+    ),
+)
+def test_builder_rejects_lexical_parent_components_before_writing(
+    tmp_path, output_path
+):
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = output_path
+
+    with pytest.raises(PolarizationContractError, match="canonical|component"):
+        build_reco_inventory(**arguments)
+
+    assert not (tmp_path / "nested").exists()
+    assert not (tmp_path.parent / "escaped-inventory.json").exists()
+
+
+def test_builder_rejects_dangling_symlink_parent_before_writing(tmp_path):
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    parent.symlink_to(tmp_path / "missing-parent", target_is_directory=True)
+
+    with pytest.raises(PolarizationContractError, match="symlink|directory"):
+        build_reco_inventory(**arguments)
+
+    assert parent.is_symlink()
+    assert not (tmp_path / "missing-parent").exists()
+
+
+def test_builder_parent_swap_during_publish_never_writes_outside(
+    tmp_path, monkeypatch
+):
+    import inventory_builder
+
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    parent.mkdir()
+    detached = tmp_path / "detached-owned-parent"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_link = os.link
+
+    def racing_link(source, destination, **kwargs):
+        parent.rename(detached)
+        parent.symlink_to(outside, target_is_directory=True)
+        return real_link(source, destination, **kwargs)
+
+    monkeypatch.setattr(inventory_builder.os, "link", racing_link)
+    with pytest.raises(PolarizationContractError, match="changed|canonical"):
+        build_reco_inventory(**arguments)
+
+    assert not (outside / "inventory.json").exists()
+    assert not list(detached.glob(".inventory.json-*"))
+
+
+def test_builder_parent_swap_during_mkdir_fails_closed(tmp_path, monkeypatch):
+    import inventory_builder
+
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    detached = tmp_path / "detached-created-parent"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_mkdir = os.mkdir
+
+    def racing_mkdir(path, *args, **kwargs):
+        result = real_mkdir(path, *args, **kwargs)
+        if path == "publish" and kwargs.get("dir_fd") is not None:
+            parent.rename(detached)
+            parent.symlink_to(outside, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(inventory_builder.os, "mkdir", racing_mkdir)
+    with pytest.raises(PolarizationContractError, match="real directory"):
+        build_reco_inventory(**arguments)
+
+    assert not (outside / "inventory.json").exists()
+
+
+def test_builder_parent_swap_during_staging_cleans_only_owned_temp(
+    tmp_path, monkeypatch
+):
+    import inventory_builder
+
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    parent.mkdir()
+    detached = tmp_path / "detached-staging-parent"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_open = os.open
+    swapped = False
+
+    def racing_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if (
+            not swapped
+            and isinstance(path, str)
+            and path.startswith(".inventory.json-")
+            and kwargs.get("dir_fd") is not None
+        ):
+            swapped = True
+            parent.rename(detached)
+            parent.symlink_to(outside, target_is_directory=True)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(inventory_builder.os, "open", racing_open)
+    with pytest.raises(PolarizationContractError, match="changed"):
+        build_reco_inventory(**arguments)
+
+    assert not (outside / "inventory.json").exists()
+    assert not list(detached.glob(".inventory.json-*"))

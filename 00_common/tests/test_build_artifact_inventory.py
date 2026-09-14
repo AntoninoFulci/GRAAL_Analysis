@@ -87,8 +87,10 @@ def put_s4_bundle(root: Path, release_id="fit-v1", *, approved=True) -> Path:
                 "status": "approved" if approved else "blocked",
                 "valid": approved,
                 "blocked_reasons": [] if approved else ["pending review"],
-                "counts": {"path": counts.relative_to(root).as_posix(), "sha256": digest(counts)},
-                "fit": {"path": fit.relative_to(root).as_posix(), "sha256": digest(fit)},
+                # Canonical write_fit_evidence serialization uses basenames
+                # inside the exact release directory.
+                "counts": {"path": counts.name, "sha256": digest(counts)},
+                "fit": {"path": fit.name, "sha256": digest(fit)},
             }
         ).encode(),
     )
@@ -240,6 +242,20 @@ def test_inventory_recognizes_only_complete_canonical_s4_triplets(tmp_path):
     put(tmp_path, "results/physics/polarization_fits/fit-v1/sigma_fit_v1.csv", b"fit\n")
     put(tmp_path, "results/physics/polarization_fits/fit-v1/legacy_sigma.csv")
     with pytest.raises(ArtifactInventoryError, match="exact S4 triplet"):
+        build_inventory(tmp_path, "abc123")
+
+
+def test_inventory_rejects_noncanonical_repo_relative_s4_qa_paths(tmp_path):
+    """Inventory must consume exact bytes emitted by write_fit_evidence."""
+    release = put_s4_bundle(tmp_path)
+    qa_path = release / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["counts"]["path"] = (
+        "results/physics/polarization_fits/fit-v1/azimuth_counts_v1.csv"
+    )
+    qa_path.write_text(json.dumps(qa))
+
+    with pytest.raises(ArtifactInventoryError, match="S4 QA counts record"):
         build_inventory(tmp_path, "abc123")
 
 
