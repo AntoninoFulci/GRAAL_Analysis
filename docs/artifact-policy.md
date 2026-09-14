@@ -25,11 +25,29 @@ python scripts/build_artifact_inventory.py \
 | `results/observable_runs/` | Accepted derived bundle | Use for normalization only when `observable_run_qa.json` reports `valid: true`. |
 | `results/reco/` | Legacy reconstruction snapshots | Reproduce legacy plots only. These files predate required metadata propagation and are not valid for run-flux normalization. |
 | `results/plots/` and `results/strip_energy_flux.run.log` | Diagnostic-only derived evidence | Visual and historical diagnostics; never a physics-normalization source. |
+| `results/physics/polarization_fits/<fit_release_id>/` | Immutable replayable S4 evidence | Exactly `azimuth_counts_v1.csv`, `sigma_fit_v1.csv`, and `sigma_fit_qa.json`; valid only after authority-bound replay. |
+| `results/physics/polarization/` | Shared S6 handoff | Exactly `sigma_v1.csv`, `sigma_covariance.npz`, and `polarization_qa.json`; valid only after full replay of its pinned S4 evidence. |
 
 The inventory's `valid` field says whether the published file itself is an
 accepted snapshot. It does not override the bundle-level QA gate: the
 observable-run bundle is usable only when its QA file is valid and its recorded
 hashes match the current files.
+
+S4 publication is no-overwrite: one sibling staging directory is validated and
+atomically renamed to a canonical release ID. Inventory discovery accepts only
+the exact complete triplet. A wrong-directory, incomplete triplet, extra file,
+symlink, legacy path, or noncanonical release ID fails closed. S6 likewise has
+an exact three-file directory contract. Every serialized file record uses a
+canonical repository-relative POSIX path; absolute, dotted, backslash, outside-
+repository, symlink, missing, and non-regular targets are rejected.
+
+Scientific edges are fixed: `N2 -> S4` supplies metadata-bearing event bytes,
+`N3 -> S4` supplies the jointly approved mass-phi response, and `N3 -> S6` is
+retained through authenticated S4 full replay. `N4 -/-> S4`: N4 yield products
+belong to cross sections and cannot satisfy S4 provenance. `C_response` is a
+named S6 systematic, separate from bootstrap statistical covariance. Changes
+to shared schemas, QA policy, public commands, or these handoffs require
+two-owner approval from Persona 1 and Persona 2.
 
 ## Graphify portability
 
@@ -85,5 +103,8 @@ Reject an artifact or bundle when any of the following is true:
 - the observable-run QA says `valid: false`, required bundle files are missing,
   or their QA hashes do not match;
 - a legacy reconstruction output is proposed for run-flux normalization;
+- an S4/S6 candidate uses a wrong directory, incomplete or extra triplet,
+  mutable destination, legacy path, non-portable path, or fails deterministic
+  fit/covariance replay;
 - diagnostic plots, a run log, or local Graphify state is proposed as an input
   or scientific authority.

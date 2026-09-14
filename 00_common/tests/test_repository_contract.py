@@ -166,3 +166,55 @@ def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
     assert all(path not in plan for path in deprecated_acceptance)
     assert "D2/neutron work is deferred" in text
     assert "eta-prime work is deferred" in text
+
+
+def test_shared_docs_publish_exact_s4_and_s6_triplets():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    expected_s4 = {
+        "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json",
+    }
+    expected_s6 = {
+        "results/physics/polarization/sigma_v1.csv",
+        "results/physics/polarization/sigma_covariance.npz",
+        "results/physics/polarization/polarization_qa.json",
+    }
+    for text in (roadmap, polarization):
+        assert expected_s4 <= set(text.splitlines())
+        assert expected_s6 <= set(text.splitlines())
+        assert "azimuth_counts_v1.csv" in text
+        assert "immutable" in text.lower() or "immutabile" in text.lower()
+        assert "no-overwrite" in text.lower()
+
+
+def test_shared_docs_define_canonical_s4_cli_and_release_edges():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    for text in (roadmap, polarization):
+        assert "python 08_polarization/fit_sigma.py" in text
+        assert "--acceptance-handoff results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json" in text
+        assert "--reco-inventory results/reconstruction/inventory.json" in text
+        assert "--config config/physics/polarization_v1.json" in text
+        assert "--fit-release-id <fit_release_id>" in text
+        assert "--output-root results/physics/polarization_fits" in text
+        assert "N2 -> S4" in text
+        assert "N3 -> S4" in text
+        assert "N3 -> S6" in text
+        assert "N4 -/-> S4" in text
+
+
+def test_shared_docs_fail_closed_on_wrong_handoffs_and_require_joint_review():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    artifact_policy = read("docs/artifact-policy.md")
+    combined = "\n".join((roadmap, polarization, artifact_policy)).lower()
+    assert "wrong-directory" in combined
+    assert "incomplete triplet" in combined
+    assert "legacy path" in combined
+    assert "canonical repository-relative posix" in combined
+    assert "two-owner approval" in combined
+    assert "response_application=forward_folded" in combined
+    assert "c_response" in combined
+    assert "full replay" in combined
