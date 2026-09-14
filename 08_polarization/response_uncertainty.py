@@ -5,11 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from types import MappingProxyType
-from typing import Mapping
+from typing import Literal
 
 import numpy as np
 
 from analysis_config import AnalysisConfig
+from acceptance_handoff import ResponseCovarianceScope
 from azimuth_counts import AzimuthCountTable
 from contracts import PolarizationContractError
 from phi_response import PhiResponse, ResponseKey, TrueCellKey
@@ -23,7 +24,7 @@ class ResponseModeRefit:
     mode_id: str
     eigenvalue: float
     step: float
-    scheme: str
+    scheme: Literal["central", "forward", "backward"]
     derivative: np.ndarray
     lower_sigma: np.ndarray | None
     upper_sigma: np.ndarray | None
@@ -109,7 +110,9 @@ def _mode_id(
 
 
 def _validate_propagation_inputs(
-    response: PhiResponse, config: AnalysisConfig
+    response: PhiResponse,
+    config: AnalysisConfig,
+    covariance_scope: ResponseCovarianceScope,
 ) -> tuple[float, float, float]:
     if type(response) is not PhiResponse or type(config) is not AnalysisConfig:
         raise PolarizationContractError(
@@ -136,32 +139,17 @@ def _validate_propagation_inputs(
             "response propagation requires approved positive finite-difference steps"
         )
 
-    qa = getattr(response, "qa", None)
-    if qa is not None:
-        if not isinstance(qa, Mapping):
-            raise PolarizationContractError("response propagation QA claim is malformed")
-        if qa.get("shared_mc_across_blocks") is True:
-            raise PolarizationContractError(
-                "response schema v1 does not support shared MC across blocks"
-            )
-        cross_claim = qa.get("cross_block_covariance")
-        if not (
-            cross_claim is None
-            or cross_claim is False
-            or (type(cross_claim) in (tuple, list) and len(cross_claim) == 0)
-        ):
-            raise PolarizationContractError(
-                "response schema v1 does not support cross-block covariance"
-            )
-    if getattr(response, "shared_mc_across_blocks", False) is True:
+    if type(covariance_scope) is not ResponseCovarianceScope:
         raise PolarizationContractError(
-            "response schema v1 does not support shared MC across blocks"
+            "response propagation requires loader-sealed covariance scope"
         )
-    cross_claim = getattr(response, "cross_block_covariance", None)
-    if not (
-        cross_claim is None
-        or cross_claim is False
-        or (type(cross_claim) in (tuple, list) and len(cross_claim) == 0)
+    if covariance_scope.qa_sha256 != config.acceptance_qa_sha256:
+        raise PolarizationContractError(
+            "response covariance scope QA SHA-256 disagrees with config"
+        )
+    if (
+        covariance_scope.shared_mc_across_blocks is not False
+        or covariance_scope.cross_block_covariance is not False
     ):
         raise PolarizationContractError(
             "response schema v1 does not support cross-block covariance"
@@ -195,7 +183,10 @@ def _validate_propagation_inputs(
 
 
 def _physical_step_limits(
-    probabilities: np.ndarray, direction: np.ndarray
+    probabilities: np.ndarray,
+    direction: np.ndarray,
+    *,
+    tolerance: float,
 ) -> tuple[float, float]:
     """Return closed feasible interval for p + step * direction."""
     lower = -math.inf
@@ -207,9 +198,15 @@ def _physical_step_limits(
             upper = min(upper, -probability / component)
     total_direction = float(np.sum(direction))
     if total_direction > 0.0:
-        upper = min(upper, (1.0 - float(np.sum(probabilities))) / total_direction)
+        upper = min(
+            upper,
+            (1.0 + tolerance - float(np.sum(probabilities))) / total_direction,
+        )
     elif total_direction < 0.0:
-        lower = max(lower, (1.0 - float(np.sum(probabilities))) / total_direction)
+        lower = max(
+            lower,
+            (1.0 + tolerance - float(np.sum(probabilities))) / total_direction,
+        )
     return lower, upper
 
 
@@ -218,16 +215,20 @@ def _perturbed_response(
     cell: TrueCellKey,
     direction: np.ndarray,
     displacement: float,
+    *,
+    tolerance: float,
 ) -> PhiResponse:
     matrices = dict(response.matrices)
     target = np.asarray(matrices[cell.key, cell.orientation], dtype=float).copy()
     probabilities = target[:, cell.true_cell] + displacement * direction
-    numerical = 32.0 * np.finfo(float).eps
-    probabilities[np.abs(probabilities) < numerical] = 0.0
-    if np.any(probabilities < 0.0) or float(np.sum(probabilities)) > 1.0 + numerical:
+    if (
+        np.any(probabilities < -tolerance)
+        or float(np.sum(probabilities)) > 1.0 + tolerance
+    ):
         raise PolarizationContractError(
             "response eigenmode perturbation violates physical probability bounds"
         )
+    probabilities[probabilities < 0.0] = 0.0
     target[:, cell.true_cell] = probabilities
     matrices[cell.key, cell.orientation] = _readonly(target)
     return PhiResponse(
@@ -260,11 +261,80 @@ def _checked_sigma(
     return np.asarray(result.sigma, dtype=float)
 
 
+def _refit_response_mode(
+    counts: AzimuthCountTable,
+    response: PhiResponse,
+    *,
+    config: AnalysisConfig,
+    nominal: JointSigmaFitResult,
+    cell: TrueCellKey,
+    direction: np.ndarray,
+    eigenvalue: float,
+    step: float,
+    lower_limit: float,
+    upper_limit: float,
+    tolerance: float,
+    identifier: str,
+) -> ResponseModeRefit:
+    """Refit one mode at validated endpoints and retain its exact denominator."""
+    plus_ok = upper_limit >= step
+    minus_ok = lower_limit <= -step
+    lower_sigma = None
+    upper_sigma = None
+    if plus_ok:
+        upper = _fit_sigma_forward_folded_core(
+            counts,
+            _perturbed_response(
+                response, cell, direction, step, tolerance=tolerance
+            ),
+            config=config,
+            replica_id=0,
+        )
+        upper_sigma = _checked_sigma(upper, nominal)
+    if minus_ok:
+        lower = _fit_sigma_forward_folded_core(
+            counts,
+            _perturbed_response(
+                response, cell, direction, -step, tolerance=tolerance
+            ),
+            config=config,
+            replica_id=0,
+        )
+        lower_sigma = _checked_sigma(lower, nominal)
+    if plus_ok and minus_ok:
+        derivative = (upper_sigma - lower_sigma) / (2.0 * step)
+        scheme: Literal["central", "forward", "backward"] = "central"
+    elif plus_ok:
+        derivative = (upper_sigma - nominal.sigma) / step
+        scheme = "forward"
+    elif minus_ok:
+        derivative = (nominal.sigma - lower_sigma) / step
+        scheme = "backward"
+    else:
+        raise PolarizationContractError(
+            "response eigenmode has no approved physical finite-difference step"
+        )
+    if not np.all(np.isfinite(derivative)):
+        raise PolarizationContractError(
+            "response eigenmode derivative is non-finite"
+        )
+    return ResponseModeRefit(
+        identifier,
+        eigenvalue,
+        step,
+        scheme,
+        _readonly(derivative),
+        None if lower_sigma is None else _readonly(lower_sigma),
+        None if upper_sigma is None else _readonly(upper_sigma),
+    )
+
+
 def propagate_response_covariance(
     counts: AzimuthCountTable,
     response: PhiResponse,
     *,
     config: AnalysisConfig,
+    covariance_scope: ResponseCovarianceScope,
 ) -> ResponsePropagationResult:
     """Refit deterministic response modes and return ``J C_R J^T``.
 
@@ -276,7 +346,7 @@ def propagate_response_covariance(
             "response propagation requires an exact count table"
         )
     tolerance, relative_step, absolute_step = _validate_propagation_inputs(
-        response, config
+        response, config, covariance_scope
     )
     nominal = _fit_sigma_forward_folded_core(
         counts, response, config=config, replica_id=0
@@ -301,73 +371,30 @@ def propagate_response_covariance(
                         relative_step * float(np.max(np.abs(probabilities))),
                     )
                     lower_limit, upper_limit = _physical_step_limits(
-                        probabilities, direction
+                        probabilities, direction, tolerance=tolerance
                     )
-                    plus_ok = upper_limit >= step
-                    minus_ok = lower_limit <= -step
-                    lower_sigma = None
-                    upper_sigma = None
-                    if plus_ok and minus_ok:
-                        upper = _fit_sigma_forward_folded_core(
-                            counts,
-                            _perturbed_response(response, cell, direction, step),
-                            config=config,
-                            replica_id=0,
-                        )
-                        lower = _fit_sigma_forward_folded_core(
-                            counts,
-                            _perturbed_response(response, cell, direction, -step),
-                            config=config,
-                            replica_id=0,
-                        )
-                        upper_sigma = _checked_sigma(upper, nominal)
-                        lower_sigma = _checked_sigma(lower, nominal)
-                        derivative = (upper_sigma - lower_sigma) / (2.0 * step)
-                        scheme = "central"
-                    elif plus_ok:
-                        upper = _fit_sigma_forward_folded_core(
-                            counts,
-                            _perturbed_response(response, cell, direction, step),
-                            config=config,
-                            replica_id=0,
-                        )
-                        upper_sigma = _checked_sigma(upper, nominal)
-                        derivative = (upper_sigma - nominal.sigma) / step
-                        scheme = "forward"
-                    elif minus_ok:
-                        lower = _fit_sigma_forward_folded_core(
-                            counts,
-                            _perturbed_response(response, cell, direction, -step),
-                            config=config,
-                            replica_id=0,
-                        )
-                        lower_sigma = _checked_sigma(lower, nominal)
-                        derivative = (nominal.sigma - lower_sigma) / step
-                        scheme = "backward"
-                    else:
-                        raise PolarizationContractError(
-                            "response eigenmode has no approved physical finite-difference step"
-                        )
-                    if not np.all(np.isfinite(derivative)):
-                        raise PolarizationContractError(
-                            "response eigenmode derivative is non-finite"
-                        )
-                    covariance += eigenvalue * np.outer(derivative, derivative)
                     identifier = _mode_id(
                         key, orientation, true_cell, mode_index
                     )
-                    retained.append(identifier)
-                    refits.append(
-                        ResponseModeRefit(
-                            identifier,
-                            eigenvalue,
-                            step,
-                            scheme,
-                            _readonly(derivative),
-                            None if lower_sigma is None else _readonly(lower_sigma),
-                            None if upper_sigma is None else _readonly(upper_sigma),
-                        )
+                    refit = _refit_response_mode(
+                        counts,
+                        response,
+                        config=config,
+                        nominal=nominal,
+                        cell=cell,
+                        direction=direction,
+                        eigenvalue=eigenvalue,
+                        step=step,
+                        lower_limit=lower_limit,
+                        upper_limit=upper_limit,
+                        tolerance=tolerance,
+                        identifier=identifier,
                     )
+                    covariance += eigenvalue * np.outer(
+                        refit.derivative, refit.derivative
+                    )
+                    retained.append(identifier)
+                    refits.append(refit)
     if not np.all(np.isfinite(covariance)):
         raise PolarizationContractError(
             "response propagated covariance is non-finite"

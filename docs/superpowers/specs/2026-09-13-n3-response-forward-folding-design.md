@@ -231,6 +231,9 @@ steps are strictly positive. No CLI override may weaken these limits.
 - response-schema path, schema SHA-256, and approval ID;
 - count checks, matrix checks, weighted covariance checks, and closure, each
   with `valid=true`;
+- `weighted_covariance_checks` also carries mandatory exact booleans
+  `shared_mc_across_blocks=false` and `cross_block_covariance=false`; missing,
+  non-boolean, or true claims reject schema v1;
 - overall `valid=true`.
 
 Canonical polarization config records `acceptance_qa_sha256`. Because N3 QA
@@ -372,7 +375,9 @@ block it performs a deterministic eigendecomposition, orders eigenvectors by
 descending eigenvalue with a fixed sign convention, discards only eigenmodes
 below the approved numerical tolerance, and finite-differences the full fitted
 Sigma vector along each retained mode. Steps are config-approved and use
-bound-aware one-sided differences when required. The resulting Jacobian action
+bound-aware one-sided differences when required. Physical endpoint checks use
+the approved probability absolute tolerance, including the column-sum limit
+`1 + probability_absolute_tolerance`. The resulting Jacobian action
 accumulates:
 
 ```text
@@ -382,8 +387,11 @@ C_response = J * C_R * J^T
 Blocks from disjoint physical bins and independently generated MC samples are
 independent. A producer using shared MC across such blocks must publish an
 explicit cross-block covariance under a future schema version; v1 rejects a QA
-claim of shared samples. `C_response` is a named S6 systematic source and is
-not folded into statistical covariance.
+claim of shared samples. These claims come only from the byte-authenticated N3
+QA snapshot: its loader-sealed typed scope is retained by `AcceptanceHandoff`,
+transported by `CountAuthority`, and required by response propagation with the
+same config-pinned QA SHA-256. `C_response` is a named S6 systematic source and
+is not folded into statistical covariance.
 
 ## S4 evidence and deterministic replay
 

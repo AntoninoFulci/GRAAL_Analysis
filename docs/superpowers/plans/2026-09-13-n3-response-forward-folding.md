@@ -362,11 +362,14 @@ git commit -m "feat(polarization): forward-fold joint Sigma"
 - Create: `08_polarization/response_uncertainty.py`
 - Create: `08_polarization/tests/test_response_uncertainty.py`
 - Modify: `08_polarization/sigma_fit.py`
+- Modify: `08_polarization/acceptance_handoff.py`
+- Modify: `08_polarization/azimuth_counts.py`
+- Modify: `08_polarization/phi_response.py`
 
 **Interfaces:**
-- Consumes: `PhiResponse`, `JointSigmaFitResult`, private `_fit_sigma_forward_folded_core`, response-validation tolerances. Controlled response perturbations must not call the authority-only public S4 entry point.
+- Consumes: `PhiResponse`, `JointSigmaFitResult`, private `_fit_sigma_forward_folded_core`, response-validation tolerances, and loader-sealed `ResponseCovarianceScope` parsed from byte-authenticated N3 QA and transported by `CountAuthority`. Controlled response perturbations must not call the authority-only public S4 entry point.
 - Produces: `ResponsePropagationResult(covariance, retained_modes, refits, valid)`.
-- Produces: `propagate_response_covariance(counts, response, *, config) -> ResponsePropagationResult`.
+- Produces: `propagate_response_covariance(counts, response, *, config, covariance_scope) -> ResponsePropagationResult`.
 
 - [ ] **Step 1: Write failing eigenmode propagation test**
 
@@ -396,9 +399,8 @@ def test_propagation_repeats_byte_identically(problem):
     np.testing.assert_array_equal(first.covariance, second.covariance)
 
 def test_v1_rejects_cross_block_shared_mc_claim(problem):
-    problem["response"].qa["shared_mc_across_blocks"] = True
     with pytest.raises(PolarizationContractError):
-        propagate_response_covariance(**problem)
+        validate_acceptance_handoff(problem["shared_mc_qa"], ...)
 ```
 
 Run: `python -m pytest -q 08_polarization/tests/test_response_uncertainty.py 08_polarization/tests/test_sigma_fit.py`

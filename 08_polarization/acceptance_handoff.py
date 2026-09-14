@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 import hashlib
 import json
 from pathlib import Path
@@ -27,6 +27,23 @@ HANDOFF_FILENAMES = frozenset(
         "acceptance_qa.json",
     }
 )
+_RESPONSE_COVARIANCE_SCOPE_TOKEN = object()
+
+
+@dataclass(frozen=True)
+class ResponseCovarianceScope:
+    """Loader-sealed N3 declaration that v1 covariance blocks are independent."""
+
+    qa_sha256: str
+    shared_mc_across_blocks: bool
+    cross_block_covariance: bool
+    _loader_token: InitVar[object] = None
+
+    def __post_init__(self, _loader_token: object) -> None:
+        if _loader_token is not _RESPONSE_COVARIANCE_SCOPE_TOKEN:
+            raise PolarizationContractError(
+                "ResponseCovarianceScope must come from validate_acceptance_handoff"
+            )
 
 
 @dataclass(frozen=True)
@@ -46,7 +63,35 @@ class AcceptanceHandoff:
     qa_sha256: str
     gate0_handoff_sha256: str
     n2_reconstruction_sha256: str
+    response_covariance_scope: ResponseCovarianceScope
     qa: dict[str, object]
+
+
+def _response_covariance_scope(
+    qa: Mapping[str, object], qa_sha256: str
+) -> ResponseCovarianceScope:
+    """Parse v1 covariance scope from an already byte-authenticated QA object."""
+    covariance_checks = qa.get("weighted_covariance_checks")
+    if not isinstance(covariance_checks, Mapping):
+        raise PolarizationContractError(
+            "acceptance QA covariance scope requires weighted covariance checks"
+        )
+    shared_mc = covariance_checks.get("shared_mc_across_blocks")
+    cross_block = covariance_checks.get("cross_block_covariance")
+    if type(shared_mc) is not bool or type(cross_block) is not bool:
+        raise PolarizationContractError(
+            "acceptance QA covariance scope requires exact boolean claims"
+        )
+    if shared_mc or cross_block:
+        raise PolarizationContractError(
+            "acceptance QA covariance scope is unsupported by response schema v1"
+        )
+    return ResponseCovarianceScope(
+        qa_sha256,
+        shared_mc,
+        cross_block,
+        _loader_token=_RESPONSE_COVARIANCE_SCOPE_TOKEN,
+    )
 
 
 def _required_digest(payload: Mapping[str, object], key: str) -> str:
@@ -208,6 +253,7 @@ def validate_acceptance_handoff(
         result = qa.get(check)
         if not isinstance(result, Mapping) or result.get("valid") is not True:
             raise PolarizationContractError(f"acceptance QA {check} is invalid")
+    covariance_scope = _response_covariance_scope(qa, qa_digest)
 
     parsed_response = load_phi_response(
         response,
@@ -249,5 +295,6 @@ def validate_acceptance_handoff(
         qa_sha256=qa_digest,
         gate0_handoff_sha256=gate0_digest,
         n2_reconstruction_sha256=n2_digest,
+        response_covariance_scope=covariance_scope,
         qa=qa,
     )

@@ -10,10 +10,16 @@ import pytest
 
 from contracts import PolarizationContractError
 from azimuth_counts import AzimuthCountTable
+from acceptance_handoff import (
+    ResponseCovarianceScope,
+    _response_covariance_scope,
+)
 from phi_response import TrueCellKey
 import response_uncertainty
 from response_uncertainty import (
     _covariance_eigenmodes,
+    _perturbed_response,
+    _physical_step_limits,
     propagate_response_covariance,
 )
 
@@ -24,7 +30,24 @@ def _task5_problem():
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.asimov_problem.__wrapped__()
+    problem = module.asimov_problem.__wrapped__()
+    problem["covariance_scope"] = _response_covariance_scope(
+        {
+            "weighted_covariance_checks": {
+                "valid": True,
+                "shared_mc_across_blocks": False,
+                "cross_block_covariance": False,
+            }
+        },
+        problem["config"].acceptance_qa_sha256,
+    )
+    return problem
+
+
+def _nominal_fit(problem):
+    return response_uncertainty._fit_sigma_forward_folded_core(
+        problem["counts"], problem["response"], config=problem["config"]
+    )
 
 
 def test_covariance_eigenmodes_reconstruct_linear_reference():
@@ -89,9 +112,7 @@ def test_propagation_refits_full_sigma_and_is_byte_deterministic(response_proble
 def test_propagation_matches_exact_linear_jacobian_reference(
     response_problem, monkeypatch
 ):
-    nominal = response_uncertainty._fit_sigma_forward_folded_core(
-        **response_problem
-    )
+    nominal = _nominal_fit(response_problem)
     response = response_problem["response"]
     key = response.keys[0]
     base = response.matrix(key, "parallel")[:, 0].copy()
@@ -115,6 +136,9 @@ def test_propagation_matches_exact_linear_jacobian_reference(
 
     result = propagate_response_covariance(**response_problem)
 
+    assert result.refits[0].scheme == "central"
+    direction = _covariance_eigenmodes(block, tolerance=1e-12)[0][1]
+    np.testing.assert_allclose(result.refits[0].derivative, jacobian @ direction)
     np.testing.assert_allclose(
         result.covariance,
         jacobian @ block @ jacobian.T,
@@ -135,9 +159,7 @@ def test_physical_boundary_uses_one_sided_refit(response_problem, monkeypatch):
         response,
         covariance_by_true_cell=MappingProxyType(covariance),
     )
-    nominal = response_uncertainty._fit_sigma_forward_folded_core(
-        **response_problem
-    )
+    nominal = _nominal_fit(response_problem)
     base = response.matrix(key, "parallel")[:, 0].copy()
     jacobian = np.vstack((np.arange(16), -np.arange(16))) / 100.0
 
@@ -154,6 +176,81 @@ def test_physical_boundary_uses_one_sided_refit(response_problem, monkeypatch):
     assert result.refits[0].scheme == "forward"
     assert result.refits[0].lower_sigma is None
     assert result.refits[0].upper_sigma is not None
+    np.testing.assert_allclose(result.refits[0].derivative, jacobian @ direction)
+    np.testing.assert_allclose(
+        result.covariance,
+        1e-4 * np.outer(jacobian @ direction, jacobian @ direction),
+    )
+
+
+def test_physical_bounds_and_endpoint_use_probability_tolerance(response_problem):
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    probabilities = response.matrix(key, "parallel")[:, 0]
+    direction = np.zeros_like(probabilities)
+    direction[0] = 1.0
+    tolerance = 2.5e-4
+    upper_expected = 1.0 + tolerance - float(np.sum(probabilities))
+
+    lower, upper = _physical_step_limits(
+        probabilities, direction, tolerance=tolerance
+    )
+
+    assert lower == pytest.approx(-probabilities[0])
+    assert upper == pytest.approx(upper_expected)
+    endpoint = _perturbed_response(
+        response, cell, direction, upper, tolerance=tolerance
+    )
+    assert endpoint.matrix(key, "parallel")[:, 0].sum() == pytest.approx(
+        1.0 + tolerance
+    )
+    with pytest.raises(PolarizationContractError, match="physical probability"):
+        _perturbed_response(
+            response,
+            cell,
+            direction,
+            upper + tolerance,
+            tolerance=tolerance,
+        )
+
+
+def test_physical_upper_boundary_uses_backward_refit(response_problem, monkeypatch):
+    response = response_problem["response"]
+    nominal = _nominal_fit(response_problem)
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    matrices = dict(response.matrices)
+    target = response.matrix(key, "parallel").copy()
+    target[:, 0] /= target[:, 0].sum()
+    matrices[key, "parallel"] = target
+    direction = np.zeros(16)
+    direction[0] = 1.0
+    covariance = dict(response.covariance_by_true_cell)
+    covariance[cell] = 1e-4 * np.outer(direction, direction)
+    response = replace(
+        response,
+        matrices=MappingProxyType(matrices),
+        covariance_by_true_cell=MappingProxyType(covariance),
+    )
+    response_problem["response"] = response
+    base = response.matrix(key, "parallel")[:, 0].copy()
+    jacobian = np.vstack((np.arange(16), -np.arange(16))) / 100.0
+
+    def linear_core(counts, varied, *, config, replica_id=0):
+        delta = varied.matrix(key, "parallel")[:, 0] - base
+        return replace(nominal, sigma=nominal.sigma + jacobian @ delta)
+
+    monkeypatch.setattr(
+        response_uncertainty, "_fit_sigma_forward_folded_core", linear_core
+    )
+
+    result = propagate_response_covariance(**response_problem)
+
+    assert result.refits[0].scheme == "backward"
+    assert result.refits[0].lower_sigma is not None
+    assert result.refits[0].upper_sigma is None
+    np.testing.assert_allclose(result.refits[0].derivative, jacobian @ direction)
 
 
 def test_zero_modes_are_skipped_and_negative_mode_is_rejected(response_problem):
@@ -175,26 +272,50 @@ def test_zero_modes_are_skipped_and_negative_mode_is_rejected(response_problem):
         propagate_response_covariance(**response_problem)
 
 
-@pytest.mark.parametrize("claim", ["shared", "cross"])
-def test_v1_rejects_cross_block_covariance_claims(response_problem, claim):
-    response = response_problem["response"]
-    if claim == "shared":
-        object.__setattr__(response, "qa", {"shared_mc_across_blocks": True})
-        match = "shared MC"
-    else:
-        object.__setattr__(response, "cross_block_covariance", [[1.0]])
-        match = "cross-block covariance"
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("shared_mc_across_blocks", True),
+        ("shared_mc_across_blocks", 1),
+        ("shared_mc_across_blocks", "false"),
+        ("cross_block_covariance", True),
+        ("cross_block_covariance", np.eye(2)),
+        ("cross_block_covariance", []),
+    ],
+)
+def test_v1_rejects_malformed_or_cross_block_covariance_claims(
+    response_problem, field, value
+):
+    claims = {
+        "valid": True,
+        "shared_mc_across_blocks": False,
+        "cross_block_covariance": False,
+    }
+    claims[field] = value
+    with pytest.raises(PolarizationContractError, match="covariance scope"):
+        _response_covariance_scope(
+            {"weighted_covariance_checks": claims},
+            response_problem["config"].acceptance_qa_sha256,
+        )
 
-    with pytest.raises(PolarizationContractError, match=match):
-        propagate_response_covariance(**response_problem)
 
+def test_propagation_requires_loader_sealed_scope_bound_to_config(response_problem):
+    with pytest.raises(PolarizationContractError, match="validate_acceptance_handoff"):
+        ResponseCovarianceScope(
+            response_problem["config"].acceptance_qa_sha256, False, False
+        )
 
-def test_v1_rejects_numeric_cross_block_covariance_claim(response_problem):
-    object.__setattr__(
-        response_problem["response"], "cross_block_covariance", np.eye(2)
+    response_problem["covariance_scope"] = _response_covariance_scope(
+        {
+            "weighted_covariance_checks": {
+                "valid": True,
+                "shared_mc_across_blocks": False,
+                "cross_block_covariance": False,
+            }
+        },
+        "f" * 64,
     )
-
-    with pytest.raises(PolarizationContractError, match="cross-block covariance"):
+    with pytest.raises(PolarizationContractError, match="QA SHA-256"):
         propagate_response_covariance(**response_problem)
 
 

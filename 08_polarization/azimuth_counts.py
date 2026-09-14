@@ -18,7 +18,7 @@ from analysis_config import (
     BOOTSTRAP_ALGORITHM_VERSION,
     load_analysis_config,
 )
-from acceptance_handoff import validate_acceptance_handoff
+from acceptance_handoff import ResponseCovarianceScope, validate_acceptance_handoff
 from compton import PolarizationCurve, load_period_curves
 from contracts import (
     OBSERVABLE_BUNDLE_PATHS,
@@ -130,6 +130,7 @@ class CountAuthority:
     n2_processed_run_ledger_file: AuthenticatedFile
     n2_files: tuple[AuthenticatedFile, ...]
     response: PhiResponse
+    response_covariance_scope: ResponseCovarianceScope
     acceptance_files: tuple[AuthenticatedFile, ...]
     n3_schema_file: AuthenticatedFile
     state_map: tuple[StateInterval, ...]
@@ -608,6 +609,7 @@ def load_count_authority(
         n2_processed_run_ledger_file=ledger_file,
         n2_files=n2_files,
         response=acceptance.response,
+        response_covariance_scope=acceptance.response_covariance_scope,
         acceptance_files=acceptance_files,
         n3_schema_file=n3_schema_file,
         state_map=state_map,
@@ -1278,6 +1280,16 @@ def _authority_fingerprint(authority: CountAuthority) -> tuple[object, ...]:
 def _validate_count_authority(authority: CountAuthority) -> None:
     _require_count_authority(authority)
     config = authority.config
+    scope = authority.response_covariance_scope
+    if (
+        type(scope) is not ResponseCovarianceScope
+        or scope.qa_sha256 != config.acceptance_qa_sha256
+        or scope.shared_mc_across_blocks is not False
+        or scope.cross_block_covariance is not False
+    ):
+        raise PolarizationContractError(
+            "count authority has invalid N3 response covariance scope"
+        )
     if config.status != "approved" or config.blocked_reasons:
         raise PolarizationContractError(
             "azimuth counts require approved canonical config"

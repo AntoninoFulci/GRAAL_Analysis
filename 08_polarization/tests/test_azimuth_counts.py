@@ -285,7 +285,11 @@ def count_authority_repo(response_fixture):
                 "config_sha256": "c" * 64,
                 "count_checks": {"valid": True},
                 "matrix_checks": {"valid": True},
-                "weighted_covariance_checks": {"valid": True},
+                "weighted_covariance_checks": {
+                    "valid": True,
+                    "shared_mc_across_blocks": False,
+                    "cross_block_covariance": False,
+                },
                 "closure": {"valid": True},
             }
         ),
@@ -569,6 +573,11 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     assert authority.response.source_sha256 == sha256_file(
         count_authority_repo["response"]
     )
+    assert authority.response_covariance_scope.qa_sha256 == (
+        authority.config.acceptance_qa_sha256
+    )
+    assert authority.response_covariance_scope.shared_mc_across_blocks is False
+    assert authority.response_covariance_scope.cross_block_covariance is False
     assert len(authority.flux_rows) == 12
     assert {key.observable for key in authority.response.keys} == set(PAIR_NAMES)
 

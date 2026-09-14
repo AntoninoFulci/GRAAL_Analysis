@@ -50,7 +50,11 @@ def valid_handoff(response_fixture, repo: Path) -> Path:
         "snapshot_marker": "pinned",
         "count_checks": {"valid": True},
         "matrix_checks": {"valid": True},
-        "weighted_covariance_checks": {"valid": True},
+        "weighted_covariance_checks": {
+            "valid": True,
+            "shared_mc_across_blocks": False,
+            "cross_block_covariance": False,
+        },
         "closure": {"valid": True},
     }
     (release / "acceptance_qa.json").write_text(json.dumps(qa), encoding="utf-8")
@@ -115,6 +119,38 @@ def test_accepts_exact_immutable_triplet_with_transitive_authorities(
     assert validated.response.source_sha256 == validated.phi_response_sha256
     assert validated.response.input_sha256 == "b" * 64
     assert validated.response.config_sha256 == "c" * 64
+    assert validated.response_covariance_scope.qa_sha256 == validated.qa_sha256
+    assert validated.response_covariance_scope.shared_mc_across_blocks is False
+    assert validated.response_covariance_scope.cross_block_covariance is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("shared_mc_across_blocks", None),
+        ("shared_mc_across_blocks", True),
+        ("shared_mc_across_blocks", 1),
+        ("shared_mc_across_blocks", "false"),
+        ("cross_block_covariance", None),
+        ("cross_block_covariance", True),
+        ("cross_block_covariance", 1),
+        ("cross_block_covariance", []),
+    ],
+)
+def test_rejects_missing_malformed_or_unsupported_v1_covariance_scope(
+    valid_handoff, approved_config, repo, field, value
+):
+    def mutate(qa):
+        checks = qa["weighted_covariance_checks"]
+        if value is None:
+            checks.pop(field)
+        else:
+            checks[field] = value
+
+    rewrite_qa(valid_handoff, mutate)
+    anchored = config_for_current_qa(approved_config, valid_handoff)
+    with pytest.raises(PolarizationContractError, match="covariance scope"):
+        validate_acceptance_handoff(valid_handoff, repo, config=anchored)
 
 
 def test_handoff_requires_config_pinned_qa_digest(

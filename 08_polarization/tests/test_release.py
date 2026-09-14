@@ -202,7 +202,11 @@ def write_valid_release(path):
                 "config_sha256": "2" * 64,
                 "count_checks": {"valid": True},
                 "matrix_checks": {"valid": True},
-                "weighted_covariance_checks": {"valid": True},
+                "weighted_covariance_checks": {
+                    "valid": True,
+                    "shared_mc_across_blocks": False,
+                    "cross_block_covariance": False,
+                },
                 "closure": {"valid": True},
             }
         )

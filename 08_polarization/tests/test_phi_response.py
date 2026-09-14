@@ -21,6 +21,20 @@ def test_response_parser_is_available():
     assert callable(module.load_phi_response)
 
 
+def test_row_probability_endpoint_uses_approved_absolute_tolerance(response_fixture):
+    module = importlib.import_module("phi_response")
+    tolerance = response_fixture.config.response_validation.probability_absolute_tolerance
+    raw = {key: str(value) for key, value in response_fixture.rows[0].items()}
+    raw["response_probability"] = str(1.0 + 0.5 * tolerance)
+
+    parsed = module._parse_row(raw, response_fixture.config, "n3-test")
+
+    assert parsed["response_probability"] > 1.0
+    raw["response_probability"] = str(1.0 + 2.0 * tolerance)
+    with pytest.raises(PolarizationContractError, match=r"\[0,1\]"):
+        module._parse_row(raw, response_fixture.config, "n3-test")
+
+
 def test_response_requires_every_joint_mass_phi_cell(response_fixture):
     response_fixture.rows.pop()
     response_fixture.write()
