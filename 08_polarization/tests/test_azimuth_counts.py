@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import csv
 from dataclasses import replace
+import json
 
 import numpy as np
 import pytest
 
+import azimuth_counts
 from analysis_config import BootstrapConfig
 from azimuth_counts import (
     AZIMUTH_COUNT_FIELDS,
@@ -22,6 +24,14 @@ from state_mapping import StateInterval
 
 
 FILE_HASH = "0123456789abcdef" * 4
+CANONICAL_BUNDLE = (
+    "run_manifest_observables.csv",
+    "run_quality.csv",
+    "strip_energy_lookup.csv",
+    "flux_by_run_energy.csv",
+    "flux_by_group_energy.csv",
+    "observable_run_qa.json",
+)
 EXPECTED_COUNT_FIELDS = tuple(
     """
 schema_version analysis_version fit_release_id bin_set_id channel target beam_group
@@ -111,6 +121,433 @@ def authorities(response_fixture):
             "eta_pi0": np.array([0.5, 1.2, 2.0]),
         },
     }
+
+
+def _authority_source(path, repository_root):
+    return {
+        "path": path.relative_to(repository_root).as_posix(),
+        "sha256": sha256_file(path),
+        "authority": "synthetic-test-authority",
+        "approval_id": "TEST-ONLY",
+        "reviewers": ["test-owner-1", "test-owner-2"],
+    }
+
+
+def _authority_file(path, repository_root):
+    return {
+        "path": path.relative_to(repository_root).as_posix(),
+        "sha256": sha256_file(path),
+    }
+
+
+@pytest.fixture
+def count_authority_repo(response_fixture):
+    repository_root = response_fixture.path.parent
+    bundle_dir = repository_root / "results/observable_runs"
+    bundle_dir.mkdir(parents=True)
+    manifest = repository_root / "config/run_manifest.csv"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text("run_number,target\n101,P\n", encoding="utf-8")
+    (bundle_dir / "run_manifest_observables.csv").write_text(
+        "run_number,source_period,target,beam_type,group,classification_source,source_file\n"
+        "101,period-a,P,UV,group-a,synthetic,reco.root\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "run_quality.csv").write_text(
+        "run_number,status\n101,good\n", encoding="utf-8"
+    )
+    (bundle_dir / "strip_energy_lookup.csv").write_text(
+        "run_number,xstrip,energy_median_gev\n101,42,1.15\n", encoding="utf-8"
+    )
+    flux_path = bundle_dir / "flux_by_run_energy.csv"
+    flux_fields = (
+        "binning", "run_number", "source_period", "target", "beam_type",
+        "group", "energy_low_gev", "energy_high_gev", "pol1", "brem",
+        "pol2", "pol1_net", "pol2_net", "total_net", "status",
+    )
+    with flux_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=flux_fields)
+        writer.writeheader()
+        for low in (1.1, 1.2, 1.3, 1.4):
+            writer.writerow(
+                {
+                    "binning": "ajaka_sigma",
+                    "run_number": 101,
+                    "source_period": "period-a",
+                    "target": "P",
+                    "beam_type": "UV",
+                    "group": "group-a",
+                    "energy_low_gev": low,
+                    "energy_high_gev": low + 0.1,
+                    "pol1": 101.0,
+                    "brem": 1.0,
+                    "pol2": 101.0,
+                    "pol1_net": 100.0,
+                    "pol2_net": 100.0,
+                    "total_net": 200.0,
+                    "status": "valid",
+                }
+            )
+    (bundle_dir / "flux_by_group_energy.csv").write_text(
+        "status\nvalid\n", encoding="utf-8"
+    )
+    (bundle_dir / "observable_run_qa.json").write_text(
+        json.dumps({"schema_version": 1, "valid": True}), encoding="utf-8"
+    )
+    gate0_path = bundle_dir / "HANDOFF.json"
+    gate0_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "producer_commit": "a" * 40,
+                "manifest_path": "config/run_manifest.csv",
+                "manifest_sha256": sha256_file(manifest),
+                "files": [
+                    _authority_file(bundle_dir / name, repository_root)
+                    for name in CANONICAL_BUNDLE
+                ],
+                "observable_run_qa_path": (
+                    "results/observable_runs/observable_run_qa.json"
+                ),
+                "observable_run_qa_sha256": sha256_file(
+                    bundle_dir / "observable_run_qa.json"
+                ),
+                "observable_run_qa_valid": True,
+                "energy_binning_mev": [1100, 1200, 1300, 1400, 1500],
+                "created_at_utc": "2026-09-13T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    reconstruction_dir = repository_root / "results/reconstruction"
+    reconstruction_dir.mkdir(parents=True)
+    reco_path = reconstruction_dir / "reco.root"
+    reco_path.write_bytes(b"synthetic N2 ROOT bytes")
+    ledger_path = reconstruction_dir / "processed_runs.csv"
+    ledger_path.write_text("run_number,status\n101,complete\n", encoding="utf-8")
+    inventory_path = reconstruction_dir / "inventory.json"
+    inventory_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "producer_commit": "b" * 40,
+                "gate0_handoff_sha256": sha256_file(gate0_path),
+                "complete_run_coverage": True,
+                "tree": "reco_eta_pi0_chi2",
+                "vectors": "kinematic_fit",
+                "run_numbers": [101],
+                "observed_event_run_numbers": [101],
+                "zero_selected_event_run_numbers": [],
+                "processed_run_ledger": _authority_file(
+                    ledger_path, repository_root
+                ),
+                "files": [_authority_file(reco_path, repository_root)],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    authority_dir = repository_root / "data/authorities"
+    authority_dir.mkdir(parents=True)
+    state_source = authority_dir / "state.csv"
+    state_source.write_text("run,state\n101,1\n", encoding="utf-8")
+    compton_source = authority_dir / "compton.csv"
+    compton_source.write_text(
+        "energy_mev,polarization\n1100,0.8\n1500,0.8\n", encoding="utf-8"
+    )
+
+    release_dir = (
+        repository_root
+        / "results/physics/normalization/handoffs/n3-test"
+    )
+    release_dir.mkdir(parents=True)
+    acceptance_path = release_dir / "acceptance_v1.csv"
+    acceptance_path.write_text(
+        "channel,acceptance\neta_pi0,0.5\n", encoding="utf-8"
+    )
+    response_path = release_dir / "acceptance_phi_response_v1.csv"
+    response_path.write_bytes(response_fixture.path.read_bytes())
+    acceptance_qa_path = release_dir / "acceptance_qa.json"
+    acceptance_qa_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "acceptance_release_id": "n3-test",
+                "producer_commit": "c" * 40,
+                "valid": True,
+                "acceptance_csv_sha256": sha256_file(acceptance_path),
+                "acceptance_phi_response_csv_sha256": sha256_file(response_path),
+                "phi_response_schema_path": (
+                    "config/schemas/acceptance_phi_response_v1.schema.json"
+                ),
+                "phi_response_schema_sha256": response_fixture.config.phi_response_schema_sha256,
+                "phi_response_schema_approval_id": (
+                    "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
+                ),
+                "gate0_handoff_sha256": sha256_file(gate0_path),
+                "n2_reconstruction_sha256": sha256_file(inventory_path),
+                "input_sha256": "b" * 64,
+                "config_sha256": "c" * 64,
+                "count_checks": {"valid": True},
+                "matrix_checks": {"valid": True},
+                "weighted_covariance_checks": {"valid": True},
+                "closure": {"valid": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config_path = repository_root / "config/physics/polarization_v1.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "analysis_version": "polarization-v1",
+                "status": "approved",
+                "blocked_reasons": [],
+                "gate0_handoff": "results/observable_runs/HANDOFF.json",
+                "acceptance": {
+                    "status": "approved",
+                    "handoff_parent": "results/physics/normalization/handoffs",
+                    "release_id": "n3-test",
+                    "handoff_directory": (
+                        "results/physics/normalization/handoffs/n3-test"
+                    ),
+                    "required_files": [
+                        "acceptance_v1.csv",
+                        "acceptance_phi_response_v1.csv",
+                        "acceptance_qa.json",
+                    ],
+                    "acceptance_qa_sha256": sha256_file(acceptance_qa_path),
+                    "phi_response_schema_status": "approved",
+                    "phi_response_schema_path": (
+                        "config/schemas/acceptance_phi_response_v1.schema.json"
+                    ),
+                    "phi_response_schema_sha256": response_fixture.config.phi_response_schema_sha256,
+                    "phi_response_schema_approval_id": (
+                        "N3-MASS-PHI-RESPONSE-V1-2026-09-13"
+                    ),
+                    "phi_response_schema_reviewers": ["test-a", "test-b"],
+                },
+                "state_mapping": {
+                    "status": "ready",
+                    "source": _authority_source(state_source, repository_root),
+                    "intervals": [
+                        {
+                            "run_start": 101,
+                            "run_end": 101,
+                            "state_code": 1,
+                            "orientation": "parallel",
+                            "source_period": "period-a",
+                            "flux_component": "pol1_net",
+                        },
+                        {
+                            "run_start": 101,
+                            "run_end": 101,
+                            "state_code": 2,
+                            "orientation": "perpendicular",
+                            "source_period": "period-a",
+                            "flux_component": "pol2_net",
+                        },
+                    ],
+                },
+                "compton_polarization": {
+                    "status": "ready",
+                    "periods": [
+                        {
+                            "source_period": "period-a",
+                            "source": _authority_source(
+                                compton_source, repository_root
+                            ),
+                            "energies_mev": [1100.0, 1500.0],
+                            "polarization": [0.8, 0.8],
+                            "covariance": [[0.0001, 0.0], [0.0, 0.0001]],
+                        }
+                    ],
+                },
+                "angle": {
+                    "observable": "reaction_plane_phi",
+                    "range_radians": [0.0, np.pi],
+                    "period_radians": np.pi,
+                    "degenerate_plane_policy": "invalid",
+                },
+                "sign_convention": {
+                    "status": "approved",
+                    "approval_id": "fixture-sign",
+                    "reviewers": ["test-a", "test-b"],
+                    "model": "mu = fixture",
+                    "orientation_signs": {"parallel": -1, "perpendicular": 1},
+                },
+                "figure4_comparison": {
+                    "energy_edges_gev": [1.1, 1.2, 1.3, 1.4, 1.5],
+                    "mass_bins": 2,
+                    "phi_bins": 12,
+                    "target": "P",
+                    "tree": "reco_eta_pi0_chi2",
+                    "vectors": "kinematic_fit",
+                    "content_policy": (
+                        "framework_results_only_no_published_points_curves_or_digitization"
+                    ),
+                },
+                "closure": {
+                    "random_seed": 1701,
+                    "bias_absolute_max": 0.02,
+                    "pull_mean_absolute_max": 0.2,
+                    "pull_width_tolerance": 0.2,
+                    "require_sign_check": True,
+                },
+                "response_validation": {
+                    "minimum_generated_effective_events_per_true_phi": 100.0,
+                    "probability_absolute_tolerance": 1e-12,
+                    "uncertainty_absolute_tolerance": 1e-12,
+                    "uncertainty_relative_tolerance": 1e-9,
+                    "covariance_eigenvalue_absolute_tolerance": 1e-12,
+                    "finite_difference_relative_step": 1e-4,
+                    "finite_difference_absolute_step": 1e-6,
+                    "replay_absolute_tolerance": 1e-10,
+                    "replay_relative_tolerance": 1e-8,
+                },
+                "bootstrap": {
+                    "replicas": 32,
+                    "algorithm_version": "poisson1-sha256-v1",
+                    "seed": 1701,
+                    "maximum_failed_fraction": 0.05,
+                    "hessian_diagonal_ratio_min": 0.5,
+                    "hessian_diagonal_ratio_max": 2.0,
+                },
+                "release_qa_thresholds": {
+                    "status": "approved",
+                    "approval_id": "fixture-release",
+                    "reviewers": ["test-a", "test-b"],
+                    "minimum_events_per_bin": 10,
+                    "maximum_deviance_per_ndof": 2.0,
+                    "closure_bias_absolute_max": 0.02,
+                    "closure_pull_mean_absolute_max": 0.2,
+                    "closure_pull_width_tolerance": 0.2,
+                    "minimum_systematic_sources": 1,
+                    "systematic_combination_policy": (
+                        "independent_sources_quadrature"
+                    ),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "root": repository_root,
+        "config": config_path,
+        "gate0": gate0_path,
+        "flux": flux_path,
+        "inventory": inventory_path,
+        "reco": reco_path,
+        "state": state_source,
+        "compton": compton_source,
+        "acceptance_qa": acceptance_qa_path,
+        "response": response_path,
+    }
+
+
+def _load_count_authority(paths):
+    root = paths["root"]
+    return azimuth_counts.load_count_authority(
+        repository_root=root,
+        config_path=paths["config"].relative_to(root).as_posix(),
+        gate0_handoff_path=paths["gate0"].relative_to(root).as_posix(),
+        n2_inventory_path=paths["inventory"].relative_to(root).as_posix(),
+        acceptance_handoff_path=paths["acceptance_qa"].relative_to(root).as_posix(),
+        fit_release_id="fit-test",
+        bin_set_id="figure4-v1",
+    )
+
+
+def test_count_authority_loader_retains_only_actual_authenticated_bytes(
+    count_authority_repo,
+):
+    authority = _load_count_authority(count_authority_repo)
+
+    assert authority.config_file.sha256 == sha256_file(count_authority_repo["config"])
+    assert authority.gate0_handoff_file.sha256 == sha256_file(
+        count_authority_repo["gate0"]
+    )
+    assert authority.flux_file.sha256 == sha256_file(count_authority_repo["flux"])
+    assert authority.n2_inventory_file.sha256 == sha256_file(
+        count_authority_repo["inventory"]
+    )
+    assert tuple(
+        (record.relative_path, record.sha256) for record in authority.n2_files
+    ) == (
+        (
+            "results/reconstruction/reco.root",
+            sha256_file(count_authority_repo["reco"]),
+        ),
+    )
+    retained = (
+        authority.config_file,
+        authority.gate0_handoff_file,
+        *authority.gate0_bundle_files,
+        authority.n2_inventory_file,
+        *authority.n2_files,
+        authority.state_mapping_file,
+        *[item.file for item in authority.compton_files],
+        *authority.acceptance_files,
+    )
+    assert all(record.sha256 == sha256_file(record.path) for record in retained)
+    assert authority.response.source_sha256 == sha256_file(
+        count_authority_repo["response"]
+    )
+    assert len(authority.flux_rows) == 4
+
+
+def _break_authority_file(path, mutation):
+    if mutation == "tampered":
+        if path.name == "polarization_v1.json":
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["status"] = "blocked"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+        else:
+            path.write_bytes(path.read_bytes() + b"\n")
+    elif mutation == "missing":
+        path.unlink()
+    else:
+        target = path.with_name(f"{path.name}.target")
+        path.rename(target)
+        path.symlink_to(target)
+
+
+@pytest.mark.parametrize(
+    "authority_name",
+    (
+        "config",
+        "gate0",
+        "flux",
+        "inventory",
+        "reco",
+        "state",
+        "compton",
+        "acceptance_qa",
+        "response",
+    ),
+)
+@pytest.mark.parametrize("mutation", ("tampered", "missing", "symlink"))
+def test_count_authority_loader_rejects_changed_missing_or_linked_inputs(
+    count_authority_repo, authority_name, mutation
+):
+    _break_authority_file(count_authority_repo[authority_name], mutation)
+
+    with pytest.raises(PolarizationContractError):
+        _load_count_authority(count_authority_repo)
+
+
+def test_count_authority_cannot_be_rebuilt_with_forged_hash_strings(
+    count_authority_repo,
+):
+    authority = _load_count_authority(count_authority_repo)
+    forged = replace(authority.config_file, sha256="f" * 64)
+
+    with pytest.raises(PolarizationContractError, match="load_count_authority"):
+        replace(authority, config_file=forged)
 
 
 def test_poisson_multiplier_has_frozen_versioned_vectors():
@@ -269,7 +706,6 @@ def test_count_table_rejects_malformed_serialized_rows(
     "mutation,match",
     [
         ({"source_stage": "N4"}, "N2"),
-        ({"n2_inventory_path": "results/reco/n4-yields.csv"}, "N2 inventory"),
         ({"n2_reconstruction_sha256": "not-a-hash"}, "SHA-256"),
         ({"beam_polarization": 0.7}, "Compton"),
         ({"beam_polarization_variance": 0.004}, "Compton"),

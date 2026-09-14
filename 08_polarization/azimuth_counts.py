@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass, fields
+from dataclasses import InitVar, dataclass, fields
 from decimal import Decimal, localcontext
 from hashlib import sha256
 import math
-from pathlib import Path, PurePosixPath
+from pathlib import Path
+from types import MappingProxyType
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -15,12 +16,28 @@ import numpy as np
 from analysis_config import (
     AnalysisConfig,
     BOOTSTRAP_ALGORITHM_VERSION,
+    load_analysis_config,
 )
-from compton import PolarizationCurve
-from contracts import PolarizationContractError, SHA256_PATTERN, sha256_file
+from acceptance_handoff import validate_acceptance_handoff
+from compton import PolarizationCurve, load_period_curves
+from contracts import (
+    OBSERVABLE_BUNDLE_PATHS,
+    PolarizationContractError,
+    SHA256_PATTERN,
+    canonical_relative_file,
+    load_json,
+    sha256_file,
+    validate_gate0_handoff,
+)
 from figure4_analysis import PAIR_NAMES, event_pair_observables
+from phi_response import PhiResponse
+from reco_inventory import RecoInventory, load_gate0_run_numbers, load_reco_inventory
 from root_events import EventSample
-from state_mapping import StateInterval, validate_intervals
+from state_mapping import (
+    StateInterval,
+    load_state_mapping,
+    validate_intervals,
+)
 
 
 AZIMUTH_COUNT_FIELDS = tuple(
@@ -35,7 +52,524 @@ input_sha256
 """.split()
 )
 ORIENTATIONS = ("parallel", "perpendicular")
-_N2_INVENTORY_PREFIX = ("results", "reconstruction")
+CANONICAL_CONFIG_PATH = "config/physics/polarization_v1.json"
+CANONICAL_GATE0_PATH = "results/observable_runs/HANDOFF.json"
+CANONICAL_RUNS_PATH = "results/observable_runs/run_manifest_observables.csv"
+CANONICAL_FLUX_PATH = "results/observable_runs/flux_by_run_energy.csv"
+_FLUX_REQUIRED_FIELDS = frozenset(
+    {
+        "binning",
+        "run_number",
+        "source_period",
+        "target",
+        "beam_type",
+        "group",
+        "energy_low_gev",
+        "energy_high_gev",
+        "pol1_net",
+        "pol2_net",
+        "status",
+    }
+)
+_COUNT_AUTHORITY_TOKEN = object()
+
+
+@dataclass(frozen=True)
+class AuthenticatedFile:
+    """One canonical repository file whose digest was checked from its bytes."""
+
+    relative_path: str
+    path: Path
+    sha256: str
+
+
+@dataclass(frozen=True)
+class FluxAuthorityRow:
+    """One valid observable-run flux row retained for count exposure building."""
+
+    run_number: int
+    source_period: str
+    target: str
+    beam_type: str
+    beam_group: str
+    energy_low_gev: float
+    energy_high_gev: float
+    pol1_net: float
+    pol2_net: float
+
+
+@dataclass(frozen=True)
+class PeriodComptonAuthority:
+    """The authenticated external source backing one parsed Compton curve."""
+
+    source_period: str
+    file: AuthenticatedFile
+
+
+@dataclass(frozen=True)
+class CountAuthority:
+    """Byte-authenticated immutable inputs required to construct S4 counts.
+
+    Instances are created only by :func:`load_count_authority`; the private
+    token prevents callers from assembling apparently valid provenance from
+    hashes and in-memory values.
+    """
+
+    repository_root: Path
+    fit_release_id: str
+    bin_set_id: str
+    config: AnalysisConfig
+    config_file: AuthenticatedFile
+    gate0_handoff_file: AuthenticatedFile
+    gate0_bundle_files: tuple[AuthenticatedFile, ...]
+    flux_file: AuthenticatedFile
+    gate0_run_numbers: frozenset[int]
+    n2_inventory: RecoInventory
+    n2_inventory_file: AuthenticatedFile
+    n2_files: tuple[AuthenticatedFile, ...]
+    response: PhiResponse
+    acceptance_files: tuple[AuthenticatedFile, ...]
+    state_map: tuple[StateInterval, ...]
+    state_mapping_file: AuthenticatedFile
+    compton: Mapping[str, PolarizationCurve]
+    compton_files: tuple[PeriodComptonAuthority, ...]
+    flux_rows: tuple[FluxAuthorityRow, ...]
+    _loader_token: InitVar[object] = None
+
+    def __post_init__(self, _loader_token: object) -> None:
+        if _loader_token is not _COUNT_AUTHORITY_TOKEN:
+            raise PolarizationContractError(
+                "CountAuthority instances must come from load_count_authority"
+            )
+
+    @property
+    def config_sha256(self) -> str:
+        return self.config_file.sha256
+
+    @property
+    def gate0_handoff_sha256(self) -> str:
+        return self.gate0_handoff_file.sha256
+
+    @property
+    def n2_reconstruction_sha256(self) -> str:
+        return self.n2_inventory_file.sha256
+
+    @property
+    def state_mapping_sha256(self) -> str:
+        return self.state_mapping_file.sha256
+
+
+def _canonical_input_path(raw_path: str | Path, label: str) -> str:
+    if isinstance(raw_path, Path):
+        raw_path = raw_path.as_posix()
+    if not isinstance(raw_path, str):
+        raise PolarizationContractError(
+            f"{label} path must be canonical repository-relative POSIX"
+        )
+    return raw_path
+
+
+def _authenticated_file(
+    repository_root: Path,
+    raw_path: str | Path,
+    label: str,
+    *,
+    expected_sha256: object | None = None,
+) -> AuthenticatedFile:
+    relative, path = canonical_relative_file(
+        repository_root, _canonical_input_path(raw_path, label), label
+    )
+    actual = sha256_file(path)
+    if expected_sha256 is not None:
+        expected = _digest(expected_sha256, f"{label} SHA-256")
+        if actual != expected:
+            raise PolarizationContractError(
+                f"{label} SHA-256 mismatch: expected {expected}, got {actual}"
+            )
+    return AuthenticatedFile(relative, path, actual)
+
+
+def _gate0_bundle_files(
+    repository_root: Path, handoff: Mapping[str, object]
+) -> tuple[AuthenticatedFile, ...]:
+    records = handoff.get("files")
+    if not isinstance(records, list):
+        raise PolarizationContractError("HANDOFF bundle records are unavailable")
+    authenticated = []
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise PolarizationContractError("HANDOFF bundle record must be an object")
+        authenticated.append(
+            _authenticated_file(
+                repository_root,
+                record.get("path"),
+                "Gate 0 bundle file",
+                expected_sha256=record.get("sha256"),
+            )
+        )
+    if {item.relative_path for item in authenticated} != set(
+        OBSERVABLE_BUNDLE_PATHS
+    ):
+        raise PolarizationContractError(
+            "HANDOFF bundle records disagree with canonical observable bundle"
+        )
+    return tuple(sorted(authenticated, key=lambda item: item.relative_path))
+
+
+def _parse_flux_rows(
+    path: Path,
+    *,
+    target: str,
+    gate0_run_numbers: frozenset[int],
+) -> tuple[FluxAuthorityRow, ...]:
+    try:
+        stream = Path(path).open(newline="", encoding="utf-8")
+    except OSError as exc:
+        raise PolarizationContractError(f"cannot read count flux CSV: {path}") from exc
+    rows = []
+    keys = set()
+    with stream:
+        reader = csv.DictReader(stream)
+        missing = _FLUX_REQUIRED_FIELDS - set(reader.fieldnames or ())
+        if missing:
+            raise PolarizationContractError(
+                "count flux CSV missing columns: " + ", ".join(sorted(missing))
+            )
+        for row_number, raw in enumerate(reader, start=2):
+            if raw["binning"] != "ajaka_sigma" or raw["target"] != target:
+                continue
+            try:
+                run_number = int(raw["run_number"])
+            except (TypeError, ValueError) as exc:
+                raise PolarizationContractError(
+                    f"count flux row {row_number} has invalid run_number"
+                ) from exc
+            if run_number not in gate0_run_numbers:
+                continue
+            if raw["status"] != "valid":
+                raise PolarizationContractError(
+                    f"count flux row {row_number} is not valid"
+                )
+            source_period = _canonical_text(
+                raw["source_period"], f"count flux row {row_number} source_period"
+            )
+            beam_type = _canonical_text(
+                raw["beam_type"], f"count flux row {row_number} beam_type"
+            )
+            beam_group = _canonical_text(
+                raw["group"], f"count flux row {row_number} group"
+            )
+            try:
+                low = float(raw["energy_low_gev"])
+                high = float(raw["energy_high_gev"])
+                pol1_net = float(raw["pol1_net"])
+                pol2_net = float(raw["pol2_net"])
+            except (TypeError, ValueError) as exc:
+                raise PolarizationContractError(
+                    f"count flux row {row_number} has invalid numeric fields"
+                ) from exc
+            if (
+                not all(math.isfinite(value) for value in (low, high, pol1_net, pol2_net))
+                or high <= low
+                or pol1_net < 0.0
+                or pol2_net < 0.0
+            ):
+                raise PolarizationContractError(
+                    f"count flux row {row_number} has invalid energy or net flux"
+                )
+            key = (run_number, source_period, target, beam_group, low, high)
+            if key in keys:
+                raise PolarizationContractError("count flux rows must be unique")
+            keys.add(key)
+            rows.append(
+                FluxAuthorityRow(
+                    run_number,
+                    source_period,
+                    target,
+                    beam_type,
+                    beam_group,
+                    low,
+                    high,
+                    pol1_net,
+                    pol2_net,
+                )
+            )
+    if not rows:
+        raise PolarizationContractError(
+            "count flux CSV has no valid ajaka_sigma rows for Gate 0 runs"
+        )
+    return tuple(
+        sorted(
+            rows,
+            key=lambda row: (
+                row.run_number,
+                row.source_period,
+                row.beam_group,
+                row.energy_low_gev,
+                row.energy_high_gev,
+            ),
+        )
+    )
+
+
+def _source_file(
+    repository_root: Path,
+    source: object,
+    label: str,
+) -> AuthenticatedFile:
+    if not isinstance(source, Mapping):
+        raise PolarizationContractError(f"{label} source must be an object")
+    return _authenticated_file(
+        repository_root,
+        source.get("path"),
+        label,
+        expected_sha256=source.get("sha256"),
+    )
+
+
+def _relative_authenticated_file(
+    repository_root: Path,
+    path: Path,
+    label: str,
+    *,
+    expected_sha256: str,
+) -> AuthenticatedFile:
+    try:
+        relative = Path(path).relative_to(repository_root).as_posix()
+    except ValueError as exc:
+        raise PolarizationContractError(f"{label} is outside repository") from exc
+    return _authenticated_file(
+        repository_root, relative, label, expected_sha256=expected_sha256
+    )
+
+
+def load_count_authority(
+    *,
+    repository_root: Path,
+    config_path: str | Path,
+    gate0_handoff_path: str | Path,
+    n2_inventory_path: str | Path,
+    acceptance_handoff_path: str | Path,
+    fit_release_id: str,
+    bin_set_id: str,
+) -> CountAuthority:
+    """Load the exact byte-authenticated authority bundle for S4 counts."""
+    try:
+        root = Path(repository_root).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise PolarizationContractError(
+            f"count repository root does not exist: {repository_root}"
+        ) from exc
+    if not root.is_dir():
+        raise PolarizationContractError("count repository root must be a directory")
+    release_id = _canonical_text(fit_release_id, "fit_release_id")
+    bins_id = _canonical_text(bin_set_id, "bin_set_id")
+
+    config_relative = _canonical_input_path(config_path, "analysis config")
+    if config_relative != CANONICAL_CONFIG_PATH:
+        raise PolarizationContractError(
+            f"analysis config path must be {CANONICAL_CONFIG_PATH}"
+        )
+    config_file = _authenticated_file(root, config_relative, "analysis config")
+    config = load_analysis_config(config_file.path, root, require_approved=True)
+    raw_config = load_json(config_file.path)
+    if sha256_file(config_file.path) != config_file.sha256:
+        raise PolarizationContractError("analysis config changed during validation")
+
+    gate0_relative = _canonical_input_path(gate0_handoff_path, "Gate 0 HANDOFF")
+    if gate0_relative != CANONICAL_GATE0_PATH:
+        raise PolarizationContractError(
+            f"Gate 0 HANDOFF path must be {CANONICAL_GATE0_PATH}"
+        )
+    if raw_config.get("gate0_handoff") != gate0_relative:
+        raise PolarizationContractError(
+            "Gate 0 HANDOFF path disagrees with canonical config"
+        )
+    gate0_file = _authenticated_file(root, gate0_relative, "Gate 0 HANDOFF")
+    gate0 = validate_gate0_handoff(gate0_file.path, root)
+    if sha256_file(gate0_file.path) != gate0_file.sha256:
+        raise PolarizationContractError("Gate 0 HANDOFF changed during validation")
+    bundle_files = _gate0_bundle_files(root, gate0)
+    bundle_by_path = {item.relative_path: item for item in bundle_files}
+    flux_file = bundle_by_path[CANONICAL_FLUX_PATH]
+    runs_file = bundle_by_path[CANONICAL_RUNS_PATH]
+    gate0_runs = load_gate0_run_numbers(runs_file.path, target=config.figure4_target)
+
+    inventory_file = _authenticated_file(
+        root, n2_inventory_path, "N2 reconstruction inventory"
+    )
+    inventory = load_reco_inventory(
+        inventory_file.path,
+        root,
+        expected_handoff_sha256=gate0_file.sha256,
+        expected_tree=config.figure4_tree,
+        expected_vectors=config.figure4_vectors,
+        expected_run_numbers=gate0_runs,
+    )
+    if sha256_file(inventory_file.path) != inventory_file.sha256:
+        raise PolarizationContractError(
+            "N2 reconstruction inventory changed during validation"
+        )
+    n2_files = tuple(
+        sorted(
+            (
+                _relative_authenticated_file(
+                    root,
+                    path,
+                    "N2 reconstruction file",
+                    expected_sha256=sha256_file(path),
+                )
+                for path in inventory.paths
+            ),
+            key=lambda item: item.relative_path,
+        )
+    )
+
+    acceptance_relative = _canonical_input_path(
+        acceptance_handoff_path, "N3 acceptance handoff QA"
+    )
+    expected_acceptance_qa = (
+        f"{config.acceptance_handoff_directory}/acceptance_qa.json"
+    )
+    if acceptance_relative != expected_acceptance_qa:
+        raise PolarizationContractError(
+            "N3 acceptance handoff path disagrees with canonical config"
+        )
+    acceptance_qa_file = _authenticated_file(
+        root, acceptance_relative, "N3 acceptance handoff QA"
+    )
+    acceptance = validate_acceptance_handoff(
+        acceptance_qa_file.path.parent,
+        root,
+        config=config,
+        expected_gate0_sha256=gate0_file.sha256,
+    )
+    if acceptance.n2_reconstruction_sha256 != inventory_file.sha256:
+        raise PolarizationContractError(
+            "N3 acceptance handoff is bound to a different N2 reconstruction"
+        )
+    acceptance_files = tuple(
+        _relative_authenticated_file(
+            root, path, label, expected_sha256=digest
+        )
+        for path, label, digest in (
+            (
+                acceptance.acceptance_csv,
+                "N3 acceptance CSV",
+                acceptance.acceptance_sha256,
+            ),
+            (
+                acceptance.phi_response_csv,
+                "N3 phi-response CSV",
+                acceptance.phi_response_sha256,
+            ),
+            (acceptance.qa_json, "N3 acceptance QA", acceptance.qa_sha256),
+        )
+    )
+    if acceptance_qa_file != acceptance_files[-1]:
+        raise PolarizationContractError(
+            "N3 acceptance QA path or digest changed during validation"
+        )
+
+    state_map = load_state_mapping(config_file.path, root)
+    state_section = raw_config.get("state_mapping")
+    if not isinstance(state_section, Mapping):
+        raise PolarizationContractError("canonical config lacks state mapping")
+    state_file = _source_file(
+        root, state_section.get("source"), "state mapping authority"
+    )
+
+    curves = load_period_curves(config_file.path, root)
+    compton_section = raw_config.get("compton_polarization")
+    periods = (
+        compton_section.get("periods")
+        if isinstance(compton_section, Mapping)
+        else None
+    )
+    if not isinstance(periods, list):
+        raise PolarizationContractError("canonical config lacks Compton periods")
+    compton_files = []
+    for period in periods:
+        if not isinstance(period, Mapping):
+            raise PolarizationContractError("Compton period must be an object")
+        source_period = _canonical_text(
+            period.get("source_period"), "Compton source_period"
+        )
+        if source_period not in curves:
+            raise PolarizationContractError(
+                f"parsed Compton curve missing for source_period {source_period}"
+            )
+        compton_files.append(
+            PeriodComptonAuthority(
+                source_period,
+                _source_file(
+                    root,
+                    period.get("source"),
+                    f"Compton authority for {source_period}",
+                ),
+            )
+        )
+    if len({item.source_period for item in compton_files}) != len(compton_files):
+        raise PolarizationContractError("Compton source_period must be unique")
+    for curve in curves.values():
+        curve.energies_mev.setflags(write=False)
+        curve.values.setflags(write=False)
+        curve.covariance.setflags(write=False)
+    immutable_curves = MappingProxyType(dict(curves))
+
+    flux_rows = _parse_flux_rows(
+        flux_file.path,
+        target=config.figure4_target,
+        gate0_run_numbers=gate0_runs,
+    )
+    mapped_periods = {interval.source_period for interval in state_map}
+    compton_periods = set(immutable_curves)
+    for row in flux_rows:
+        if row.source_period not in mapped_periods:
+            raise PolarizationContractError(
+                f"count flux source_period {row.source_period} lacks state mapping"
+            )
+        if row.source_period not in compton_periods:
+            raise PolarizationContractError(
+                f"count flux source_period {row.source_period} lacks Compton authority"
+            )
+
+    retained_files = (
+        config_file,
+        gate0_file,
+        *bundle_files,
+        inventory_file,
+        *n2_files,
+        state_file,
+        *[item.file for item in compton_files],
+        *acceptance_files,
+    )
+    if any(sha256_file(item.path) != item.sha256 for item in retained_files):
+        raise PolarizationContractError(
+            "count authority file changed during validation"
+        )
+    return CountAuthority(
+        repository_root=root,
+        fit_release_id=release_id,
+        bin_set_id=bins_id,
+        config=config,
+        config_file=config_file,
+        gate0_handoff_file=gate0_file,
+        gate0_bundle_files=bundle_files,
+        flux_file=flux_file,
+        gate0_run_numbers=gate0_runs,
+        n2_inventory=inventory,
+        n2_inventory_file=inventory_file,
+        n2_files=n2_files,
+        response=acceptance.response,
+        acceptance_files=acceptance_files,
+        state_map=state_map,
+        state_mapping_file=state_file,
+        compton=immutable_curves,
+        compton_files=tuple(compton_files),
+        flux_rows=flux_rows,
+        _loader_token=_COUNT_AUTHORITY_TOKEN,
+    )
 
 
 @dataclass(frozen=True)
@@ -403,23 +937,6 @@ def _validate_count_row(row: AzimuthCountRow) -> None:
         _digest(getattr(row, name), f"azimuth count {name}")
 
 
-def _validate_n2_inventory(path: object) -> str:
-    raw = _canonical_text(path, "N2 inventory path")
-    pure = PurePosixPath(raw)
-    if (
-        "\\" in raw
-        or Path(raw).is_absolute()
-        or pure.as_posix() != raw
-        or any(part in {"", ".", ".."} for part in pure.parts)
-        or pure.parts[:2] != _N2_INVENTORY_PREFIX
-        or pure.suffix != ".json"
-    ):
-        raise PolarizationContractError(
-            "N2 inventory path must be a canonical results/reconstruction JSON path"
-        )
-    return raw
-
-
 def event_bootstrap_weight(
     file_sha256: str,
     tree: str,
@@ -579,7 +1096,6 @@ def _validate_exposures(
             raise PolarizationContractError(
                 "count construction accepts N2 events only; N4 is forbidden"
             )
-        _validate_n2_inventory(item.n2_inventory_path)
         for name in (
             "gate0_handoff_sha256", "n2_reconstruction_sha256",
             "state_mapping_sha256", "compton_source_sha256", "config_sha256",
