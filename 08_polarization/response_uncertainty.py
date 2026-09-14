@@ -63,11 +63,11 @@ def _covariance_eigenmodes(
         raise PolarizationContractError(
             "response covariance and eigenvalue tolerance must be finite"
         )
+    matrix_scale = max(
+        float(np.max(np.abs(matrix))), np.finfo(matrix.dtype).tiny
+    )
     symmetry_tolerance = (
-        64.0
-        * np.finfo(float).eps
-        * matrix.shape[0]
-        * max(1.0, float(np.max(np.abs(matrix))))
+        64.0 * np.finfo(matrix.dtype).eps * matrix.shape[0] * matrix_scale
     )
     if not np.allclose(
         matrix, matrix.T, rtol=0.0, atol=symmetry_tolerance
@@ -81,7 +81,7 @@ def _covariance_eigenmodes(
     modes = []
     for index in np.argsort(eigenvalues)[::-1]:
         eigenvalue = float(eigenvalues[index])
-        if eigenvalue < tolerance:
+        if eigenvalue <= 0.0 or eigenvalue < tolerance:
             continue
         vector = eigenvectors[:, index].copy()
         anchor = int(np.argmax(np.abs(vector)))
@@ -304,8 +304,18 @@ def _refit_response_mode(
     identifier: str,
 ) -> ResponseModeRefit:
     """Refit one mode at validated endpoints and retain its exact denominator."""
-    plus_ok = upper_limit >= step
-    minus_ok = lower_limit <= -step
+    def reaches(limit: float, endpoint: float, *, upper: bool) -> bool:
+        exact_comparison = limit >= endpoint if upper else limit <= endpoint
+        if exact_comparison:
+            return True
+        if not math.isfinite(limit) or not math.isfinite(endpoint):
+            return False
+        slack = 8.0 * max(math.ulp(limit), math.ulp(endpoint))
+        gap = endpoint - limit if upper else limit - endpoint
+        return gap <= slack
+
+    plus_ok = reaches(upper_limit, step, upper=True)
+    minus_ok = reaches(lower_limit, -step, upper=False)
     lower_sigma = None
     upper_sigma = None
     if plus_ok:

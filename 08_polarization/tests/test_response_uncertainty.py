@@ -92,6 +92,20 @@ def test_eigenvalue_tolerance_does_not_relax_covariance_symmetry():
         _covariance_eigenmodes(covariance, tolerance=0.1)
 
 
+def test_covariance_symmetry_tolerance_scales_with_tiny_matrix():
+    covariance = np.array([[1e-30, 1e-30], [0.0, 1e-30]])
+
+    with pytest.raises(PolarizationContractError, match="symmetric"):
+        _covariance_eigenmodes(covariance, tolerance=0.0)
+
+
+def test_zero_eigenvalues_are_discarded_when_cutoff_is_zero():
+    modes = _covariance_eigenmodes(np.diag([1e-8, 0.0]), tolerance=0.0)
+
+    assert len(modes) == 1
+    assert modes[0][0] == pytest.approx(1e-8)
+
+
 @pytest.fixture
 def response_problem():
     problem = _task5_problem()
@@ -340,6 +354,76 @@ def test_physical_upper_boundary_uses_backward_refit(response_problem, monkeypat
     assert result.refits[0].lower_sigma is not None
     assert result.refits[0].upper_sigma is None
     np.testing.assert_allclose(result.refits[0].derivative, jacobian @ direction)
+
+
+def test_machine_rounded_feasible_endpoint_keeps_central_refit(
+    response_problem, monkeypatch
+):
+    nominal = _nominal_fit(response_problem)
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    direction = np.zeros(16)
+    direction[0] = 1.0
+    step = 1e-4
+
+    monkeypatch.setattr(
+        response_uncertainty,
+        "_fit_sigma_forward_folded_core",
+        lambda *args, **kwargs: nominal,
+    )
+
+    refit = response_uncertainty._refit_response_mode(
+        response_problem["counts"],
+        response,
+        config=response_problem["config"],
+        nominal=nominal,
+        cell=cell,
+        direction=direction,
+        eigenvalue=1e-8,
+        step=step,
+        lower_limit=-step,
+        upper_limit=np.nextafter(step, 0.0),
+        tolerance=1e-10,
+        identifier="rounded-endpoint",
+    )
+
+    assert refit.scheme == "central"
+
+
+def test_machine_slack_does_not_accept_materially_infeasible_endpoint(
+    response_problem, monkeypatch
+):
+    nominal = _nominal_fit(response_problem)
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    direction = np.zeros(16)
+    direction[0] = 1.0
+    step = 1e-4
+
+    monkeypatch.setattr(
+        response_uncertainty,
+        "_fit_sigma_forward_folded_core",
+        lambda *args, **kwargs: nominal,
+    )
+
+    refit = response_uncertainty._refit_response_mode(
+        response_problem["counts"],
+        response,
+        config=response_problem["config"],
+        nominal=nominal,
+        cell=cell,
+        direction=direction,
+        eigenvalue=1e-8,
+        step=step,
+        lower_limit=-step,
+        upper_limit=step - 1e-10,
+        tolerance=1e-10,
+        identifier="infeasible-endpoint",
+    )
+
+    assert refit.scheme == "backward"
 
 
 def test_zero_modes_are_skipped_and_negative_mode_is_rejected(response_problem):
