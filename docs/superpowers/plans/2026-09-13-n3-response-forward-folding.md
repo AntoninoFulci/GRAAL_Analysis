@@ -4,7 +4,7 @@
 
 **Goal:** Validate a content-addressed joint mass-phi N3 response, build deterministic N2-derived S4 evidence, fit Sigma by forward folding, and make S6 replay every scientific result.
 
-**Architecture:** A strict schema/config layer supplies one trust boundary for every reader. A response parser reconstructs weighted covariance blocks; an N2 projector writes nominal and shared-event bootstrap counts; a joint Poisson fitter consumes both. S4 publishes an immutable three-file evidence bundle that S6 independently reparses and replays.
+**Architecture:** A strict schema/config layer supplies one trust boundary for every reader. A response parser reconstructs weighted covariance blocks; the public S4 fit builds nominal and shared-event bootstrap counts directly from authenticated N2 ROOT authority, then runs the joint Poisson core. S4 publishes an immutable three-file evidence bundle that S6 independently reparses and replays.
 
 **Tech Stack:** Python 3, NumPy, SciPy, PyROOT only at N2 projection boundary, pytest, JSON/CSV/NPZ, SHA-256, Graphify.
 
@@ -20,6 +20,7 @@
 - `acceptance_qa_sha256` is canonical external trust anchor for N3.
 - `schema_version=1`, `analysis_version=polarization-v1`, `status=approved`, and `blocked_reasons=[]` are mandatory for releasable S4/S6 output.
 - Repository config stays blocked until real upstream authorities exist; tests use temporary synthetic authorities only.
+- Public S4 fitting accepts only loader-sealed `CountAuthority`; caller-provided count tables, config, and response objects are not release inputs.
 - N4 output can never satisfy S4 provenance.
 - N3 masks are exactly `valid`, `invalid_zero_generated`, `invalid_low_effective_statistics`, `invalid_nonphysical_weights`, and `invalid_incomplete_coverage`.
 - No test creates or commits real physics output.
@@ -306,14 +307,15 @@ git commit -m "feat(polarization): build replayable S4 counts"
 **Interfaces:**
 - Keeps: `fit_sigma_binned(...) -> SigmaFitResult` as diagnostic-only API.
 - Produces: `JointSigmaFitResult` with ordered `sigma`, `log_yield`, Hessian covariance, expected counts, residuals, deviance, ndof, convergence, and rank.
-- Produces: `fit_sigma_forward_folded(counts: AzimuthCountTable, response: PhiResponse, *, config: AnalysisConfig, replica_id: int = 0) -> JointSigmaFitResult`.
+- Produces: `fit_sigma_forward_folded(*, authority: CountAuthority, replica_id: int = 0) -> JointSigmaFitResult`; it builds counts internally from authenticated N2 ROOT inventory and reloads the full authority before and after construction.
+- Keeps private: `_fit_sigma_forward_folded_core(counts, response, *, config, replica_id=0)` for synthetic tests, Task 6 response perturbations, and S6 replay of already authenticated evidence. It is not a release API.
 - Produces: `bootstrap_sigma_covariance(results: Sequence[JointSigmaFitResult], bin_keys: Sequence[str]) -> np.ndarray`.
 
 - [ ] **Step 1: Write failing Asimov mass-and-phi migration test**
 
 ```python
 def test_joint_fit_recovers_sigma_with_mass_and_phi_migration(asimov_problem):
-    result = fit_sigma_forward_folded(**asimov_problem)
+    result = _fit_sigma_forward_folded_core(**asimov_problem)
     np.testing.assert_allclose(result.sigma, [-0.35, 0.20], atol=2e-4)
     assert abs(result.hessian_covariance[0, 1]) > 0.0
 ```
@@ -362,7 +364,7 @@ git commit -m "feat(polarization): forward-fold joint Sigma"
 - Modify: `08_polarization/sigma_fit.py`
 
 **Interfaces:**
-- Consumes: `PhiResponse`, `JointSigmaFitResult`, `fit_sigma_forward_folded`, response-validation tolerances.
+- Consumes: `PhiResponse`, `JointSigmaFitResult`, private `_fit_sigma_forward_folded_core`, response-validation tolerances. Controlled response perturbations must not call the authority-only public S4 entry point.
 - Produces: `ResponsePropagationResult(covariance, retained_modes, refits, valid)`.
 - Produces: `propagate_response_covariance(counts, response, *, config) -> ResponsePropagationResult`.
 

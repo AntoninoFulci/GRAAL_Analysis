@@ -309,6 +309,21 @@ never mean zero.
 
 ## Forward-folded likelihood
 
+Release fitting has one public boundary:
+`fit_sigma_forward_folded(*, authority: CountAuthority, replica_id=0)`. It
+accepts no caller-provided count table, config, or response. The entry point
+reloads the loader-sealed authority from canonical paths, builds counts
+internally from its authenticated N2 ROOT inventory, then reloads and compares
+the full transitive authority fingerprint before invoking the numerical fit.
+The resulting count value graph must contain exact immutable table, row, and
+grid types.
+
+The private `_fit_sigma_forward_folded_core(counts, response, *, config,
+replica_id=0)` supports synthetic tests, controlled Task 6 response
+perturbations, and S6 replay of independently authenticated serialized
+evidence. It is not an S4 release interface and cannot establish provenance
+from caller objects.
+
 For orientation/period group `o`, reconstructed cell `r`, true-mass bin `m`,
 and true-azimuth bin `i`:
 
