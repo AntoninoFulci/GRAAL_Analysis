@@ -134,11 +134,40 @@ def _read_regular_at(directory_fd: int, name: str) -> bytes:
         os.close(file_fd)
 
 
+def _unlink_owned_destination(
+    directory_fd: int, temporary: str, destination: str
+) -> None:
+    """Remove destination only while it still names staged inode."""
+    try:
+        staged = os.stat(temporary, dir_fd=directory_fd, follow_symlinks=False)
+        published = os.stat(destination, dir_fd=directory_fd, follow_symlinks=False)
+    except OSError as exc:
+        raise PolarizationContractError(
+            "cannot authenticate owned reconstruction inventory during cleanup"
+        ) from exc
+    if (
+        not stat.S_ISREG(staged.st_mode)
+        or not stat.S_ISREG(published.st_mode)
+        or (staged.st_dev, staged.st_ino) != (published.st_dev, published.st_ino)
+    ):
+        raise PolarizationContractError(
+            "refusing cleanup of foreign reconstruction inventory destination"
+        )
+    try:
+        os.unlink(destination, dir_fd=directory_fd)
+    except OSError as exc:
+        raise PolarizationContractError(
+            "cannot clean owned reconstruction inventory destination"
+        ) from exc
+
+
 def _publish_bytes(root: Path, relative: Path, encoded: bytes) -> None:
     """Publish immutable bytes through one inode-anchored parent directory."""
     parent_fd, parent_path = _open_parent_directory(root, relative.parent)
     temporary = f".{relative.name}-{secrets.token_hex(8)}"
     temporary_created = False
+    destination_created = False
+    publication_complete = False
     try:
         if not _same_open_directory(parent_fd, parent_path):
             raise PolarizationContractError(
@@ -171,6 +200,7 @@ def _publish_bytes(root: Path, relative: Path, encoded: bytes) -> None:
                 dst_dir_fd=parent_fd,
                 follow_symlinks=False,
             )
+            destination_created = True
         except FileExistsError as exc:
             existing = _read_regular_at(parent_fd, relative.name)
             if existing != encoded:
@@ -182,13 +212,35 @@ def _publish_bytes(root: Path, relative: Path, encoded: bytes) -> None:
                 "reconstruction inventory output parent changed during publication"
             )
         os.fsync(parent_fd)
+        publication_complete = True
     finally:
+        cleanup_error = None
+        if destination_created and not publication_complete:
+            try:
+                _unlink_owned_destination(parent_fd, temporary, relative.name)
+            except BaseException as exc:
+                cleanup_error = exc
         if temporary_created:
             try:
                 os.unlink(temporary, dir_fd=parent_fd)
             except FileNotFoundError:
                 pass
-        os.close(parent_fd)
+            except OSError as exc:
+                if cleanup_error is None:
+                    cleanup_error = PolarizationContractError(
+                        "cannot clean staged reconstruction inventory"
+                    )
+                    cleanup_error.__cause__ = exc
+        try:
+            os.close(parent_fd)
+        except OSError as exc:
+            if cleanup_error is None:
+                cleanup_error = PolarizationContractError(
+                    "cannot close reconstruction inventory output parent"
+                )
+                cleanup_error.__cause__ = exc
+        if cleanup_error is not None:
+            raise cleanup_error
 
 
 def build_reco_inventory(

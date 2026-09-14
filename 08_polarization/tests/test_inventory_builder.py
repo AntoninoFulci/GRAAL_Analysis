@@ -188,7 +188,85 @@ def test_builder_parent_swap_during_publish_never_writes_outside(
         build_reco_inventory(**arguments)
 
     assert not (outside / "inventory.json").exists()
+    assert not (detached / "inventory.json").exists()
     assert not list(detached.glob(".inventory.json-*"))
+
+
+def test_builder_cleanup_unlink_failure_reports_and_removes_staged_file(
+    tmp_path, monkeypatch
+):
+    import inventory_builder
+
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    parent.mkdir()
+    detached = tmp_path / "detached-cleanup-parent"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_link = os.link
+    real_unlink = os.unlink
+
+    def racing_link(source, destination, **kwargs):
+        parent.rename(detached)
+        parent.symlink_to(outside, target_is_directory=True)
+        return real_link(source, destination, **kwargs)
+
+    def failing_unlink(path, **kwargs):
+        if path == "inventory.json":
+            raise PermissionError(path)
+        return real_unlink(path, **kwargs)
+
+    monkeypatch.setattr(inventory_builder.os, "link", racing_link)
+    monkeypatch.setattr(inventory_builder.os, "unlink", failing_unlink)
+    with pytest.raises(PolarizationContractError, match="cannot clean owned"):
+        build_reco_inventory(**arguments)
+
+    assert (detached / "inventory.json").is_file()
+    assert not list(detached.glob(".inventory.json-*"))
+    assert not (outside / "inventory.json").exists()
+
+
+def test_builder_cleanup_preserves_destination_replaced_after_owned_link(
+    tmp_path, monkeypatch
+):
+    import inventory_builder
+
+    arguments = _arguments(tmp_path)
+    arguments["output_path"] = Path("publish/inventory.json")
+    parent = tmp_path / "publish"
+    parent.mkdir()
+    detached = tmp_path / "detached-foreign-parent"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_link = os.link
+    real_unlink = os.unlink
+
+    def racing_link(source, destination, **kwargs):
+        parent.rename(detached)
+        parent.symlink_to(outside, target_is_directory=True)
+        result = real_link(source, destination, **kwargs)
+        directory_fd = kwargs["dst_dir_fd"]
+        real_unlink(destination, dir_fd=directory_fd)
+        foreign_fd = os.open(
+            destination,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+            dir_fd=directory_fd,
+        )
+        try:
+            os.write(foreign_fd, b"foreign")
+        finally:
+            os.close(foreign_fd)
+        return result
+
+    monkeypatch.setattr(inventory_builder.os, "link", racing_link)
+    with pytest.raises(PolarizationContractError, match="foreign"):
+        build_reco_inventory(**arguments)
+
+    assert (detached / "inventory.json").read_bytes() == b"foreign"
+    assert not list(detached.glob(".inventory.json-*"))
+    assert not (outside / "inventory.json").exists()
 
 
 def test_builder_parent_swap_during_mkdir_fails_closed(tmp_path, monkeypatch):
