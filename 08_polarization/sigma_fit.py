@@ -10,9 +10,13 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import xlogy
 
-from analysis_config import AnalysisConfig
+from analysis_config import (
+    AnalysisConfig,
+    RESPONSE_SCHEMA_APPROVAL_ID,
+    RESPONSE_SCHEMA_PATH,
+)
 from azimuth_counts import AzimuthCountRow, AzimuthCountTable
-from contracts import PolarizationContractError
+from contracts import PolarizationContractError, SHA256_PATTERN
 from phi_response import PhiResponse, ResponseKey, TrueCellKey
 
 
@@ -64,6 +68,46 @@ class _GroupFit:
 
 
 _ORIENTATIONS = ("parallel", "perpendicular")
+_ACCEPTANCE_HANDOFF_PARENT = "results/physics/normalization/handoffs"
+
+
+def _approved_reviewers(reviewers: object) -> bool:
+    return (
+        isinstance(reviewers, tuple)
+        and len(reviewers) >= 2
+        and all(
+            isinstance(reviewer, str) and reviewer.strip()
+            for reviewer in reviewers
+        )
+        and len(set(reviewers)) == len(reviewers)
+    )
+
+
+def _approved_digest(value: object) -> bool:
+    return isinstance(value, str) and SHA256_PATTERN.fullmatch(value) is not None
+
+
+def _positive_definite_covariance(
+    raw: object, dimension: int, label: str
+) -> np.ndarray:
+    """Return symmetric covariance after explicit scale-aware PD validation."""
+    covariance = np.asarray(raw, dtype=float)
+    if covariance.shape != (dimension, dimension) or not np.all(
+        np.isfinite(covariance)
+    ):
+        raise PolarizationContractError(f"{label} must be finite and square")
+    scale = max(float(np.max(np.abs(covariance))), np.finfo(float).tiny)
+    tolerance = 64.0 * np.finfo(float).eps * dimension * scale
+    if not np.allclose(covariance, covariance.T, rtol=0.0, atol=tolerance):
+        raise PolarizationContractError(f"{label} must be symmetric positive definite")
+    symmetric = (covariance + covariance.T) / 2.0
+    eigenvalues = np.linalg.eigvalsh(symmetric)
+    if (
+        eigenvalues[0] <= tolerance
+        or np.linalg.matrix_rank(symmetric, tol=tolerance) != dimension
+    ):
+        raise PolarizationContractError(f"{label} must be symmetric positive definite")
+    return symmetric
 
 
 def azimuth_bin_average(low: np.ndarray, high: np.ndarray) -> np.ndarray:
@@ -145,15 +189,39 @@ def _require_approved_fit_config(config: AnalysisConfig) -> dict[str, int]:
             "forward-folded fit requires an approved canonical config"
         )
     if (
+        type(config.schema_version) is not int
+        or config.schema_version != 1
+        or config.analysis_version != "polarization-v1"
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit config schema/analysis version is unsupported"
+        )
+    release_id = config.acceptance_release_id
+    if (
+        not isinstance(release_id, str)
+        or not release_id.strip()
+        or "/" in release_id
+        or config.acceptance_handoff_directory
+        != f"{_ACCEPTANCE_HANDOFF_PARENT}/{release_id}"
+        or not _approved_digest(config.acceptance_qa_sha256)
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit requires an approved acceptance authority"
+        )
+    if (
+        config.phi_response_schema_path != RESPONSE_SCHEMA_PATH
+        or not _approved_digest(config.phi_response_schema_sha256)
+        or config.phi_response_schema_approval_id != RESPONSE_SCHEMA_APPROVAL_ID
+        or not _approved_reviewers(config.phi_response_schema_reviewers)
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit requires an approved response schema authority"
+        )
+    if (
         config.sign_status != "approved"
         or not isinstance(config.sign_approval_id, str)
         or not config.sign_approval_id.strip()
-        or len(config.sign_reviewers) < 2
-        or len(set(config.sign_reviewers)) != len(config.sign_reviewers)
-        or any(
-            not isinstance(reviewer, str) or not reviewer.strip()
-            for reviewer in config.sign_reviewers
-        )
+        or not _approved_reviewers(config.sign_reviewers)
     ):
         raise PolarizationContractError(
             "forward-folded fit requires an approved sign authority"
@@ -173,9 +241,7 @@ def _require_approved_fit_config(config: AnalysisConfig) -> dict[str, int]:
         qa.status != "approved"
         or not isinstance(qa.approval_id, str)
         or not qa.approval_id.strip()
-        or len(qa.reviewers) < 2
-        or len(set(qa.reviewers)) != len(qa.reviewers)
-        or any(not isinstance(reviewer, str) or not reviewer.strip() for reviewer in qa.reviewers)
+        or not _approved_reviewers(qa.reviewers)
         or type(qa.minimum_events_per_bin) is not int
         or qa.minimum_events_per_bin <= 0
         or not isinstance(qa.maximum_deviance_per_ndof, (float, int))
@@ -247,6 +313,17 @@ def _require_valid_response_blocks(
 ) -> dict[ResponseKey, tuple[np.ndarray, np.ndarray]]:
     if not isinstance(response, PhiResponse):
         raise PolarizationContractError("forward-folded fit requires a PhiResponse")
+    if not all(
+        _approved_digest(value)
+        for value in (
+            response.source_sha256,
+            response.input_sha256,
+            response.config_sha256,
+        )
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit response authority identity is invalid"
+        )
     if not response.keys or response.keys != tuple(sorted(response.keys)) or len(set(response.keys)) != len(response.keys):
         raise PolarizationContractError("response keys must be unique and canonical")
     if set(response.mass_edges) != set(response.keys) or set(response.phi_edges) != set(response.keys):
@@ -300,10 +377,27 @@ def _validate_counts_for_fit(
     response: PhiResponse,
     axes: dict[ResponseKey, tuple[np.ndarray, np.ndarray]],
     *,
+    config: AnalysisConfig,
     replica_id: int,
 ) -> tuple[AzimuthCountRow, ...]:
     if not isinstance(counts, AzimuthCountTable):
         raise PolarizationContractError("forward-folded fit requires an azimuth count table")
+    expected_replicas = tuple(range(config.bootstrap.replicas + 1))
+    if counts.expected_replica_ids != expected_replicas:
+        raise PolarizationContractError(
+            "forward-folded fit count replica universe disagrees with approved B"
+        )
+    if any(
+        expected.analysis_version != config.analysis_version
+        for expected in counts.expected_universe
+    ) or any(
+        row.schema_version != config.schema_version
+        or row.analysis_version != config.analysis_version
+        for row in counts.rows
+    ):
+        raise PolarizationContractError(
+            "forward-folded fit count/config analysis version mismatch"
+        )
     if type(replica_id) is not int or replica_id < 0 or replica_id not in counts.replica_ids:
         raise PolarizationContractError("forward-folded fit replica ID is not present in counts")
     selected = tuple(sorted(
@@ -512,8 +606,9 @@ def _fit_one_response_key(
         raise PolarizationContractError(
             "forward-folded Sigma fit covariance is singular"
         ) from exc
-    if not np.all(np.isfinite(covariance)):
-        raise PolarizationContractError("forward-folded Sigma fit covariance is non-finite")
+    covariance = _positive_definite_covariance(
+        covariance, 2 * mass_bins, "forward-folded Sigma fit covariance"
+    )
     return _GroupFit(
         sigma=optimization.x[:mass_bins].copy(),
         log_yield=optimization.x[mass_bins:].copy(),
@@ -533,9 +628,10 @@ def fit_sigma_forward_folded(
 ) -> JointSigmaFitResult:
     """Fit every canonical physical group and aggregate its ordered Sigma vector."""
     signs = _require_approved_fit_config(config)
+    _require_approved_bootstrap_config(config)
     axes = _require_valid_response_blocks(response, config)
     selected_rows = _validate_counts_for_fit(
-        counts, response, axes, replica_id=replica_id
+        counts, response, axes, config=config, replica_id=replica_id
     )
     grouped = {
         key: tuple(row for row in selected_rows if _row_key(row) == key)
@@ -668,14 +764,9 @@ def bootstrap_sigma_covariance(
         raise PolarizationContractError("bootstrap covariance is not positive semidefinite")
     if np.linalg.matrix_rank(covariance) != dimension:
         raise PolarizationContractError("bootstrap covariance has insufficient rank")
-    hessian = np.asarray(hessian_covariance, dtype=float)
-    if (
-        hessian.shape != (dimension, dimension)
-        or not np.all(np.isfinite(hessian))
-        or not np.allclose(hessian, hessian.T, rtol=0.0, atol=1e-12)
-        or np.any(np.diag(hessian) <= 0.0)
-    ):
-        raise PolarizationContractError("Hessian covariance is invalid for bootstrap QA")
+    hessian = _positive_definite_covariance(
+        hessian_covariance, dimension, "Hessian covariance"
+    )
     bootstrap_diagonal = np.diag(covariance)
     if np.any(bootstrap_diagonal <= 0.0):
         raise PolarizationContractError("bootstrap covariance has nonpositive diagonal")

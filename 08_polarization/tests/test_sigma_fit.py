@@ -11,6 +11,8 @@ from analysis_config import (
     AnalysisConfig,
     BootstrapConfig,
     ReleaseQAConfig,
+    RESPONSE_SCHEMA_APPROVAL_ID,
+    RESPONSE_SCHEMA_PATH,
     ResponseValidationConfig,
 )
 from azimuth_counts import (
@@ -34,11 +36,13 @@ def _joint_config() -> AnalysisConfig:
         status="approved",
         blocked_reasons=(),
         acceptance_release_id="n3-test",
-        acceptance_handoff_directory="results/physics/n3-test",
+        acceptance_handoff_directory=(
+            "results/physics/normalization/handoffs/n3-test"
+        ),
         acceptance_qa_sha256=HASH,
-        phi_response_schema_path="config/schemas/test.json",
+        phi_response_schema_path=RESPONSE_SCHEMA_PATH,
         phi_response_schema_sha256=HASH,
-        phi_response_schema_approval_id="test-approval",
+        phi_response_schema_approval_id=RESPONSE_SCHEMA_APPROVAL_ID,
         phi_response_schema_reviewers=("one", "two"),
         sign_status="approved",
         sign_approval_id="sign-test",
@@ -426,6 +430,76 @@ def test_forward_folded_fit_rejects_unapproved_config(asimov_problem):
         sigma_fit.fit_sigma_forward_folded(**asimov_problem)
 
 
+@pytest.mark.parametrize(
+    ("changes", "match"),
+    [
+        ({"schema_version": 2}, "schema/analysis version"),
+        ({"schema_version": True}, "schema/analysis version"),
+        ({"analysis_version": "forged-v1"}, "schema/analysis version"),
+        ({"acceptance_release_id": None}, "acceptance authority"),
+        (
+            {"acceptance_handoff_directory": "results/physics/normalization/handoffs/other"},
+            "acceptance authority",
+        ),
+        ({"acceptance_qa_sha256": None}, "acceptance authority"),
+        (
+            {"phi_response_schema_path": "config/schemas/forged.json"},
+            "schema authority",
+        ),
+        ({"phi_response_schema_sha256": None}, "schema authority"),
+        ({"phi_response_schema_approval_id": "forged"}, "schema authority"),
+        ({"phi_response_schema_reviewers": ("one",)}, "schema authority"),
+        ({"phi_response_schema_reviewers": (["one"], "two")}, "schema authority"),
+    ],
+)
+def test_forward_folded_fit_rejects_forged_config_authorities(
+    asimov_problem, changes, match
+):
+    asimov_problem["config"] = replace(asimov_problem["config"], **changes)
+
+    with pytest.raises(PolarizationContractError, match=match):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+
+
+def test_forward_folded_fit_rejects_counts_analysis_version_mismatch(asimov_problem):
+    counts = asimov_problem["counts"]
+    altered = tuple(
+        replace(row, analysis_version="forged-v1") for row in counts.rows
+    )
+    object.__setattr__(counts, "rows", altered)
+
+    with pytest.raises(PolarizationContractError, match="analysis version"):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+
+
+def test_forward_folded_fit_rejects_bootstrap_universe_mismatch(asimov_problem):
+    object.__setattr__(
+        asimov_problem["counts"], "expected_replica_ids", tuple(range(6))
+    )
+
+    with pytest.raises(PolarizationContractError, match="replica universe"):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+
+
+def test_forward_folded_fit_rejects_unapproved_bootstrap_authority(asimov_problem):
+    config = asimov_problem["config"]
+    asimov_problem["config"] = replace(
+        config, bootstrap=replace(config.bootstrap, replicas=None)
+    )
+
+    with pytest.raises(PolarizationContractError, match="approved bootstrap"):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+
+
+def test_forward_folded_fit_rejects_forged_response_identity(asimov_problem):
+    asimov_problem["response"] = replace(
+        asimov_problem["response"], source_sha256="forged"
+    )
+
+    with pytest.raises(PolarizationContractError, match="response.*identity"):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
+
+
 def test_forward_folded_fit_rejects_count_axis_mismatch(asimov_problem):
     counts = asimov_problem["counts"]
     altered = list(counts.rows)
@@ -669,6 +743,55 @@ def test_bootstrap_covariance_rejects_malformed_approved_config(asimov_problem):
             config=asimov_problem["config"],
             hessian_covariance=np.eye(2),
         )
+
+
+def test_bootstrap_covariance_rejects_indefinite_hessian_with_positive_diagonal(
+    asimov_problem,
+):
+    vectors = np.array(
+        [
+            [-0.38, 0.16],
+            [-0.35, 0.20],
+            [-0.31, 0.25],
+            [-0.37, 0.18],
+            [-0.33, 0.22],
+            [-0.30, 0.27],
+        ]
+    )
+    indefinite = np.array([[1.0, 2.0], [2.0, 1.0]])
+
+    with pytest.raises(
+        PolarizationContractError,
+        match="Hessian covariance.*positive definite",
+    ):
+        sigma_fit.bootstrap_sigma_covariance(
+            vectors,
+            ("p_pi0-bin-0", "eta_pi0-bin-0"),
+            replica_ids=(1, 2, 3, 4, 5, 6),
+            config=asimov_problem["config"],
+            hessian_covariance=indefinite,
+        )
+
+
+def test_forward_folded_fit_rejects_indefinite_fisher_covariance(
+    asimov_problem, monkeypatch
+):
+    real_inverse = np.linalg.inv
+
+    def indefinite_inverse(matrix):
+        covariance = real_inverse(matrix)
+        covariance[0, 1] = covariance[1, 0] = 2.0 * np.sqrt(
+            covariance[0, 0] * covariance[1, 1]
+        )
+        return covariance
+
+    monkeypatch.setattr(sigma_fit.np.linalg, "inv", indefinite_inverse)
+
+    with pytest.raises(
+        PolarizationContractError,
+        match="fit covariance.*positive definite",
+    ):
+        sigma_fit.fit_sigma_forward_folded(**asimov_problem)
 
 
 @pytest.mark.parametrize(
