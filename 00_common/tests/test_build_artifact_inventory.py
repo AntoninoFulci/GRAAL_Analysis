@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,26 @@ from scripts.build_artifact_inventory import (
     build_inventory,
     verify_inventory,
 )
+
+
+def test_inventory_cli_help_runs_without_pythonpath_from_any_working_directory(
+    tmp_path,
+):
+    script = Path(__file__).resolve().parents[2] / "scripts/build_artifact_inventory.py"
+    environment = {
+        key: value for key, value in os.environ.items() if key != "PYTHONPATH"
+    }
+
+    for working_directory in (script.parents[1], tmp_path):
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            cwd=working_directory,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
 
 
 def put(root: Path, relative: str, payload: bytes = b"payload") -> Path:

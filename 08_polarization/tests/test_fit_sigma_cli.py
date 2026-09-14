@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
+import sys
 import threading
 
 import numpy as np
@@ -21,6 +24,24 @@ from sigma_fit import (
     canonical_count_row_key,
 )
 from fit_sigma import main, publish_fit_release
+
+
+def test_fit_cli_help_runs_without_pythonpath_from_any_working_directory(tmp_path):
+    script = Path(__file__).resolve().parents[1] / "fit_sigma.py"
+    environment = {
+        key: value for key, value in os.environ.items() if key != "PYTHONPATH"
+    }
+
+    for working_directory in (script.parents[1], tmp_path):
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            cwd=working_directory,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
 
 
 def test_fit_cli_usage_error_writes_nothing(tmp_path):

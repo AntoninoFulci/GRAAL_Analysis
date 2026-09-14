@@ -167,3 +167,26 @@ Fresh verification:
 3. `make test PYTHON=/opt/local/bin/python`: 896 passed with PyROOT; exactly
    four known Task 8 legacy Figure-4 fixture failures remain;
 4. `git diff --check`: clean.
+
+## Independent-review fix round 3
+
+Regression tests executed both documented file entrypoints with `PYTHONPATH`
+removed, first from repository root and then from an unrelated working
+directory. Both initially failed before argument parsing because direct file
+execution exposed only the script directory on `sys.path`, while the shared
+release-ID validator is canonically owned by `scripts/s4_release_id.py`.
+
+Both entrypoints now add their deterministic repository root only when Python
+is running them as un-packaged files (`__package__` is empty). Module imports
+retain their normal package path, and publisher, evidence reader, and inventory
+still consume one release-ID grammar source.
+
+Fresh verification:
+
+1. exact direct-entrypoint regressions: 2 passed from both working directories;
+2. coupled CLI/evidence/inventory suite: 57 passed;
+3. `make verify`: exit 0; manifest valid, 340 common and 434 root-free
+   polarization tests passed, saved inventory valid;
+4. both requested `/opt/local/bin/python ... --help` commands with
+   `PYTHONPATH` removed: exit 0;
+5. `git diff --check`: clean. No Task 8 file changed.
