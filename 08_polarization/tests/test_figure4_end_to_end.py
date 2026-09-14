@@ -153,16 +153,45 @@ def write_config(root):
         }
 
     config = {
+        "schema_version": 1,
+        "analysis_version": "polarization-v1",
+        "status": "blocked",
+        "blocked_reasons": ["synthetic diagnostic fixture has no N3 release"],
+        "gate0_handoff": "results/observable_runs/HANDOFF.json",
+        "acceptance": {
+            "status": "blocked",
+            "handoff_parent": "results/physics/normalization/handoffs",
+            "release_id": None,
+            "handoff_directory": None,
+            "required_files": [
+                "acceptance_v1.csv",
+                "acceptance_phi_response_v1.csv",
+                "acceptance_qa.json",
+            ],
+            "acceptance_qa_sha256": None,
+            "phi_response_schema_status": "pending_joint_approval",
+            "phi_response_schema_path": None,
+            "phi_response_schema_sha256": None,
+            "phi_response_schema_approval_id": None,
+            "phi_response_schema_reviewers": [],
+        },
         "sign_convention": {
             "status": "approved",
             "approval_id": "fixture-sign",
             "reviewers": ["test-a", "test-b"],
+            "model": (
+                "mu = exposure * acceptance * scale_state * "
+                "(1 + orientation_sign * P * Sigma * cos(2*phi))"
+            ),
             "orientation_signs": {"parallel": -1, "perpendicular": 1},
         },
         "figure4_comparison": {
             "energy_edges_gev": [1.1, 1.2, 1.3, 1.4, 1.5],
             "mass_bins": 10, "phi_bins": 12, "target": "P",
             "tree": "reco_eta_pi0_chi2", "vectors": "kinematic_fit",
+            "content_policy": (
+                "framework_results_only_no_published_points_curves_or_digitization"
+            ),
         },
         "state_mapping": {
             "status": "ready", "source": source(state_source),
@@ -188,6 +217,50 @@ def write_config(root):
                     "covariance": [[0.0001, 0.0], [0.0, 0.0001]],
                 }
             ],
+        },
+        "angle": {
+            "observable": "reaction_plane_phi",
+            "range_radians": [0.0, np.pi],
+            "period_radians": np.pi,
+            "degenerate_plane_policy": "invalid",
+        },
+        "closure": {
+            "random_seed": 1701,
+            "bias_absolute_max": 0.02,
+            "pull_mean_absolute_max": 0.2,
+            "pull_width_tolerance": 0.2,
+            "require_sign_check": True,
+        },
+        "response_validation": {
+            "minimum_generated_effective_events_per_true_phi": None,
+            "probability_absolute_tolerance": None,
+            "uncertainty_absolute_tolerance": None,
+            "uncertainty_relative_tolerance": None,
+            "covariance_eigenvalue_absolute_tolerance": None,
+            "finite_difference_relative_step": None,
+            "finite_difference_absolute_step": None,
+            "replay_absolute_tolerance": None,
+            "replay_relative_tolerance": None,
+        },
+        "bootstrap": {
+            "replicas": None,
+            "algorithm_version": "poisson1-sha256-v1",
+            "seed": None,
+            "maximum_failed_fraction": None,
+            "hessian_diagonal_ratio_min": None,
+            "hessian_diagonal_ratio_max": None,
+        },
+        "release_qa_thresholds": {
+            "status": "pending_owner_approval",
+            "approval_id": None,
+            "reviewers": [],
+            "minimum_events_per_bin": None,
+            "maximum_deviance_per_ndof": None,
+            "closure_bias_absolute_max": None,
+            "closure_pull_mean_absolute_max": None,
+            "closure_pull_width_tolerance": None,
+            "minimum_systematic_sources": None,
+            "systematic_combination_policy": None,
         },
     }
     path = root / "config" / "physics" / "polarization_v1.json"

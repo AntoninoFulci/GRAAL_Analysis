@@ -226,7 +226,17 @@ def count_authority_repo(response_fixture):
     release_dir.mkdir(parents=True)
     acceptance_path = release_dir / "acceptance_v1.csv"
     acceptance_path.write_text(
-        "channel,acceptance\neta_pi0,0.5\n", encoding="utf-8"
+        "analysis_version,channel,target,beam_group,Egamma_low,Egamma_high,"
+        "cos_theta_low,cos_theta_high,observable,selection_id,n_generated,"
+        "n_thrown_in_bin,n_reconstructed_selected,acceptance,"
+        "acceptance_stat_uncertainty,validity_mask,input_sha256,config_sha256\n"
+        + "".join(
+            "polarization-v1,eta_pi0,P,group-a,1.1,1.2,-1.0,1.0,"
+            f"{observable},selection-v1,1000,500,250,0.5,0.02,valid,"
+            f"{'b' * 64},{'c' * 64}\n"
+            for observable in PAIR_NAMES
+        ),
+        encoding="utf-8",
     )
     response_path = release_dir / "acceptance_phi_response_v1.csv"
     response_rows = []

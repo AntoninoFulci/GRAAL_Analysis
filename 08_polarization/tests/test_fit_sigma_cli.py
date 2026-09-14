@@ -207,7 +207,7 @@ def test_fit_publication_is_exact_atomic_triplet_and_runs_replicas_in_order(
     )
 
     assert {item.name for item in evidence.directory.iterdir()} == FIT_EVIDENCE_FILENAMES
-    assert replica_order == [*range(33), 0]
+    assert replica_order == [*range(33), *range(33)]
     assert not list(output_root.glob(".fit-test.staging-*"))
 
 

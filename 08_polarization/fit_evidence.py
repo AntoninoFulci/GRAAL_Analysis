@@ -789,6 +789,39 @@ def validate_fit_evidence(
     )
     if vectors.shape != (len(successful), len(nominal.bin_keys)):
         raise PolarizationContractError("S4 bootstrap Sigma vectors are misaligned")
+    for vector_index, replica_id in enumerate(successful):
+        replayed_replica = _fit_sigma_forward_folded_core(
+            counts,
+            fresh_authority.response,
+            config=config,
+            replica_id=replica_id,
+        )
+        if (
+            replayed_replica.bin_keys != nominal.bin_keys
+            or replayed_replica.replica_id != replica_id
+            or not np.allclose(
+                vectors[vector_index],
+                replayed_replica.sigma,
+                rtol=replay_rtol,
+                atol=replay_atol,
+            )
+        ):
+            raise PolarizationContractError(
+                "S4 bootstrap Sigma vectors disagree with deterministic replay"
+            )
+    for replica_id in failed:
+        try:
+            _fit_sigma_forward_folded_core(
+                counts,
+                fresh_authority.response,
+                config=config,
+                replica_id=replica_id,
+            )
+        except PolarizationContractError:
+            continue
+        raise PolarizationContractError(
+            "S4 failed bootstrap replica succeeds deterministic replay"
+        )
     replay_stat = np.atleast_2d(np.cov(vectors, rowvar=False, ddof=1))
     if not np.allclose(
         replay_stat,

@@ -7,12 +7,13 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+from types import MappingProxyType
 from typing import Mapping
 
 import numpy as np
 
 from acceptance_handoff import validate_acceptance_handoff
-from analysis_config import load_analysis_config
+from analysis_config import AnalysisConfig, load_analysis_config
 from compton import load_period_curves
 from contracts import (
     COMMIT_PATTERN,
@@ -24,6 +25,7 @@ from contracts import (
     validate_gate0_handoff,
 )
 from figure4_config import load_figure4_config
+from fit_evidence import FitEvidence, validate_fit_evidence
 from reco_inventory import load_gate0_run_numbers, load_reco_inventory
 from state_mapping import load_state_mapping
 
@@ -62,7 +64,7 @@ OBSERVABLES = frozenset({"p_pi0", "p_eta", "eta_pi0"})
 class SigmaRelease:
     bin_keys: tuple[str, ...]
     total_covariance: np.ndarray
-    qa: dict[str, object]
+    qa: Mapping[str, object]
     repository_root: Path
     qa_sha256: str
 
@@ -70,6 +72,7 @@ class SigmaRelease:
 @dataclass(frozen=True)
 class _SigmaRows:
     bin_keys: tuple[str, ...]
+    sigma: np.ndarray
     stat_uncertainties: np.ndarray
     systematic_uncertainties: np.ndarray
     analysis_version: str
@@ -78,6 +81,7 @@ class _SigmaRows:
     event_counts: np.ndarray
     deviance_per_ndof: np.ndarray
     systematic_names: frozenset[str]
+    systematic_components: tuple[Mapping[str, float], ...]
     acceptance_keys: frozenset[tuple[object, ...]]
 
 
@@ -128,6 +132,7 @@ def _read_sigma_csv(path: Path) -> _SigmaRows:
     except OSError as exc:
         raise PolarizationContractError(f"cannot read Sigma CSV: {path}") from exc
     keys = []
+    sigma_values = []
     uncertainties = []
     systematic_uncertainties = []
     fit_ids = set()
@@ -137,6 +142,7 @@ def _read_sigma_csv(path: Path) -> _SigmaRows:
     event_counts = []
     deviance_per_ndof = []
     systematic_name_sets = []
+    systematic_components = []
     acceptance_keys = set()
     with handle:
         reader = csv.DictReader(handle)
@@ -214,7 +220,11 @@ def _read_sigma_csv(path: Path) -> _SigmaRows:
                     )
                 values.append(value)
             systematic_name_sets.append(frozenset(components))
+            systematic_components.append(
+                {name: float(value) for name, value in components.items()}
+            )
             keys.append(key)
+            sigma_values.append(sigma)
             uncertainties.append(uncertainty)
             systematic_uncertainties.append(float(np.linalg.norm(values)))
             event_counts.append(event_count)
@@ -231,6 +241,7 @@ def _read_sigma_csv(path: Path) -> _SigmaRows:
         )
     return _SigmaRows(
         tuple(keys),
+        np.asarray(sigma_values, dtype=float),
         np.asarray(uncertainties, dtype=float),
         np.asarray(systematic_uncertainties, dtype=float),
         analysis_versions.pop(),
@@ -239,8 +250,24 @@ def _read_sigma_csv(path: Path) -> _SigmaRows:
         np.asarray(event_counts, dtype=int),
         np.asarray(deviance_per_ndof, dtype=float),
         systematic_name_sets[0],
+        tuple(systematic_components),
         frozenset(acceptance_keys),
     )
+
+
+def _readonly(raw: object) -> np.ndarray:
+    array = np.asarray(raw, dtype=float)
+    return np.frombuffer(array.tobytes(), dtype=array.dtype).reshape(array.shape)
+
+
+def _deep_freeze(raw: object) -> object:
+    if isinstance(raw, Mapping):
+        return MappingProxyType(
+            {key: _deep_freeze(value) for key, value in raw.items()}
+        )
+    if isinstance(raw, (list, tuple)):
+        return tuple(_deep_freeze(value) for value in raw)
+    return raw
 
 
 def _covariance(raw, size: int, label: str) -> np.ndarray:
@@ -576,10 +603,141 @@ def _validate_inputs(
     )
 
 
+def _replay_fit_evidence(
+    qa: Mapping[str, object],
+    repository_root: Path,
+    *,
+    config_path: Path,
+) -> tuple[FitEvidence, AnalysisConfig]:
+    pin = qa.get("fit_evidence")
+    required = {"fit_release_id", "path", "qa_sha256"}
+    if not isinstance(pin, Mapping) or set(pin) != required:
+        raise PolarizationContractError(
+            "polarization QA must pin one exact S4 evidence triplet"
+        )
+    release_id = pin.get("fit_release_id")
+    if not isinstance(release_id, str) or not release_id:
+        raise PolarizationContractError("S4 fit_release_id is invalid")
+    expected_path = f"results/physics/polarization_fits/{release_id}"
+    if pin.get("path") != expected_path:
+        raise PolarizationContractError("S4 evidence path is not canonical")
+    expected_qa_sha256 = _required_digest(pin, "qa_sha256")
+    directory = repository_root / expected_path
+    config = load_analysis_config(
+        config_path, repository_root, require_approved=True
+    )
+    evidence = validate_fit_evidence(
+        directory, repository_root, config=config
+    )
+    if evidence.qa.get("fit_release_id") != release_id:
+        raise PolarizationContractError("S4 fit_release_id disagrees with pin")
+    actual_qa_sha256 = sha256_file(directory / "sigma_fit_qa.json")
+    if actual_qa_sha256 != expected_qa_sha256:
+        raise PolarizationContractError("S4 evidence QA SHA-256 mismatch")
+    return evidence, config
+
+
+def _validate_replayed_release(
+    qa: Mapping[str, object],
+    rows: _SigmaRows,
+    statistical: np.ndarray,
+    systematic: np.ndarray,
+    evidence: FitEvidence,
+    config: AnalysisConfig,
+) -> None:
+    atol = config.response_validation.replay_absolute_tolerance
+    rtol = config.response_validation.replay_relative_tolerance
+    nominal = evidence.nominal_fit
+    if rows.bin_keys != nominal.bin_keys:
+        raise PolarizationContractError("S6 bin order disagrees with replayed S4")
+    if not np.allclose(rows.sigma, nominal.sigma, rtol=rtol, atol=atol):
+        raise PolarizationContractError("S6 Sigma disagrees with replayed S4")
+    release_qa = evidence.qa.get("release_qa")
+    if (
+        not isinstance(release_qa, Mapping)
+        or tuple(release_qa.get("event_counts", ()))
+        != tuple(int(value) for value in rows.event_counts)
+        or not np.allclose(
+            rows.deviance_per_ndof,
+            nominal.deviance / nominal.ndof,
+            rtol=rtol,
+            atol=atol,
+        )
+    ):
+        raise PolarizationContractError(
+            "S6 event/deviance values disagree with replayed S4"
+        )
+    if not np.allclose(
+        statistical,
+        evidence.statistical_covariance,
+        rtol=rtol,
+        atol=atol,
+    ):
+        raise PolarizationContractError(
+            "S6 statistical covariance disagrees with replayed S4"
+        )
+    raw_covariances = qa.get("systematic_covariances")
+    if not isinstance(raw_covariances, Mapping) or set(raw_covariances) != set(
+        rows.systematic_names
+    ):
+        raise PolarizationContractError(
+            "S6 named systematic covariances disagree with CSV"
+        )
+    named = {
+        name: _covariance(raw, len(rows.bin_keys), f"systematic {name}")
+        for name, raw in raw_covariances.items()
+    }
+    response_name = "acceptance_response_statistics"
+    if response_name not in named or not np.allclose(
+        named[response_name],
+        evidence.response_propagation.covariance,
+        rtol=rtol,
+        atol=atol,
+    ):
+        raise PolarizationContractError(
+            "S6 acceptance_response_statistics disagrees with replayed response covariance"
+        )
+    pin = qa["fit_evidence"]
+    response_sources = [
+        source
+        for source in qa["systematic_sources"]
+        if source.get("name") == response_name
+    ]
+    if len(response_sources) != 1 or response_sources[0] != {
+        "name": response_name,
+        "path": f"{pin['path']}/sigma_fit_qa.json",
+        "sha256": pin["qa_sha256"],
+    }:
+        raise PolarizationContractError(
+            "S6 acceptance_response_statistics source must be pinned S4 QA"
+        )
+    recomputed_systematic = np.zeros_like(systematic)
+    for matrix in named.values():
+        recomputed_systematic += matrix
+    if not np.allclose(
+        systematic, recomputed_systematic, rtol=rtol, atol=atol
+    ):
+        raise PolarizationContractError(
+            "S6 systematic covariance disagrees with named source sum"
+        )
+    for index, components in enumerate(rows.systematic_components):
+        for name, matrix in named.items():
+            if not np.isclose(
+                components[name],
+                np.sqrt(matrix[index, index]),
+                rtol=rtol,
+                atol=atol,
+            ):
+                raise PolarizationContractError(
+                    "S6 CSV systematic component disagrees with named covariance"
+                )
+
+
 def _validate_qa(
     qa: dict[str, object], csv_path: Path, npz_path: Path,
     repository_root: Path, rows: _SigmaRows,
-) -> None:
+    statistical: np.ndarray, systematic: np.ndarray,
+) -> FitEvidence:
     if qa.get("schema_version") != 1 or qa.get("valid") is not True:
         raise PolarizationContractError("polarization QA must be schema v1 and valid")
     if not isinstance(qa.get("analysis_version"), str) or not qa["analysis_version"]:
@@ -738,10 +896,33 @@ def _validate_qa(
         raise PolarizationContractError(
             "systematic source count fails approved threshold"
         )
+    config_path, _ = _validate_file_record(
+        qa["inputs"]["config"], repository_root, "config",
+        canonical_path="config/physics/polarization_v1.json",
+    )
+    evidence, analysis_config = _replay_fit_evidence(
+        qa, repository_root, config_path=config_path
+    )
+    _validate_replayed_release(
+        qa,
+        rows,
+        statistical,
+        systematic,
+        evidence,
+        analysis_config,
+    )
+    return evidence
 
 
-def validate_sigma_release(results_dir: Path, repository_root: Path) -> SigmaRelease:
+def validate_sigma_release(
+    results_dir: Path,
+    repository_root: Path,
+    *,
+    replay_fit: bool = True,
+) -> SigmaRelease:
     """Validate immutable S6 CSV, covariance archive, and QA cross-hashes."""
+    if replay_fit is not True:
+        raise PolarizationContractError("S6 validation cannot disable S4 replay")
     repository = Path(repository_root).resolve()
     canonical = repository / "results/physics/polarization"
     try:
@@ -821,9 +1002,11 @@ def validate_sigma_release(results_dir: Path, repository_root: Path) -> SigmaRel
             "total covariance must equal statistical plus systematic covariance"
         )
     qa = load_json(qa_path)
-    _validate_qa(qa, csv_path, npz_path, repository, rows)
+    _validate_qa(
+        qa, csv_path, npz_path, repository, rows, statistical, systematic
+    )
     return SigmaRelease(
-        keys, total, qa, repository, sha256_file(qa_path)
+        keys, _readonly(total), _deep_freeze(qa), repository, sha256_file(qa_path)
     )
 
 

@@ -4,11 +4,15 @@ import csv
 import hashlib
 import json
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+import release as release_module
+from analysis_config import load_analysis_config
 from contracts import PolarizationContractError
 from release import (
     validate_aggregation_mapping,
@@ -38,6 +42,26 @@ CSV_FIELDS = [
     "fit_id", "input_sha256", "config_sha256", "event_count",
     "fit_deviance", "fit_ndof",
 ]
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_s6_contract_tests(monkeypatch):
+    """Keep pre-S4 tests focused on their original lower-level contracts."""
+    monkeypatch.setattr(
+        release_module,
+        "_replay_fit_evidence",
+        lambda qa, repository_root, *, config_path: (
+            object(),
+            load_analysis_config(
+                config_path, repository_root, require_approved=True
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        release_module,
+        "_validate_replayed_release",
+        lambda *_args, **_kwargs: None,
+    )
 
 
 def sha(path):
@@ -606,6 +630,21 @@ def test_release_cli_requires_explicit_full_checks(tmp_path, capsys):
                 "--check-covariance", "--check-qa",
         ]
     ) == 0
+
+
+def test_release_cli_help_runs_without_pythonpath_from_any_working_directory(
+    tmp_path,
+):
+    script = PROJECT_ROOT / "08_polarization/validate_sigma_release.py"
+    for working_directory in (PROJECT_ROOT, tmp_path):
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            cwd=working_directory,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
 
 
 def test_release_rejects_unapproved_qa_thresholds(tmp_path):

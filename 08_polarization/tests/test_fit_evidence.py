@@ -61,11 +61,35 @@ def evidence_problem(response_fixture, monkeypatch):
     config_payload = json.loads(config_path.read_text(encoding="utf-8"))
     config_payload["release_qa_thresholds"]["minimum_events_per_bin"] = 1
     config_payload["release_qa_thresholds"]["maximum_deviance_per_ndof"] = 1.0e9
+    config_payload["bootstrap"]["hessian_diagonal_ratio_min"] = 1.0e-9
+    config_payload["bootstrap"]["hessian_diagonal_ratio_max"] = 1.0e9
     config_path.write_text(json.dumps(config_payload), encoding="utf-8")
     authority = module._load_count_authority(paths)
     projected = module._project(module._event_sample(paths), authority)
+
+    def synthetic_count(row):
+        phase = row.replica_id + 1
+        frequency = (
+            sum(ord(character) for character in row.observable)
+            + round(100.0 * row.Egamma_low)
+            + 7 * row.reco_mass_bin
+        )
+        injected = 0.14 * np.sin(0.017 * frequency * phase)
+        orientation_sign = dict(authority.config.orientation_signs)[row.orientation]
+        phi = 0.5 * (row.reco_phi_low + row.reco_phi_high)
+        return round(
+            250.0
+            * (1.0 + orientation_sign * row.beam_polarization * injected * np.cos(2.0 * phi))
+        )
+
     counts = AzimuthCountTable(
-        tuple(replace(row, observed_count=row.observed_count + 10) for row in projected.rows),
+        tuple(
+            replace(
+                row,
+                observed_count=synthetic_count(row),
+            )
+            for row in projected.rows
+        ),
         projected.expected_universe,
         projected.expected_replica_ids,
     )
@@ -78,12 +102,16 @@ def evidence_problem(response_fixture, monkeypatch):
     nominal = _fit_sigma_forward_folded_core(
         counts, authority.response, config=authority.config, replica_id=0
     )
-    rng = np.random.default_rng(1701)
-    centered = rng.normal(size=(32, dimension))
-    centered -= np.mean(centered, axis=0)
-    orthonormal, _ = np.linalg.qr(centered)
-    vectors = orthonormal @ (
-        np.sqrt(31.0) * np.linalg.cholesky(nominal.hessian_covariance).T
+    vectors = np.asarray(
+        [
+            _fit_sigma_forward_folded_core(
+                counts,
+                authority.response,
+                config=authority.config,
+                replica_id=replica_id,
+            ).sigma
+            for replica_id in range(1, 33)
+        ]
     )
     statistical_covariance = np.cov(vectors, rowvar=False, ddof=1)
     response = ResponsePropagationResult(
@@ -125,8 +153,11 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
     )
     np.testing.assert_allclose(
         evidence.statistical_covariance,
-        evidence.nominal_fit.hessian_covariance,
+        np.cov(evidence.bootstrap_sigma_vectors, rowvar=False, ddof=1),
         atol=1e-15,
+    )
+    assert np.linalg.matrix_rank(evidence.statistical_covariance) == len(
+        evidence.nominal_fit.bin_keys
     )
     assert evidence.counts.replica_ids == tuple(range(33))
     assert evidence.bootstrap_sigma_vectors.shape == (
@@ -279,6 +310,19 @@ def test_fit_evidence_rejects_rehashed_count_value_tampering(evidence_problem):
     qa_path.write_text(json.dumps(qa), encoding="utf-8")
 
     with pytest.raises(PolarizationContractError, match="residual|replay"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
+
+
+def test_fit_evidence_rejects_bootstrap_vectors_reassigned_to_other_replicas(
+    evidence_problem,
+):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    qa["bootstrap"]["sigma_vectors"].reverse()
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="bootstrap.*replay"):
         validate_fit_evidence(output, paths["root"], config=authority.config)
 
 
