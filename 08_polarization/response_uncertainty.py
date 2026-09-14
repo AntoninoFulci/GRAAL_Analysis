@@ -63,9 +63,7 @@ def _covariance_eigenmodes(
         raise PolarizationContractError(
             "response covariance and eigenvalue tolerance must be finite"
         )
-    matrix_scale = max(
-        float(np.max(np.abs(matrix))), np.finfo(matrix.dtype).tiny
-    )
+    matrix_scale = float(np.max(np.abs(matrix)))
     symmetry_tolerance = (
         64.0 * np.finfo(matrix.dtype).eps * matrix.shape[0] * matrix_scale
     )

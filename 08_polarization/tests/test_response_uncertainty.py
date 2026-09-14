@@ -50,6 +50,21 @@ def _nominal_fit(problem):
     )
 
 
+def _constant_refit_inputs(problem, monkeypatch):
+    nominal = _nominal_fit(problem)
+    response = problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    direction = np.zeros(16)
+    direction[0] = 1.0
+    monkeypatch.setattr(
+        response_uncertainty,
+        "_fit_sigma_forward_folded_core",
+        lambda *args, **kwargs: nominal,
+    )
+    return nominal, response, cell, direction
+
+
 def test_covariance_eigenmodes_reconstruct_linear_reference():
     covariance = np.array([[0.04, 0.012], [0.012, 0.01]])
     jacobian = np.array([[2.0, -0.5], [0.3, 1.2]])
@@ -94,6 +109,14 @@ def test_eigenvalue_tolerance_does_not_relax_covariance_symmetry():
 
 def test_covariance_symmetry_tolerance_scales_with_tiny_matrix():
     covariance = np.array([[1e-30, 1e-30], [0.0, 1e-30]])
+
+    with pytest.raises(PolarizationContractError, match="symmetric"):
+        _covariance_eigenmodes(covariance, tolerance=0.0)
+
+
+def test_covariance_symmetry_rejects_smallest_subnormal_asymmetry():
+    subnormal = np.nextafter(0.0, 1.0)
+    covariance = np.array([[subnormal, subnormal], [0.0, subnormal]])
 
     with pytest.raises(PolarizationContractError, match="symmetric"):
         _covariance_eigenmodes(covariance, tolerance=0.0)
@@ -359,19 +382,10 @@ def test_physical_upper_boundary_uses_backward_refit(response_problem, monkeypat
 def test_machine_rounded_feasible_endpoint_keeps_central_refit(
     response_problem, monkeypatch
 ):
-    nominal = _nominal_fit(response_problem)
-    response = response_problem["response"]
-    key = response.keys[0]
-    cell = TrueCellKey(key, "parallel", 0)
-    direction = np.zeros(16)
-    direction[0] = 1.0
-    step = 1e-4
-
-    monkeypatch.setattr(
-        response_uncertainty,
-        "_fit_sigma_forward_folded_core",
-        lambda *args, **kwargs: nominal,
+    nominal, response, cell, direction = _constant_refit_inputs(
+        response_problem, monkeypatch
     )
+    step = 1e-4
 
     refit = response_uncertainty._refit_response_mode(
         response_problem["counts"],
@@ -394,19 +408,10 @@ def test_machine_rounded_feasible_endpoint_keeps_central_refit(
 def test_machine_slack_does_not_accept_materially_infeasible_endpoint(
     response_problem, monkeypatch
 ):
-    nominal = _nominal_fit(response_problem)
-    response = response_problem["response"]
-    key = response.keys[0]
-    cell = TrueCellKey(key, "parallel", 0)
-    direction = np.zeros(16)
-    direction[0] = 1.0
-    step = 1e-4
-
-    monkeypatch.setattr(
-        response_uncertainty,
-        "_fit_sigma_forward_folded_core",
-        lambda *args, **kwargs: nominal,
+    nominal, response, cell, direction = _constant_refit_inputs(
+        response_problem, monkeypatch
     )
+    step = 1e-4
 
     refit = response_uncertainty._refit_response_mode(
         response_problem["counts"],
