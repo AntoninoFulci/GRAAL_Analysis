@@ -73,7 +73,7 @@ def _covariance_eigenmodes(
     modes = []
     for index in np.argsort(eigenvalues)[::-1]:
         eigenvalue = float(eigenvalues[index])
-        if eigenvalue <= tolerance:
+        if eigenvalue < tolerance:
             continue
         vector = eigenvectors[:, index].copy()
         anchor = int(np.argmax(np.abs(vector)))
@@ -113,7 +113,7 @@ def _validate_propagation_inputs(
     response: PhiResponse,
     config: AnalysisConfig,
     covariance_scope: ResponseCovarianceScope,
-) -> tuple[float, float, float]:
+) -> tuple[float, float, float, float]:
     if type(response) is not PhiResponse or type(config) is not AnalysisConfig:
         raise PolarizationContractError(
             "response propagation requires exact response and config authorities"
@@ -121,6 +121,7 @@ def _validate_propagation_inputs(
     validation = config.response_validation
     values = (
         validation.covariance_eigenvalue_absolute_tolerance,
+        validation.probability_absolute_tolerance,
         validation.finite_difference_relative_step,
         validation.finite_difference_absolute_step,
     )
@@ -133,8 +134,15 @@ def _validate_propagation_inputs(
         raise PolarizationContractError(
             "response propagation requires approved finite tolerances"
         )
-    tolerance, relative_step, absolute_step = map(float, values)
-    if tolerance < 0.0 or relative_step <= 0.0 or absolute_step <= 0.0:
+    eigenvalue_tolerance, probability_tolerance, relative_step, absolute_step = map(
+        float, values
+    )
+    if (
+        eigenvalue_tolerance < 0.0
+        or probability_tolerance < 0.0
+        or relative_step <= 0.0
+        or absolute_step <= 0.0
+    ):
         raise PolarizationContractError(
             "response propagation requires approved positive finite-difference steps"
         )
@@ -179,7 +187,12 @@ def _validate_propagation_inputs(
             raise PolarizationContractError(
                 "response covariance block shape disagrees with response matrix"
             )
-    return tolerance, relative_step, absolute_step
+    return (
+        eigenvalue_tolerance,
+        probability_tolerance,
+        relative_step,
+        absolute_step,
+    )
 
 
 def _physical_step_limits(
@@ -194,8 +207,10 @@ def _physical_step_limits(
     for probability, component in zip(probabilities, direction, strict=True):
         if component > 0.0:
             lower = max(lower, -probability / component)
+            upper = min(upper, (1.0 - probability) / component)
         elif component < 0.0:
             upper = min(upper, -probability / component)
+            lower = max(lower, (1.0 - probability) / component)
     total_direction = float(np.sum(direction))
     if total_direction > 0.0:
         upper = min(
@@ -221,14 +236,18 @@ def _perturbed_response(
     matrices = dict(response.matrices)
     target = np.asarray(matrices[cell.key, cell.orientation], dtype=float).copy()
     probabilities = target[:, cell.true_cell] + displacement * direction
+    numerical = 32.0 * np.finfo(float).eps * max(
+        1.0, float(np.max(np.abs(probabilities)))
+    )
     if (
-        np.any(probabilities < -tolerance)
-        or float(np.sum(probabilities)) > 1.0 + tolerance
+        np.any(probabilities < -numerical)
+        or np.any(probabilities > 1.0 + numerical)
+        or float(np.sum(probabilities)) > 1.0 + tolerance + numerical
     ):
         raise PolarizationContractError(
             "response eigenmode perturbation violates physical probability bounds"
         )
-    probabilities[probabilities < 0.0] = 0.0
+    probabilities = np.clip(probabilities, 0.0, 1.0)
     target[:, cell.true_cell] = probabilities
     matrices[cell.key, cell.orientation] = _readonly(target)
     return PhiResponse(
@@ -345,9 +364,12 @@ def propagate_response_covariance(
         raise PolarizationContractError(
             "response propagation requires an exact count table"
         )
-    tolerance, relative_step, absolute_step = _validate_propagation_inputs(
-        response, config, covariance_scope
-    )
+    (
+        eigenvalue_tolerance,
+        probability_tolerance,
+        relative_step,
+        absolute_step,
+    ) = _validate_propagation_inputs(response, config, covariance_scope)
     nominal = _fit_sigma_forward_folded_core(
         counts, response, config=config, replica_id=0
     )
@@ -364,14 +386,18 @@ def propagate_response_covariance(
             ):
                 cell = TrueCellKey(key, orientation, true_cell)
                 probabilities = matrix[:, true_cell]
-                modes = _covariance_eigenmodes(block, tolerance=tolerance)
+                modes = _covariance_eigenmodes(
+                    block, tolerance=eigenvalue_tolerance
+                )
                 for mode_index, (eigenvalue, direction) in enumerate(modes):
                     step = max(
                         absolute_step,
                         relative_step * float(np.max(np.abs(probabilities))),
                     )
                     lower_limit, upper_limit = _physical_step_limits(
-                        probabilities, direction, tolerance=tolerance
+                        probabilities,
+                        direction,
+                        tolerance=probability_tolerance,
                     )
                     identifier = _mode_id(
                         key, orientation, true_cell, mode_index
@@ -387,7 +413,7 @@ def propagate_response_covariance(
                         step=step,
                         lower_limit=lower_limit,
                         upper_limit=upper_limit,
-                        tolerance=tolerance,
+                        tolerance=probability_tolerance,
                         identifier=identifier,
                     )
                     covariance += eigenvalue * np.outer(
@@ -401,7 +427,10 @@ def propagate_response_covariance(
         )
     covariance = (covariance + covariance.T) / 2.0
     scale = max(1.0, float(np.max(np.abs(covariance))))
-    if np.linalg.eigvalsh(covariance)[0] < -tolerance * scale:
+    if (
+        np.linalg.eigvalsh(covariance)[0]
+        < -eigenvalue_tolerance * scale
+    ):
         raise PolarizationContractError(
             "response propagated covariance is not positive semidefinite"
         )

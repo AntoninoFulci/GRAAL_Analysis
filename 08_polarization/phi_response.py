@@ -171,8 +171,7 @@ def _parse_row(raw: dict[str, str], config: AnalysisConfig, release_id: str) -> 
         raise PolarizationContractError("response energy bin disagrees with approved config")
     if row["target"] != config.figure4_target or not -1 <= row["cos_theta_low"] < row["cos_theta_high"] <= 1:
         raise PolarizationContractError("response target or angular bin disagrees with physical config")
-    probability_tolerance = config.response_validation.probability_absolute_tolerance
-    if row["response_probability"] > 1.0 + probability_tolerance:
+    if row["response_probability"] > 1.0:
         raise PolarizationContractError("response probability must lie in [0,1]")
     return row
 

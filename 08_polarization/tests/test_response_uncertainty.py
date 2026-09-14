@@ -74,6 +74,17 @@ def test_covariance_eigenmodes_reconstruct_linear_reference():
     )
 
 
+def test_covariance_eigenmode_at_cutoff_is_retained():
+    tolerance = 1e-6
+
+    modes = _covariance_eigenmodes(
+        np.diag([2.0 * tolerance, tolerance, 0.5 * tolerance]),
+        tolerance=tolerance,
+    )
+
+    assert [value for value, _ in modes] == [2.0 * tolerance, tolerance]
+
+
 @pytest.fixture
 def response_problem():
     problem = _task5_problem()
@@ -183,7 +194,7 @@ def test_physical_boundary_uses_one_sided_refit(response_problem, monkeypatch):
     )
 
 
-def test_physical_bounds_and_endpoint_use_probability_tolerance(response_problem):
+def test_probability_tolerance_applies_only_to_column_normalization(response_problem):
     response = response_problem["response"]
     key = response.keys[0]
     cell = TrueCellKey(key, "parallel", 0)
@@ -202,6 +213,7 @@ def test_physical_bounds_and_endpoint_use_probability_tolerance(response_problem
     endpoint = _perturbed_response(
         response, cell, direction, upper, tolerance=tolerance
     )
+    assert np.all(endpoint.matrix(key, "parallel")[:, 0] <= 1.0)
     assert endpoint.matrix(key, "parallel")[:, 0].sum() == pytest.approx(
         1.0 + tolerance
     )
@@ -213,6 +225,76 @@ def test_physical_bounds_and_endpoint_use_probability_tolerance(response_problem
             upper + tolerance,
             tolerance=tolerance,
         )
+
+
+def test_physical_step_and_perturbation_enforce_individual_probability_bounds(
+    response_problem,
+):
+    response = response_problem["response"]
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    matrices = dict(response.matrices)
+    target = response.matrix(key, "parallel").copy()
+    target[:, 0] = 0.0
+    target[0, 0] = 0.9
+    target[1, 0] = 0.1
+    matrices[key, "parallel"] = target
+    response = replace(response, matrices=MappingProxyType(matrices))
+    direction = np.zeros(16)
+    direction[0] = 2.0
+    direction[1] = -1.0
+
+    lower, upper = _physical_step_limits(
+        target[:, 0], direction, tolerance=0.2
+    )
+
+    assert upper == pytest.approx(0.05)
+    with pytest.raises(PolarizationContractError, match="physical probability"):
+        _perturbed_response(
+            response, cell, direction, 0.075, tolerance=0.2
+        )
+
+
+def test_propagation_uses_probability_tolerance_for_column_sum_only(
+    response_problem, monkeypatch
+):
+    response = response_problem["response"]
+    nominal = _nominal_fit(response_problem)
+    key = response.keys[0]
+    cell = TrueCellKey(key, "parallel", 0)
+    matrices = dict(response.matrices)
+    target = response.matrix(key, "parallel").copy()
+    target[:, 0] /= target[:, 0].sum()
+    matrices[key, "parallel"] = target
+    direction = np.zeros(16)
+    direction[0] = 1.0
+    covariance = dict(response.covariance_by_true_cell)
+    covariance[cell] = 1e-4 * np.outer(direction, direction)
+    response_problem["response"] = replace(
+        response,
+        matrices=MappingProxyType(matrices),
+        covariance_by_true_cell=MappingProxyType(covariance),
+    )
+    config = response_problem["config"]
+    response_problem["config"] = replace(
+        config,
+        response_validation=replace(
+            config.response_validation,
+            probability_absolute_tolerance=1e-3,
+            covariance_eigenvalue_absolute_tolerance=1e-12,
+        ),
+    )
+
+    def stable_core(counts, varied, *, config, replica_id=0):
+        return nominal
+
+    monkeypatch.setattr(
+        response_uncertainty, "_fit_sigma_forward_folded_core", stable_core
+    )
+
+    result = propagate_response_covariance(**response_problem)
+
+    assert result.refits[0].scheme == "central"
 
 
 def test_physical_upper_boundary_uses_backward_refit(response_problem, monkeypatch):
