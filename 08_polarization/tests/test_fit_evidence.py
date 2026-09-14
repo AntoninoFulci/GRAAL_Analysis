@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 import importlib.util
+import csv
+from dataclasses import replace
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.special import xlogy
 
+import fit_evidence
 from contracts import PolarizationContractError, sha256_file
+from azimuth_counts import AzimuthCountTable
 from fit_evidence import (
     FIT_EVIDENCE_FILENAMES,
+    FIT_FIELDS,
     validate_fit_evidence,
     write_fit_evidence,
 )
 from response_uncertainty import ResponsePropagationResult
 from sigma_fit import (
-    JointSigmaFitResult,
-    _row_order,
+    _fit_sigma_forward_folded_core,
     _sigma_bin_key,
-    canonical_count_row_key,
 )
 
 
@@ -27,6 +29,19 @@ def test_fit_evidence_triplet_is_exact():
     assert FIT_EVIDENCE_FILENAMES == frozenset(
         {"azimuth_counts_v1.csv", "sigma_fit_v1.csv", "sigma_fit_qa.json"}
     )
+
+
+def test_fit_csv_carries_release_qa_and_exact_input_hashes():
+    assert {
+        "event_count",
+        "deviance_contribution",
+        "fit_deviance",
+        "fit_ndof",
+        "input_sha256",
+        "config_sha256",
+        "response_input_sha256",
+        "response_config_sha256",
+    } <= set(FIT_FIELDS)
 
 
 def _count_test_module():
@@ -39,54 +54,45 @@ def _count_test_module():
 
 
 @pytest.fixture
-def evidence_problem(response_fixture):
+def evidence_problem(response_fixture, monkeypatch):
     module = _count_test_module()
     paths = module.count_authority_repo.__wrapped__(response_fixture)
+    config_path = paths["root"] / "config/physics/polarization_v1.json"
+    config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+    config_payload["release_qa_thresholds"]["minimum_events_per_bin"] = 1
+    config_payload["release_qa_thresholds"]["maximum_deviance_per_ndof"] = 1.0e9
+    config_path.write_text(json.dumps(config_payload), encoding="utf-8")
     authority = module._load_count_authority(paths)
-    counts = module._project(module._event_sample(paths), authority)
+    projected = module._project(module._event_sample(paths), authority)
+    counts = AzimuthCountTable(
+        tuple(replace(row, observed_count=row.observed_count + 10) for row in projected.rows),
+        projected.expected_universe,
+        projected.expected_replica_ids,
+    )
     bin_keys = tuple(
         _sigma_bin_key(key, index)
         for key in authority.response.keys
         for index in range(len(authority.response.mass_edges[key]) - 1)
     )
     dimension = len(bin_keys)
-    nominal_rows = tuple(
-        sorted(
-            (row for row in counts.rows if row.replica_id == 0),
-            key=_row_order,
-        )
+    nominal = _fit_sigma_forward_folded_core(
+        counts, authority.response, config=authority.config, replica_id=0
     )
     rng = np.random.default_rng(1701)
     centered = rng.normal(size=(32, dimension))
     centered -= np.mean(centered, axis=0)
     orthonormal, _ = np.linalg.qr(centered)
-    variances = np.linspace(0.1, 0.2, dimension)
-    vectors = orthonormal * np.sqrt(31.0 * variances)
+    vectors = orthonormal @ (
+        np.sqrt(31.0) * np.linalg.cholesky(nominal.hessian_covariance).T
+    )
     statistical_covariance = np.cov(vectors, rowvar=False, ddof=1)
-    observed = np.asarray([row.observed_count for row in nominal_rows], dtype=float)
-    expected = observed + 2.0
-    residuals = (observed - expected) / np.sqrt(expected)
-    contributions = 2.0 * (
-        xlogy(observed, observed / expected) - (observed - expected)
-    )
-    nominal = JointSigmaFitResult(
-        bin_keys=bin_keys,
-        nuisance_keys=tuple(f"{item}|log_yield" for item in bin_keys),
-        row_keys=tuple(canonical_count_row_key(row) for row in nominal_rows),
-        sigma=np.linspace(-0.2, 0.2, dimension),
-        log_yield=np.log(np.linspace(15.0, 25.0, dimension)),
-        hessian_covariance=statistical_covariance,
-        expected=expected,
-        residuals=residuals,
-        deviance_contributions=contributions,
-        deviance=float(np.sum(contributions)),
-        ndof=len(expected) - 2 * dimension,
-        converged=True,
-        rank=2 * dimension,
-        replica_id=0,
-    )
     response = ResponsePropagationResult(
         np.zeros((dimension, dimension)), (), (), True
+    )
+    monkeypatch.setattr(
+        fit_evidence,
+        "propagate_response_covariance",
+        lambda *_args, **_kwargs: response,
     )
     output = paths["root"] / "results/physics/polarization_fits/fit-test"
     output.mkdir(parents=True)
@@ -119,7 +125,7 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
     )
     np.testing.assert_allclose(
         evidence.statistical_covariance,
-        np.diag(np.linspace(0.1, 0.2, len(evidence.nominal_fit.bin_keys))),
+        evidence.nominal_fit.hessian_covariance,
         atol=1e-15,
     )
     assert evidence.counts.replica_ids == tuple(range(33))
@@ -127,8 +133,82 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
         32,
         len(evidence.nominal_fit.bin_keys),
     )
+    assert evidence.qa["release_qa"]["n3_closure_valid"] is True
+    assert dict(evidence.qa["release_qa"]["orientation_signs"]) == dict(
+        authority.config.orientation_signs
+    )
     with pytest.raises(ValueError):
         evidence.statistical_covariance[0, 0] = 9.0
+    with pytest.raises(TypeError):
+        evidence.qa["optimizer"]["name"] = "forged"
+    with pytest.raises(TypeError):
+        evidence.qa["bootstrap"]["successful_replica_ids"][0] = 99
+
+
+def test_fit_evidence_rejects_coherent_out_of_bounds_sigma_tamper(
+    evidence_problem,
+):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    fit_path = output / "sigma_fit_v1.csv"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    qa["nominal_fit"]["sigma"][0] = 2.0
+    with fit_path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        rows = list(reader)
+        fieldnames = tuple(reader.fieldnames or ())
+    rows[0]["sigma"] = "2"
+    with fit_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    qa["fit"]["sha256"] = sha256_file(fit_path)
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="Sigma|replay|bound"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
+
+
+def test_fit_evidence_rejects_forged_response_mode_endpoints(evidence_problem):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    sigma = qa["nominal_fit"]["sigma"]
+    qa["response_propagation"] = {
+        "covariance": np.zeros((len(sigma), len(sigma))).tolist(),
+        "retained_modes": ["forged|mode|0"],
+        "refits": [{
+            "mode_id": "forged|mode|0",
+            "eigenvalue": 1.0,
+            "step": 0.01,
+            "scheme": "central",
+            "derivative": np.zeros(len(sigma)).tolist(),
+            "lower_sigma": sigma,
+            "upper_sigma": sigma,
+        }],
+        "valid": True,
+    }
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="response|mode|replay"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (("n3_closure_valid", False), ("orientation_signs", {"parallel": 1, "perpendicular": -1})),
+)
+def test_fit_evidence_rejects_release_qa_sign_or_closure_claim_tamper(
+    evidence_problem, field, value
+):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    qa["release_qa"][field] = value
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="release QA"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
 
 
 @pytest.mark.parametrize("field,value", [("valid", False), ("analysis_version", "legacy")])
@@ -166,8 +246,15 @@ def test_fit_evidence_rejects_changed_csv_even_when_claim_is_rehashed(
 ):
     paths, authority, output = evidence_problem
     fit_path = output / "sigma_fit_v1.csv"
-    text = fit_path.read_text(encoding="utf-8").replace("0.20000000000000001", "0.3")
-    fit_path.write_text(text, encoding="utf-8")
+    with fit_path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        rows = list(reader)
+        fieldnames = tuple(reader.fieldnames or ())
+    rows[0]["sigma"] = format(float(rows[0]["sigma"]) + 0.1, ".17g")
+    with fit_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
     qa_path = output / "sigma_fit_qa.json"
     qa = json.loads(qa_path.read_text(encoding="utf-8"))
     qa["fit"]["sha256"] = sha256_file(fit_path)
@@ -191,7 +278,7 @@ def test_fit_evidence_rejects_rehashed_count_value_tampering(evidence_problem):
     qa["counts"]["sha256"] = sha256_file(counts_path)
     qa_path.write_text(json.dumps(qa), encoding="utf-8")
 
-    with pytest.raises(PolarizationContractError, match="residual"):
+    with pytest.raises(PolarizationContractError, match="residual|replay"):
         validate_fit_evidence(output, paths["root"], config=authority.config)
 
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass, fields
 import json
 import math
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -35,9 +36,14 @@ from contracts import (
     sha256_file,
 )
 from phi_response import ResponseKey
-from response_uncertainty import ResponseModeRefit, ResponsePropagationResult
+from response_uncertainty import (
+    ResponseModeRefit,
+    ResponsePropagationResult,
+    propagate_response_covariance,
+)
 from sigma_fit import (
     JointSigmaFitResult,
+    _fit_sigma_forward_folded_core,
     _row_order as _fit_row_order,
     _sigma_bin_key,
     canonical_count_row_key,
@@ -49,7 +55,9 @@ FIT_EVIDENCE_FILENAMES = frozenset(
 )
 FIT_FIELDS = (
     "schema_version", "analysis_version", "fit_release_id", "bin_index",
-    "bin_key", "sigma", "bootstrap_stat_uncertainty",
+    "bin_key", "input_sha256", "config_sha256", "response_input_sha256",
+    "response_config_sha256", "event_count", "deviance_contribution",
+    "fit_deviance", "fit_ndof", "sigma", "bootstrap_stat_uncertainty",
     "hessian_stat_uncertainty", "log_yield", "bootstrap_variance",
     "hessian_variance", "response_variance",
 )
@@ -59,7 +67,7 @@ _QA_KEYS = frozenset(
         "schema_version", "analysis_version", "fit_release_id",
         "producer_commit", "valid", "blocked_reasons", "bin_set_id",
         "counts", "fit", "authorities", "optimizer", "bootstrap",
-        "nominal_fit", "response_propagation",
+        "nominal_fit", "response_propagation", "release_qa",
     }
 )
 _AUTHORITY_KEYS = frozenset(
@@ -89,6 +97,87 @@ class FitEvidence:
 def _readonly(raw: object) -> np.ndarray:
     array = np.asarray(raw, dtype=float)
     return np.frombuffer(array.tobytes(), dtype=array.dtype).reshape(array.shape)
+
+
+def _deep_freeze(raw: object) -> object:
+    """Copy JSON-like evidence into recursively immutable containers."""
+    if isinstance(raw, Mapping):
+        return MappingProxyType({key: _deep_freeze(value) for key, value in raw.items()})
+    if isinstance(raw, (list, tuple)):
+        return tuple(_deep_freeze(value) for value in raw)
+    return raw
+
+
+def _same_scientific_fit(
+    recorded: JointSigmaFitResult,
+    replayed: JointSigmaFitResult,
+    *,
+    rtol: float,
+    atol: float,
+) -> bool:
+    if (
+        recorded.bin_keys != replayed.bin_keys
+        or recorded.nuisance_keys != replayed.nuisance_keys
+        or recorded.row_keys != replayed.row_keys
+        or recorded.ndof != replayed.ndof
+        or recorded.converged != replayed.converged
+        or recorded.rank != replayed.rank
+        or recorded.replica_id != replayed.replica_id
+        or not math.isclose(recorded.deviance, replayed.deviance, rel_tol=rtol, abs_tol=atol)
+    ):
+        return False
+    return all(
+        np.allclose(
+            getattr(recorded, name),
+            getattr(replayed, name),
+            rtol=rtol,
+            atol=atol,
+        )
+        for name in (
+            "sigma",
+            "log_yield",
+            "hessian_covariance",
+            "expected",
+            "residuals",
+            "deviance_contributions",
+        )
+    )
+
+
+def _same_response_propagation(
+    recorded: ResponsePropagationResult,
+    replayed: ResponsePropagationResult,
+    *,
+    rtol: float,
+    atol: float,
+) -> bool:
+    if (
+        recorded.valid != replayed.valid
+        or recorded.retained_modes != replayed.retained_modes
+        or len(recorded.refits) != len(replayed.refits)
+        or not np.allclose(recorded.covariance, replayed.covariance, rtol=rtol, atol=atol)
+    ):
+        return False
+    for left, right in zip(recorded.refits, replayed.refits, strict=True):
+        if (
+            left.mode_id != right.mode_id
+            or left.scheme != right.scheme
+            or not math.isclose(left.eigenvalue, right.eigenvalue, rel_tol=rtol, abs_tol=atol)
+            or not math.isclose(left.step, right.step, rel_tol=rtol, abs_tol=atol)
+            or not np.allclose(left.derivative, right.derivative, rtol=rtol, atol=atol)
+        ):
+            return False
+        for left_endpoint, right_endpoint in (
+            (left.lower_sigma, right.lower_sigma),
+            (left.upper_sigma, right.upper_sigma),
+        ):
+            if (left_endpoint is None) != (right_endpoint is None):
+                return False
+            if left_endpoint is not None and not np.allclose(
+                left_endpoint, right_endpoint, rtol=rtol, atol=atol
+            ):
+                return False
+    return True
 
 
 def _finite(value: object, label: str) -> float:
@@ -240,6 +329,62 @@ def _response_payload(result: ResponsePropagationResult) -> dict[str, object]:
     }
 
 
+def _fit_bin_diagnostics(
+    counts: AzimuthCountTable, nominal: JointSigmaFitResult
+) -> tuple[tuple[AzimuthCountRow, ...], tuple[int, ...], tuple[float, ...]]:
+    nominal_rows = tuple(
+        sorted(
+            (row for row in counts.rows if row.replica_id == 0),
+            key=_fit_row_order,
+        )
+    )
+    if nominal.row_keys != tuple(canonical_count_row_key(row) for row in nominal_rows):
+        raise PolarizationContractError("S4 nominal fit rows disagree with count rows")
+    observed_by_bin = []
+    deviance_by_bin = []
+    for bin_key in nominal.bin_keys:
+        indices = [
+            index
+            for index, row in enumerate(nominal_rows)
+            if canonical_count_row_key(row).startswith(f"{bin_key}|")
+        ]
+        if not indices:
+            raise PolarizationContractError("S4 fit bin has no count evidence")
+        observed_by_bin.append(sum(nominal_rows[index].observed_count for index in indices))
+        deviance_by_bin.append(
+            float(sum(nominal.deviance_contributions[index] for index in indices))
+        )
+    return nominal_rows, tuple(observed_by_bin), tuple(deviance_by_bin)
+
+
+def _release_qa_payload(
+    authority: CountAuthority,
+    nominal: JointSigmaFitResult,
+    event_counts: Sequence[int],
+) -> dict[str, object]:
+    acceptance = {item.path.name: item for item in authority.acceptance_files}
+    acceptance_qa = load_json(acceptance["acceptance_qa.json"].path)
+    closure = acceptance_qa.get("closure")
+    n3_closure_valid = isinstance(closure, Mapping) and closure.get("valid") is True
+    qa = authority.config.release_qa
+    return {
+        "status": qa.status,
+        "approval_id": qa.approval_id,
+        "reviewers": list(qa.reviewers),
+        "minimum_events_per_bin": qa.minimum_events_per_bin,
+        "maximum_deviance_per_ndof": qa.maximum_deviance_per_ndof,
+        "event_counts": list(event_counts),
+        "deviance_per_ndof": nominal.deviance / nominal.ndof,
+        "sigma_bounds_valid": bool(np.all(np.abs(nominal.sigma) <= 1.0)),
+        "log_yield_bounds_valid": bool(np.all(np.abs(nominal.log_yield) <= 30.0)),
+        "sign_status": authority.config.sign_status,
+        "sign_approval_id": authority.config.sign_approval_id,
+        "sign_reviewers": list(authority.config.sign_reviewers),
+        "orientation_signs": dict(authority.config.orientation_signs),
+        "n3_closure_valid": n3_closure_valid,
+    }
+
+
 def write_fit_evidence(
     directory: Path,
     *,
@@ -281,6 +426,13 @@ def write_fit_evidence(
             "bootstrap Sigma vectors disagree with successful replicas"
         )
 
+    nominal_rows, observed_by_bin, deviance_by_bin = _fit_bin_diagnostics(
+        counts, nominal
+    )
+    count_inputs = {row.input_sha256 for row in nominal_rows}
+    count_configs = {row.config_sha256 for row in nominal_rows}
+    if count_inputs != {fresh.flux_file.sha256} or count_configs != {fresh.config_file.sha256}:
+        raise PolarizationContractError("S4 fit input/config hashes disagree with counts")
     counts_path = target / "azimuth_counts_v1.csv"
     counts_sha = write_azimuth_counts(counts, counts_path, authority=fresh)
     fit_path = target / "sigma_fit_v1.csv"
@@ -295,6 +447,14 @@ def write_fit_evidence(
                     "fit_release_id": fresh.fit_release_id,
                     "bin_index": index,
                     "bin_key": key,
+                    "input_sha256": fresh.flux_file.sha256,
+                    "config_sha256": fresh.config_file.sha256,
+                    "response_input_sha256": fresh.response.input_sha256,
+                    "response_config_sha256": fresh.response.config_sha256,
+                    "event_count": observed_by_bin[index],
+                    "deviance_contribution": format(deviance_by_bin[index], ".17g"),
+                    "fit_deviance": format(float(nominal.deviance), ".17g"),
+                    "fit_ndof": nominal.ndof,
                     "sigma": format(float(nominal.sigma[index]), ".17g"),
                     "bootstrap_stat_uncertainty": format(float(np.sqrt(stat[index, index])), ".17g"),
                     "hessian_stat_uncertainty": format(float(np.sqrt(hessian[index, index])), ".17g"),
@@ -343,6 +503,7 @@ def write_fit_evidence(
         "bootstrap": bootstrap,
         "nominal_fit": _fit_payload(nominal),
         "response_propagation": _response_payload(response_propagation),
+        "release_qa": _release_qa_payload(fresh, nominal, observed_by_bin),
     }
     (target / "sigma_fit_qa.json").write_text(
         json.dumps(qa, indent=2, sort_keys=True, allow_nan=False) + "\n",
@@ -456,6 +617,8 @@ def _validate_fit_payload(raw: object) -> JointSigmaFitResult:
     contributions = _json_array(raw["deviance_contributions"], "S4 deviance", ndim=1)
     if sigma.shape != (dimension,) or log_yield.shape != (dimension,) or len(nuisance) != dimension or expected.shape != residuals.shape or expected.shape != contributions.shape or len(row_keys) != expected.size:
         raise PolarizationContractError("S4 nominal fit array alignment is invalid")
+    if np.any(np.abs(sigma) > 1.0) or np.any(np.abs(log_yield) > 30.0):
+        raise PolarizationContractError("S4 Sigma or nuisance lies outside fit bounds")
     covariance = _psd(raw["hessian_covariance"], dimension, "S4 Hessian covariance")
     deviance = _finite(raw["deviance"], "S4 deviance")
     if not math.isclose(deviance, float(np.sum(contributions)), rel_tol=1e-12, abs_tol=1e-12):
@@ -594,6 +757,20 @@ def validate_fit_evidence(
     )
     if nominal.bin_keys != expected_bin_keys:
         raise PolarizationContractError("S4 nominal bin keys are not canonical")
+    replay_atol = config.response_validation.replay_absolute_tolerance
+    replay_rtol = config.response_validation.replay_relative_tolerance
+    replayed_nominal = _fit_sigma_forward_folded_core(
+        counts,
+        fresh_authority.response,
+        config=config,
+        replica_id=0,
+    )
+    if not _same_scientific_fit(
+        nominal, replayed_nominal, rtol=replay_rtol, atol=replay_atol
+    ):
+        raise PolarizationContractError(
+            "S4 nominal fit disagrees with authenticated forward replay"
+        )
     bootstrap = qa.get("bootstrap")
     expected_bootstrap_keys = {"algorithm_version", "seed", "configured_replicas", "successful_replica_ids", "failed_replica_ids", "statistical_covariance", "sigma_vectors", "hessian_diagonal_ratio"}
     if not isinstance(bootstrap, Mapping) or set(bootstrap) != expected_bootstrap_keys or bootstrap.get("algorithm_version") != config.bootstrap.algorithm_version or bootstrap.get("seed") != config.bootstrap.seed or bootstrap.get("configured_replicas") != config.bootstrap.replicas:
@@ -660,6 +837,18 @@ def validate_fit_evidence(
         atol=response_tolerance,
     ):
         raise PolarizationContractError("S4 response covariance disagrees with retained modes")
+    replayed_response = propagate_response_covariance(
+        counts,
+        fresh_authority.response,
+        config=config,
+        covariance_scope=fresh_authority.response_covariance_scope,
+    )
+    if not _same_response_propagation(
+        response, replayed_response, rtol=response_relative, atol=response_tolerance
+    ):
+        raise PolarizationContractError(
+            "S4 response modes disagree with authenticated response replay"
+        )
     nominal_rows = tuple(
         sorted(
             (row for row in counts.rows if row.replica_id == 0),
@@ -668,6 +857,11 @@ def validate_fit_evidence(
     )
     if nominal.row_keys != tuple(canonical_count_row_key(row) for row in nominal_rows):
         raise PolarizationContractError("S4 nominal row keys disagree with counts")
+    _, observed_by_bin, _ = _fit_bin_diagnostics(counts, nominal)
+    if qa.get("release_qa") != _release_qa_payload(
+        fresh_authority, nominal, observed_by_bin
+    ):
+        raise PolarizationContractError("S4 release QA disagrees with authenticated policy")
     observed = np.asarray([row.observed_count for row in nominal_rows], dtype=float)
     if (
         nominal.expected.size != observed.size
@@ -683,8 +877,6 @@ def validate_fit_evidence(
         xlogy(observed, observed / nominal.expected)
         - (observed - nominal.expected)
     )
-    replay_atol = config.response_validation.replay_absolute_tolerance
-    replay_rtol = config.response_validation.replay_relative_tolerance
     if not np.allclose(nominal.residuals, residuals, rtol=replay_rtol, atol=replay_atol) or not np.allclose(nominal.deviance_contributions, contributions, rtol=replay_rtol, atol=replay_atol):
         raise PolarizationContractError("S4 nominal residual/deviance evidence disagrees with counts")
     optimizer = qa.get("optimizer")
@@ -710,12 +902,33 @@ def validate_fit_evidence(
     if len(fit_rows) != len(nominal.bin_keys):
         raise PolarizationContractError("S4 fit CSV row count is invalid")
     for index, row in enumerate(fit_rows):
+        bin_indices = [
+            row_index
+            for row_index, count_row in enumerate(nominal_rows)
+            if canonical_count_row_key(count_row).startswith(
+                f"{nominal.bin_keys[index]}|"
+            )
+        ]
+        expected_event_count = sum(
+            nominal_rows[row_index].observed_count for row_index in bin_indices
+        )
+        expected_deviance = float(
+            sum(nominal.deviance_contributions[row_index] for row_index in bin_indices)
+        )
         expected_values = (
             int(row["schema_version"]) == 1,
             row["analysis_version"] == qa["analysis_version"],
             row["fit_release_id"] == release_id,
             int(row["bin_index"]) == index,
             row["bin_key"] == nominal.bin_keys[index],
+            row["input_sha256"] == fresh_authority.flux_file.sha256,
+            row["config_sha256"] == config_sha,
+            row["response_input_sha256"] == fresh_authority.response.input_sha256,
+            row["response_config_sha256"] == fresh_authority.response.config_sha256,
+            int(row["event_count"]) == expected_event_count,
+            _finite(float(row["deviance_contribution"]), "fit deviance contribution") == expected_deviance,
+            _finite(float(row["fit_deviance"]), "fit deviance") == nominal.deviance,
+            int(row["fit_ndof"]) == nominal.ndof,
             _finite(float(row["sigma"]), "fit Sigma") == nominal.sigma[index],
             _finite(float(row["bootstrap_variance"]), "fit bootstrap variance") == stat[index, index],
             _finite(float(row["hessian_variance"]), "fit Hessian variance") == nominal.hessian_covariance[index, index],
@@ -733,5 +946,5 @@ def validate_fit_evidence(
         _readonly(vectors),
         successful,
         failed,
-        qa,
+        _deep_freeze(qa),
     )

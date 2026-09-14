@@ -84,3 +84,45 @@ provenance, and deterministic JSON/CSV serialization were checked against the
 Task 7 brief and approved design. Task 8 can consume `FitEvidence` and replay
 its stored nominal, bootstrap, and response evidence without ROOT access to the
 published directory.
+
+## Independent-review fix round 1
+
+Regression tests first exposed six concrete bypasses against `b94709c`:
+missing CSV release fields, mutable nested QA, coherent `Sigma=2` tampering,
+forged response endpoints/derivatives, empty-destination rename replacement,
+and absent S4 artifact-inventory discovery.
+
+Fixes:
+
+- reader reruns nominal forward folding from authenticated counts, N3 response,
+  approved signs, and release-QA policy. It compares Sigma, nuisance yields,
+  Hessian covariance, expected counts, residuals, deviance contributions,
+  rank, convergence, and canonical keys;
+- `sigma_fit_v1.csv` includes per-bin event count/deviance contribution,
+  global deviance/ndof, exact S4 count input/config hashes, and exact N3
+  input/config hashes. Reader recomputes every value;
+- reader reruns response propagation from authenticated N3 covariance blocks
+  and sealed covariance scope. Canonical mode IDs/order, eigenvalues, steps,
+  schemes, endpoint fits, derivatives, and final covariance must match;
+- release QA binds minimum-event and maximum-deviance policy, parameter bounds,
+  approved orientation signs/reviewers, and authenticated N3 closure. Returned
+  QA uses recursive immutable mappings/tuples;
+- publication uses destination-specific exclusive lock. Final authority reload
+  and staged validation run inside lock. Kernel no-replace rename uses macOS
+  `renamex_np(RENAME_EXCL)` or Linux `renameat2(RENAME_NOREPLACE)`; Windows
+  rename already rejects existing destinations, and unsupported POSIX systems
+  fail closed. Empty destination created during race remains untouched. Cleanup
+  removes only owned staging and inode-matched empty lock;
+- artifact inventory accepts S4 releases only with exact canonical triplet;
+  partial, extra, legacy, and symlinked layouts reject generation.
+
+Fresh verification:
+
+1. focused evidence/CLI/inventory: 37 passed;
+2. root-free polarization suite: 419 passed;
+3. `make verify`: syntax and 2,711-run manifest valid; 335 common and 419
+   polarization tests passed; artifact inventory verified; diff check clean;
+4. `make test`: 878 passed with PyROOT; four pre-existing Task 8 legacy
+   Figure-4 config-fixture failures remain. No Task 8 file changed;
+5. Graphify snapshot and `ARTIFACTS.json` regeneration remain Task 9. Runtime
+   inventory recognition and tests are included here.

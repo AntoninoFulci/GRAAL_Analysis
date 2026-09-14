@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 from dataclasses import replace
+import errno
+import os
 import shutil
 from pathlib import Path, PurePosixPath
 import subprocess
@@ -33,6 +36,85 @@ from sigma_fit import (
 
 CANONICAL_OUTPUT_ROOT = "results/physics/polarization_fits"
 CANONICAL_BIN_SET_ID = "figure4-v1"
+
+
+def _rename_directory_no_replace(source: Path, destination: Path) -> None:
+    """Atomically publish one directory without replacing any destination.
+
+    POSIX ``rename`` may replace an empty directory.  Linux ``renameat2`` and
+    macOS ``renamex_np`` supply kernel-enforced no-replace semantics.  Other
+    POSIX kernels fail closed; Windows ``os.rename`` already refuses an
+    existing destination.
+    """
+    source_bytes = os.fsencode(source)
+    destination_bytes = os.fsencode(destination)
+    if sys.platform == "darwin":
+        libc = ctypes.CDLL(None, use_errno=True)
+        operation = libc.renamex_np
+        operation.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
+        operation.restype = ctypes.c_int
+        result = operation(source_bytes, destination_bytes, 0x00000004)
+    elif sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None, use_errno=True)
+        try:
+            operation = libc.renameat2
+        except AttributeError as exc:
+            raise PolarizationContractError(
+                "atomic no-replace directory publication is unsupported"
+            ) from exc
+        operation.argtypes = (
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        )
+        operation.restype = ctypes.c_int
+        result = operation(-100, source_bytes, -100, destination_bytes, 1)
+    elif os.name == "nt":
+        try:
+            os.rename(source, destination)
+        except FileExistsError as exc:
+            raise PolarizationContractError(
+                "refusing overwrite of S4 fit release"
+            ) from exc
+        return
+    else:
+        raise PolarizationContractError(
+            "atomic no-replace directory publication is unsupported"
+        )
+    if result != 0:
+        error = ctypes.get_errno()
+        if error in {errno.EEXIST, errno.ENOTEMPTY}:
+            raise PolarizationContractError(
+                "refusing overwrite of S4 fit release"
+            )
+        raise OSError(error, os.strerror(error), str(destination))
+
+
+def _acquire_publish_lock(lock: Path) -> tuple[int, int]:
+    try:
+        lock.mkdir(mode=0o700)
+    except FileExistsError as exc:
+        raise PolarizationContractError(
+            "S4 fit release publication is already locked"
+        ) from exc
+    metadata = lock.stat(follow_symlinks=False)
+    return metadata.st_dev, metadata.st_ino
+
+
+def _release_owned_publish_lock(lock: Path, identity: tuple[int, int]) -> None:
+    """Remove only still-empty lock directory created by this process."""
+    try:
+        metadata = lock.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if (metadata.st_dev, metadata.st_ino) != identity or lock.is_symlink():
+        return
+    try:
+        lock.rmdir()
+    except OSError:
+        return
 
 
 def _fit_release_id(value: object) -> str:
@@ -182,6 +264,8 @@ def publish_fit_release(
         tempfile.mkdtemp(prefix=f".{fresh.fit_release_id}.staging-", dir=parent)
     )
     renamed = False
+    lock = parent / f".{fresh.fit_release_id}.publish.lock"
+    lock_identity = None
     try:
         write_fit_evidence(
             staging,
@@ -195,17 +279,23 @@ def publish_fit_release(
             response_propagation=response,
             producer_commit=producer_commit,
         )
+        lock_identity = _acquire_publish_lock(lock)
+        final_authority = _reload_count_authority(stable)
+        if _authority_fingerprint(final_authority) != original:
+            raise PolarizationContractError(
+                "S4 authority changed before atomic publication"
+            )
         staged_evidence = validate_fit_evidence(
             staging,
-            stable.repository_root,
-            config=stable.config,
+            final_authority.repository_root,
+            config=final_authority.config,
             _allow_staging=True,
         )
-        if destination.exists() or destination.is_symlink():
-            raise PolarizationContractError("refusing overwrite of S4 fit release")
-        staging.rename(destination)
+        _rename_directory_no_replace(staging, destination)
         renamed = True
     finally:
+        if lock_identity is not None:
+            _release_owned_publish_lock(lock, lock_identity)
         if not renamed and staging.exists():
             shutil.rmtree(staging)
     return replace(staged_evidence, directory=destination)

@@ -133,6 +133,32 @@ def test_inventory_selects_only_explicitly_published_paths(tmp_path):
     assert build_inventory(tmp_path, "abc123") == baseline
 
 
+def test_inventory_recognizes_only_complete_canonical_s4_triplets(tmp_path):
+    release = tmp_path / "results/physics/polarization_fits/fit-v1"
+    for name in (
+        "azimuth_counts_v1.csv",
+        "sigma_fit_v1.csv",
+        "sigma_fit_qa.json",
+    ):
+        put(tmp_path, f"results/physics/polarization_fits/fit-v1/{name}")
+    assert set(records(build_inventory(tmp_path, "abc123"))) == {
+        f"results/physics/polarization_fits/fit-v1/{name}"
+        for name in (
+            "azimuth_counts_v1.csv",
+            "sigma_fit_v1.csv",
+            "sigma_fit_qa.json",
+        )
+    }
+
+    (release / "sigma_fit_v1.csv").unlink()
+    with pytest.raises(ArtifactInventoryError, match="exact S4 triplet"):
+        build_inventory(tmp_path, "abc123")
+    put(tmp_path, "results/physics/polarization_fits/fit-v1/sigma_fit_v1.csv")
+    put(tmp_path, "results/physics/polarization_fits/fit-v1/legacy_sigma.csv")
+    with pytest.raises(ArtifactInventoryError, match="exact S4 triplet"):
+        build_inventory(tmp_path, "abc123")
+
+
 def _inventory_fixture(tmp_path: Path) -> Path:
     """Create a minimal valid published bundle and return its inventory path."""
     inputs = {

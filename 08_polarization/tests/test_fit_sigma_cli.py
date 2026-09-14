@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from scipy.special import xlogy
 
+import fit_evidence
 import fit_sigma
 from contracts import PolarizationContractError
 from fit_evidence import FIT_EVIDENCE_FILENAMES
@@ -147,6 +148,7 @@ def cli_problem(response_fixture, monkeypatch):
     monkeypatch.setattr(fit_sigma, "build_azimuth_counts", lambda **_kw: counts)
     monkeypatch.setattr(fit_sigma, "fit_sigma_forward_folded", lambda **_kw: nominal)
     monkeypatch.setattr(fit_sigma, "_fit_sigma_forward_folded_core", fit_core)
+    monkeypatch.setattr(fit_evidence, "_fit_sigma_forward_folded_core", fit_core)
     monkeypatch.setattr(
         fit_sigma,
         "bootstrap_sigma_covariance",
@@ -154,6 +156,13 @@ def cli_problem(response_fixture, monkeypatch):
     )
     monkeypatch.setattr(
         fit_sigma,
+        "propagate_response_covariance",
+        lambda *args, **kwargs: ResponsePropagationResult(
+            np.zeros((dimension, dimension)), (), (), True
+        ),
+    )
+    monkeypatch.setattr(
+        fit_evidence,
         "propagate_response_covariance",
         lambda *args, **kwargs: ResponsePropagationResult(
             np.zeros((dimension, dimension)), (), (), True
@@ -175,7 +184,7 @@ def test_fit_publication_is_exact_atomic_triplet_and_runs_replicas_in_order(
     )
 
     assert {item.name for item in evidence.directory.iterdir()} == FIT_EVIDENCE_FILENAMES
-    assert replica_order == list(range(33))
+    assert replica_order == [*range(33), 0]
     assert not list(output_root.glob(".fit-test.staging-*"))
 
 
@@ -198,6 +207,31 @@ def test_fit_publication_never_overwrites_existing_release(cli_problem):
     assert before == {
         item.name: item.read_bytes() for item in (output_root / "fit-test").iterdir()
     }
+
+
+def test_fit_publication_no_replace_survives_empty_destination_race(
+    cli_problem, monkeypatch
+):
+    _paths, authority, output_root, _replica_order = cli_problem
+    original_rename = fit_sigma._rename_directory_no_replace
+
+    def racing_rename(source, destination):
+        destination.mkdir()
+        return original_rename(source, destination)
+
+    monkeypatch.setattr(fit_sigma, "_rename_directory_no_replace", racing_rename)
+    with pytest.raises(PolarizationContractError, match="overwrite"):
+        publish_fit_release(
+            authority=authority,
+            output_root=output_root,
+            producer_commit="a" * 40,
+        )
+
+    destination = output_root / "fit-test"
+    assert destination.is_dir()
+    assert list(destination.iterdir()) == []
+    assert not list(output_root.glob(".fit-test.staging-*"))
+    assert not (output_root / ".fit-test.publish.lock").exists()
 
 
 def test_fit_publication_removes_staging_after_independent_validation_failure(

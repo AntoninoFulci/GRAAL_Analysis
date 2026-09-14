@@ -74,6 +74,10 @@ OBSERVABLE_BUNDLE_PATHS = frozenset(
     }
 )
 LFS_POINTER_HEADER = b"version https://git-lfs.github.com/spec/v1\n"
+S4_FIT_PARENT = "results/physics/polarization_fits"
+S4_FIT_FILENAMES = frozenset(
+    {"azimuth_counts_v1.csv", "sigma_fit_v1.csv", "sigma_fit_qa.json"}
+)
 
 
 class ArtifactInventoryError(ValueError):
@@ -145,6 +149,8 @@ def _classification(relative: str) -> tuple[str, bool, str]:
         return "derived", True, "source bundle for observable-run rebuild"
     if relative.startswith("results/observable_runs/"):
         return "derived", True, "accepted observable-run bundle when QA is valid"
+    if relative.startswith(f"{S4_FIT_PARENT}/"):
+        return "derived", True, "immutable replayable S4 fit evidence"
     if relative.startswith("graphify-out/"):
         return "derived", True, "portable repository knowledge-graph artifact"
     return "derived", True, "published analysis artifact"
@@ -184,6 +190,40 @@ def _artifact_paths(repo_root: Path, roots: Iterable[Path | str]) -> list[Path]:
         if _is_excluded(relative):
             continue
         selected[relative.as_posix()] = resolved_path
+    s4_parent = repo_root / S4_FIT_PARENT
+    if s4_parent.exists():
+        _reject_symlink_components(repo_root, s4_parent)
+        if s4_parent.is_symlink() or not s4_parent.is_dir():
+            raise ArtifactInventoryError("S4 fit evidence parent must be a directory")
+        for release in sorted(s4_parent.iterdir(), key=lambda item: item.name):
+            if not any(_is_within(release, root) for root in resolved_roots):
+                continue
+            if (
+                release.is_symlink()
+                or not release.is_dir()
+                or not release.name
+                or release.name.startswith(".")
+                or Path(release.name).parts != (release.name,)
+            ):
+                raise ArtifactInventoryError(
+                    f"noncanonical S4 fit release entry: {release}"
+                )
+            entries = tuple(release.iterdir())
+            if (
+                {entry.name for entry in entries} != S4_FIT_FILENAMES
+                or any(entry.is_symlink() or not entry.is_file() for entry in entries)
+            ):
+                raise ArtifactInventoryError(
+                    f"S4 fit release must contain exact S4 triplet: {release}"
+                )
+            for entry in entries:
+                resolved_entry = entry.resolve(strict=True)
+                if not _is_within(resolved_entry, repo_root):
+                    raise ArtifactInventoryError(
+                        f"S4 fit evidence is outside repository: {entry}"
+                    )
+                relative = resolved_entry.relative_to(repo_root).as_posix()
+                selected[relative] = resolved_entry
     return [selected[name] for name in sorted(selected)]
 
 
