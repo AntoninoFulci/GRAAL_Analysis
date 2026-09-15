@@ -708,19 +708,38 @@ def _validate_replayed_release(
         raise PolarizationContractError(
             "S6 acceptance_response_statistics disagrees with replayed response covariance"
         )
+    required_nuisances = {
+        "compton_polarization_statistics": evidence.compton_propagation.covariance,
+        "flux_exposure_statistics": evidence.flux_exposure_propagation.covariance,
+    }
+    for name, expected in required_nuisances.items():
+        if name not in named or not np.allclose(
+            named[name], expected, rtol=rtol, atol=atol
+        ):
+            raise PolarizationContractError(
+                f"S6 {name} disagrees with replayed S4 nuisance covariance"
+            )
     pin = qa["fit_evidence"]
-    response_sources = [
+    s4_sources = [
         source
         for source in qa["systematic_sources"]
-        if source.get("name") == response_name
+        if source.get("name") in {response_name, *required_nuisances}
     ]
-    if len(response_sources) != 1 or response_sources[0] != {
-        "name": response_name,
-        "path": f"{pin['path']}/sigma_fit_qa.json",
-        "sha256": pin["qa_sha256"],
-    }:
+    expected_s4_sources = {
+        (
+            name,
+            f"{pin['path']}/sigma_fit_qa.json",
+            pin["qa_sha256"],
+        )
+        for name in {response_name, *required_nuisances}
+    }
+    actual_s4_sources = {
+        (source.get("name"), source.get("path"), source.get("sha256"))
+        for source in s4_sources
+    }
+    if actual_s4_sources != expected_s4_sources or len(s4_sources) != 3:
         raise PolarizationContractError(
-            "S6 acceptance_response_statistics source must be pinned S4 QA"
+            "S6 propagated statistical sources must pin S4 QA"
         )
     recomputed_systematic = np.zeros_like(systematic)
     for matrix in named.values():

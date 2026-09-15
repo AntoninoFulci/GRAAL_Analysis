@@ -42,6 +42,35 @@ def test_curve_bin_average_uses_piecewise_linear_weights_and_covariance():
     assert variance == pytest.approx(0.25**2 * 0.01 + 0.5**2 * 0.04 + 0.25**2 * 0.09)
 
 
+def test_bin_average_weights_are_exact_across_internal_knot():
+    curve = PolarizationCurve(
+        [0.0, 1.0, 2.0], [0.2, 0.5, 0.8], np.eye(3)
+    )
+
+    weights = curve.bin_average_weights(0.5, 1.5)
+
+    np.testing.assert_allclose(weights, [0.125, 0.75, 0.125], rtol=0.0, atol=1e-15)
+    weights[0] = 99.0
+    np.testing.assert_allclose(
+        curve.bin_average_weights(0.5, 1.5),
+        [0.125, 0.75, 0.125],
+        rtol=0.0,
+        atol=1e-15,
+    )
+
+
+def test_bin_average_covariance_preserves_cross_bin_node_correlations():
+    covariance = np.array(
+        [[0.04, 0.01, 0.0], [0.01, 0.09, 0.02], [0.0, 0.02, 0.16]]
+    )
+    curve = PolarizationCurve([0.0, 1.0, 2.0], [0.2, 0.5, 0.8], covariance)
+
+    projected = curve.bin_average_covariance(((0.0, 1.0), (1.0, 2.0)))
+
+    weights = np.array([[0.5, 0.5, 0.0], [0.0, 0.5, 0.5]])
+    np.testing.assert_allclose(projected, weights @ covariance @ weights.T)
+
+
 @pytest.mark.parametrize(
     "energies,values,covariance,match",
     [

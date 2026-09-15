@@ -97,7 +97,11 @@ def replay_release(tmp_path, response_fixture, monkeypatch):
                 edges[mass_index], edges[mass_index + 1],
                 evidence.nominal_fit.sigma[index],
                 np.sqrt(evidence.statistical_covariance[index, index]),
-                json.dumps({"acceptance_response_statistics": 0.0}, separators=(",", ":")),
+                json.dumps({
+                    "acceptance_response_statistics": 0.0,
+                    "compton_polarization_statistics": 0.0,
+                    "flux_exposure_statistics": 0.0,
+                }, separators=(",", ":")),
                 "valid", f"fit-{index:03d}", input_sha, config_sha,
                 int(fit_row["event_count"]), float(fit_row["fit_deviance"]),
                 int(fit_row["fit_ndof"]),
@@ -146,13 +150,22 @@ def replay_release(tmp_path, response_fixture, monkeypatch):
             "pull_mean": 0.0,
             "pull_width": 1.0,
         },
-        "systematic_sources": [{
-            "name": "acceptance_response_statistics",
-            "path": (s4_dir / "sigma_fit_qa.json").relative_to(root).as_posix(),
-            "sha256": sha256_file(s4_dir / "sigma_fit_qa.json"),
-        }],
+        "systematic_sources": [
+            {
+                "name": name,
+                "path": (s4_dir / "sigma_fit_qa.json").relative_to(root).as_posix(),
+                "sha256": sha256_file(s4_dir / "sigma_fit_qa.json"),
+            }
+            for name in (
+                "acceptance_response_statistics",
+                "compton_polarization_statistics",
+                "flux_exposure_statistics",
+            )
+        ],
         "systematic_covariances": {
-            "acceptance_response_statistics": response_covariance.tolist()
+            "acceptance_response_statistics": response_covariance.tolist(),
+            "compton_polarization_statistics": evidence.compton_propagation.covariance.tolist(),
+            "flux_exposure_statistics": evidence.flux_exposure_propagation.covariance.tolist(),
         },
         "inputs": inputs,
         "input_sha256": input_sha,
@@ -232,13 +245,20 @@ def test_s6_rejects_coherently_rehashed_s4_claim_tamper(replay_release, target):
     qa_path = release / "polarization_qa.json"
     qa = json.loads(qa_path.read_text(encoding="utf-8"))
     qa["fit_evidence"]["qa_sha256"] = sha256_file(s4_qa_path)
-    qa["systematic_sources"][0]["sha256"] = sha256_file(s4_qa_path)
+    for source in qa["systematic_sources"]:
+        source["sha256"] = sha256_file(s4_qa_path)
     qa_path.write_text(json.dumps(qa), encoding="utf-8")
     with pytest.raises(PolarizationContractError, match="S4|replay|response"):
         validate_sigma_release(release, root)
 
 
-@pytest.mark.parametrize("target", ["sigma", "stat_covariance", "response_covariance"])
+@pytest.mark.parametrize(
+    "target",
+    [
+        "sigma", "stat_covariance", "response_covariance",
+        "compton_covariance", "flux_exposure_covariance",
+    ],
+)
 def test_s6_replay_rejects_coherently_rehashed_scientific_tamper(
     replay_release, target
 ):
@@ -266,14 +286,20 @@ def test_s6_replay_rejects_coherently_rehashed_scientific_tamper(
             field_index = csv_rows[0].index("stat_uncertainty")
             for index, row in enumerate(csv_rows[1:]):
                 row[field_index] = str(np.sqrt(arrays[field][index, index]))
-        if target == "response_covariance":
-            qa["systematic_covariances"]["acceptance_response_statistics"] = arrays[field].tolist()
+        if target.endswith("_covariance") and target != "stat_covariance":
+            source_name = {
+                "response_covariance": "acceptance_response_statistics",
+                "compton_covariance": "compton_polarization_statistics",
+                "flux_exposure_covariance": "flux_exposure_statistics",
+            }[target]
+            qa["systematic_covariances"][source_name] = arrays[field].tolist()
             field_index = csv_rows[0].index("systematic_components_json")
             for index, row in enumerate(csv_rows[1:]):
-                row[field_index] = json.dumps(
-                    {"acceptance_response_statistics": np.sqrt(arrays[field][index, index])},
-                    separators=(",", ":"),
+                components = json.loads(row[field_index])
+                components[source_name] = np.sqrt(
+                    arrays[field][index, index]
                 )
+                row[field_index] = json.dumps(components, separators=(",", ":"))
         with (release / "sigma_v1.csv").open("w", newline="", encoding="utf-8") as stream:
             csv.writer(stream, lineterminator="\n").writerows(csv_rows)
         qa["files"]["sigma_v1.csv"] = sha256_file(release / "sigma_v1.csv")

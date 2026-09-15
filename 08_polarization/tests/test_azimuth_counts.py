@@ -638,6 +638,11 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
         "period-b",
     )
     assert len(authority.flux_rows) == 3
+    assert all(
+        row.pol1_net == row.pol1 - row.brem
+        and row.pol2_net == row.pol2 - row.brem
+        for row in authority.flux_rows
+    )
     assert {
         (row.beam_group, row.energy_low_gev, row.energy_high_gev)
         for row in authority.flux_rows
@@ -661,6 +666,25 @@ def test_count_authority_ignores_valid_gate0_flux_outside_response_universe(
         "period-a", "period-b"
     }
     assert {key.observable for key in authority.response.keys} == set(PAIR_NAMES)
+
+
+def test_count_authority_rejects_raw_flux_counts_inconsistent_with_net(
+    count_authority_repo,
+):
+    path = count_authority_repo["flux"]
+    with path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        rows = list(reader)
+        fields = tuple(reader.fieldnames or ())
+    rows[0]["brem"] = str(float(rows[0]["brem"]) + 1.0)
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    _reanchor_gate0_flux(count_authority_repo)
+
+    with pytest.raises(PolarizationContractError, match="invalid energy or net flux"):
+        _load_count_authority(count_authority_repo)
 
 
 def _break_authority_file(path, mutation):

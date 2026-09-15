@@ -72,6 +72,9 @@ _FLUX_REQUIRED_FIELDS = frozenset(
         "group",
         "energy_low_gev",
         "energy_high_gev",
+        "pol1",
+        "brem",
+        "pol2",
         "pol1_net",
         "pol2_net",
         "status",
@@ -105,6 +108,9 @@ class FluxAuthorityRow:
     beam_group: str
     energy_low_gev: float
     energy_high_gev: float
+    pol1: float
+    brem: float
+    pol2: float
     pol1_net: float
     pol2_net: float
 
@@ -301,6 +307,9 @@ def _parse_flux_rows(
             try:
                 low = float(raw["energy_low_gev"])
                 high = float(raw["energy_high_gev"])
+                pol1 = float(raw["pol1"])
+                brem = float(raw["brem"])
+                pol2 = float(raw["pol2"])
                 pol1_net = float(raw["pol1_net"])
                 pol2_net = float(raw["pol2_net"])
             except (TypeError, ValueError) as exc:
@@ -308,10 +317,15 @@ def _parse_flux_rows(
                     f"count flux row {row_number} has invalid numeric fields"
                 ) from exc
             if (
-                not all(math.isfinite(value) for value in (low, high, pol1_net, pol2_net))
+                not all(math.isfinite(value) for value in (
+                    low, high, pol1, brem, pol2, pol1_net, pol2_net
+                ))
                 or high <= low
+                or min(pol1, brem, pol2) < 0.0
                 or pol1_net < 0.0
                 or pol2_net < 0.0
+                or not math.isclose(pol1_net, pol1 - brem, rel_tol=1e-12, abs_tol=1e-12)
+                or not math.isclose(pol2_net, pol2 - brem, rel_tol=1e-12, abs_tol=1e-12)
             ):
                 raise PolarizationContractError(
                     f"count flux row {row_number} has invalid energy or net flux"
@@ -329,6 +343,9 @@ def _parse_flux_rows(
                     beam_group,
                     low,
                     high,
+                    pol1,
+                    brem,
+                    pol2,
                     pol1_net,
                     pol2_net,
                 )

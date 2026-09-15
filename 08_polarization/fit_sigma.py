@@ -35,6 +35,10 @@ from fit_evidence import (
     write_fit_evidence,
 )
 from response_uncertainty import propagate_response_covariance
+from nuisance_uncertainty import (
+    propagate_compton_covariance,
+    propagate_flux_exposure_covariance,
+)
 from sigma_fit import (
     JointSigmaFitResult,
     _fit_sigma_forward_folded_core,
@@ -280,6 +284,18 @@ def publish_fit_release(
         config=fresh.config,
         covariance_scope=fresh.response_covariance_scope,
     )
+    compton = propagate_compton_covariance(
+        counts,
+        fresh.response,
+        config=fresh.config,
+        authority=fresh,
+    )
+    flux_exposure = propagate_flux_exposure_covariance(
+        counts,
+        fresh.response,
+        config=fresh.config,
+        authority=fresh,
+    )
     stable = _reload_count_authority(fresh)
     if _authority_fingerprint(stable) != original:
         raise PolarizationContractError("S4 authority changed during fitting")
@@ -299,6 +315,8 @@ def publish_fit_release(
             successful_replica_ids=successful_ids,
             failed_replica_ids=failed_ids,
             response_propagation=response,
+            compton_propagation=compton,
+            flux_exposure_propagation=flux_exposure,
             producer_commit=producer_commit,
         )
         written_snapshot = _snapshot_staged_triplet(staging)

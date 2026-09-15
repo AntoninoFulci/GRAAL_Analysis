@@ -17,6 +17,7 @@ import fit_sigma
 from contracts import PolarizationContractError
 from fit_evidence import FIT_EVIDENCE_FILENAMES
 from response_uncertainty import ResponsePropagationResult
+from nuisance_uncertainty import NuisancePropagationResult
 from sigma_fit import (
     JointSigmaFitResult,
     _row_order,
@@ -177,6 +178,20 @@ def cli_problem(response_fixture, monkeypatch):
         "bootstrap_sigma_covariance",
         lambda values, *args, **kwargs: np.cov(values, rowvar=False, ddof=1),
     )
+    def nuisance(name):
+        return NuisancePropagationResult(
+            name, np.zeros((dimension, dimension)), (f"{name}|input",),
+            np.zeros((1, 1)), (), (), True,
+        )
+    for module in (fit_sigma, fit_evidence):
+        monkeypatch.setattr(
+            module, "propagate_compton_covariance",
+            lambda *args, **kwargs: nuisance("compton_polarization_statistics"),
+        )
+        monkeypatch.setattr(
+            module, "propagate_flux_exposure_covariance",
+            lambda *args, **kwargs: nuisance("flux_exposure_statistics"),
+        )
     monkeypatch.setattr(
         fit_sigma,
         "propagate_response_covariance",

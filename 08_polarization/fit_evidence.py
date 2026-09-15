@@ -41,6 +41,14 @@ from response_uncertainty import (
     ResponsePropagationResult,
     propagate_response_covariance,
 )
+from nuisance_uncertainty import (
+    COMPTON_SOURCE_NAME,
+    FLUX_SOURCE_NAME,
+    NuisanceModeRefit,
+    NuisancePropagationResult,
+    propagate_compton_covariance,
+    propagate_flux_exposure_covariance,
+)
 from sigma_fit import (
     JointSigmaFitResult,
     _fit_sigma_forward_folded_core,
@@ -60,7 +68,8 @@ FIT_FIELDS = (
     "response_config_sha256", "event_count", "deviance_contribution",
     "fit_deviance", "fit_ndof", "sigma", "bootstrap_stat_uncertainty",
     "hessian_stat_uncertainty", "log_yield", "bootstrap_variance",
-    "hessian_variance", "response_variance",
+    "hessian_variance", "response_variance", "compton_variance",
+    "flux_exposure_variance",
 )
 _FIT_PARENT = "results/physics/polarization_fits"
 _QA_KEYS = frozenset(
@@ -68,7 +77,7 @@ _QA_KEYS = frozenset(
         "schema_version", "analysis_version", "fit_release_id",
         "producer_commit", "status", "valid", "blocked_reasons", "bin_set_id",
         "counts", "fit", "authorities", "optimizer", "bootstrap",
-        "nominal_fit", "response_propagation", "release_qa",
+        "nominal_fit", "response_propagation", "nuisance_propagations", "release_qa",
     }
 )
 _AUTHORITY_KEYS = frozenset(
@@ -90,6 +99,8 @@ class FitEvidence:
     nominal_fit: JointSigmaFitResult
     statistical_covariance: np.ndarray
     response_propagation: ResponsePropagationResult
+    compton_propagation: NuisancePropagationResult
+    flux_exposure_propagation: NuisancePropagationResult
     bootstrap_sigma_vectors: np.ndarray
     successful_replica_ids: tuple[int, ...]
     failed_replica_ids: tuple[int, ...]
@@ -157,6 +168,45 @@ def _same_response_propagation(
         recorded.valid != replayed.valid
         or recorded.retained_modes != replayed.retained_modes
         or len(recorded.refits) != len(replayed.refits)
+        or not np.allclose(recorded.covariance, replayed.covariance, rtol=rtol, atol=atol)
+    ):
+        return False
+    for left, right in zip(recorded.refits, replayed.refits, strict=True):
+        if (
+            left.mode_id != right.mode_id
+            or left.scheme != right.scheme
+            or not math.isclose(left.eigenvalue, right.eigenvalue, rel_tol=rtol, abs_tol=atol)
+            or not math.isclose(left.step, right.step, rel_tol=rtol, abs_tol=atol)
+            or not np.allclose(left.derivative, right.derivative, rtol=rtol, atol=atol)
+        ):
+            return False
+        for left_endpoint, right_endpoint in (
+            (left.lower_sigma, right.lower_sigma),
+            (left.upper_sigma, right.upper_sigma),
+        ):
+            if (left_endpoint is None) != (right_endpoint is None):
+                return False
+            if left_endpoint is not None and not np.allclose(
+                left_endpoint, right_endpoint, rtol=rtol, atol=atol
+            ):
+                return False
+    return True
+
+
+def _same_nuisance_propagation(
+    recorded: NuisancePropagationResult,
+    replayed: NuisancePropagationResult,
+    *,
+    rtol: float,
+    atol: float,
+) -> bool:
+    if (
+        recorded.source_name != replayed.source_name
+        or recorded.valid != replayed.valid
+        or recorded.input_keys != replayed.input_keys
+        or recorded.retained_modes != replayed.retained_modes
+        or len(recorded.refits) != len(replayed.refits)
+        or not np.allclose(recorded.input_covariance, replayed.input_covariance, rtol=rtol, atol=atol)
         or not np.allclose(recorded.covariance, replayed.covariance, rtol=rtol, atol=atol)
     ):
         return False
@@ -339,6 +389,20 @@ def _response_payload(result: ResponsePropagationResult) -> dict[str, object]:
     }
 
 
+def _nuisance_payload(result: NuisancePropagationResult) -> dict[str, object]:
+    payload = _response_payload(
+        ResponsePropagationResult(
+            result.covariance, result.retained_modes, result.refits, result.valid
+        )
+    )
+    return {
+        "source_name": result.source_name,
+        "input_keys": list(result.input_keys),
+        "input_covariance": result.input_covariance.tolist(),
+        **payload,
+    }
+
+
 def _fit_bin_diagnostics(
     counts: AzimuthCountTable, nominal: JointSigmaFitResult
 ) -> tuple[tuple[AzimuthCountRow, ...], tuple[int, ...], tuple[float, ...]]:
@@ -406,6 +470,8 @@ def write_fit_evidence(
     successful_replica_ids: Sequence[int],
     failed_replica_ids: Sequence[int],
     response_propagation: ResponsePropagationResult,
+    compton_propagation: NuisancePropagationResult,
+    flux_exposure_propagation: NuisancePropagationResult,
     producer_commit: str,
 ) -> None:
     """Write canonical S4 bytes into an already-owned empty staging directory."""
@@ -423,9 +489,21 @@ def write_fit_evidence(
     dimension = len(nominal.bin_keys)
     stat = _psd(statistical_covariance, dimension, "bootstrap covariance")
     response = _psd(response_propagation.covariance, dimension, "response covariance")
+    compton = _psd(compton_propagation.covariance, dimension, "Compton covariance")
+    flux_exposure = _psd(
+        flux_exposure_propagation.covariance, dimension, "flux-exposure covariance"
+    )
     hessian = _psd(nominal.hessian_covariance, dimension, "Hessian covariance")
-    if not nominal.converged or nominal.replica_id != 0 or not response_propagation.valid:
-        raise PolarizationContractError("S4 evidence requires valid nominal and response results")
+    if (
+        not nominal.converged
+        or nominal.replica_id != 0
+        or not response_propagation.valid
+        or not compton_propagation.valid
+        or not flux_exposure_propagation.valid
+        or compton_propagation.source_name != COMPTON_SOURCE_NAME
+        or flux_exposure_propagation.source_name != FLUX_SOURCE_NAME
+    ):
+        raise PolarizationContractError("S4 evidence requires valid nominal and nuisance results")
     successful = tuple(successful_replica_ids)
     failed = tuple(failed_replica_ids)
     vectors = _json_array(
@@ -472,6 +550,8 @@ def write_fit_evidence(
                     "bootstrap_variance": format(float(stat[index, index]), ".17g"),
                     "hessian_variance": format(float(hessian[index, index]), ".17g"),
                     "response_variance": format(float(response[index, index]), ".17g"),
+                    "compton_variance": format(float(compton[index, index]), ".17g"),
+                    "flux_exposure_variance": format(float(flux_exposure[index, index]), ".17g"),
                 }
             )
     fit_sha = sha256_file(fit_path)
@@ -514,6 +594,10 @@ def write_fit_evidence(
         "bootstrap": bootstrap,
         "nominal_fit": _fit_payload(nominal),
         "response_propagation": _response_payload(response_propagation),
+        "nuisance_propagations": {
+            COMPTON_SOURCE_NAME: _nuisance_payload(compton_propagation),
+            FLUX_SOURCE_NAME: _nuisance_payload(flux_exposure_propagation),
+        },
         "release_qa": _release_qa_payload(fresh, nominal, observed_by_bin),
     }
     (target / "sigma_fit_qa.json").write_text(
@@ -676,6 +760,42 @@ def _validate_response_payload(raw: object, dimension: int) -> ResponsePropagati
             _readonly(derivative), endpoints[0], endpoints[1],
         ))
     return ResponsePropagationResult(covariance, modes, tuple(refits), True)
+
+
+def _validate_nuisance_payload(
+    raw: object, dimension: int, expected_name: str
+) -> NuisancePropagationResult:
+    required = {
+        "source_name", "input_keys", "input_covariance", "covariance",
+        "retained_modes", "refits", "valid",
+    }
+    if not isinstance(raw, Mapping) or set(raw) != required:
+        raise PolarizationContractError(f"S4 {expected_name} propagation record is invalid")
+    if raw.get("source_name") != expected_name:
+        raise PolarizationContractError(f"S4 {expected_name} source name is invalid")
+    input_keys = tuple(raw["input_keys"]) if isinstance(raw["input_keys"], list) else ()
+    if not input_keys or len(set(input_keys)) != len(input_keys) or any(
+        not isinstance(key, str) or not key for key in input_keys
+    ):
+        raise PolarizationContractError(f"S4 {expected_name} input keys are invalid")
+    input_covariance = _psd(
+        raw["input_covariance"], len(input_keys), f"S4 {expected_name} input covariance"
+    )
+    response_like = _validate_response_payload(
+        {key: raw[key] for key in ("covariance", "retained_modes", "refits", "valid")},
+        dimension,
+    )
+    refits = tuple(
+        NuisanceModeRefit(
+            item.mode_id, item.eigenvalue, item.step, item.scheme,
+            item.derivative, item.lower_sigma, item.upper_sigma,
+        )
+        for item in response_like.refits
+    )
+    return NuisancePropagationResult(
+        expected_name, response_like.covariance, input_keys, input_covariance,
+        response_like.retained_modes, refits, True,
+    )
 
 
 def validate_fit_evidence(
@@ -899,6 +1019,42 @@ def validate_fit_evidence(
         raise PolarizationContractError(
             "S4 response modes disagree with authenticated response replay"
         )
+    raw_nuisances = qa.get("nuisance_propagations")
+    if not isinstance(raw_nuisances, Mapping) or set(raw_nuisances) != {
+        COMPTON_SOURCE_NAME, FLUX_SOURCE_NAME
+    }:
+        raise PolarizationContractError("S4 named nuisance propagations are incomplete")
+    compton = _validate_nuisance_payload(
+        raw_nuisances[COMPTON_SOURCE_NAME], len(nominal.bin_keys), COMPTON_SOURCE_NAME
+    )
+    flux_exposure = _validate_nuisance_payload(
+        raw_nuisances[FLUX_SOURCE_NAME], len(nominal.bin_keys), FLUX_SOURCE_NAME
+    )
+    for propagation in (compton, flux_exposure):
+        reconstructed = np.zeros_like(propagation.covariance)
+        for refit in propagation.refits:
+            if refit.eigenvalue <= 0.0 or refit.step <= 0.0:
+                raise PolarizationContractError("S4 nuisance refit scale is invalid")
+            reconstructed += refit.eigenvalue * np.outer(
+                refit.derivative, refit.derivative
+            )
+        if not np.allclose(
+            reconstructed, propagation.covariance,
+            rtol=response_relative, atol=response_tolerance,
+        ):
+            raise PolarizationContractError("S4 nuisance covariance disagrees with retained modes")
+    replayed_compton = propagate_compton_covariance(
+        counts, fresh_authority.response, config=config, authority=fresh_authority
+    )
+    replayed_flux = propagate_flux_exposure_covariance(
+        counts, fresh_authority.response, config=config, authority=fresh_authority
+    )
+    if not _same_nuisance_propagation(
+        compton, replayed_compton, rtol=response_relative, atol=response_tolerance
+    ) or not _same_nuisance_propagation(
+        flux_exposure, replayed_flux, rtol=response_relative, atol=response_tolerance
+    ):
+        raise PolarizationContractError("S4 nuisance modes disagree with authenticated replay")
     nominal_rows = tuple(
         sorted(
             (row for row in counts.rows if row.replica_id == 0),
@@ -983,6 +1139,8 @@ def validate_fit_evidence(
             _finite(float(row["bootstrap_variance"]), "fit bootstrap variance") == stat[index, index],
             _finite(float(row["hessian_variance"]), "fit Hessian variance") == nominal.hessian_covariance[index, index],
             _finite(float(row["response_variance"]), "fit response variance") == response.covariance[index, index],
+            _finite(float(row["compton_variance"]), "fit Compton variance") == compton.covariance[index, index],
+            _finite(float(row["flux_exposure_variance"]), "fit flux-exposure variance") == flux_exposure.covariance[index, index],
             _finite(float(row["log_yield"]), "fit nuisance") == nominal.log_yield[index],
         )
         if not all(expected_values) or not math.isclose(float(row["bootstrap_stat_uncertainty"]), math.sqrt(stat[index, index]), rel_tol=1e-15, abs_tol=0.0) or not math.isclose(float(row["hessian_stat_uncertainty"]), math.sqrt(nominal.hessian_covariance[index, index]), rel_tol=1e-15, abs_tol=0.0):
@@ -993,6 +1151,8 @@ def validate_fit_evidence(
         nominal,
         stat,
         response,
+        compton,
+        flux_exposure,
         _readonly(vectors),
         successful,
         failed,

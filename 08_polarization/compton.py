@@ -86,6 +86,10 @@ class PolarizationCurve:
 
     def bin_average(self, low_mev: float, high_mev: float) -> tuple[float, float]:
         """Return uniform-energy average and propagated variance for one bin."""
+        return self._evaluate_weights(self.bin_average_weights(low_mev, high_mev))
+
+    def bin_average_weights(self, low_mev: float, high_mev: float) -> np.ndarray:
+        """Return exact nodal weights for one uniform piecewise-linear bin average."""
         low = float(low_mev)
         high = float(high_mev)
         if not np.isfinite(low) or not np.isfinite(high) or high <= low:
@@ -103,7 +107,19 @@ class PolarizationCurve:
             integral_weights += 0.5 * width * (
                 self._weights_at(left) + self._weights_at(right)
             )
-        return self._evaluate_weights(integral_weights / (high - low))
+        return (integral_weights / (high - low)).copy()
+
+    def bin_average_covariance(
+        self, bins_mev: tuple[tuple[float, float], ...]
+    ) -> np.ndarray:
+        """Project node covariance into correlated uniform-bin averages."""
+        if not isinstance(bins_mev, tuple) or not bins_mev:
+            raise PolarizationContractError("Compton covariance projection requires bins")
+        weights = np.vstack(
+            [self.bin_average_weights(low, high) for low, high in bins_mev]
+        )
+        covariance = weights @ self.covariance @ weights.T
+        return (covariance + covariance.T) / 2.0
 
 
 def load_period_curves(

@@ -19,6 +19,7 @@ from fit_evidence import (
     write_fit_evidence,
 )
 from response_uncertainty import ResponsePropagationResult
+from nuisance_uncertainty import NuisancePropagationResult
 from sigma_fit import (
     _fit_sigma_forward_folded_core,
     _sigma_bin_key,
@@ -117,10 +118,28 @@ def evidence_problem(response_fixture, monkeypatch):
     response = ResponsePropagationResult(
         np.zeros((dimension, dimension)), (), (), True
     )
+    def nuisance(name):
+        return NuisancePropagationResult(
+            name,
+            np.zeros((dimension, dimension)),
+            (f"{name}|input",),
+            np.zeros((1, 1)),
+            (),
+            (),
+            True,
+        )
+    compton = nuisance("compton_polarization_statistics")
+    flux_exposure = nuisance("flux_exposure_statistics")
     monkeypatch.setattr(
         fit_evidence,
         "propagate_response_covariance",
         lambda *_args, **_kwargs: response,
+    )
+    monkeypatch.setattr(
+        fit_evidence, "propagate_compton_covariance", lambda *_args, **_kwargs: compton
+    )
+    monkeypatch.setattr(
+        fit_evidence, "propagate_flux_exposure_covariance", lambda *_args, **_kwargs: flux_exposure
     )
     output = paths["root"] / "results/physics/polarization_fits/fit-test"
     output.mkdir(parents=True)
@@ -134,6 +153,8 @@ def evidence_problem(response_fixture, monkeypatch):
         successful_replica_ids=tuple(range(1, 33)),
         failed_replica_ids=(),
         response_propagation=response,
+        compton_propagation=compton,
+        flux_exposure_propagation=flux_exposure,
         producer_commit="a" * 40,
     )
     return paths, authority, output
@@ -181,6 +202,11 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
         len(evidence.nominal_fit.bin_keys),
     )
     assert evidence.qa["release_qa"]["n3_closure_valid"] is True
+    assert set(evidence.qa["nuisance_propagations"]) == {
+        "compton_polarization_statistics", "flux_exposure_statistics"
+    }
+    assert evidence.compton_propagation.source_name == "compton_polarization_statistics"
+    assert evidence.flux_exposure_propagation.source_name == "flux_exposure_statistics"
     assert dict(evidence.qa["release_qa"]["orientation_signs"]) == dict(
         authority.config.orientation_signs
     )
@@ -190,6 +216,21 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
         evidence.qa["optimizer"]["name"] = "forged"
     with pytest.raises(TypeError):
         evidence.qa["bootstrap"]["successful_replica_ids"][0] = 99
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["compton_polarization_statistics", "flux_exposure_statistics"],
+)
+def test_fit_evidence_rejects_named_nuisance_covariance_tamper(evidence_problem, name):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    qa["nuisance_propagations"][name]["input_covariance"][0][0] = 1.0
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="nuisance|replay|covariance"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
 
 
 def test_fit_evidence_rejects_coherent_out_of_bounds_sigma_tamper(
