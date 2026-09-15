@@ -195,6 +195,35 @@ def test_s6_cannot_disable_replay(replay_release):
         validate_sigma_release(release, root, replay_fit=False)
 
 
+def test_s6_rejects_extra_zero_systematic_everywhere(replay_release):
+    root, release, s4_dir = replay_release
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    extra = "extra_zero_systematic"
+    dimension = len(qa["systematic_covariances"]["acceptance_response_statistics"])
+    qa["systematic_covariances"][extra] = np.zeros((dimension, dimension)).tolist()
+    qa["systematic_sources"].append({
+        "name": extra,
+        "path": (s4_dir / "sigma_fit_qa.json").relative_to(root).as_posix(),
+        "sha256": sha256_file(s4_dir / "sigma_fit_qa.json"),
+    })
+    csv_path = release / "sigma_v1.csv"
+    with csv_path.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.reader(stream))
+    field = rows[0].index("systematic_components_json")
+    for row in rows[1:]:
+        components = json.loads(row[field])
+        components[extra] = 0.0
+        row[field] = json.dumps(components, separators=(",", ":"))
+    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream, lineterminator="\n").writerows(rows)
+    qa["files"]["sigma_v1.csv"] = sha256_file(csv_path)
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="systematic|exact|named"):
+        validate_sigma_release(release, root)
+
+
 @pytest.mark.parametrize("target", ["missing", "legacy_path", "wrong_release", "qa_hash"])
 def test_s6_rejects_invalid_s4_pin(replay_release, target):
     root, release, _ = replay_release

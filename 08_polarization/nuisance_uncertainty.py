@@ -273,7 +273,10 @@ def propagate_flux_exposure_covariance(
             ]
             scale = max(matching_exposures, default=1.0)
             step = _step(config, scale)
-            minus_ok = all(
+            raw_nets = np.asarray(
+                [flux_row.pol1_net, flux_row.pol2_net], dtype=float
+            )
+            minus_ok = bool(np.all(raw_nets - step * direction >= 0.0)) and all(
                 exposure - step * affected[orientation] > 0.0
                 for orientation, exposure in (
                     (count.orientation, count.exposure)
@@ -286,7 +289,7 @@ def propagate_flux_exposure_covariance(
                     and count.orientation in affected
                 )
             )
-            plus_ok = all(
+            plus_ok = bool(np.all(raw_nets + step * direction >= 0.0)) and all(
                 exposure + step * affected[orientation] > 0.0
                 for orientation, exposure in (
                     (count.orientation, count.exposure)

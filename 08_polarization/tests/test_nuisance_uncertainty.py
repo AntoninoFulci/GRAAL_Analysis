@@ -137,3 +137,70 @@ def test_flux_full_sigma_refits_preserve_shared_brem_and_independent_rows(monkey
         result.covariance, jacobian @ expected_input @ jacobian.T,
         rtol=1e-9, atol=1e-12,
     )
+
+
+def test_flux_mode_cannot_use_cross_run_cancellation_to_make_raw_net_negative(
+    monkeypatch,
+):
+    problem, nominal, states, jacobian = _linear_problem(
+        monkeypatch, field="exposure"
+    )
+    counts = replace(
+        problem["counts"],
+        rows=tuple(
+            replace(row, exposure=10.0)
+            if row.source_period == "period-a" else row
+            for row in problem["counts"].rows
+        ),
+    )
+    baseline = {
+        state: next(
+            row.exposure for row in counts.rows
+            if (row.source_period, row.orientation) == state
+        )
+        for state in states
+    }
+
+    def linear_core(varied, response, *, config, replica_id=0):
+        vector = np.asarray([
+            next(
+                row.exposure for row in varied.rows
+                if (row.source_period, row.orientation) == state
+            ) - baseline[state]
+            for state in states
+        ])
+        return replace(nominal, sigma=nominal.sigma + jacobian @ vector)
+
+    monkeypatch.setattr(
+        nuisance_uncertainty, "_fit_sigma_forward_folded_core", linear_core
+    )
+    rows = (
+        FluxAuthorityRow(
+            101, "period-a", "P", "coherent", "coherent-a", 0.7, 0.8,
+            1.0e-6, 0.0, 1.0, 1.0e-6, 1.0,
+        ),
+        FluxAuthorityRow(
+            102, "period-a", "P", "coherent", "coherent-a", 0.7, 0.8,
+            9.999999, 0.0, 9.0, 9.999999, 9.0,
+        ),
+    )
+    intervals = tuple(
+        interval
+        for run in (101, 102)
+        for interval in (
+            StateInterval(run, run, 1, "parallel", "period-a", "pol1_net"),
+            StateInterval(run, run, 2, "perpendicular", "period-a", "pol2_net"),
+        )
+    )
+
+    result = propagate_flux_exposure_covariance(
+        counts, problem["response"], config=problem["config"],
+        authority=SimpleNamespace(flux_rows=rows, state_map=intervals),
+    )
+
+    small_raw_mode = next(
+        refit for refit in result.refits
+        if refit.mode_id == "flux_exposure_statistics|row|0|mode|1"
+    )
+    assert small_raw_mode.scheme == "forward"
+    assert small_raw_mode.lower_sigma is None

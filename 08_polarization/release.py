@@ -688,11 +688,18 @@ def _validate_replayed_release(
             "S6 statistical covariance disagrees with replayed S4"
         )
     raw_covariances = qa.get("systematic_covariances")
-    if not isinstance(raw_covariances, Mapping) or set(raw_covariances) != set(
-        rows.systematic_names
+    required_systematic_names = {
+        "acceptance_response_statistics",
+        "compton_polarization_statistics",
+        "flux_exposure_statistics",
+    }
+    if (
+        not isinstance(raw_covariances, Mapping)
+        or set(raw_covariances) != required_systematic_names
+        or set(rows.systematic_names) != required_systematic_names
     ):
         raise PolarizationContractError(
-            "S6 named systematic covariances disagree with CSV"
+            "S6 named systematic set must equal exact propagated sources"
         )
     named = {
         name: _covariance(raw, len(rows.bin_keys), f"systematic {name}")
