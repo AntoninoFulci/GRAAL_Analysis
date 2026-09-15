@@ -46,7 +46,12 @@ class ResponseFixture:
 
 @pytest.fixture
 def response_fixture(tmp_path):
-    from analysis_config import AnalysisConfig, BootstrapConfig, ResponseValidationConfig
+    from analysis_config import (
+        AnalysisConfig,
+        AngleConfig,
+        BootstrapConfig,
+        ResponseValidationConfig,
+    )
     from contracts import sha256_file
     from phi_response import ResponseKey
 
@@ -67,6 +72,11 @@ def response_fixture(tmp_path):
         figure4_energy_edges_gev=(1.1, 1.2, 1.3, 1.4, 1.5),
         figure4_mass_bins=2, figure4_phi_bins=12, figure4_target="P",
         figure4_tree="reco_eta_pi0_chi2", figure4_vectors="kinematic_fit",
+        angle=AngleConfig(
+            "reaction_plane_phi", 3.141592653589793,
+            (0.0, 3.141592653589793), (1.0, 0.0, 0.0),
+            "proton", "invalid", 1e-12,
+        ),
         response_validation=ResponseValidationConfig(100., 1e-12, 1e-12, 1e-9, 1e-12, 1e-4, 1e-6, 1e-10, 1e-8),
         bootstrap=BootstrapConfig(32, "poisson1-sha256-v1", 1701, .05, .5, 2.),
     )

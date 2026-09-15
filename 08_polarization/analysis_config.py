@@ -39,6 +39,17 @@ BOOTSTRAP_KEYS = frozenset(
         "hessian_diagonal_ratio_max",
     }
 )
+ANGLE_KEYS = frozenset(
+    {
+        "observable",
+        "period_radians",
+        "range_radians",
+        "reference_axis_lab",
+        "reaction_momentum",
+        "degenerate_plane_policy",
+        "tolerance",
+    }
+)
 TOP_LEVEL_KEYS = frozenset(
     {
         "schema_version", "analysis_version", "status", "blocked_reasons",
@@ -113,6 +124,17 @@ class ReleaseQAConfig:
 
 
 @dataclass(frozen=True)
+class AngleConfig:
+    observable: str
+    period_radians: float
+    range_radians: tuple[float, float]
+    reference_axis_lab: tuple[float, float, float]
+    reaction_momentum: str
+    degenerate_plane_policy: str
+    tolerance: float
+
+
+@dataclass(frozen=True)
 class AnalysisConfig:
     schema_version: int
     analysis_version: str
@@ -137,6 +159,17 @@ class AnalysisConfig:
     figure4_vectors: str
     response_validation: ResponseValidationConfig
     bootstrap: BootstrapConfig
+    angle: AngleConfig = field(
+        default_factory=lambda: AngleConfig(
+            "reaction_plane_phi",
+            math.pi,
+            (0.0, math.pi),
+            (1.0, 0.0, 0.0),
+            "proton",
+            "invalid",
+            1e-12,
+        )
+    )
     release_qa: ReleaseQAConfig = field(
         default_factory=lambda: ReleaseQAConfig(
             "pending_owner_approval",
@@ -321,6 +354,48 @@ def _validate_release_qa(
     )
 
 
+def _validate_angle(section: Mapping[str, object]) -> AngleConfig:
+    if set(section) != ANGLE_KEYS:
+        raise PolarizationContractError("angle must contain exactly its required keys")
+    if section.get("observable") != "reaction_plane_phi":
+        raise PolarizationContractError("angle observable must be reaction_plane_phi")
+    period = _number(section.get("period_radians"), "angle period_radians", required=True, positive=True)
+    raw_range = section.get("range_radians")
+    if not isinstance(raw_range, list) or len(raw_range) != 2 or any(
+        isinstance(value, bool) or not isinstance(value, (int, float))
+        for value in raw_range
+    ):
+        raise PolarizationContractError("angle range_radians must be [0, pi]")
+    angle_range = tuple(float(value) for value in raw_range)
+    raw_axis = section.get("reference_axis_lab")
+    if not isinstance(raw_axis, list) or len(raw_axis) != 3 or any(
+        isinstance(value, bool) or not isinstance(value, (int, float))
+        for value in raw_axis
+    ):
+        raise PolarizationContractError("angle reference_axis_lab must be lab +x")
+    reference_axis = tuple(float(value) for value in raw_axis)
+    if period != math.pi or angle_range != (0.0, math.pi):
+        raise PolarizationContractError("angle period/range must be canonical [0, pi)")
+    if reference_axis != (1.0, 0.0, 0.0):
+        raise PolarizationContractError("angle reference_axis_lab must be lab +x")
+    if section.get("reaction_momentum") != "proton":
+        raise PolarizationContractError("angle reaction_momentum must be proton")
+    if section.get("degenerate_plane_policy") != "invalid":
+        raise PolarizationContractError("angle degenerate_plane_policy must be invalid")
+    tolerance = _number(
+        section.get("tolerance"), "angle tolerance", required=True, positive=True
+    )
+    return AngleConfig(
+        observable="reaction_plane_phi",
+        period_radians=period,
+        range_radians=angle_range,
+        reference_axis_lab=reference_axis,
+        reaction_momentum="proton",
+        degenerate_plane_policy="invalid",
+        tolerance=tolerance,
+    )
+
+
 def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> AnalysisConfig:
     """Load one canonical configuration, rejecting incomplete release authorities."""
     payload = load_json(path)
@@ -433,6 +508,7 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
     if vectors not in {"raw", "kinematic_fit"}:
         raise PolarizationContractError("vectors must be raw or kinematic_fit")
     _text(figure.get("content_policy"), "Figure 4 content_policy")
+    angle = _validate_angle(_mapping(payload, "angle", ANGLE_KEYS))
 
     release_values_approved = status == "approved"
     response = _validate_response(
@@ -461,6 +537,6 @@ def load_analysis_config(path: Path, root: Path, *, require_approved: bool) -> A
         orientation_signs=tuple(sorted(signs.items())) if isinstance(signs, Mapping) else (),
         figure4_energy_edges_gev=edges, figure4_mass_bins=mass_bins,
         figure4_phi_bins=phi_bins, figure4_target=target, figure4_tree=tree,
-        figure4_vectors=vectors, response_validation=response, bootstrap=bootstrap,
+        figure4_vectors=vectors, angle=angle, response_validation=response, bootstrap=bootstrap,
         release_qa=release_qa,
     )

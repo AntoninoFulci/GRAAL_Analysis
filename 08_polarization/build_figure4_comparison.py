@@ -325,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         results = analyze_sigma_grid(
             events.beam_energy,
+            events.beam,
             events.proton,
             events.eta,
             events.pi0,

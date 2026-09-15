@@ -39,9 +39,12 @@
   },
   "angle": {
     "observable": "reaction_plane_phi",
-    "range_radians": [0.0, 3.141592653589793],
     "period_radians": 3.141592653589793,
-    "degenerate_plane_policy": "invalid"
+    "range_radians": [0.0, 3.141592653589793],
+    "reference_axis_lab": [1.0, 0.0, 0.0],
+    "reaction_momentum": "proton",
+    "degenerate_plane_policy": "invalid",
+    "tolerance": 1e-12
   },
   "sign_convention": {
     "status": "pending_two_reviewer_approval",

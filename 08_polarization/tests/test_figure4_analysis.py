@@ -38,6 +38,7 @@ def test_analyze_sigma_grid_builds_every_energy_pair_panel():
     exposures = [PanelExposure(1000.0, 900.0, 0.8, 0.75)] * 4
     results = analyze_sigma_grid(
         energy,
+        np.tile([0.0, 0.0, 1.2, 1.2], (count, 1)),
         particles(0.938, 0.25),
         particles(0.548, 0.18),
         particles(0.135, 0.12),
@@ -61,21 +62,35 @@ def test_invariant_mass_matches_hand_calculated_four_vector():
     assert invariant_mass(np.array([[3.0, 0.0, 0.0, 5.0]]))[0] == pytest.approx(4.0)
 
 
-def test_event_pair_observables_uses_pair_sum_for_mass_and_azimuth():
-    proton = np.array([[1.0, 0.0, 0.0, 2.0]])
+def test_event_pair_observables_uses_pair_sum_mass_and_one_reaction_plane_phi():
+    beam = np.array([[1.0, 0.0, 1.0, 2.0]])
+    proton = np.array([[0.0, 1.0, 0.0, 2.0]])
     eta = np.array([[0.0, -1.0, 0.0, 1.5]])
     pi0 = np.array([[0.0, 1.0, 0.0, 1.2]])
-    observables = event_pair_observables(proton, eta, pi0)
-    assert observables["p_pi0"].mass[0] == pytest.approx(np.sqrt(3.2**2 - 2.0))
-    assert observables["p_pi0"].phi[0] == pytest.approx(np.pi / 4.0)
-    assert observables["p_eta"].phi[0] == pytest.approx(7.0 * np.pi / 4.0 % np.pi)
-    assert not observables["eta_pi0"].valid_phi[0]
+    observables = event_pair_observables(beam, proton, eta, pi0)
+    assert observables["p_pi0"].mass[0] == pytest.approx(np.sqrt(3.2**2 - 4.0))
+    assert [item.phi[0] for item in observables.values()] == pytest.approx(
+        [np.pi / 2.0] * 3
+    )
+    assert all(item.valid_phi[0] for item in observables.values())
+
+
+def test_event_pair_observables_marks_degenerate_proton_plane_invalid_for_all_pairs():
+    beam = np.array([[0.0, 0.0, 1.0, 1.0]])
+    proton = np.array([[0.0, 0.0, 0.2, 1.0]])
+    eta = np.array([[0.1, 0.0, 0.0, 0.6]])
+    pi0 = np.array([[0.0, 0.1, 0.0, 0.2]])
+
+    observables = event_pair_observables(beam, proton, eta, pi0)
+
+    assert all(not item.valid_phi[0] for item in observables.values())
+    assert all(np.isnan(item.phi[0]) for item in observables.values())
 
 
 def test_event_pair_observables_rejects_bad_shapes_and_spacelike_vectors():
     good = np.array([[0.0, 0.0, 0.0, 1.0]])
     with pytest.raises(PolarizationContractError, match="shape"):
-        event_pair_observables(good[:, :3], good, good)
+        event_pair_observables(good[:, :3], good, good, good)
     spacelike = np.array([[2.0, 0.0, 0.0, 1.0]])
     with pytest.raises(PolarizationContractError, match="spacelike"):
         invariant_mass(spacelike)

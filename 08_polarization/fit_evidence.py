@@ -76,7 +76,8 @@ _AUTHORITY_KEYS = frozenset(
         "config", "gate0_handoff", "n2_inventory", "n2_source_kind",
         "acceptance_release_id", "acceptance_qa", "phi_response",
         "phi_response_schema", "phi_response_schema_approval_id",
-        "state_mapping", "flux", "compton_sources",
+        "state_mapping", "flux", "strip_energy_lookup", "compton_sources",
+        "response_period_coverage",
     }
 )
 _FILE_KEYS = frozenset({"path", "sha256"})
@@ -272,6 +273,21 @@ def _authority_payload(authority: CountAuthority) -> dict[str, object]:
         "phi_response_schema_approval_id": authority.config.phi_response_schema_approval_id,
         "state_mapping": _file_record(root, authority.state_mapping_file.path),
         "flux": _file_record(root, authority.flux_file.path),
+        "strip_energy_lookup": _file_record(
+            root, authority.strip_energy_lookup_file.path
+        ),
+        "response_period_coverage": [
+            {
+                "beam_group": record.beam_group,
+                "covered_source_periods": list(record.covered_source_periods),
+                "coverage_valid": record.coverage_valid,
+                "detector_conditions_sha256": record.detector_conditions_sha256,
+                "mc_config_sha256": record.mc_config_sha256,
+                "selection_sha256": record.selection_sha256,
+                "qa_sha256": record.qa_sha256,
+            }
+            for record in authority.response_period_coverage
+        ],
         "compton_sources": [
             {
                 "source_period": item.source_period,
@@ -708,7 +724,10 @@ def validate_fit_evidence(
     if loaded_config != config or config.analysis_version != qa["analysis_version"]:
         raise PolarizationContractError("S4 config authority disagrees with requested config")
     authority_records = {}
-    for key in ("gate0_handoff", "n2_inventory", "acceptance_qa", "phi_response", "phi_response_schema", "state_mapping", "flux"):
+    for key in (
+        "gate0_handoff", "n2_inventory", "acceptance_qa", "phi_response",
+        "phi_response_schema", "state_mapping", "flux", "strip_energy_lookup",
+    ):
         authority_records[key] = _validate_file_record(
             repository, authorities[key], f"S4 {key}"
         )

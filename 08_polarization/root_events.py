@@ -14,6 +14,7 @@ from contracts import PolarizationContractError, sha256_file
 @dataclass(frozen=True)
 class EventSample:
     beam_energy: np.ndarray
+    beam: np.ndarray
     run_number: np.ndarray
     state_code: np.ndarray
     xstrip: np.ndarray
@@ -135,6 +136,7 @@ def read_reco_root(
     available = {branch.GetName() for branch in chain.GetListOfBranches()}
     proton_branch, eta_branch, pi0_branch = select_vector_branches(available, vectors)
     beam_energy = []
+    beam = []
     run_number = []
     state_code = []
     xstrip = []
@@ -148,7 +150,9 @@ def read_reco_root(
         local_entry = int(chain.GetTree().GetReadEntry())
         if vectors == "kinematic_fit" and int(event.fit_converged) != 1:
             continue
-        beam_energy.append(float(event.beam.E()))
+        beam_vector = _vector4(event.beam)
+        beam_energy.append(beam_vector[3])
+        beam.append(beam_vector)
         run_number.append(int(event.RunNumber))
         state_code.append(int(event.Polarization))
         xstrip.append(float(event.Xstrip))
@@ -168,6 +172,7 @@ def read_reco_root(
         )
     sample = EventSample(
         beam_energy=np.asarray(beam_energy, dtype=float),
+        beam=np.asarray(beam, dtype=float),
         run_number=np.asarray(run_number, dtype=int),
         state_code=np.asarray(state_code, dtype=int),
         xstrip=np.asarray(xstrip, dtype=float),
@@ -180,7 +185,7 @@ def read_reco_root(
     if any(
         not np.all(np.isfinite(values))
         for values in (
-            sample.beam_energy, sample.xstrip, sample.proton, sample.eta, sample.pi0
+            sample.beam_energy, sample.beam, sample.xstrip, sample.proton, sample.eta, sample.pi0
         )
     ):
         raise PolarizationContractError("reconstruction tree contains non-finite values")

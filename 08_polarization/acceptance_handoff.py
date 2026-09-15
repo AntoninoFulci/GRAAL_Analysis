@@ -28,6 +28,15 @@ HANDOFF_FILENAMES = frozenset(
     }
 )
 _RESPONSE_COVARIANCE_SCOPE_TOKEN = object()
+_RESPONSE_PERIOD_COVERAGE_TOKEN = object()
+_RESPONSE_PERIOD_COVERAGE_KEYS = (
+    "beam_group",
+    "covered_source_periods",
+    "coverage_valid",
+    "detector_conditions_sha256",
+    "mc_config_sha256",
+    "selection_sha256",
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +52,26 @@ class ResponseCovarianceScope:
         if _loader_token is not _RESPONSE_COVARIANCE_SCOPE_TOKEN:
             raise PolarizationContractError(
                 "ResponseCovarianceScope must come from validate_acceptance_handoff"
+            )
+
+
+@dataclass(frozen=True)
+class ResponsePeriodCoverage:
+    """Loader-sealed N3 detector/MC/selection coverage for one beam group."""
+
+    beam_group: str
+    covered_source_periods: tuple[str, ...]
+    coverage_valid: bool
+    detector_conditions_sha256: str
+    mc_config_sha256: str
+    selection_sha256: str
+    qa_sha256: str
+    _loader_token: InitVar[object] = None
+
+    def __post_init__(self, _loader_token: object) -> None:
+        if _loader_token is not _RESPONSE_PERIOD_COVERAGE_TOKEN:
+            raise PolarizationContractError(
+                "ResponsePeriodCoverage must come from validate_acceptance_handoff"
             )
 
 
@@ -64,6 +93,7 @@ class AcceptanceHandoff:
     gate0_handoff_sha256: str
     n2_reconstruction_sha256: str
     response_covariance_scope: ResponseCovarianceScope
+    response_period_coverage: tuple[ResponsePeriodCoverage, ...]
     qa: dict[str, object]
 
 
@@ -101,6 +131,82 @@ def _required_digest(payload: Mapping[str, object], key: str) -> str:
             f"acceptance QA {key} must be lowercase SHA-256"
         )
     return value
+
+
+def _response_period_coverage(
+    raw: object,
+    qa_sha256: str,
+    expected_beam_groups: frozenset[str],
+) -> tuple[ResponsePeriodCoverage, ...]:
+    if not isinstance(raw, list) or not raw:
+        raise PolarizationContractError(
+            "acceptance QA response period coverage must be a non-empty list"
+        )
+    parsed = []
+    for record in raw:
+        if (
+            not isinstance(record, Mapping)
+            or tuple(record) != _RESPONSE_PERIOD_COVERAGE_KEYS
+        ):
+            raise PolarizationContractError(
+                "acceptance QA response period coverage record has invalid keys"
+            )
+        beam_group = record.get("beam_group")
+        periods = record.get("covered_source_periods")
+        if (
+            not isinstance(beam_group, str)
+            or not beam_group.strip()
+            or beam_group != beam_group.strip()
+            or not isinstance(periods, list)
+            or not periods
+            or any(
+                not isinstance(period, str)
+                or not period.strip()
+                or period != period.strip()
+                for period in periods
+            )
+            or periods != sorted(periods)
+            or len(set(periods)) != len(periods)
+        ):
+            raise PolarizationContractError(
+                "acceptance QA response period coverage names must be canonical"
+            )
+        if record.get("coverage_valid") is not True:
+            raise PolarizationContractError(
+                "acceptance QA response period coverage must be valid"
+            )
+        for digest_key in (
+            "detector_conditions_sha256", "mc_config_sha256", "selection_sha256"
+        ):
+            digest = record.get(digest_key)
+            if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+                raise PolarizationContractError(
+                    "acceptance QA response period coverage hashes must be lowercase SHA-256"
+                )
+        parsed.append(
+            ResponsePeriodCoverage(
+                beam_group=beam_group,
+                covered_source_periods=tuple(periods),
+                coverage_valid=True,
+                detector_conditions_sha256=_required_digest(
+                    record, "detector_conditions_sha256"
+                ),
+                mc_config_sha256=_required_digest(record, "mc_config_sha256"),
+                selection_sha256=_required_digest(record, "selection_sha256"),
+                qa_sha256=qa_sha256,
+                _loader_token=_RESPONSE_PERIOD_COVERAGE_TOKEN,
+            )
+        )
+    groups = [record.beam_group for record in parsed]
+    if (
+        groups != sorted(groups)
+        or len(set(groups)) != len(groups)
+        or frozenset(groups) != expected_beam_groups
+    ):
+        raise PolarizationContractError(
+            "acceptance QA response period coverage must contain exactly one record per response beam group"
+        )
+    return tuple(parsed)
 
 
 def _load_qa_snapshot(path: Path) -> tuple[dict[str, object], str]:
@@ -277,6 +383,11 @@ def validate_acceptance_handoff(
         raise PolarizationContractError(
             "acceptance response contains an invalid true-cell block"
         )
+    period_coverage = _response_period_coverage(
+        qa.get("response_period_coverage"),
+        qa_digest,
+        frozenset(key.beam_group for key in parsed_response.keys),
+    )
     if sha256_file(qa_path) != qa_digest:
         raise PolarizationContractError("acceptance QA changed during validation")
     return AcceptanceHandoff(
@@ -296,5 +407,6 @@ def validate_acceptance_handoff(
         gate0_handoff_sha256=gate0_digest,
         n2_reconstruction_sha256=n2_digest,
         response_covariance_scope=covariance_scope,
+        response_period_coverage=period_coverage,
         qa=qa,
     )

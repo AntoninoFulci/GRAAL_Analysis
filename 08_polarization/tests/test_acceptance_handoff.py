@@ -55,6 +55,16 @@ def valid_handoff(response_fixture, repo: Path) -> Path:
             "shared_mc_across_blocks": False,
             "cross_block_covariance": False,
         },
+        "response_period_coverage": [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-a", "period-b"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
         "closure": {"valid": True},
     }
     (release / "acceptance_qa.json").write_text(json.dumps(qa), encoding="utf-8")
@@ -122,6 +132,96 @@ def test_accepts_exact_immutable_triplet_with_transitive_authorities(
     assert validated.response_covariance_scope.qa_sha256 == validated.qa_sha256
     assert validated.response_covariance_scope.shared_mc_across_blocks is False
     assert validated.response_covariance_scope.cross_block_covariance is False
+    assert validated.response_period_coverage[0].beam_group == "group-a"
+    assert validated.response_period_coverage[0].covered_source_periods == (
+        "period-a",
+        "period-b",
+    )
+    assert validated.response_period_coverage[0].qa_sha256 == validated.qa_sha256
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        None,
+        [],
+        [{"beam_group": "group-a"}],
+        [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-b", "period-a"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
+        [
+            {
+                "beam_group": "wrong-group",
+                "covered_source_periods": ["period-a"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
+        [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-a", "period-a"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
+        [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-a"],
+                "coverage_valid": False,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
+        [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-a"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "A" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+            }
+        ],
+        [
+            {
+                "beam_group": "group-a",
+                "covered_source_periods": ["period-a"],
+                "coverage_valid": True,
+                "detector_conditions_sha256": "1" * 64,
+                "mc_config_sha256": "2" * 64,
+                "selection_sha256": "3" * 64,
+                "extra": True,
+            }
+        ],
+    ],
+)
+def test_rejects_missing_noncanonical_or_wrong_response_period_coverage(
+    valid_handoff, approved_config, repo, coverage
+):
+    def mutate(qa):
+        if coverage is None:
+            qa.pop("response_period_coverage")
+        else:
+            qa["response_period_coverage"] = coverage
+
+    rewrite_qa(valid_handoff, mutate)
+    anchored = config_for_current_qa(approved_config, valid_handoff)
+    with pytest.raises(PolarizationContractError, match="period coverage"):
+        validate_acceptance_handoff(valid_handoff, repo, config=anchored)
 
 
 @pytest.mark.parametrize(

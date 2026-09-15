@@ -48,6 +48,7 @@ def _event_sample(paths):
     pi0 = np.tile([0.10, -0.05, 0.00, 0.20], (4, 1))
     return EventSample(
         beam_energy=np.full(4, 1.15),
+        beam=np.tile([0.0, 0.0, 1.15, 1.15], (4, 1)),
         run_number=np.array([101, 101, 101, 101]),
         state_code=np.array([1, 1, 2, 2]),
         xstrip=np.array([40.0, 41.0, 42.0, 43.0]),
@@ -102,8 +103,14 @@ def count_authority_repo(response_fixture):
         "run_number,status\n101,good\n102,good\n103,good\n", encoding="utf-8"
     )
     (bundle_dir / "strip_energy_lookup.csv").write_text(
-        "run_number,xstrip,energy_median_gev\n"
-        "101,42,1.15\n102,42,1.15\n103,42,1.15\n",
+        "run_number,source_period,target,beam_type,group,xstrip,event_count,"
+        "energy_median_gev,energy_mad_gev,energy_min_gev,energy_max_gev,provenance\n"
+        + "".join(
+            f"101,period-a,P,UV,group-a,{strip},10,1.15,0.01,1.14,1.16,observed\n"
+            for strip in range(40, 44)
+        )
+        + "102,period-b,P,UV,group-a,42,10,1.15,0.01,1.14,1.16,observed\n"
+        + "103,period-a,P,UV,group-a,42,10,1.15,0.01,1.14,1.16,observed\n",
         encoding="utf-8",
     )
     flux_path = bundle_dir / "flux_by_run_energy.csv"
@@ -301,6 +308,16 @@ def count_authority_repo(response_fixture):
                     "shared_mc_across_blocks": False,
                     "cross_block_covariance": False,
                 },
+                "response_period_coverage": [
+                    {
+                        "beam_group": "group-a",
+                        "covered_source_periods": ["period-a", "period-b"],
+                        "coverage_valid": True,
+                        "detector_conditions_sha256": "1" * 64,
+                        "mc_config_sha256": "2" * 64,
+                        "selection_sha256": "3" * 64,
+                    }
+                ],
                 "closure": {"valid": True},
             }
         ),
@@ -419,9 +436,12 @@ def count_authority_repo(response_fixture):
                 },
                 "angle": {
                     "observable": "reaction_plane_phi",
-                    "range_radians": [0.0, np.pi],
                     "period_radians": np.pi,
+                    "range_radians": [0.0, np.pi],
+                    "reference_axis_lab": [1.0, 0.0, 0.0],
+                    "reaction_momentum": "proton",
                     "degenerate_plane_policy": "invalid",
+                    "tolerance": 1e-12,
                 },
                 "sign_convention": {
                     "status": "approved",
@@ -491,6 +511,7 @@ def count_authority_repo(response_fixture):
         "gate0": gate0_path,
         "manifest": manifest,
         "flux": flux_path,
+        "lookup": bundle_dir / "strip_energy_lookup.csv",
         "inventory": inventory_path,
         "reco": reco_path,
         "ledger": ledger_path,
@@ -550,6 +571,9 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
         count_authority_repo["manifest"]
     )
     assert authority.flux_file.sha256 == sha256_file(count_authority_repo["flux"])
+    assert authority.strip_energy_lookup_file.sha256 == sha256_file(
+        count_authority_repo["lookup"]
+    )
     assert authority.n2_inventory_file.sha256 == sha256_file(
         count_authority_repo["inventory"]
     )
@@ -589,6 +613,10 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     )
     assert authority.response_covariance_scope.shared_mc_across_blocks is False
     assert authority.response_covariance_scope.cross_block_covariance is False
+    assert authority.response_period_coverage[0].covered_source_periods == (
+        "period-a",
+        "period-b",
+    )
     assert len(authority.flux_rows) == 12
     assert {key.observable for key in authority.response.keys} == set(PAIR_NAMES)
 
@@ -672,6 +700,59 @@ def test_public_builder_rejects_caller_supplied_event_sample(
 ):
     with pytest.raises(TypeError):
         build_azimuth_counts(event_sample, authority=count_authority)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"xstrip": np.array([99.0, 41.0, 42.0, 43.0])}, "strip-energy lookup"),
+        ({"beam_energy": np.array([1.17, 1.15, 1.15, 1.15])}, "strip-energy interval"),
+    ],
+)
+def test_selected_event_requires_exact_authenticated_strip_energy_mapping(
+    event_sample, count_authority, mutation, message
+):
+    if "beam_energy" in mutation:
+        beam = event_sample.beam.copy()
+        beam[:, 3] = mutation["beam_energy"]
+        mutation = {**mutation, "beam": beam}
+    sample = replace(event_sample, **mutation)
+    with pytest.raises(PolarizationContractError, match=message):
+        _project(sample, count_authority)
+
+
+def test_selected_event_degenerate_reaction_plane_rejects_count_publication(
+    event_sample, count_authority
+):
+    proton = event_sample.proton.copy()
+    proton[0, :3] = event_sample.beam[0, :3]
+    with pytest.raises(PolarizationContractError, match="degenerate reaction plane"):
+        _project(replace(event_sample, proton=proton), count_authority)
+
+
+def test_selected_event_xstrip_uses_shared_half_up_normalization(
+    event_sample, count_authority
+):
+    xstrip = event_sample.xstrip.copy()
+    xstrip[0] = 40.5
+
+    table = _project(replace(event_sample, xstrip=xstrip), count_authority)
+
+    assert table.sum_for("p_pi0", replica_id=0) == 4
+
+
+def test_count_authority_rejects_n3_declared_period_mismatch(count_authority_repo):
+    qa = json.loads(count_authority_repo["acceptance_qa"].read_text())
+    qa["response_period_coverage"][0]["covered_source_periods"] = ["period-a"]
+    count_authority_repo["acceptance_qa"].write_text(json.dumps(qa))
+    config = json.loads(count_authority_repo["config"].read_text())
+    config["acceptance"]["acceptance_qa_sha256"] = sha256_file(
+        count_authority_repo["acceptance_qa"]
+    )
+    count_authority_repo["config"].write_text(json.dumps(config))
+
+    with pytest.raises(PolarizationContractError, match="declared periods"):
+        _load_count_authority(count_authority_repo)
 
 
 def test_public_fit_cannot_accept_caller_forged_observed_counts(

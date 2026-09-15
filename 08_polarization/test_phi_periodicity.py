@@ -17,12 +17,25 @@ def _validate_config(config_path: Path) -> None:
     angle = config.get("angle")
     if not isinstance(angle, dict):
         raise PolarizationContractError("config angle must be a JSON object")
-    if angle.get("observable") != "reaction_plane_phi":
-        raise PolarizationContractError("angle observable must be reaction_plane_phi")
-    if angle.get("degenerate_plane_policy") != "invalid":
-        raise PolarizationContractError("degenerate plane policy must be invalid")
-    if not np.isclose(float(angle.get("period_radians", 0.0)), np.pi):
-        raise PolarizationContractError("angle period must be pi")
+    expected_keys = {
+        "observable", "period_radians", "range_radians", "reference_axis_lab",
+        "reaction_momentum", "degenerate_plane_policy", "tolerance",
+    }
+    if set(angle) != expected_keys:
+        raise PolarizationContractError("config angle keys are not canonical")
+    if (
+        angle.get("observable") != "reaction_plane_phi"
+        or angle.get("period_radians") != np.pi
+        or angle.get("range_radians") != [0.0, np.pi]
+        or angle.get("reference_axis_lab") != [1.0, 0.0, 0.0]
+        or angle.get("reaction_momentum") != "proton"
+        or angle.get("degenerate_plane_policy") != "invalid"
+        or isinstance(angle.get("tolerance"), bool)
+        or not isinstance(angle.get("tolerance"), (int, float))
+        or not np.isfinite(angle["tolerance"])
+        or angle["tolerance"] <= 0.0
+    ):
+        raise PolarizationContractError("config angle convention is not canonical")
 
 
 def run_periodicity_checks() -> None:

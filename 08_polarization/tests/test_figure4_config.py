@@ -20,7 +20,7 @@ def valid_payload():
         "acceptance": {"status": "approved", "handoff_parent": "results/physics/normalization/handoffs", "release_id": "fixture", "handoff_directory": "results/physics/normalization/handoffs/fixture", "required_files": ["acceptance_v1.csv", "acceptance_phi_response_v1.csv", "acceptance_qa.json"], "acceptance_qa_sha256": "a" * 64, "phi_response_schema_status": "approved", "phi_response_schema_path": "config/schemas/acceptance_phi_response_v1.schema.json", "phi_response_schema_sha256": None, "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15", "phi_response_schema_reviewers": ["persona-1", "persona-2"]},
         "state_mapping": {"status": "approved", "source": None, "intervals": []},
         "compton_polarization": {"status": "approved", "sources": [], "periods": []},
-        "angle": {"observable": "reaction_plane_phi", "range_radians": [0.0, 3.141592653589793], "period_radians": 3.141592653589793, "degenerate_plane_policy": "invalid"},
+        "angle": {"observable": "reaction_plane_phi", "period_radians": 3.141592653589793, "range_radians": [0.0, 3.141592653589793], "reference_axis_lab": [1.0, 0.0, 0.0], "reaction_momentum": "proton", "degenerate_plane_policy": "invalid", "tolerance": 1e-12},
         "sign_convention": {
             "status": "approved",
             "approval_id": "GRAAL-SIGN-001",

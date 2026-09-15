@@ -7,6 +7,7 @@ from typing import Mapping
 
 import numpy as np
 
+from angles import reaction_plane_phi
 from contracts import PolarizationContractError
 from flux_ratio import fit_flux_ratio
 
@@ -139,35 +140,45 @@ def invariant_mass(four_vectors) -> np.ndarray:
     return np.sqrt(np.maximum(mass_squared, 0.0))
 
 
-def _pair_observable(left: np.ndarray, right: np.ndarray, tolerance: float) -> PairObservables:
+def _pair_observable(
+    left: np.ndarray,
+    right: np.ndarray,
+    phi: np.ndarray,
+    valid_phi: np.ndarray,
+) -> PairObservables:
     pair = left + right
-    transverse = np.hypot(pair[:, 0], pair[:, 1])
-    valid = transverse > tolerance
-    phi = np.full(pair.shape[0], np.nan)
-    phi[valid] = np.mod(np.arctan2(pair[valid, 1], pair[valid, 0]), np.pi)
-    phi[phi >= np.pi] = 0.0
-    return PairObservables(invariant_mass(pair), phi, valid)
+    return PairObservables(invariant_mass(pair), phi.copy(), valid_phi.copy())
 
 
 def event_pair_observables(
+    beam,
     proton,
     eta,
     pi0,
     *,
     tolerance: float = 1e-12,
 ) -> dict[str, PairObservables]:
-    """Compute three pair masses and lab azimuths from reconstructed events."""
+    """Compute three pair masses and one proton reaction-plane phi per event."""
     if not np.isfinite(tolerance) or tolerance <= 0.0:
         raise PolarizationContractError("pair-plane tolerance must be positive")
+    beam_vectors = _four_vectors(beam, "beam")
     proton_vectors = _four_vectors(proton, "proton")
     eta_vectors = _four_vectors(eta, "eta")
     pi0_vectors = _four_vectors(pi0, "pi0")
-    if len({array.shape for array in (proton_vectors, eta_vectors, pi0_vectors)}) != 1:
+    if len({array.shape for array in (beam_vectors, proton_vectors, eta_vectors, pi0_vectors)}) != 1:
         raise PolarizationContractError("particle four-vector arrays must have same shape")
+    phi = np.full(proton_vectors.shape[0], np.nan)
+    valid_phi = np.zeros(proton_vectors.shape[0], dtype=bool)
+    for index, (beam_row, proton_row) in enumerate(zip(beam_vectors, proton_vectors)):
+        result = reaction_plane_phi(
+            beam_row[:3], (1.0, 0.0, 0.0), proton_row[:3], tolerance=tolerance
+        )
+        phi[index] = result.value
+        valid_phi[index] = result.valid
     return {
-        "p_pi0": _pair_observable(proton_vectors, pi0_vectors, tolerance),
-        "p_eta": _pair_observable(proton_vectors, eta_vectors, tolerance),
-        "eta_pi0": _pair_observable(eta_vectors, pi0_vectors, tolerance),
+        "p_pi0": _pair_observable(proton_vectors, pi0_vectors, phi, valid_phi),
+        "p_eta": _pair_observable(proton_vectors, eta_vectors, phi, valid_phi),
+        "eta_pi0": _pair_observable(eta_vectors, pi0_vectors, phi, valid_phi),
     }
 
 
@@ -310,6 +321,7 @@ def fit_panel_histograms(
 
 def analyze_sigma_grid(
     energy,
+    beam,
     proton,
     eta,
     pi0,
@@ -329,7 +341,7 @@ def analyze_sigma_grid(
         )
     if not np.all(np.isfinite(energy_values)):
         raise PolarizationContractError("beam energy must be finite")
-    observables = event_pair_observables(proton, eta, pi0)
+    observables = event_pair_observables(beam, proton, eta, pi0)
     if any(item.mass.shape != energy_values.shape for item in observables.values()):
         raise PolarizationContractError(
             "event four-vectors must match energy-vector length"

@@ -18,7 +18,11 @@ from analysis_config import (
     BOOTSTRAP_ALGORITHM_VERSION,
     load_analysis_config,
 )
-from acceptance_handoff import ResponseCovarianceScope, validate_acceptance_handoff
+from acceptance_handoff import (
+    ResponseCovarianceScope,
+    ResponsePeriodCoverage,
+    validate_acceptance_handoff,
+)
 from compton import PolarizationCurve, load_period_curves
 from contracts import (
     OBSERVABLE_BUNDLE_PATHS,
@@ -38,6 +42,7 @@ from state_mapping import (
     load_state_mapping,
     validate_intervals,
 )
+from graal_common.strip_energy_flux import normalize_xstrip
 
 
 AZIMUTH_COUNT_FIELDS = tuple(
@@ -56,6 +61,7 @@ CANONICAL_CONFIG_PATH = "config/physics/polarization_v1.json"
 CANONICAL_GATE0_PATH = "results/observable_runs/HANDOFF.json"
 CANONICAL_RUNS_PATH = "results/observable_runs/run_manifest_observables.csv"
 CANONICAL_FLUX_PATH = "results/observable_runs/flux_by_run_energy.csv"
+CANONICAL_LOOKUP_PATH = "results/observable_runs/strip_energy_lookup.csv"
 _FLUX_REQUIRED_FIELDS = frozenset(
     {
         "binning",
@@ -72,6 +78,11 @@ _FLUX_REQUIRED_FIELDS = frozenset(
     }
 )
 _COUNT_AUTHORITY_TOKEN = object()
+_LOOKUP_REQUIRED_FIELDS = (
+    "run_number", "source_period", "target", "beam_type", "group",
+    "xstrip", "event_count", "energy_median_gev", "energy_mad_gev",
+    "energy_min_gev", "energy_max_gev", "provenance",
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +107,22 @@ class FluxAuthorityRow:
     energy_high_gev: float
     pol1_net: float
     pol2_net: float
+
+
+@dataclass(frozen=True)
+class StripEnergyLookupRow:
+    run_number: int
+    source_period: str
+    target: str
+    beam_type: str
+    beam_group: str
+    xstrip: int
+    event_count: int
+    energy_median_gev: float
+    energy_mad_gev: float
+    energy_min_gev: float
+    energy_max_gev: float
+    provenance: str
 
 
 @dataclass(frozen=True)
@@ -124,6 +151,7 @@ class CountAuthority:
     gate0_manifest_file: AuthenticatedFile
     gate0_bundle_files: tuple[AuthenticatedFile, ...]
     flux_file: AuthenticatedFile
+    strip_energy_lookup_file: AuthenticatedFile
     gate0_run_numbers: frozenset[int]
     n2_inventory: RecoInventory
     n2_inventory_file: AuthenticatedFile
@@ -131,6 +159,7 @@ class CountAuthority:
     n2_files: tuple[AuthenticatedFile, ...]
     response: PhiResponse
     response_covariance_scope: ResponseCovarianceScope
+    response_period_coverage: tuple[ResponsePeriodCoverage, ...]
     acceptance_files: tuple[AuthenticatedFile, ...]
     n3_schema_file: AuthenticatedFile
     state_map: tuple[StateInterval, ...]
@@ -138,6 +167,7 @@ class CountAuthority:
     compton: Mapping[str, PolarizationCurve]
     compton_files: tuple[PeriodComptonAuthority, ...]
     flux_rows: tuple[FluxAuthorityRow, ...]
+    strip_energy_lookup_rows: tuple[StripEnergyLookupRow, ...]
     _loader_token: InitVar[object] = None
 
     def __post_init__(self, _loader_token: object) -> None:
@@ -321,6 +351,92 @@ def _parse_flux_rows(
     )
 
 
+def _parse_strip_energy_lookup(
+    path: Path,
+    *,
+    target: str,
+    gate0_run_numbers: frozenset[int],
+) -> tuple[StripEnergyLookupRow, ...]:
+    try:
+        stream = Path(path).open(newline="", encoding="utf-8")
+    except OSError as exc:
+        raise PolarizationContractError(
+            f"cannot read strip-energy lookup CSV: {path}"
+        ) from exc
+    rows = []
+    keys = set()
+    with stream:
+        reader = csv.DictReader(stream)
+        if tuple(reader.fieldnames or ()) != _LOOKUP_REQUIRED_FIELDS:
+            raise PolarizationContractError(
+                "strip-energy lookup CSV must contain exact canonical columns"
+            )
+        for row_number, raw in enumerate(reader, start=2):
+            try:
+                run_number = int(raw["run_number"])
+                xstrip = int(raw["xstrip"])
+                event_count = int(raw["event_count"])
+                median = float(raw["energy_median_gev"])
+                mad = float(raw["energy_mad_gev"])
+                low = float(raw["energy_min_gev"])
+                high = float(raw["energy_max_gev"])
+            except (TypeError, ValueError) as exc:
+                raise PolarizationContractError(
+                    f"strip-energy lookup row {row_number} has invalid numeric fields"
+                ) from exc
+            try:
+                canonical_strip = normalize_xstrip(float(xstrip))
+            except ValueError as exc:
+                raise PolarizationContractError(
+                    f"strip-energy lookup row {row_number} has invalid Xstrip"
+                ) from exc
+            source_period = _canonical_text(
+                raw["source_period"], f"strip-energy lookup row {row_number} source_period"
+            )
+            row_target = _canonical_text(
+                raw["target"], f"strip-energy lookup row {row_number} target"
+            )
+            beam_type = _canonical_text(
+                raw["beam_type"], f"strip-energy lookup row {row_number} beam_type"
+            )
+            beam_group = _canonical_text(
+                raw["group"], f"strip-energy lookup row {row_number} group"
+            )
+            provenance = _canonical_text(
+                raw["provenance"], f"strip-energy lookup row {row_number} provenance"
+            )
+            if (
+                run_number <= 0
+                or canonical_strip != xstrip
+                or event_count <= 0
+                or not all(math.isfinite(value) for value in (median, mad, low, high))
+                or mad < 0.0
+                or not low <= median <= high
+            ):
+                raise PolarizationContractError(
+                    f"strip-energy lookup row {row_number} is nonphysical"
+                )
+            if run_number not in gate0_run_numbers or row_target != target:
+                continue
+            key = (run_number, xstrip)
+            if key in keys:
+                raise PolarizationContractError(
+                    "strip-energy lookup rows must map RunNumber/Xstrip uniquely"
+                )
+            keys.add(key)
+            rows.append(
+                StripEnergyLookupRow(
+                    run_number, source_period, row_target, beam_type, beam_group,
+                    xstrip, event_count, median, mad, low, high, provenance,
+                )
+            )
+    if not rows:
+        raise PolarizationContractError(
+            "strip-energy lookup has no rows for selected target/Gate 0 runs"
+        )
+    return tuple(sorted(rows, key=lambda row: (row.run_number, row.xstrip)))
+
+
 def _source_file(
     repository_root: Path,
     source: object,
@@ -407,6 +523,7 @@ def load_count_authority(
     bundle_files = _gate0_bundle_files(root, gate0)
     bundle_by_path = {item.relative_path: item for item in bundle_files}
     flux_file = bundle_by_path[CANONICAL_FLUX_PATH]
+    lookup_file = bundle_by_path[CANONICAL_LOOKUP_PATH]
     runs_file = bundle_by_path[CANONICAL_RUNS_PATH]
     gate0_runs = load_gate0_run_numbers(runs_file.path, target=config.figure4_target)
 
@@ -564,6 +681,11 @@ def load_count_authority(
         target=config.figure4_target,
         gate0_run_numbers=gate0_runs,
     )
+    lookup_rows = _parse_strip_energy_lookup(
+        lookup_file.path,
+        target=config.figure4_target,
+        gate0_run_numbers=gate0_runs,
+    )
     mapped_periods = {interval.source_period for interval in state_map}
     compton_periods = set(immutable_curves)
     for row in flux_rows:
@@ -575,6 +697,47 @@ def load_count_authority(
             raise PolarizationContractError(
                 f"count flux source_period {row.source_period} lacks Compton authority"
             )
+    coverage_by_group = {
+        record.beam_group: record for record in acceptance.response_period_coverage
+    }
+    response_groups = {key.beam_group for key in acceptance.response.keys}
+    if set(coverage_by_group) != response_groups:
+        raise PolarizationContractError(
+            "N3 response period coverage disagrees with response beam groups"
+        )
+    for beam_group, coverage in coverage_by_group.items():
+        response_keys = tuple(
+            key for key in acceptance.response.keys if key.beam_group == beam_group
+        )
+        actual_periods = set()
+        for row in flux_rows:
+            if row.beam_group != beam_group or not any(
+                row.target == key.target
+                and row.energy_low_gev == key.Egamma_low
+                and row.energy_high_gev == key.Egamma_high
+                for key in response_keys
+            ):
+                continue
+            for interval in state_map:
+                if (
+                    interval.source_period == row.source_period
+                    and interval.run_start <= row.run_number <= interval.run_end
+                    and getattr(row, interval.flux_component) > 0.0
+                ):
+                    actual_periods.add(row.source_period)
+        declared = set(coverage.covered_source_periods)
+        if declared != actual_periods:
+            raise PolarizationContractError(
+                "N3 declared periods disagree with periods actually used by response/flux"
+            )
+        for source_period in declared:
+            if (
+                source_period not in mapped_periods
+                or source_period not in compton_periods
+            ):
+                raise PolarizationContractError(
+                    "N3 declared period lacks state or Compton authority"
+                )
 
     retained_files = (
         config_file,
@@ -603,6 +766,7 @@ def load_count_authority(
         gate0_manifest_file=gate0_manifest_file,
         gate0_bundle_files=bundle_files,
         flux_file=flux_file,
+        strip_energy_lookup_file=lookup_file,
         gate0_run_numbers=gate0_runs,
         n2_inventory=inventory,
         n2_inventory_file=inventory_file,
@@ -610,6 +774,7 @@ def load_count_authority(
         n2_files=n2_files,
         response=acceptance.response,
         response_covariance_scope=acceptance.response_covariance_scope,
+        response_period_coverage=acceptance.response_period_coverage,
         acceptance_files=acceptance_files,
         n3_schema_file=n3_schema_file,
         state_map=state_map,
@@ -617,6 +782,7 @@ def load_count_authority(
         compton=immutable_curves,
         compton_files=tuple(compton_files),
         flux_rows=flux_rows,
+        strip_energy_lookup_rows=lookup_rows,
         _loader_token=_COUNT_AUTHORITY_TOKEN,
     )
 
@@ -1173,13 +1339,30 @@ def _validate_sample(
     event_count = len(sample.beam_energy)
     if event_count == 0 or any(len(array) != event_count for array in one_dimensional):
         raise PolarizationContractError("N2 event metadata must have equal nonzero length")
-    for name, vectors in (("proton", sample.proton), ("eta", sample.eta), ("pi0", sample.pi0)):
+    for name, vectors in (
+        ("beam", sample.beam),
+        ("proton", sample.proton),
+        ("eta", sample.eta),
+        ("pi0", sample.pi0),
+    ):
         array = np.asarray(vectors)
         if array.shape != (event_count, 4):
             raise PolarizationContractError(f"N2 {name} vectors must have shape (events, 4)")
-    numeric = (sample.beam_energy, sample.xstrip, sample.proton, sample.eta, sample.pi0)
+    numeric = (
+        sample.beam_energy, sample.beam, sample.xstrip,
+        sample.proton, sample.eta, sample.pi0,
+    )
     if any(not np.all(np.isfinite(np.asarray(array, dtype=float))) for array in numeric):
         raise PolarizationContractError("N2 event sample contains non-finite values")
+    if not np.allclose(
+        np.asarray(sample.beam)[:, 3],
+        np.asarray(sample.beam_energy),
+        rtol=0.0,
+        atol=1e-12,
+    ):
+        raise PolarizationContractError(
+            "N2 beam four-vector energy disagrees with beam_energy"
+        )
     runs = np.asarray(sample.run_number)
     states = np.asarray(sample.state_code)
     if (
@@ -1289,6 +1472,21 @@ def _validate_count_authority(authority: CountAuthority) -> None:
     ):
         raise PolarizationContractError(
             "count authority has invalid N3 response covariance scope"
+        )
+    coverage = authority.response_period_coverage
+    if (
+        not coverage
+        or any(
+            type(record) is not ResponsePeriodCoverage
+            or record.qa_sha256 != config.acceptance_qa_sha256
+            or record.coverage_valid is not True
+            for record in coverage
+        )
+        or {record.beam_group for record in coverage}
+        != {key.beam_group for key in authority.response.keys}
+    ):
+        raise PolarizationContractError(
+            "count authority has invalid N3 response period coverage"
         )
     if config.status != "approved" or config.blocked_reasons:
         raise PolarizationContractError(
@@ -1582,7 +1780,18 @@ def _project_azimuth_counts(
         observed_run_numbers=authority.n2_inventory.observed_event_run_numbers,
     )
     intervals = validate_intervals(authority.state_map)
-    observables = event_pair_observables(sample.proton, sample.eta, sample.pi0)
+    observables = event_pair_observables(
+        sample.beam,
+        sample.proton,
+        sample.eta,
+        sample.pi0,
+        tolerance=config.angle.tolerance,
+    )
+    invalid_plane = np.flatnonzero(~observables[PAIR_NAMES[0]].valid_phi)
+    if invalid_plane.size:
+        raise PolarizationContractError(
+            f"degenerate reaction plane for selected N2 event {int(invalid_plane[0])}"
+        )
     counts: dict[tuple[int, int, int, int], int] = {}
     for exposure_index in range(len(authority_cells)):
         expected = authority_cells[exposure_index].expected
@@ -1613,20 +1822,56 @@ def _project_azimuth_counts(
             )
 
     energy_edges = config.figure4_energy_edges_gev
+    lookup_by_event = {
+        (row.run_number, row.xstrip): row
+        for row in authority.strip_energy_lookup_rows
+    }
     for event_index in range(event_count):
         run_number = int(sample.run_number[event_index])
         state_code = int(sample.state_code[event_index])
         interval = _event_interval(run_number, state_code, intervals)
         energy = float(sample.beam_energy[event_index])
+        try:
+            xstrip = normalize_xstrip(float(sample.xstrip[event_index]))
+        except (TypeError, ValueError) as exc:
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} has invalid Xstrip"
+            ) from exc
+        lookup = lookup_by_event.get((run_number, xstrip))
+        if lookup is None:
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} lacks unique strip-energy lookup"
+            )
+        if (
+            lookup.source_period != interval.source_period
+            or lookup.target != config.figure4_target
+        ):
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} strip-energy lookup disagrees with state/target"
+            )
+        tolerance = config.angle.tolerance
+        if not (
+            lookup.energy_min_gev - tolerance
+            <= energy
+            <= lookup.energy_max_gev + tolerance
+        ):
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} beam energy is outside strip-energy interval"
+            )
         energy_index = _energy_bin(energy, energy_edges)
         if energy_index is None:
-            continue
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} lacks response energy bin"
+            )
         low, high = energy_edges[energy_index], energy_edges[energy_index + 1]
-        beam_groups = {
-            row.beam_group
+        matching_flux = tuple(
+            row
             for row in authority.flux_rows
             if row.run_number == run_number
             and row.source_period == interval.source_period
+            and row.target == config.figure4_target
+            and row.beam_type == lookup.beam_type
+            and row.beam_group == lookup.beam_group
             and row.energy_low_gev == low
             and row.energy_high_gev == high
             and (
@@ -1637,14 +1882,17 @@ def _project_azimuth_counts(
                 high,
             )
             in cells_by_exposure_group
-        }
-        if not beam_groups:
-            continue
-        if len(beam_groups) != 1:
+        )
+        if len(matching_flux) != 1:
             raise PolarizationContractError(
-                "ambiguous authenticated beam group for mapped N2 event"
+                f"selected N2 event {event_index} lacks unique flux/response mapping"
             )
-        beam_group = next(iter(beam_groups))
+        flux_row = matching_flux[0]
+        if getattr(flux_row, interval.flux_component) <= 0.0:
+            raise PolarizationContractError(
+                f"selected N2 event {event_index} has non-positive flux component"
+            )
+        beam_group = flux_row.beam_group
         matching_cells = cells_by_exposure_group[
             (interval.source_period, interval.orientation, beam_group, low, high)
         ]
@@ -1662,8 +1910,6 @@ def _project_azimuth_counts(
         for exposure_index in matching_cells:
             expected = authority_cells[exposure_index].expected
             projected = observables[expected.response_key.observable]
-            if not projected.valid_phi[event_index]:
-                continue
             mass_bin = _histogram_bin(
                 float(projected.mass[event_index]),
                 np.asarray(expected.reco_mass_edges),

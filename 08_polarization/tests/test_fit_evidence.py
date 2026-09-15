@@ -148,6 +148,22 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
         output, paths["root"], config=authority.config
     )
 
+    authorities = evidence.qa["authorities"]
+    assert authorities["strip_energy_lookup"]["sha256"] == sha256_file(
+        paths["lookup"]
+    )
+    assert authorities["response_period_coverage"] == (
+        {
+            "beam_group": "group-a",
+            "covered_source_periods": ("period-a", "period-b"),
+            "coverage_valid": True,
+            "detector_conditions_sha256": "1" * 64,
+            "mc_config_sha256": "2" * 64,
+            "selection_sha256": "3" * 64,
+            "qa_sha256": authority.config.acceptance_qa_sha256,
+        },
+    )
+
     assert evidence.nominal_fit.bin_keys == tuple(
         sorted(evidence.nominal_fit.bin_keys)
     )

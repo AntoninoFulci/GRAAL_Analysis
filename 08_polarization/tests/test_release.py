@@ -231,6 +231,16 @@ def write_valid_release(path):
                     "shared_mc_across_blocks": False,
                     "cross_block_covariance": False,
                 },
+                "response_period_coverage": [
+                    {
+                        "beam_group": "P_UV",
+                        "covered_source_periods": ["test"],
+                        "coverage_valid": True,
+                        "detector_conditions_sha256": "4" * 64,
+                        "mc_config_sha256": "5" * 64,
+                        "selection_sha256": "6" * 64,
+                    }
+                ],
                 "closure": {"valid": True},
             }
         )
@@ -292,9 +302,12 @@ def write_valid_release(path):
                 },
                 "angle": {
                     "observable": "reaction_plane_phi",
-                    "range_radians": [0.0, np.pi],
                     "period_radians": np.pi,
+                    "range_radians": [0.0, np.pi],
+                    "reference_axis_lab": [1.0, 0.0, 0.0],
+                    "reaction_momentum": "proton",
                     "degenerate_plane_policy": "invalid",
+                    "tolerance": 1e-12,
                 },
                 "sign_convention": {
                     "status": "approved",

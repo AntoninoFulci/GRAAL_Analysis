@@ -37,7 +37,15 @@ def _payload(schema_digest: str, *, status: str = "blocked") -> dict[str, object
         },
         "state_mapping": {"status": "approved" if approved else "blocked", "source": {"fixture": "state"} if approved else None, "intervals": []},
         "compton_polarization": {"status": "approved" if approved else "blocked", "sources": [], "periods": []},
-        "angle": {"observable": "reaction_plane_phi", "range_radians": [0.0, 3.141592653589793], "period_radians": 3.141592653589793, "degenerate_plane_policy": "invalid"},
+        "angle": {
+            "observable": "reaction_plane_phi",
+            "period_radians": 3.141592653589793,
+            "range_radians": [0.0, 3.141592653589793],
+            "reference_axis_lab": [1.0, 0.0, 0.0],
+            "reaction_momentum": "proton",
+            "degenerate_plane_policy": "invalid",
+            "tolerance": 1e-12,
+        },
         "sign_convention": {
             "status": "approved" if approved else "pending_two_reviewer_approval",
             "approval_id": "fixture-sign" if approved else None,
@@ -111,6 +119,32 @@ def test_blocked_config_validates_complete_release_sections(valid_config, repo):
         "N3-MASS-PHI-RESPONSE-V1-2026-09-15"
     )
     assert loaded.phi_response_schema_reviewers == ("reviewer-one", "reviewer-two")
+    assert loaded.angle.reference_axis_lab == (1.0, 0.0, 0.0)
+    assert loaded.angle.reaction_momentum == "proton"
+    assert loaded.angle.tolerance == pytest.approx(1e-12)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "value"),
+    [
+        ("extra", True),
+        ("observable", "pair_lab_phi"),
+        ("period_radians", 6.283185307179586),
+        ("range_radians", [0.0, 6.283185307179586]),
+        ("reference_axis_lab", [0.0, 1.0, 0.0]),
+        ("reaction_momentum", "eta_pi0"),
+        ("degenerate_plane_policy", "keep"),
+        ("tolerance", 0.0),
+    ],
+)
+def test_angle_contract_is_exact_even_for_blocked_config(
+    valid_config, repo, mutation, value
+):
+    payload = json.loads(valid_config.read_text())
+    payload["angle"][mutation] = value
+    valid_config.write_text(json.dumps(payload))
+    with pytest.raises(PolarizationContractError, match="angle"):
+        load_analysis_config(valid_config, repo, require_approved=False)
 
 
 def test_blocked_config_cannot_be_used_as_release(valid_config, repo):

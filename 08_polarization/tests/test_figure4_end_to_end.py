@@ -220,9 +220,12 @@ def write_config(root):
         },
         "angle": {
             "observable": "reaction_plane_phi",
-            "range_radians": [0.0, np.pi],
             "period_radians": np.pi,
+            "range_radians": [0.0, np.pi],
+            "reference_axis_lab": [1.0, 0.0, 0.0],
+            "reaction_momentum": "proton",
             "degenerate_plane_policy": "invalid",
+            "tolerance": 1e-12,
         },
         "closure": {
             "random_seed": 1701,
