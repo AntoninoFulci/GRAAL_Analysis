@@ -129,6 +129,16 @@ Builder validates every ROOT schema, scans observed event runs, records
 zero-selected-event runs, hashes inputs, rejects failed/incomplete ledger, and
 never overwrites existing inventory.
 
+Inventory publication anchors its parent directory and removes only its owned
+staging name. After the no-overwrite hard link succeeds, it never unlinks the
+destination by name: without an atomic conditional unlink, a concurrent foreign
+replacement could otherwise be deleted. If the canonical parent changes after
+linking, publication fails closed and the canonical path is not accepted. The
+error reports that an owned link may remain in the now-detached directory; this
+namespace-safety tradeoff requires operator inspection rather than unsafe
+automatic rollback. No link or cleanup is followed through the replacement
+parent, so publication cannot write outside the anchored directory.
+
 After Gate 0, signed state map, Compton inputs, and inventory exist:
 
 ```bash
