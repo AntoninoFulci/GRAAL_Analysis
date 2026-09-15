@@ -1,0 +1,227 @@
+"""Read metadata-bearing reconstruction trees for polarization analysis."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+import numpy as np
+
+from contracts import PolarizationContractError, sha256_file
+
+
+@dataclass(frozen=True)
+class EventSample:
+    beam_energy: np.ndarray
+    beam: np.ndarray
+    run_number: np.ndarray
+    state_code: np.ndarray
+    xstrip: np.ndarray
+    proton: np.ndarray
+    eta: np.ndarray
+    pi0: np.ndarray
+    file_sha256: np.ndarray
+    tree_entry: np.ndarray
+
+
+def select_vector_branches(
+    available: Iterable[str], vectors: str
+) -> tuple[str, str, str]:
+    """Select one complete vector family; never mix raw and fitted branches."""
+    branches = set(available)
+    common = {"RunNumber", "Polarization", "Xstrip", "beam"}
+    if vectors == "raw":
+        selected = ("proton", "eta", "pi0")
+        required = common | set(selected)
+    elif vectors == "kinematic_fit":
+        selected = ("proton_fit", "eta_fit", "pi0_fit")
+        required = common | set(selected) | {"fit_converged"}
+    else:
+        raise PolarizationContractError("vectors must be raw or kinematic_fit")
+    missing = required - branches
+    if missing:
+        raise PolarizationContractError(
+            "reconstruction tree missing required branches: "
+            + ", ".join(sorted(missing))
+        )
+    return selected
+
+
+def _vector4(value) -> tuple[float, float, float, float]:
+    return (float(value.Px()), float(value.Py()), float(value.Pz()), float(value.E()))
+
+
+def _stable_event_identity(
+    file_digests: tuple[str, ...], *, tree_number: int, local_entry: int
+) -> tuple[str, int]:
+    """Return the file-local replay key captured before selection."""
+    if (
+        isinstance(tree_number, bool)
+        or not isinstance(tree_number, int)
+        or not 0 <= tree_number < len(file_digests)
+        or isinstance(local_entry, bool)
+        or not isinstance(local_entry, int)
+        or local_entry < 0
+    ):
+        raise PolarizationContractError("invalid ROOT tree-local event identity")
+    return file_digests[tree_number], local_entry
+
+
+def _validate_file_schema(ROOT, path: Path, tree_name: str, vectors: str) -> None:
+    root_file = ROOT.TFile.Open(str(path), "READ")
+    if not root_file or root_file.IsZombie():
+        raise PolarizationContractError(f"cannot open reconstruction ROOT file: {path}")
+    try:
+        tree = root_file.Get(tree_name)
+        if not tree or not tree.InheritsFrom("TTree"):
+            raise PolarizationContractError(
+                f"ROOT file {path} lacks tree {tree_name}"
+            )
+        available = {branch.GetName() for branch in tree.GetListOfBranches()}
+        selected = select_vector_branches(available, vectors)
+        for name in ("beam", *selected):
+            branch = tree.GetBranch(name)
+            if branch.GetClassName() != "TLorentzVector":
+                raise PolarizationContractError(
+                    f"ROOT branch {name} in {path} must be TLorentzVector"
+                )
+        integer_fields = ["RunNumber", "Polarization"]
+        if vectors == "kinematic_fit":
+            integer_fields.append("fit_converged")
+        for name in integer_fields:
+            leaf = tree.GetLeaf(name)
+            if not leaf or leaf.GetTypeName() not in {"Int_t", "UInt_t", "Long64_t", "ULong64_t"}:
+                raise PolarizationContractError(
+                    f"ROOT branch {name} in {path} must be integer-valued"
+                )
+        xstrip_leaf = tree.GetLeaf("Xstrip")
+        if not xstrip_leaf or xstrip_leaf.GetTypeName() not in {
+            "Float_t", "Double_t", "Int_t", "UInt_t"
+        }:
+            raise PolarizationContractError(
+                f"ROOT branch Xstrip in {path} must be numeric"
+            )
+    finally:
+        root_file.Close()
+
+
+def read_reco_root(
+    paths: Iterable[Path], *, tree_name: str, vectors: str
+) -> EventSample:
+    """Read selected events from ROOT; reject legacy trees without metadata."""
+    files = tuple(Path(path) for path in paths)
+    if not files:
+        raise PolarizationContractError("at least one reconstruction ROOT file is required")
+    missing_files = [str(path) for path in files if not path.is_file()]
+    if missing_files:
+        raise PolarizationContractError(
+            "reconstruction ROOT file does not exist: " + ", ".join(missing_files)
+        )
+    try:
+        import ROOT
+    except ImportError as exc:
+        raise PolarizationContractError(
+            "PyROOT is required to read reconstruction files"
+        ) from exc
+    for path in files:
+        _validate_file_schema(ROOT, path, tree_name, vectors)
+    file_digests = tuple(sha256_file(path) for path in files)
+    chain = ROOT.TChain(tree_name)
+    for path in files:
+        if chain.Add(str(path)) == 0:
+            raise PolarizationContractError(
+                f"cannot add ROOT tree {tree_name} from {path}"
+            )
+    available = {branch.GetName() for branch in chain.GetListOfBranches()}
+    proton_branch, eta_branch, pi0_branch = select_vector_branches(available, vectors)
+    beam_energy = []
+    beam = []
+    run_number = []
+    state_code = []
+    xstrip = []
+    proton = []
+    eta = []
+    pi0 = []
+    file_sha256 = []
+    tree_entry = []
+    for event in chain:
+        tree_number = int(chain.GetTreeNumber())
+        local_entry = int(chain.GetTree().GetReadEntry())
+        if vectors == "kinematic_fit" and int(event.fit_converged) != 1:
+            continue
+        beam_vector = _vector4(event.beam)
+        beam_energy.append(beam_vector[3])
+        beam.append(beam_vector)
+        run_number.append(int(event.RunNumber))
+        state_code.append(int(event.Polarization))
+        xstrip.append(float(event.Xstrip))
+        proton.append(_vector4(getattr(event, proton_branch)))
+        eta.append(_vector4(getattr(event, eta_branch)))
+        pi0.append(_vector4(getattr(event, pi0_branch)))
+        digest, entry = _stable_event_identity(
+            file_digests, tree_number=tree_number, local_entry=local_entry
+        )
+        file_sha256.append(digest)
+        tree_entry.append(entry)
+    if not beam_energy:
+        raise PolarizationContractError("reconstruction selection contains no events")
+    if tuple(sha256_file(path) for path in files) != file_digests:
+        raise PolarizationContractError(
+            "reconstruction ROOT file changed while events were being read"
+        )
+    sample = EventSample(
+        beam_energy=np.asarray(beam_energy, dtype=float),
+        beam=np.asarray(beam, dtype=float),
+        run_number=np.asarray(run_number, dtype=int),
+        state_code=np.asarray(state_code, dtype=int),
+        xstrip=np.asarray(xstrip, dtype=float),
+        proton=np.asarray(proton, dtype=float),
+        eta=np.asarray(eta, dtype=float),
+        pi0=np.asarray(pi0, dtype=float),
+        file_sha256=np.asarray(file_sha256, dtype=str),
+        tree_entry=np.asarray(tree_entry, dtype=np.int64),
+    )
+    if any(
+        not np.all(np.isfinite(values))
+        for values in (
+            sample.beam_energy, sample.beam, sample.xstrip, sample.proton, sample.eta, sample.pi0
+        )
+    ):
+        raise PolarizationContractError("reconstruction tree contains non-finite values")
+    return sample
+
+
+def scan_reco_run_numbers(
+    paths: Iterable[Path], *, tree_name: str, vectors: str
+) -> frozenset[int]:
+    """Validate every ROOT schema and return observed event run numbers."""
+    files = tuple(Path(path) for path in paths)
+    if not files or any(not path.is_file() for path in files):
+        raise PolarizationContractError(
+            "all reconstruction ROOT files must exist before inventory scan"
+        )
+    try:
+        import ROOT
+    except ImportError as exc:
+        raise PolarizationContractError(
+            "PyROOT is required to scan reconstruction files"
+        ) from exc
+    for path in files:
+        _validate_file_schema(ROOT, path, tree_name, vectors)
+    chain = ROOT.TChain(tree_name)
+    for path in files:
+        if chain.Add(str(path)) == 0:
+            raise PolarizationContractError(
+                f"cannot add ROOT tree {tree_name} from {path}"
+            )
+    runs = frozenset(
+        int(event.RunNumber)
+        for event in chain
+        if vectors != "kinematic_fit" or int(event.fit_converged) == 1
+    )
+    if any(run <= 0 for run in runs):
+        raise PolarizationContractError(
+            "reconstruction contains non-positive RunNumber"
+        )
+    return runs

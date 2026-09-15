@@ -7,8 +7,18 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import sys
 import tempfile
 from typing import Iterable
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.s4_release_id import (
+    is_owned_fit_staging_name,
+    validate_fit_release_id,
+)
 
 
 CHUNK_BYTES = 1024 * 1024
@@ -74,6 +84,23 @@ OBSERVABLE_BUNDLE_PATHS = frozenset(
     }
 )
 LFS_POINTER_HEADER = b"version https://git-lfs.github.com/spec/v1\n"
+S4_FIT_PARENT = "results/physics/polarization_fits"
+S4_FIT_FILENAMES = frozenset(
+    {"azimuth_counts_v1.csv", "sigma_fit_v1.csv", "sigma_fit_qa.json"}
+)
+N3_HANDOFF_PARENT = "results/physics/normalization/handoffs"
+N3_HANDOFF_FILENAMES = frozenset(
+    {"acceptance_v1.csv", "acceptance_phi_response_v1.csv", "acceptance_qa.json"}
+)
+S6_RELEASE_DIRECTORY = "results/physics/polarization"
+S6_RELEASE_FILENAMES = frozenset(
+    {"sigma_v1.csv", "sigma_covariance.npz", "polarization_qa.json"}
+)
+_RELEASE_COMPONENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_RECORD_KEYS = frozenset(
+    {"path", "bytes", "sha256", "role", "valid", "allowed_use"}
+)
 
 
 class ArtifactInventoryError(ValueError):
@@ -127,7 +154,7 @@ def _sha256_and_size(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
-def _classification(relative: str) -> tuple[str, bool, str]:
+def _classification(relative: str, repo_root: Path) -> tuple[str, bool, str]:
     """Return role, validity, and approved use for a published path."""
     if relative == "data/run_manifest.generated.csv":
         return (
@@ -145,9 +172,154 @@ def _classification(relative: str) -> tuple[str, bool, str]:
         return "derived", True, "source bundle for observable-run rebuild"
     if relative.startswith("results/observable_runs/"):
         return "derived", True, "accepted observable-run bundle when QA is valid"
+    if relative.startswith(f"{N3_HANDOFF_PARENT}/"):
+        release = repo_root / Path(relative).parent
+        valid = _validate_dynamic_bundle(release, "N3")
+        return (
+            "derived", valid,
+            "immutable N3 acceptance handoff; usable only after authority-bound validation",
+        )
+    if relative.startswith(f"{S4_FIT_PARENT}/"):
+        release = repo_root / Path(relative).parent
+        valid = _validate_dynamic_bundle(release, "S4")
+        return (
+            "derived", valid,
+            "immutable replayable S4 fit evidence; usable only after authority-bound replay",
+        )
+    if relative.startswith(f"{S6_RELEASE_DIRECTORY}/"):
+        valid = _validate_dynamic_bundle(repo_root / S6_RELEASE_DIRECTORY, "S6")
+        return (
+            "derived", valid,
+            "shared S6 handoff; usable only after full pinned-S4 replay",
+        )
     if relative.startswith("graphify-out/"):
         return "derived", True, "portable repository knowledge-graph artifact"
     return "derived", True, "published analysis artifact"
+
+
+def _lexists(path: Path) -> bool:
+    return os.path.lexists(path)
+
+
+def _exact_bundle_entries(
+    release: Path, expected_names: frozenset[str], label: str
+) -> dict[str, Path]:
+    if release.is_symlink() or not release.is_dir():
+        raise ArtifactInventoryError(f"{label} release must be a non-symlink directory: {release}")
+    try:
+        entries = {entry.name: entry for entry in release.iterdir()}
+    except OSError as exc:
+        raise ArtifactInventoryError(f"cannot inspect {label} release: {release}") from exc
+    if set(entries) != expected_names:
+        raise ArtifactInventoryError(f"{label} release must contain exact {label} triplet: {release}")
+    if any(entry.is_symlink() or not entry.is_file() for entry in entries.values()):
+        raise ArtifactInventoryError(f"{label} release files must be regular and non-symlink")
+    return entries
+
+
+def _internal_digest(path: Path, expected: object, label: str) -> None:
+    if not isinstance(expected, str) or _SHA256.fullmatch(expected) is None:
+        raise ArtifactInventoryError(f"invalid internal SHA-256 for {label}")
+    actual, _ = _sha256_and_size(path)
+    if actual != expected:
+        raise ArtifactInventoryError(f"internal hash mismatch for {label}")
+
+
+def _release_state(qa: dict[str, object], label: str) -> bool:
+    status = qa.get("status")
+    valid = qa.get("valid")
+    blockers = qa.get("blocked_reasons")
+    if (
+        status not in {"approved", "blocked"}
+        or type(valid) is not bool
+        or not isinstance(blockers, list)
+        or any(not isinstance(item, str) or not item.strip() for item in blockers)
+    ):
+        raise ArtifactInventoryError(f"{label} QA has malformed release state")
+    if status == "approved":
+        if valid is not True or blockers != []:
+            raise ArtifactInventoryError(f"{label} QA has incoherent approved state")
+        return True
+    if valid is not False or not blockers:
+        raise ArtifactInventoryError(f"{label} QA has incoherent blocked state")
+    return False
+
+
+def _validate_dynamic_bundle(release: Path, label: str) -> bool:
+    if label == "N3":
+        entries = _exact_bundle_entries(release, N3_HANDOFF_FILENAMES, label)
+        qa = _read_json(entries["acceptance_qa.json"], "N3 acceptance QA")
+        if (
+            qa.get("schema_version") != 1
+            or qa.get("acceptance_release_id") != release.name
+            or type(qa.get("valid")) is not bool
+        ):
+            raise ArtifactInventoryError("N3 QA has invalid structural identity")
+        _internal_digest(
+            entries["acceptance_v1.csv"], qa.get("acceptance_csv_sha256"),
+            "N3 acceptance CSV",
+        )
+        _internal_digest(
+            entries["acceptance_phi_response_v1.csv"],
+            qa.get("acceptance_phi_response_csv_sha256"), "N3 response CSV",
+        )
+        return qa["valid"]
+    if label == "S4":
+        entries = _exact_bundle_entries(release, S4_FIT_FILENAMES, label)
+        qa = _read_json(entries["sigma_fit_qa.json"], "S4 fit QA")
+        if qa.get("schema_version") != 1 or qa.get("fit_release_id") != release.name:
+            raise ArtifactInventoryError("S4 QA has invalid structural identity")
+        for key, filename in (("counts", "azimuth_counts_v1.csv"), ("fit", "sigma_fit_v1.csv")):
+            record = qa.get(key)
+            if not isinstance(record, dict) or set(record) != {"path", "sha256"} or record.get("path") != filename:
+                raise ArtifactInventoryError(f"S4 QA {key} record is invalid")
+            _internal_digest(entries[filename], record.get("sha256"), f"S4 {filename}")
+        return _release_state(qa, label)
+    entries = _exact_bundle_entries(release, S6_RELEASE_FILENAMES, label)
+    qa = _read_json(entries["polarization_qa.json"], "S6 polarization QA")
+    files = qa.get("files")
+    if qa.get("schema_version") != 1 or not isinstance(files, dict) or set(files) != {
+        "sigma_v1.csv", "sigma_covariance.npz"
+    }:
+        raise ArtifactInventoryError("S6 QA has invalid structural identity")
+    for filename in ("sigma_v1.csv", "sigma_covariance.npz"):
+        _internal_digest(entries[filename], files.get(filename), f"S6 {filename}")
+    return _release_state(qa, label)
+
+
+def _dynamic_release_paths(repo_root: Path, resolved_roots: list[Path]) -> list[Path]:
+    selected: list[Path] = []
+    for parent_name, label, filenames in (
+        (N3_HANDOFF_PARENT, "N3", N3_HANDOFF_FILENAMES),
+        (S4_FIT_PARENT, "S4", S4_FIT_FILENAMES),
+    ):
+        parent = repo_root / parent_name
+        if not _lexists(parent):
+            continue
+        _reject_symlink_components(repo_root, parent)
+        if parent.is_symlink() or not parent.is_dir():
+            raise ArtifactInventoryError(f"{label} release parent must be a non-symlink directory")
+        for release in sorted(parent.iterdir(), key=lambda item: item.name):
+            if not any(_is_within(release, root) for root in resolved_roots):
+                continue
+            if label == "S4" and is_owned_fit_staging_name(release.name) and not release.is_symlink() and release.is_dir():
+                continue
+            if label == "S4":
+                try:
+                    validate_fit_release_id(release.name)
+                except ValueError as exc:
+                    raise ArtifactInventoryError(f"noncanonical S4 fit release entry: {release}") from exc
+            elif _RELEASE_COMPONENT.fullmatch(release.name) is None:
+                raise ArtifactInventoryError(f"noncanonical N3 release entry: {release}")
+            _validate_dynamic_bundle(release, label)
+            selected.extend(_exact_bundle_entries(release, filenames, label).values())
+    s6 = repo_root / S6_RELEASE_DIRECTORY
+    if _lexists(s6):
+        _reject_symlink_components(repo_root, s6)
+        if any(_is_within(s6, root) for root in resolved_roots):
+            _validate_dynamic_bundle(s6, "S6")
+            selected.extend(_exact_bundle_entries(s6, S6_RELEASE_FILENAMES, "S6").values())
+    return selected
 
 
 def _artifact_paths(repo_root: Path, roots: Iterable[Path | str]) -> list[Path]:
@@ -184,6 +356,11 @@ def _artifact_paths(repo_root: Path, roots: Iterable[Path | str]) -> list[Path]:
         if _is_excluded(relative):
             continue
         selected[relative.as_posix()] = resolved_path
+    for entry in _dynamic_release_paths(repo_root, resolved_roots):
+        resolved_entry = entry.resolve(strict=True)
+        if not _is_within(resolved_entry, repo_root):
+            raise ArtifactInventoryError(f"published evidence is outside repository: {entry}")
+        selected[resolved_entry.relative_to(repo_root).as_posix()] = resolved_entry
     return [selected[name] for name in sorted(selected)]
 
 
@@ -203,7 +380,7 @@ def build_inventory(
     for path in _artifact_paths(resolved_repo, roots):
         relative = path.relative_to(resolved_repo).as_posix()
         sha256, size = _sha256_and_size(path)
-        role, valid, allowed_use = _classification(relative)
+        role, valid, allowed_use = _classification(relative, resolved_repo)
         artifacts.append(
             {
                 "path": relative,
@@ -305,7 +482,8 @@ def verify_inventory(repo_root: Path, inventory_path: Path) -> None:
         raise ArtifactInventoryError("artifact inventory has no artifact list")
     expected: dict[str, dict[str, object]] = {}
     for row in rows:
-        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+        if (not isinstance(row, dict) or set(row) != _RECORD_KEYS
+                or not isinstance(row.get("path"), str)):
             raise ArtifactInventoryError("artifact inventory contains malformed record")
         path = row["path"]
         if path in expected:
@@ -323,6 +501,13 @@ def verify_inventory(repo_root: Path, inventory_path: Path) -> None:
         record = expected[relative]
         if record.get("bytes") != size or record.get("sha256") != digest:
             raise ArtifactInventoryError(f"inventory bytes or SHA-256 mismatch: {relative}")
+        role, valid, allowed_use = _classification(relative, resolved_repo)
+        if (
+            record.get("role") != role
+            or record.get("valid") is not valid
+            or record.get("allowed_use") != allowed_use
+        ):
+            raise ArtifactInventoryError(f"inventory classification mismatch: {relative}")
     _verify_observable_bundle(resolved_repo, set(expected))
 
 

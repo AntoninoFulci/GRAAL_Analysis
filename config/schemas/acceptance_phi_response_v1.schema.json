@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "schema_id": "graal.acceptance_phi_response.v1",
+  "approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+  "channels": ["eta_pi0"],
+  "columns": [
+    "schema_version", "analysis_version", "acceptance_release_id", "channel",
+    "target", "beam_group", "Egamma_low", "Egamma_high", "cos_theta_low",
+    "cos_theta_high", "observable", "selection_id", "orientation",
+    "true_mass_bin", "true_mass_low_gev", "true_mass_high_gev", "true_phi_bin",
+    "true_phi_low", "true_phi_high", "reco_mass_bin", "reco_mass_low_gev",
+    "reco_mass_high_gev", "reco_phi_bin", "reco_phi_low", "reco_phi_high",
+    "n_generated_true", "sumw_generated_true", "sumw2_generated_true",
+    "n_selected_migration", "sumw_selected_migration", "sumw2_selected_migration",
+    "response_probability", "response_stat_uncertainty", "validity_mask",
+    "input_sha256", "config_sha256"
+  ],
+  "orientations": ["parallel", "perpendicular"],
+  "validity_masks": [
+    "valid", "invalid_zero_generated", "invalid_low_effective_statistics",
+    "invalid_nonphysical_weights", "invalid_incomplete_coverage"
+  ],
+  "angle_convention": {
+    "observable": "reaction_plane_phi",
+    "period_radians": "pi",
+    "range_radians": [0, "pi"],
+    "interval": "[0, pi)",
+    "reference_axis_lab": [1, 0, 0],
+    "reaction_momentum": "proton",
+    "degenerate_plane_policy": "reject_publication",
+    "tolerance_authority": "approved canonical config angle.tolerance"
+  },
+  "acceptance_qa_contract": {
+    "field": "response_period_coverage",
+    "record_keys": [
+      "beam_group", "covered_source_periods", "coverage_valid",
+      "detector_conditions_sha256", "mc_config_sha256", "selection_sha256"
+    ],
+    "coverage": "exactly one record per response beam_group",
+    "periods": "non-empty unique canonical source periods in ascending order",
+    "validity": "coverage_valid must be true for a releasable N3 handoff",
+    "hashes": "lowercase SHA-256 identities for detector conditions, MC configuration, and selection"
+  },
+  "row_rules": {
+    "text_keys": "non-empty strings without leading or trailing whitespace",
+    "counts_and_indices": "nonnegative decimal integers",
+    "weights": "finite nonnegative sums and squared-weight sums",
+    "edges": "finite strictly ordered bounds",
+    "hashes": "lowercase SHA-256; input_sha256 and config_sha256 each constant across the file",
+    "config_sha256_authority": "N3 producer/MC configuration, bound by acceptance_qa.json",
+    "input_sha256_authority": "N3 input inventory, bound by acceptance_qa.json"
+  },
+  "matrix_rules": {
+    "physical_key": ["channel", "target", "beam_group", "Egamma_low", "Egamma_high", "cos_theta_low", "cos_theta_high", "observable", "selection_id"],
+    "ascending_row_order": ["physical_key", "orientation", "true_mass_bin", "true_phi_bin", "reco_mass_bin", "reco_phi_bin"],
+    "shape": "(M*P, M*P); rows reconstructed, columns true",
+    "flattening": "mass_bin * P + phi_bin on both axes",
+    "coverage": "exactly (M*P)^2 explicit rows per key and orientation, including zero migrations and invalid true cells",
+    "axes": "true and reconstructed partitions equal; both orientations share partitions; indices contiguous from zero",
+    "source_period": "one pooled matrix per beam_group and orientation, reused for covered source periods",
+    "generated_values": "n_generated_true, sumw_generated_true, sumw2_generated_true repeat identically within each true-cell block",
+    "releasable": "every true-cell block in both orientations has validity_mask=valid"
+  },
+  "azimuth": {
+    "period_radians": 3.141592653589793,
+    "range_radians": [0.0, 3.141592653589793],
+    "interval": "[0, pi)",
+    "bin_count": "figure4_comparison.phi_bins",
+    "coverage": "contiguous bins, no gaps, overlaps or implicit wrap"
+  },
+  "mass_partition": {
+    "bin_count": "figure4_comparison.mass_bins",
+    "particle_masses_gev": {"proton": 0.938272, "eta": 0.547862, "pi0": 0.134977},
+    "total_energy": "W = sqrt(m_proton^2 + 2*m_proton*Egamma_high)",
+    "ranges": {
+      "p_pi0": ["m_proton + m_pi0", "W - m_eta"],
+      "p_eta": ["m_proton + m_eta", "W - m_pi0"],
+      "eta_pi0": ["m_eta + m_pi0", "W - m_proton"]
+    },
+    "partition": "M equal-width bins spanning the observable range (physical_mass_edges)"
+  },
+  "normalization": {
+    "definitions": "G=sumw_generated_true; G2=sumw2_generated_true; Sj=sumw_selected_migration[j,i]; S2j=sumw2_selected_migration[j,i]; pj=R[j,i]",
+    "probability": "R[j,i] = Sj / G",
+    "selected_counts": "sum_j n_selected_migration[j,i] <= n_generated_true[i]",
+    "selected_weights": "sum_j Sj / G <= 1 + probability_absolute_tolerance",
+    "probability_bounds": "0 <= pj <= 1 and sum_j pj <= 1 + probability_absolute_tolerance",
+    "inefficiency": "1 - sum_j pj is lost-event inefficiency; never renormalize columns",
+    "effective_events": "G^2/G2; G2=0 is invalid",
+    "minimum_effective_events": "response_validation.minimum_generated_effective_events_per_true_phi",
+    "undefined_invalid_block": "Keep all raw finite count/weight diagnostics and Cartesian rows; when G=0 or G2=0, response_probability=0 and response_stat_uncertainty=0; covariance blocks zero; invalid masks remain nonreleasable"
+  },
+  "covariance": {
+    "off_diagonal": "Cov(pj,pk) = (pj*pk*G2 - pk*S2j - pj*S2k) / G^2",
+    "diagonal": "Var(pj) = (S2j*(1 - 2*pj) + pj^2*G2) / G^2",
+    "uncertainty": "sqrt(max(Var(pj),0))",
+    "requirements": "finite, symmetric, positive semidefinite within covariance_eigenvalue_absolute_tolerance; materially negative variance or eigenvalue rejects N3"
+  },
+  "response_validation": {
+    "required_fields": [
+      "minimum_generated_effective_events_per_true_phi",
+      "probability_absolute_tolerance",
+      "uncertainty_absolute_tolerance",
+      "uncertainty_relative_tolerance",
+      "covariance_eigenvalue_absolute_tolerance",
+      "finite_difference_relative_step",
+      "finite_difference_absolute_step",
+      "replay_absolute_tolerance",
+      "replay_relative_tolerance"
+    ],
+    "additional_fields": false,
+    "numeric_rule": "Every value is numeric, finite, and nonnegative; booleans are not numbers",
+    "strictly_positive_fields": [
+      "minimum_generated_effective_events_per_true_phi",
+      "finite_difference_relative_step",
+      "finite_difference_absolute_step"
+    ],
+    "authority": "Exact nine-field response_validation object in approved canonical config"
+  },
+  "tolerances": {
+    "bin_edge_absolute_tolerance": 1e-12,
+    "probability": "response_validation.probability_absolute_tolerance",
+    "uncertainty_absolute": "response_validation.uncertainty_absolute_tolerance",
+    "uncertainty_relative": "response_validation.uncertainty_relative_tolerance",
+    "covariance_eigenvalue_absolute": "response_validation.covariance_eigenvalue_absolute_tolerance",
+    "overrides": "No CLI override may weaken canonical approved limits"
+  },
+  "change_policy": "Any field, equation, enum, coverage rule or tolerance change requires new schema version, approval ID, and joint review"
+}

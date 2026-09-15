@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "analysis_version": "polarization-v1",
+  "status": "blocked",
+  "blocked_reasons": [
+    "results/observable_runs/HANDOFF.json is not published",
+    "signed experimental Polarization state mapping is not published",
+    "authoritative period-by-period Compton polarization input is not published",
+    "Person 1 immutable acceptance triplet is not published",
+    "metadata-bearing complete-run reconstruction inventory is not published"
+  ],
+  "gate0_handoff": "results/observable_runs/HANDOFF.json",
+  "acceptance": {
+    "status": "blocked",
+    "handoff_parent": "results/physics/normalization/handoffs",
+    "release_id": null,
+    "handoff_directory": null,
+    "required_files": [
+      "acceptance_v1.csv",
+      "acceptance_phi_response_v1.csv",
+      "acceptance_qa.json"
+    ],
+    "acceptance_qa_sha256": null,
+    "phi_response_schema_status": "approved",
+    "phi_response_schema_path": "config/schemas/acceptance_phi_response_v1.schema.json",
+    "phi_response_schema_sha256": "a86cf3d81ae53bf239ef783d73a07a43411476bc97a97dc97667feba98dbd9d0",
+    "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+    "phi_response_schema_reviewers": ["Persona 1", "Persona 2"]
+  },
+  "state_mapping": {
+    "status": "blocked",
+    "source": null,
+    "intervals": []
+  },
+  "compton_polarization": {
+    "status": "blocked",
+    "sources": [],
+    "periods": []
+  },
+  "angle": {
+    "observable": "reaction_plane_phi",
+    "period_radians": 3.141592653589793,
+    "range_radians": [0.0, 3.141592653589793],
+    "reference_axis_lab": [1.0, 0.0, 0.0],
+    "reaction_momentum": "proton",
+    "degenerate_plane_policy": "invalid",
+    "tolerance": 1e-12
+  },
+  "sign_convention": {
+    "status": "pending_two_reviewer_approval",
+    "approval_id": null,
+    "reviewers": [],
+    "model": "mu = exposure * acceptance * scale_state * (1 + orientation_sign * P * Sigma * cos(2*phi))",
+    "orientation_signs": {}
+  },
+  "figure4_comparison": {
+    "energy_edges_gev": [1.1, 1.2, 1.3, 1.4, 1.5],
+    "mass_bins": 10,
+    "phi_bins": 12,
+    "target": "P",
+    "tree": "reco_eta_pi0_chi2",
+    "vectors": "kinematic_fit",
+    "content_policy": "framework_results_only_no_published_points_curves_or_digitization"
+  },
+  "closure": {
+    "random_seed": 1701,
+    "bias_absolute_max": 0.02,
+    "pull_mean_absolute_max": 0.2,
+    "pull_width_tolerance": 0.2,
+    "require_sign_check": true
+  },
+  "response_validation": {
+    "minimum_generated_effective_events_per_true_phi": null,
+    "probability_absolute_tolerance": null,
+    "uncertainty_absolute_tolerance": null,
+    "uncertainty_relative_tolerance": null,
+    "covariance_eigenvalue_absolute_tolerance": null,
+    "finite_difference_relative_step": null,
+    "finite_difference_absolute_step": null,
+    "replay_absolute_tolerance": null,
+    "replay_relative_tolerance": null
+  },
+  "bootstrap": {
+    "replicas": null,
+    "algorithm_version": "poisson1-sha256-v1",
+    "seed": null,
+    "maximum_failed_fraction": null,
+    "hessian_diagonal_ratio_min": null,
+    "hessian_diagonal_ratio_max": null
+  },
+  "release_qa_thresholds": {
+    "status": "pending_owner_approval",
+    "approval_id": null,
+    "reviewers": [],
+    "minimum_events_per_bin": null,
+    "maximum_deviance_per_ndof": null,
+    "closure_bias_absolute_max": null,
+    "closure_pull_mean_absolute_max": null,
+    "closure_pull_width_tolerance": null,
+    "minimum_systematic_sources": null,
+    "systematic_combination_policy": null
+  }
+}

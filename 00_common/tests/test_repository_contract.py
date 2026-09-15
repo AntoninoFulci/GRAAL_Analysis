@@ -2,12 +2,37 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def _exact_fenced_triplet_under_heading(
+    text: str, heading: str, expected: tuple[str, str, str]
+) -> None:
+    """Require one exact path-only text fence in the named Markdown section."""
+    marker = re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE)
+    assert marker is not None, f"missing exact heading: {heading}"
+    level = len(heading) - len(heading.lstrip("#"))
+    following = text[marker.end() :]
+    boundary = re.search(rf"^#{{1,{level}}}\s+", following, re.MULTILINE)
+    section = following[: boundary.start()] if boundary else following
+    candidates = []
+    for block in re.findall(
+        r"^\s*```text\s*\n(.*?)^\s*```\s*$", section, re.MULTILINE | re.DOTALL
+    ):
+        lines = tuple(line.strip() for line in block.splitlines() if line.strip())
+        if any(line.startswith("results/physics/polarization") for line in lines):
+            candidates.append(lines)
+    assert candidates == [expected], (
+        f"{heading} must contain exactly one fenced triplet equal to {expected}; "
+        f"found {candidates}"
+    )
 
 
 def test_agents_file_names_authoritative_observable_bundle():
@@ -106,6 +131,19 @@ def test_makefile_root_free_suite_omits_pyroot_importing_tests():
     assert "test_build_strip_energy_flux.py" not in recipe
     assert "05_reconstruction/tests" not in recipe
     assert "06_plots/tests" not in recipe
+    assert "08_polarization/tests" in recipe
+    assert "--ignore=08_polarization/tests/test_figure4_end_to_end.py" in recipe
+    assert "--ignore=08_polarization/tests/test_root_events_integration.py" in recipe
+
+
+def test_default_test_discovery_includes_person2_polarization():
+    assert '"08_polarization/tests"' in read("pyproject.toml")
+
+
+def test_polarization_diagnostics_do_not_share_immutable_s6_directory():
+    text = read("docs/physics/polarization.md")
+    assert "--output-dir results/diagnostics/polarization/figure4_comparison" in text
+    assert "--output-dir results/physics/polarization/figure4_comparison" not in text
 
 
 def test_testing_docs_name_top_level_pyroot_plot_module():
@@ -153,3 +191,109 @@ def test_two_person_physics_roadmap_has_only_two_owners_and_defined_handoffs():
     assert all(path not in plan for path in deprecated_acceptance)
     assert "D2/neutron work is deferred" in text
     assert "eta-prime work is deferred" in text
+
+
+def test_shared_docs_publish_exact_s4_and_s6_triplets():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    expected_s4 = (
+        "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json",
+    )
+    expected_s6 = (
+        "results/physics/polarization/sigma_v1.csv",
+        "results/physics/polarization/sigma_covariance.npz",
+        "results/physics/polarization/polarization_qa.json",
+    )
+    documents = (
+        (
+            roadmap,
+            "### S4 — fit `cos(2phi)` consapevole dell'accettanza",
+            "### S6 — release `Σ`, covarianza e sistematiche",
+        ),
+        (
+            polarization,
+            "## S4 forward-folded fit evidence",
+            "## S6 release contract",
+        ),
+    )
+    for text, s4_heading, s6_heading in documents:
+        _exact_fenced_triplet_under_heading(text, s4_heading, expected_s4)
+        _exact_fenced_triplet_under_heading(text, s6_heading, expected_s6)
+        assert "azimuth_counts_v1.csv" in text
+        assert "immutable" in text.lower() or "immutabile" in text.lower()
+        assert "no-overwrite" in text.lower()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda block: block.replace(
+            "\n```",
+            "\nresults/physics/polarization_fits/<fit_release_id>/extra.json\n```",
+            1,
+        ),
+        lambda block: block.replace(
+            "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv\n",
+            "",
+            1,
+        ),
+        lambda block: block.replace("polarization_fits", "polarization_fit", 1),
+        lambda block: block.replace(
+            "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+            "results/physics/polarization/azimuth_counts_v1.csv",
+            1,
+        ),
+        lambda block: block + "\n\n" + block,
+        lambda block: block
+        + "\n\n"
+        + block.replace("sigma_fit_v1.csv", "sigma_fit_v2.csv", 1),
+    ),
+    ids=("fourth-path", "incomplete", "wrong-directory", "legacy", "duplicate", "divergent"),
+)
+def test_exact_s4_triplet_parser_rejects_concrete_mutations(mutation):
+    heading = "## S4 forward-folded fit evidence"
+    expected = (
+        "results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv",
+        "results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json",
+    )
+    fenced = "```text\n" + "\n".join(expected) + "\n```"
+    with pytest.raises(AssertionError):
+        _exact_fenced_triplet_under_heading(
+            heading + "\n\n" + mutation(fenced) + "\n\n## Next section\n",
+            heading,
+            expected,
+        )
+
+
+def test_shared_docs_define_canonical_s4_cli_and_release_edges():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    for text in (roadmap, polarization):
+        assert "python 08_polarization/fit_sigma.py" in text
+        assert "--acceptance-handoff results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json" in text
+        assert "--reco-inventory results/reconstruction/inventory.json" in text
+        assert "--config config/physics/polarization_v1.json" in text
+        assert "--fit-release-id <fit_release_id>" in text
+        assert "--output-root results/physics/polarization_fits" in text
+        assert "N2 -> S4" in text
+        assert "N3 -> S4" in text
+        assert "N3 -> S6" in text
+        assert "N4 -/-> S4" in text
+
+
+def test_shared_docs_fail_closed_on_wrong_handoffs_and_require_joint_review():
+    roadmap = read("docs/collaboration/two-person-physics-roadmap.md")
+    polarization = read("docs/physics/polarization.md")
+    artifact_policy = read("docs/artifact-policy.md")
+    combined = "\n".join((roadmap, polarization, artifact_policy)).lower()
+    assert "wrong-directory" in combined
+    assert "incomplete triplet" in combined
+    assert "legacy path" in combined
+    assert "canonical repository-relative posix" in combined
+    assert "two-owner approval" in combined
+    assert "response_application=forward_folded" in combined
+    assert "c_response" in combined
+    assert "full replay" in combined

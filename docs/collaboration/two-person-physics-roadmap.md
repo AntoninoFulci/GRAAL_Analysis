@@ -253,19 +253,49 @@ docs/physics/polarization.md
   immutabile N3 con risposta azimutale approvata. N4 non è un input.
 - **Output:** conteggi azimutali costruiti da Persona 2 direttamente dalla
   ricostruzione N2, modello di likelihood/fit con risposta di accettanza N3,
-  parametri `Σ`, diagnostica per bin e specifica delle correlazioni.
-- **Validation — interface to implement:**
+  parametri `Σ`, diagnostica per bin e specifica delle correlazioni. La
+  pubblicazione S4 è una directory immutabile con questa terna esatta:
+
+  ```text
+results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv
+results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv
+results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json
+  ```
+
+  Lo staging termina con un solo rename atomico; la regola no-overwrite
+  rifiuta destinazioni esistenti e non lascia pubblicazioni parziali.
+- **Validation — interfaccia implementata:**
 
   ```text
   python 08_polarization/fit_sigma.py \
     --acceptance-handoff results/physics/normalization/handoffs/<acceptance_release_id>/acceptance_qa.json \
-    --config config/physics/polarization_v1.json
+    --reco-inventory results/reconstruction/inventory.json \
+    --config config/physics/polarization_v1.json \
+    --fit-release-id <fit_release_id> \
+    --output-root results/physics/polarization_fits
   ```
 
 - **Rejection:** rifiutare fit senza reco N2 metadata-bearing o senza
   accettanza N3 valida e hash verificati, input soltanto integrato in `phi`,
   conteggi importati dalle yield N4, bin con copertura angolare insufficiente,
   mancata convergenza o QA dei residui fallito.
+
+Il fit Poisson forward-folded usa la risposta congiunta
+`(true mass,true phi) -> (reco mass,reco phi)` separata per orientamento, ma
+condivisa fra i periodi appartenenti allo stesso `beam_group`. Il rendimento
+true `lambda[m]` e `Sigma[m]` sono condivisi fra periodi e orientamenti.
+`azimuth_counts_v1.csv` mantiene ogni cella reco, compresi gli zeri, e ogni
+replica usa un singolo peso Poisson(1) deterministico per identità evento N2,
+condiviso fra tutti e tre gli osservabili. La covarianza bootstrap è `C_stat`;
+la Fisher/Hessian resta diagnostica. Gli autovettori deterministici delle
+covarianze pesate N3 producono la sistematica nominata `C_response`, mai
+assorbita in `C_stat`.
+
+Le maschere N3 ammesse sono soltanto `valid`, `invalid_zero_generated`,
+`invalid_low_effective_statistics`, `invalid_nonphysical_weights` e
+`invalid_incomplete_coverage`; un blocco non valido resta serializzato e
+impedisce la release. Config, QA N3, schema, approval ID, Gate 0, inventario
+N2, state map, flusso e sorgenti Compton sono tutti vincolati per hash.
 
 ### S5 — closure a asimmetria iniettata e convenzione di segno
 
@@ -287,11 +317,23 @@ docs/physics/polarization.md
 - **Input:** fit validi S4–S5, `P(Egamma)` S2, accettanza handoff e variazioni
   sistematiche registrate.
 - **Output:** tabella `Σ`, covarianza NPZ, QA fit, componenti sistematiche e
-  hash di config/input per ogni bin.
-- **Validation — interface to implement:**
+  hash di config/input per ogni bin. S6 contiene esattamente:
+
+  ```text
+results/physics/polarization/sigma_v1.csv
+results/physics/polarization/sigma_covariance.npz
+results/physics/polarization/polarization_qa.json
+  ```
+
+  S6 autentica la terna S4 immutabile e ne esegue full replay: parsing risposta
+  N3 e conteggi, fit nominale e bootstrap, attese, devianza, `C_stat` e
+  `C_response`. La stringa `response_application=forward_folded` da sola non
+  costituisce evidenza.
+- **Validation — interfaccia implementata:**
 
   ```text
   python 08_polarization/validate_sigma_release.py \
+    --repository-root . \
     --results results/physics/polarization --check-covariance --check-qa
   ```
 
@@ -356,7 +398,15 @@ legacy non versionate anziché sulla directory immutabile approvata.
 
 ### Handoff Person 2 → P0/P1/P2
 
-I tre filename sono l'interfaccia condivisa v1; sono pubblicati insieme e
+Persona 2 pubblica prima la terna S4 immutabile, quindi S6 la consuma per hash:
+
+```text
+results/physics/polarization_fits/<fit_release_id>/azimuth_counts_v1.csv
+results/physics/polarization_fits/<fit_release_id>/sigma_fit_v1.csv
+results/physics/polarization_fits/<fit_release_id>/sigma_fit_qa.json
+```
+
+I tre filename S6 sono l'interfaccia condivisa v1; sono pubblicati insieme e
 con hash incrociati nel QA:
 
 ```text
@@ -373,6 +423,18 @@ results/physics/polarization/polarization_qa.json
 mappa stati, fonte `P(Egamma)`, hash accettanza, convergenza/GOF, closure
 iniettata, test di segno e `valid`. Il consumatore rifiuta mismatch di ordine,
 dimensione, hash o QA.
+
+Il grafo di provenienza normativo è esplicito: `N2 -> S4` porta eventi
+metadata-bearing e identità bootstrap; `N3 -> S4` porta risposta congiunta
+massa-phi e covarianza; `N3 -> S6` resta verificato tramite full replay della
+terna S4. `N4 -/-> S4`: le yield N4 appartengono solo alle sezioni d'urto
+N5–N7 e non possono autenticare `azimuth_counts_v1.csv`.
+
+Entrambe le terne falliscono chiuse su wrong-directory, incomplete triplet,
+extra file, symlink, legacy path, hash o release ID discordante. Tutti i path
+serializzati sono canonical repository-relative POSIX. Qualsiasi modifica a
+schema, QA, CLI o handoff richiede two-owner approval; review automatica non
+sostituisce Persona 1 e Persona 2.
 
 ### Cambiamenti di interfaccia e gate finale
 

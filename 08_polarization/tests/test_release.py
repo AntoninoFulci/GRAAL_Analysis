@@ -1,0 +1,944 @@
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+import release as release_module
+from analysis_config import load_analysis_config
+from contracts import PolarizationContractError
+from release import (
+    validate_aggregation_mapping,
+    validate_publication_mapping,
+    validate_sigma_release,
+)
+from validate_sigma_release import main as release_main
+from validate_publication_binning import main as publication_main
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RESPONSE_FIELDS = tuple("""
+schema_version analysis_version acceptance_release_id channel target beam_group
+Egamma_low Egamma_high cos_theta_low cos_theta_high observable selection_id
+orientation true_mass_bin true_mass_low_gev true_mass_high_gev true_phi_bin
+true_phi_low true_phi_high reco_mass_bin reco_mass_low_gev reco_mass_high_gev
+reco_phi_bin reco_phi_low reco_phi_high n_generated_true sumw_generated_true
+sumw2_generated_true n_selected_migration sumw_selected_migration
+sumw2_selected_migration response_probability response_stat_uncertainty
+validity_mask input_sha256 config_sha256
+""".split())
+CSV_FIELDS = [
+    "analysis_version", "bin_key", "channel", "target", "beam_group",
+    "Egamma_low", "Egamma_high", "cos_theta_low", "cos_theta_high",
+    "observable", "selection_id", "mass_low_gev", "mass_high_gev", "sigma",
+    "stat_uncertainty", "systematic_components_json", "validity_mask",
+    "fit_id", "input_sha256", "config_sha256", "event_count",
+    "fit_deviance", "fit_ndof",
+]
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_s6_contract_tests(monkeypatch):
+    """Keep pre-S4 tests focused on their original lower-level contracts."""
+    monkeypatch.setattr(
+        release_module,
+        "_replay_fit_evidence",
+        lambda qa, repository_root, *, config_path: (
+            object(),
+            load_analysis_config(
+                config_path, repository_root, require_approved=True
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        release_module,
+        "_validate_replayed_release",
+        lambda *_args, **_kwargs: None,
+    )
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_gate0(repo):
+    manifest = repo / "config/run_manifest.csv"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("run_number,target\n101,proton\n")
+    bundle_dir = repo / "results/observable_runs"
+    bundle_dir.mkdir(parents=True)
+    names = [
+        "run_manifest_observables.csv", "run_quality.csv",
+        "strip_energy_lookup.csv", "flux_by_run_energy.csv",
+        "flux_by_group_energy.csv", "observable_run_qa.json",
+    ]
+    for name in names:
+        target = bundle_dir / name
+        if name == "run_manifest_observables.csv":
+            target.write_text("run_number,target\n101,P\n")
+        else:
+            target.write_text('{"valid":true}' if name.endswith(".json") else "x\n1\n")
+    handoff = {
+        "schema_version": 1,
+        "producer_commit": "a" * 40,
+        "manifest_path": "config/run_manifest.csv",
+        "manifest_sha256": sha(manifest),
+        "files": [
+            {
+                "path": f"results/observable_runs/{name}",
+                "sha256": sha(bundle_dir / name),
+            }
+            for name in names
+        ],
+        "observable_run_qa_path": "results/observable_runs/observable_run_qa.json",
+        "observable_run_qa_sha256": sha(bundle_dir / "observable_run_qa.json"),
+        "observable_run_qa_valid": True,
+        "energy_binning_mev": [1100.0, 1200.0],
+        "created_at_utc": "2026-09-10T12:00:00Z",
+    }
+    path = bundle_dir / "HANDOFF.json"
+    path.write_text(json.dumps(handoff))
+    return path
+
+
+def file_record(path, repo):
+    return {"path": str(path.relative_to(repo)), "sha256": sha(path)}
+
+
+def source_record(path, repo):
+    return file_record(path, repo) | {
+        "authority": "synthetic-test-authority",
+        "approval_id": "TEST-ONLY",
+        "reviewers": ["test-owner-1", "test-owner-2"],
+    }
+
+
+def combined_input_sha256(inputs):
+    payload = []
+    for name in (
+        "gate0_handoff", "acceptance_csv", "acceptance_phi_response_csv",
+        "acceptance_qa",
+        "reconstruction_inventory",
+    ):
+        payload.append([name, inputs[name]["sha256"]])
+    for name in ("state_mapping_sources", "compton_sources"):
+        payload.extend([name, record["sha256"]] for record in inputs[name])
+    encoded = json.dumps(payload, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def write_phi_response(path, release_id):
+    proton, eta, pi0 = 0.938272, 0.547862, 0.134977
+    total_energy = np.sqrt(proton**2 + 2 * proton * 1.2)
+    mass_edges = np.linspace(proton + pi0, total_energy - eta, 3)
+    phi_edges = np.linspace(0.0, np.pi, 4)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(RESPONSE_FIELDS)
+        for orientation in ("parallel", "perpendicular"):
+            for true_cell in range(6):
+                for reco_cell in range(6):
+                    selected = 100 if reco_cell == true_cell else 0
+                    probability = selected / 200
+                    uncertainty = np.sqrt(probability * (1 - probability) / 200)
+                    writer.writerow(
+                        [
+                            1, "polarization-v1", release_id, "eta_pi0", "P",
+                            "P_UV", 1.1, 1.2, -1.0, 1.0, "p_pi0",
+                            "selection-v1", orientation,
+                            true_cell // 3, mass_edges[true_cell // 3],
+                            mass_edges[true_cell // 3 + 1], true_cell % 3,
+                            phi_edges[true_cell % 3], phi_edges[true_cell % 3 + 1],
+                            reco_cell // 3, mass_edges[reco_cell // 3],
+                            mass_edges[reco_cell // 3 + 1], reco_cell % 3,
+                            phi_edges[reco_cell % 3], phi_edges[reco_cell % 3 + 1],
+                            200, 200.0, 200.0, selected, float(selected),
+                            float(selected), probability, uncertainty, "valid",
+                            "1" * 64, "2" * 64,
+                        ]
+                    )
+
+
+def write_valid_release(path):
+    repo = path.parent
+    path = repo / "results/physics/polarization"
+    thresholds = {
+        "status": "approved",
+        "approval_id": "QA-4",
+        "reviewers": ["owner-1", "owner-2"],
+        "minimum_events_per_bin": 1000,
+        "maximum_deviance_per_ndof": 1.2,
+        "closure_bias_absolute_max": 0.02,
+        "closure_pull_mean_absolute_max": 0.2,
+        "closure_pull_width_tolerance": 0.2,
+        "minimum_systematic_sources": 1,
+        "systematic_combination_policy": "independent_sources_quadrature",
+    }
+    gate0 = write_gate0(repo)
+    acceptance_dir = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1"
+    )
+    acceptance_dir.mkdir(parents=True)
+    schema = repo / "config/schemas/acceptance_phi_response_v1.schema.json"
+    schema.parent.mkdir(parents=True)
+    schema.write_bytes(
+        (PROJECT_ROOT / "config/schemas/acceptance_phi_response_v1.schema.json").read_bytes()
+    )
+    acceptance_csv = acceptance_dir / "acceptance_v1.csv"
+    acceptance_csv.write_text(
+        "analysis_version,channel,target,beam_group,Egamma_low,Egamma_high,"
+        "cos_theta_low,cos_theta_high,observable,selection_id,n_generated,"
+        "n_thrown_in_bin,n_reconstructed_selected,acceptance,"
+        "acceptance_stat_uncertainty,validity_mask,input_sha256,config_sha256\n"
+        + "polarization-v1,eta_pi0,P,P_UV,1.1,1.2,-1.0,1.0,p_pi0,selection-v1,"
+        + f"10000,5000,2500,0.5,0.02,valid,{'1' * 64},{'2' * 64}\n"
+        + "polarization-v1,eta_pi0,P,P_UV,1.1,1.2,-1.0,1.0,p_eta,selection-v1,"
+        + f"10000,0,0,,,invalid,{'1' * 64},{'2' * 64}\n"
+    )
+    acceptance_response = acceptance_dir / "acceptance_phi_response_v1.csv"
+    write_phi_response(acceptance_response, acceptance_dir.name)
+    acceptance_qa = acceptance_dir / "acceptance_qa.json"
+    acceptance_qa.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "acceptance_release_id": acceptance_dir.name,
+                "producer_commit": "b" * 40,
+                "valid": True,
+                "acceptance_csv_sha256": sha(acceptance_csv),
+                "acceptance_phi_response_csv_sha256": sha(acceptance_response),
+                "phi_response_schema_path": (
+                    "config/schemas/acceptance_phi_response_v1.schema.json"
+                ),
+                "phi_response_schema_sha256": sha(schema),
+                "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+                "gate0_handoff_sha256": sha(gate0),
+                "n2_reconstruction_sha256": "3" * 64,
+                "input_sha256": "1" * 64,
+                "config_sha256": "2" * 64,
+                "count_checks": {"valid": True},
+                "matrix_checks": {"valid": True},
+                "weighted_covariance_checks": {
+                    "valid": True,
+                    "shared_mc_across_blocks": False,
+                    "cross_block_covariance": False,
+                },
+                "response_period_coverage": [
+                    {
+                        "beam_group": "P_UV",
+                        "covered_source_periods": ["test"],
+                        "coverage_valid": True,
+                        "detector_conditions_sha256": "4" * 64,
+                        "mc_config_sha256": "5" * 64,
+                        "selection_sha256": "6" * 64,
+                    }
+                ],
+                "closure": {"valid": True},
+            }
+        )
+    )
+    authority = repo / "data/authorities"
+    authority.mkdir(parents=True)
+    state_source = authority / "state.csv"
+    state_source.write_text("run,state\n101,H\n")
+    compton_source = authority / "compton.csv"
+    compton_source.write_text("energy,polarization\n1150,0.6\n")
+    config = repo / "config/physics/polarization_v1.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config_payload = {
+                "schema_version": 1,
+                "analysis_version": "polarization-v1",
+                "status": "approved",
+                "blocked_reasons": [],
+                "gate0_handoff": "results/observable_runs/HANDOFF.json",
+                "acceptance": {
+                    "status": "approved",
+                    "handoff_parent": "results/physics/normalization/handoffs",
+                    "release_id": acceptance_dir.name,
+                    "handoff_directory": str(acceptance_dir.relative_to(repo)),
+                    "required_files": [
+                        "acceptance_v1.csv", "acceptance_phi_response_v1.csv",
+                        "acceptance_qa.json",
+                    ],
+                    "acceptance_qa_sha256": None,
+                    "phi_response_schema_status": "approved",
+                    "phi_response_schema_path": (
+                        "config/schemas/acceptance_phi_response_v1.schema.json"
+                    ),
+                    "phi_response_schema_sha256": sha(schema),
+                    "phi_response_schema_approval_id": "N3-MASS-PHI-RESPONSE-V1-2026-09-15",
+                    "phi_response_schema_reviewers": ["test-a", "test-b"],
+                },
+                "state_mapping": {
+                    "status": "ready",
+                    "source": source_record(state_source, repo),
+                    "intervals": [
+                        {
+                            "run_start": 101, "run_end": 101, "state_code": 2,
+                            "orientation": "parallel", "source_period": "test",
+                            "flux_component": "pol1_net",
+                        }
+                    ],
+                },
+                "compton_polarization": {
+                    "status": "ready",
+                    "periods": [
+                        {
+                            "source_period": "test",
+                            "source": source_record(compton_source, repo),
+                            "energies_mev": [1100.0, 1200.0],
+                            "polarization": [0.6, 0.6],
+                            "covariance": [[0.0001, 0.0], [0.0, 0.0001]],
+                        }
+                    ],
+                },
+                "angle": {
+                    "observable": "reaction_plane_phi",
+                    "period_radians": np.pi,
+                    "range_radians": [0.0, np.pi],
+                    "reference_axis_lab": [1.0, 0.0, 0.0],
+                    "reaction_momentum": "proton",
+                    "degenerate_plane_policy": "invalid",
+                    "tolerance": 1e-12,
+                },
+                "sign_convention": {
+                    "status": "approved",
+                    "approval_id": "fixture-sign",
+                    "reviewers": ["test-a", "test-b"],
+                    "model": "mu = fixture",
+                    "orientation_signs": {"parallel": 1, "perpendicular": -1},
+                },
+                "figure4_comparison": {
+                    "energy_edges_gev": [1.1, 1.2, 1.3, 1.4, 1.5],
+                    "mass_bins": 2, "phi_bins": 3, "target": "P",
+                    "tree": "reco_eta_pi0_chi2", "vectors": "kinematic_fit",
+                    "content_policy": (
+                        "framework_results_only_no_published_points_curves_or_digitization"
+                    ),
+                },
+                "closure": {
+                    "random_seed": 1701,
+                    "bias_absolute_max": 0.02,
+                    "pull_mean_absolute_max": 0.2,
+                    "pull_width_tolerance": 0.2,
+                    "require_sign_check": True,
+                },
+                "response_validation": {
+                    "minimum_generated_effective_events_per_true_phi": 100.0,
+                    "probability_absolute_tolerance": 1e-12,
+                    "uncertainty_absolute_tolerance": 1e-12,
+                    "uncertainty_relative_tolerance": 1e-9,
+                    "covariance_eigenvalue_absolute_tolerance": 1e-12,
+                    "finite_difference_relative_step": 1e-4,
+                    "finite_difference_absolute_step": 1e-6,
+                    "replay_absolute_tolerance": 1e-10,
+                    "replay_relative_tolerance": 1e-8,
+                },
+                "bootstrap": {
+                    "replicas": 32,
+                    "algorithm_version": "poisson1-sha256-v1",
+                    "seed": 1701,
+                    "maximum_failed_fraction": 0.05,
+                    "hessian_diagonal_ratio_min": 0.5,
+                    "hessian_diagonal_ratio_max": 2.0,
+                },
+                "release_qa_thresholds": thresholds,
+            }
+    reconstruction_dir = repo / "results/reconstruction"
+    reconstruction_dir.mkdir(parents=True)
+    reconstruction_root = reconstruction_dir / "reco.root"
+    reconstruction_root.write_bytes(b"synthetic-root-placeholder")
+    ledger = reconstruction_dir / "processed_runs.csv"
+    ledger.write_text("run_number,status\n101,complete\n")
+    reconstruction = reconstruction_dir / "inventory.json"
+    reconstruction.write_text(
+        json.dumps(
+            {
+                "schema_version": 1, "producer_commit": "c" * 40,
+                "gate0_handoff_sha256": sha(gate0),
+                "complete_run_coverage": True,
+                "tree": "reco_eta_pi0_chi2", "vectors": "kinematic_fit",
+                "run_numbers": [101], "observed_event_run_numbers": [101],
+                "zero_selected_event_run_numbers": [],
+                "processed_run_ledger": file_record(ledger, repo),
+                "files": [file_record(reconstruction_root, repo)],
+            }
+        )
+    )
+    acceptance_qa_payload = json.loads(acceptance_qa.read_text())
+    acceptance_qa_payload["n2_reconstruction_sha256"] = sha(reconstruction)
+    acceptance_qa.write_text(json.dumps(acceptance_qa_payload))
+    config_payload["acceptance"]["acceptance_qa_sha256"] = sha(acceptance_qa)
+    config.write_text(json.dumps(config_payload))
+    inputs = {
+        "config": file_record(config, repo),
+        "gate0_handoff": file_record(gate0, repo),
+        "acceptance_csv": file_record(acceptance_csv, repo),
+        "acceptance_phi_response_csv": file_record(acceptance_response, repo),
+        "acceptance_qa": file_record(acceptance_qa, repo),
+        "reconstruction_inventory": file_record(reconstruction, repo),
+        "state_mapping_sources": [file_record(state_source, repo)],
+        "compton_sources": [file_record(compton_source, repo)],
+    }
+    input_digest = combined_input_sha256(inputs)
+    path.mkdir(parents=True)
+    csv_path = path / "sigma_v1.csv"
+    rows = [
+        [
+            "polarization-v1", "e0:p_pi0:m0", "eta_pi0", "P", "P_UV",
+            1.1, 1.2, -1.0, 1.0, "p_pi0", "selection-v1",
+            1.07, 1.12, -0.2, 0.08, '{"beam_polarization":0.03}',
+            "valid", "fit-000", input_digest, sha(config), 1800, 9.0, 11,
+        ],
+        [
+            "polarization-v1", "e0:p_pi0:m1", "eta_pi0", "P", "P_UV",
+            1.1, 1.2, -1.0, 1.0, "p_pi0", "selection-v1",
+            1.12, 1.17, 0.3, 0.10, '{"beam_polarization":0.04}',
+            "valid", "fit-001", input_digest, sha(config), 1500, 7.0, 11,
+        ],
+    ]
+    with csv_path.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(CSV_FIELDS)
+        writer.writerows(rows)
+    stat = np.diag([0.08**2, 0.10**2])
+    systematic = np.array([[0.0009, 0.0002], [0.0002, 0.0016]])
+    npz_path = path / "sigma_covariance.npz"
+    np.savez(
+        npz_path,
+        bin_keys=np.array([row[1] for row in rows]),
+        stat_covariance=stat,
+        systematic_covariance=systematic,
+        covariance=stat + systematic,
+        schema_version=np.array(1),
+    )
+    qa = {
+        "schema_version": 1,
+        "analysis_version": "polarization-v1",
+        "status": "approved",
+        "producer_commit": "a" * 40,
+        "valid": True,
+        "blocked_reasons": [],
+        "files": {
+            "sigma_v1.csv": sha(csv_path),
+            "sigma_covariance.npz": sha(npz_path),
+        },
+        "fit_qa": {
+            "valid": True,
+            "acceptance_phi_response_sha256": sha(acceptance_response),
+            "response_application": "forward_folded",
+        },
+        "fit_evidence": {
+            "fit_release_id": "fixture-fit-v1",
+            "path": "results/physics/polarization_fits/fixture-fit-v1",
+            "qa_sha256": "f" * 64,
+        },
+        "closure": {
+            "valid": True, "sign_check_passed": True,
+            "bias": [0.01, -0.01],
+            "pull_mean": [0.05, -0.05],
+            "pull_width": [1.04, 0.96],
+        },
+        "systematic_sources": [
+            {
+                "name": "beam_polarization",
+                "path": inputs["config"]["path"],
+                "sha256": inputs["config"]["sha256"],
+            }
+        ],
+        "systematic_covariances": {
+            "beam_polarization": systematic.tolist()
+        },
+        "inputs": inputs,
+        "input_sha256": input_digest,
+        "config_sha256": sha(config),
+        "gate0_handoff_sha256": sha(gate0),
+        "acceptance_qa_sha256": sha(acceptance_qa),
+        "qa_thresholds": thresholds,
+    }
+    (path / "polarization_qa.json").write_text(json.dumps(qa))
+    return path
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("status", "blocked"),
+        ("valid", False),
+        ("blocked_reasons", ["not approved"]),
+    ],
+)
+def test_sigma_release_requires_exact_approved_qa_state(tmp_path, field, value):
+    valid_release = write_valid_release(tmp_path / "release")
+    qa_path = valid_release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa[field] = value
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="top-level|approved|valid"):
+        validate_sigma_release(valid_release, repo_of(valid_release))
+
+
+def repo_of(release):
+    return release.parents[2]
+
+
+def rewrite_config_binding(release, mutate, *, sync_qa_policy):
+    config = repo_of(release) / "config/physics/polarization_v1.json"
+    payload = json.loads(config.read_text())
+    mutate(payload)
+    config.write_text(json.dumps(payload))
+    config_hash = sha(config)
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["inputs"]["config"]["sha256"] = config_hash
+    qa["config_sha256"] = config_hash
+    qa["systematic_sources"][0]["sha256"] = config_hash
+    if sync_qa_policy:
+        qa["qa_thresholds"] = payload["release_qa_thresholds"]
+    rows = list(csv.reader((release / "sigma_v1.csv").open()))
+    config_index = rows[0].index("config_sha256")
+    for row in rows[1:]:
+        row[config_index] = config_hash
+    with (release / "sigma_v1.csv").open("w", newline="") as handle:
+        csv.writer(handle).writerows(rows)
+    qa["files"]["sigma_v1.csv"] = sha(release / "sigma_v1.csv")
+    qa_path.write_text(json.dumps(qa))
+
+
+def rewrite_input_binding(release, mutate):
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    mutate(qa)
+    qa["input_sha256"] = combined_input_sha256(qa["inputs"])
+    rows = list(csv.reader((release / "sigma_v1.csv").open()))
+    input_index = rows[0].index("input_sha256")
+    for row in rows[1:]:
+        row[input_index] = qa["input_sha256"]
+    with (release / "sigma_v1.csv").open("w", newline="") as handle:
+        csv.writer(handle).writerows(rows)
+    qa["files"]["sigma_v1.csv"] = sha(release / "sigma_v1.csv")
+    qa_path.write_text(json.dumps(qa))
+
+
+def test_release_accepts_cross_hashed_csv_npz_and_valid_qa(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    summary = validate_sigma_release(release, repo_of(release))
+    assert summary.bin_keys == ("e0:p_pi0:m0", "e0:p_pi0:m1")
+    assert summary.total_covariance.shape == (2, 2)
+
+
+def test_release_rejects_noncanonical_eta_pi0_channel(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    csv_path = release / "sigma_v1.csv"
+    rows = list(csv.reader(csv_path.open()))
+    channel_index = rows[0].index("channel")
+    for row in rows[1:]:
+        row[channel_index] = "other_channel"
+    with csv_path.open("w", newline="") as stream:
+        csv.writer(stream).writerows(rows)
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["files"]["sigma_v1.csv"] = sha(csv_path)
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="channel"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_noncanonical_or_extra_bundle_files(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    staged = tmp_path / "staged"
+    shutil.copytree(release, staged)
+    with pytest.raises(PolarizationContractError, match="canonical"):
+        validate_sigma_release(staged, repo_of(release))
+    (release / "unexpected.txt").write_text("not part of S6")
+    with pytest.raises(PolarizationContractError, match="exactly three"):
+        validate_sigma_release(release, repo_of(release))
+
+
+@pytest.mark.parametrize("mutation", ["hash", "order", "sum", "indefinite", "qa"])
+def test_release_rejects_hash_order_covariance_and_qa_failures(tmp_path, mutation):
+    release = write_valid_release(tmp_path / "release")
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    npz_path = release / "sigma_covariance.npz"
+    arrays = dict(np.load(npz_path))
+    if mutation == "hash":
+        qa["files"]["sigma_v1.csv"] = "0" * 64
+    elif mutation == "order":
+        arrays["bin_keys"] = arrays["bin_keys"][::-1]
+        np.savez(npz_path, **arrays)
+        qa["files"]["sigma_covariance.npz"] = sha(npz_path)
+    elif mutation == "sum":
+        arrays["covariance"] = arrays["covariance"] + np.eye(2)
+        np.savez(npz_path, **arrays)
+        qa["files"]["sigma_covariance.npz"] = sha(npz_path)
+    elif mutation == "indefinite":
+        arrays["systematic_covariance"] = np.array(
+            [[1.0, 2.0], [2.0, 1.0]]
+        )
+        arrays["covariance"] = (
+            arrays["stat_covariance"]
+            + arrays["systematic_covariance"]
+        )
+        np.savez(npz_path, **arrays)
+        qa["files"]["sigma_covariance.npz"] = sha(npz_path)
+    else:
+        qa["closure"]["sign_check_passed"] = False
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_preserves_precise_covariance_validation_error(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    npz_path = release / "sigma_covariance.npz"
+    arrays = dict(np.load(npz_path))
+    arrays["systematic_covariance"] = np.array([[1.0, 2.0], [2.0, 1.0]])
+    arrays["covariance"] = arrays["stat_covariance"] + arrays["systematic_covariance"]
+    np.savez(npz_path, **arrays)
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["files"]["sigma_covariance.npz"] = sha(npz_path)
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="positive semidefinite"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_publication_aggregation_checks_w_c_wt(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    summary = validate_sigma_release(release, repo_of(release))
+    mapping = {
+        "schema_version": 1,
+        "paper": "P1",
+        "source_bin_keys": list(summary.bin_keys),
+        "aggregate_bin_keys": ["p1:a0"],
+        "weights": [[0.5, 0.5]],
+        "aggregate_covariance": [[0.004825]],
+    }
+    path = tmp_path / "p1_binning.json"
+    path.write_text(json.dumps(mapping))
+    validate_aggregation_mapping(mapping, "P1", summary)
+
+    mapping["aggregate_covariance"] = [[0.99]]
+    path.write_text(json.dumps(mapping))
+    with pytest.raises(PolarizationContractError, match="covariance"):
+        validate_aggregation_mapping(mapping, "P1", summary)
+
+
+def test_publication_mapping_stays_blocked_until_shared_p0_interface_exists(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    summary = validate_sigma_release(release, repo_of(release))
+    path = tmp_path / "p2_binning.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "paper": "P2",
+                "source_bin_keys": list(summary.bin_keys),
+                "aggregate_bin_keys": ["p2:a0"],
+                "weights": [[0.5, 0.5]],
+                "aggregate_covariance": [[0.004825]],
+            }
+        )
+    )
+    with pytest.raises(PolarizationContractError, match="shared P0"):
+        validate_publication_mapping(path, "P2", summary)
+
+
+def test_publication_cli_reads_mapping_outside_exact_s6_bundle(tmp_path, capsys):
+    release = write_valid_release(tmp_path / "release")
+    mapping_dir = tmp_path / "publication_mappings"
+    mapping_dir.mkdir()
+    (mapping_dir / "p1_binning.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1, "paper": "P1",
+                "source_bin_keys": ["e0:p_pi0:m0", "e0:p_pi0:m1"],
+                "aggregate_bin_keys": ["p1:a0"],
+                "weights": [[0.5, 0.5]],
+                "aggregate_covariance": [[0.004825]],
+            }
+        )
+    )
+    assert publication_main(
+        [
+            "--results", str(release), "--repository-root", str(repo_of(release)),
+            "--mapping-dir", str(mapping_dir), "--papers", "P1",
+        ]
+    ) == 1
+    assert "shared P0" in capsys.readouterr().err
+
+
+def test_release_cli_requires_explicit_full_checks(tmp_path, capsys):
+    release = write_valid_release(tmp_path / "release")
+    assert release_main(
+        ["--results", str(release), "--repository-root", str(repo_of(release))]
+    ) == 2
+    assert "required" in capsys.readouterr().err
+    assert release_main(
+        [
+                "--results", str(release),
+                "--repository-root", str(repo_of(release)),
+                "--check-covariance", "--check-qa",
+        ]
+    ) == 0
+
+
+def test_release_cli_help_runs_without_pythonpath_from_any_working_directory(
+    tmp_path,
+):
+    script = PROJECT_ROOT / "08_polarization/validate_sigma_release.py"
+    for working_directory in (PROJECT_ROOT, tmp_path):
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            cwd=working_directory,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
+
+
+def test_release_rejects_unapproved_qa_thresholds(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["qa_thresholds"]["status"] = "pending_owner_approval"
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="threshold policy"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_qa_policy_not_approved_in_canonical_config(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["release_qa_thresholds"].update(
+            status="pending_owner_approval"
+        ),
+        sync_qa_policy=False,
+    )
+    with pytest.raises(PolarizationContractError, match="release_qa_thresholds"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_acceptance_not_approved_in_canonical_config(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(status="blocked"),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="acceptance status"):
+        validate_sigma_release(release, repo_of(release))
+
+
+@pytest.mark.parametrize(
+    "mutation,message",
+    [
+        ("missing_status", "acceptance must contain exactly"),
+        ("pending_status", "phi-response schema approval"),
+        ("missing_approval_id", "acceptance must contain exactly"),
+        ("one_reviewer", "phi-response schema.*approval"),
+    ],
+)
+def test_release_rejects_unapproved_phi_response_schema(tmp_path, mutation, message):
+    release = write_valid_release(tmp_path / "release")
+
+    def mutate(payload):
+        acceptance = payload["acceptance"]
+        if mutation == "missing_status":
+            acceptance.pop("phi_response_schema_status")
+        elif mutation == "pending_status":
+            acceptance["phi_response_schema_status"] = "pending_joint_approval"
+        elif mutation == "missing_approval_id":
+            acceptance.pop("phi_response_schema_approval_id")
+        else:
+            acceptance["phi_response_schema_reviewers"] = ["test-a"]
+
+    rewrite_config_binding(release, mutate, sync_qa_policy=True)
+    with pytest.raises(PolarizationContractError, match=message):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_phi_response_schema_approval_id_mismatch(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            phi_response_schema_approval_id="different-approval"
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="schema approval ID"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_acceptance_bound_to_different_n2_reconstruction(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    inventory = repo_of(release) / "results/reconstruction/inventory.json"
+    payload = json.loads(inventory.read_text())
+    payload["producer_commit"] = "d" * 40
+    inventory.write_text(json.dumps(payload))
+
+    def refresh_inventory(qa):
+        qa["inputs"]["reconstruction_inventory"]["sha256"] = sha(inventory)
+
+    rewrite_input_binding(release, refresh_inventory)
+    with pytest.raises(PolarizationContractError, match="N2 reconstruction"):
+        validate_sigma_release(release, repo_of(release))
+
+
+@pytest.mark.parametrize("mutation", ["missing", "wrong_digest", "wrong_application"])
+def test_release_rejects_fit_not_bound_to_phi_response(tmp_path, mutation):
+    release = write_valid_release(tmp_path / "release")
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    if mutation == "missing":
+        qa["fit_qa"].pop("acceptance_phi_response_sha256")
+    elif mutation == "wrong_digest":
+        qa["fit_qa"]["acceptance_phi_response_sha256"] = "0" * 64
+    else:
+        qa["fit_qa"]["response_application"] = "diagnostic_only"
+    qa_path.write_text(json.dumps(qa))
+    with pytest.raises(PolarizationContractError, match="phi-response usage"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_applies_approved_numeric_qa_thresholds(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["release_qa_thresholds"].update(
+            minimum_events_per_bin=2000
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="event"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_missing_acceptance_for_sigma_bin(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    acceptance_csv = (
+        repo_of(release)
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_v1.csv"
+    )
+    lines = acceptance_csv.read_text().splitlines()
+    acceptance_csv.write_text("\n".join(lines[:1]) + "\n")
+    acceptance_qa_path = acceptance_csv.with_name("acceptance_qa.json")
+    acceptance_qa = json.loads(acceptance_qa_path.read_text())
+    acceptance_qa["acceptance_csv_sha256"] = sha(acceptance_csv)
+    acceptance_qa_path.write_text(json.dumps(acceptance_qa))
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text())
+    qa["inputs"]["acceptance_csv"]["sha256"] = sha(acceptance_csv)
+    qa["inputs"]["acceptance_qa"]["sha256"] = sha(acceptance_qa_path)
+    qa["acceptance_qa_sha256"] = sha(acceptance_qa_path)
+    qa["input_sha256"] = combined_input_sha256(qa["inputs"])
+    qa_path.write_text(json.dumps(qa))
+    rows = list(csv.reader((release / "sigma_v1.csv").open()))
+    input_index = rows[0].index("input_sha256")
+    for row in rows[1:]:
+        row[input_index] = qa["input_sha256"]
+    with (release / "sigma_v1.csv").open("w", newline="") as handle:
+        csv.writer(handle).writerows(rows)
+    qa["files"]["sigma_v1.csv"] = sha(release / "sigma_v1.csv")
+    qa_path.write_text(json.dumps(qa))
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            acceptance_qa_sha256=sha(acceptance_qa_path)
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="lacks valid rows"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_acceptance_row_hashes_not_bound_to_acceptance_qa(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    repo = repo_of(release)
+    acceptance_csv = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_v1.csv"
+    )
+    rows = list(csv.reader(acceptance_csv.open()))
+    input_index = rows[0].index("input_sha256")
+    for row in rows[1:]:
+        row[input_index] = "3" * 64
+    with acceptance_csv.open("w", newline="") as handle:
+        csv.writer(handle).writerows(rows)
+    acceptance_qa_path = acceptance_csv.with_name("acceptance_qa.json")
+    acceptance_qa = json.loads(acceptance_qa_path.read_text())
+    acceptance_qa["acceptance_csv_sha256"] = sha(acceptance_csv)
+    acceptance_qa_path.write_text(json.dumps(acceptance_qa))
+
+    def refresh_outer(qa):
+        qa["inputs"]["acceptance_csv"]["sha256"] = sha(acceptance_csv)
+        qa["inputs"]["acceptance_qa"]["sha256"] = sha(acceptance_qa_path)
+        qa["acceptance_qa_sha256"] = sha(acceptance_qa_path)
+
+    rewrite_input_binding(release, refresh_outer)
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            acceptance_qa_sha256=sha(acceptance_qa_path)
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(
+        PolarizationContractError, match="row provenance hashes disagree"
+    ):
+        validate_sigma_release(release, repo)
+
+
+def test_release_rejects_state_source_substituted_outside_canonical_config(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+
+    def substitute(qa):
+        qa["inputs"]["state_mapping_sources"] = qa["inputs"]["compton_sources"]
+
+    rewrite_input_binding(release, substitute)
+    with pytest.raises(PolarizationContractError, match="state.*config"):
+        validate_sigma_release(release, repo_of(release))
+
+
+def test_release_rejects_invalid_reconstruction_inventory_with_fresh_hash(tmp_path):
+    release = write_valid_release(tmp_path / "release")
+    repo = repo_of(release)
+    inventory = repo / "results/reconstruction/inventory.json"
+    payload = json.loads(inventory.read_text())
+    payload["complete_run_coverage"] = False
+    inventory.write_text(json.dumps(payload))
+    acceptance_qa_path = (
+        repo
+        / "results/physics/normalization/handoffs/acceptance-test-v1/acceptance_qa.json"
+    )
+    acceptance_qa = json.loads(acceptance_qa_path.read_text())
+    acceptance_qa["n2_reconstruction_sha256"] = sha(inventory)
+    acceptance_qa_path.write_text(json.dumps(acceptance_qa))
+
+    def refresh_inventory(qa):
+        qa["inputs"]["reconstruction_inventory"]["sha256"] = sha(inventory)
+        qa["inputs"]["acceptance_qa"]["sha256"] = sha(acceptance_qa_path)
+        qa["acceptance_qa_sha256"] = sha(acceptance_qa_path)
+
+    rewrite_input_binding(release, refresh_inventory)
+    rewrite_config_binding(
+        release,
+        lambda payload: payload["acceptance"].update(
+            acceptance_qa_sha256=sha(acceptance_qa_path)
+        ),
+        sync_qa_policy=True,
+    )
+    with pytest.raises(PolarizationContractError, match="complete_run_coverage"):
+        validate_sigma_release(release, repo)

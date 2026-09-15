@@ -249,9 +249,8 @@ Il CSV v1 deve portare le chiavi concordate nel roadmap:
 `acceptance_v1.csv` resta la tabella delle chiavi comuni e dell'accettanza
 integrata in `phi`; da sola non è un input sufficiente per S4. L'interfaccia
 richiede `acceptance_phi_response_v1.csv` come risposta sparsa
-true→reconstructed.
-Ogni riga riusa le chiavi comuni e un identificatore univoco della relativa
-riga di `acceptance_v1.csv`, quindi dichiara:
+`(true mass,true phi) -> (reco mass,reco phi)`.
+Ogni riga riusa le chiavi fisiche approvate e dichiara:
 
 - bordi `phi_true_low`, `phi_true_high`, `phi_reco_low`, `phi_reco_high` in
   radianti, intervalli chiusi a sinistra e aperti a destra e periodicità
@@ -264,6 +263,29 @@ riga di `acceptance_v1.csv`, quindi dichiara:
 - maschera di validità con motivazione per celle o bin nulli/insufficienti;
 - commit produttore e hash di Gate 0, MC, ricostruzione N2, configurazione e
   tabella comune.
+
+Per ogni chiave fisica e orientamento, assi true e reco hanno la stessa
+partizione completa di massa e `phi`; entrambi gli orientamenti sono
+obbligatori e tutte le `(M*P)^2` migrazioni sono esplicite, inclusi gli zeri.
+Una matrice per `beam_group` e orientamento viene riusata per tutti i periodi
+coperti: dipendenze dal periodo richiedono beam group distinti o nuova versione
+di schema. Le colonne non sono rinormalizzate; `1-sum_j R[j,i]` resta
+inefficienza.
+
+Con `G=sumw_generated_true`, `G2=sumw2_generated_true`,
+`S2j=sumw2_selected_migration[j,i]` e `pj=R[j,i]`:
+
+```text
+R[j,i] = sumw_selected_migration[j,i] / G
+Cov(pj,pk) = (pj*pk*G2 - pk*S2j - pj*S2k) / G^2
+Var(pj) = (S2j*(1 - 2*pj) + pj^2*G2) / G^2
+```
+
+I blocchi devono essere finiti, simmetrici e semidefiniti positivi entro le
+tolleranze della config. Le sole maschere ammesse sono `valid`,
+`invalid_zero_generated`, `invalid_low_effective_statistics`,
+`invalid_nonphysical_weights` e `invalid_incomplete_coverage`. Celle invalide
+restano serializzate; non diventano zeri validi.
 
 `acceptance_qa.json` registra schema e `acceptance_release_id`, commit
 produttore, SHA-256 di entrambi i CSV, collegamento e hash di Gate 0, controlli
@@ -281,11 +303,14 @@ mascherato rimane escluso. N7 può incorporare o riferire l'handoff soltanto
 con i suoi hash originali; qualsiasi sostituzione richiede una nuova release
 di accettanza e la rivalidazione degli output dipendenti.
 
-La pubblicazione futura di `results/physics/` richiede anche una modifica
-revisionata delle allowlist Git e dell'inventario: oggi questa directory è
-ignorata e non è fra gli artefatti ammessi dal builder. Non forzare `git add`
-per aggirare il contratto di pubblicazione e non includere i grandi corpora
-MC o raw detector.
+Il flusso di dipendenze approvato è `N2 -> S4`, `N3 -> S4`, `N3 -> S6` e
+`N4 -/-> S4`. S4 produce una terna immutabile sotto
+`results/physics/polarization_fits/<fit_release_id>/`; S6 ne autentica gli hash
+ed esegue full replay di conteggi, fit, bootstrap e propagazione
+`C_response`. L'inventario riconosce soltanto terne S4 complete e release ID
+canonici. La directory `results/physics/` resta ignorata per prevenire
+pubblicazioni accidentali: pubblicare dati reali richiede una modifica
+allowlist revisionata, mai `git add -f`, e non include corpora MC o raw.
 
 ## Registro di avanzamento e revisione
 
