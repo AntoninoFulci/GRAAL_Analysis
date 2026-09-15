@@ -16,7 +16,7 @@ from azimuth_counts import (
     write_azimuth_counts,
 )
 from contracts import PolarizationContractError, sha256_file
-from figure4_analysis import PAIR_NAMES, physical_mass_edges
+from figure4_analysis import PAIR_NAMES, PairObservables, physical_mass_edges
 from root_events import EventSample
 
 
@@ -558,6 +558,26 @@ def _reanchor_response(paths):
     paths["config"].write_text(json.dumps(config), encoding="utf-8")
 
 
+def _reanchor_gate0_flux(paths):
+    handoff = json.loads(paths["gate0"].read_text(encoding="utf-8"))
+    for record in handoff["files"]:
+        if record["path"].endswith("/flux_by_run_energy.csv"):
+            record["sha256"] = sha256_file(paths["flux"])
+    paths["gate0"].write_text(json.dumps(handoff), encoding="utf-8")
+    inventory = json.loads(paths["inventory"].read_text(encoding="utf-8"))
+    inventory["gate0_handoff_sha256"] = sha256_file(paths["gate0"])
+    paths["inventory"].write_text(json.dumps(inventory), encoding="utf-8")
+    qa = json.loads(paths["acceptance_qa"].read_text(encoding="utf-8"))
+    qa["gate0_handoff_sha256"] = sha256_file(paths["gate0"])
+    qa["n2_reconstruction_sha256"] = sha256_file(paths["inventory"])
+    paths["acceptance_qa"].write_text(json.dumps(qa), encoding="utf-8")
+    config = json.loads(paths["config"].read_text(encoding="utf-8"))
+    config["acceptance"]["acceptance_qa_sha256"] = sha256_file(
+        paths["acceptance_qa"]
+    )
+    paths["config"].write_text(json.dumps(config), encoding="utf-8")
+
+
 def test_count_authority_loader_retains_only_actual_authenticated_bytes(
     count_authority_repo,
 ):
@@ -617,7 +637,29 @@ def test_count_authority_loader_retains_only_actual_authenticated_bytes(
         "period-a",
         "period-b",
     )
-    assert len(authority.flux_rows) == 12
+    assert len(authority.flux_rows) == 3
+    assert {
+        (row.beam_group, row.energy_low_gev, row.energy_high_gev)
+        for row in authority.flux_rows
+    } == {("group-a", 1.1, 1.2)}
+
+
+def test_count_authority_ignores_valid_gate0_flux_outside_response_universe(
+    count_authority_repo,
+):
+    with count_authority_repo["flux"].open("a", encoding="utf-8") as stream:
+        stream.write(
+            "ajaka_sigma,101,period-without-authority,P,UV,irrelevant-group,"
+            "1.1,1.2,11,1,13,10,12,22,valid\n"
+        )
+    _reanchor_gate0_flux(count_authority_repo)
+
+    authority = _load_count_authority(count_authority_repo)
+
+    assert len(authority.flux_rows) == 3
+    assert {row.source_period for row in authority.flux_rows} == {
+        "period-a", "period-b"
+    }
     assert {key.observable for key in authority.response.keys} == set(PAIR_NAMES)
 
 
@@ -728,6 +770,45 @@ def test_selected_event_degenerate_reaction_plane_rejects_count_publication(
     proton[0, :3] = event_sample.beam[0, :3]
     with pytest.raises(PolarizationContractError, match="degenerate reaction plane"):
         _project(replace(event_sample, proton=proton), count_authority)
+
+
+def test_selected_event_outside_any_required_reco_axis_rejects_whole_publication(
+    event_sample, count_authority
+):
+    eta = event_sample.eta.copy()
+    eta[0] = [0.0, 0.0, 0.0, 10.0]
+
+    with pytest.raises(
+        PolarizationContractError,
+        match=r"selected N2 event .*run=101.*tree_entry=0.*observable=eta_pi0.*reco mass",
+    ):
+        _project(replace(event_sample, eta=eta), count_authority)
+
+
+def test_selected_event_without_required_reco_phi_cell_rejects_whole_publication(
+    monkeypatch, event_sample, count_authority
+):
+    real_projection = azimuth_counts.event_pair_observables
+
+    def project_outside_phi(*args, **kwargs):
+        projected = real_projection(*args, **kwargs)
+        original = projected["eta_pi0"]
+        phi = original.phi.copy()
+        phi[0] = 4.0
+        projected["eta_pi0"] = PairObservables(
+            mass=original.mass, phi=phi, valid_phi=original.valid_phi
+        )
+        return projected
+
+    monkeypatch.setattr(
+        azimuth_counts, "event_pair_observables", project_outside_phi
+    )
+
+    with pytest.raises(
+        PolarizationContractError,
+        match=r"selected N2 event .*tree_entry=0.*observable=eta_pi0.*reco phi",
+    ):
+        _project(event_sample, count_authority)
 
 
 def test_selected_event_xstrip_uses_shared_half_up_normalization(

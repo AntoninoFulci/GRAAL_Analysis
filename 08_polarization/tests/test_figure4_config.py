@@ -69,6 +69,9 @@ def test_load_figure4_config_requires_approved_sign_and_exact_layout(tmp_path):
     assert config.mass_bins == 10
     assert config.phi_bins == 12
     assert config.orientation_signs == {"parallel": -1, "perpendicular": 1}
+    assert config.angle.observable == "reaction_plane_phi"
+    assert config.angle.reference_axis_lab == (1.0, 0.0, 0.0)
+    assert config.angle.tolerance == pytest.approx(1e-12)
 
 
 def test_load_figure4_config_rejects_unapproved_sign_or_wrong_grid(tmp_path):

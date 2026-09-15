@@ -676,11 +676,30 @@ def load_count_authority(
         curve.covariance.setflags(write=False)
     immutable_curves = MappingProxyType(dict(curves))
 
-    flux_rows = _parse_flux_rows(
+    parsed_flux_rows = _parse_flux_rows(
         flux_file.path,
         target=config.figure4_target,
         gate0_run_numbers=gate0_runs,
     )
+    response_flux_universe = {
+        (key.target, key.beam_group, key.Egamma_low, key.Egamma_high)
+        for key in acceptance.response.keys
+    }
+    flux_rows = tuple(
+        row
+        for row in parsed_flux_rows
+        if (
+            row.target,
+            row.beam_group,
+            row.energy_low_gev,
+            row.energy_high_gev,
+        )
+        in response_flux_universe
+    )
+    if not flux_rows:
+        raise PolarizationContractError(
+            "count flux CSV has no rows in authenticated response universe"
+        )
     lookup_rows = _parse_strip_energy_lookup(
         lookup_file.path,
         target=config.figure4_target,
@@ -1785,7 +1804,7 @@ def _project_azimuth_counts(
         sample.proton,
         sample.eta,
         sample.pi0,
-        tolerance=config.angle.tolerance,
+        angle=config.angle,
     )
     invalid_plane = np.flatnonzero(~observables[PAIR_NAMES[0]].valid_phi)
     if invalid_plane.size:
@@ -1896,17 +1915,7 @@ def _project_azimuth_counts(
         matching_cells = cells_by_exposure_group[
             (interval.source_period, interval.orientation, beam_group, low, high)
         ]
-        weights = tuple(
-            event_bootstrap_weight(
-                str(sample.file_sha256[event_index]),
-                config.figure4_tree,
-                int(sample.tree_entry[event_index]),
-                replica_id,
-                algorithm=bootstrap.algorithm_version,
-                seed=bootstrap.seed,
-            )
-            for replica_id in replica_ids
-        )
+        projected_cells = []
         for exposure_index in matching_cells:
             expected = authority_cells[exposure_index].expected
             projected = observables[expected.response_key.observable]
@@ -1918,8 +1927,34 @@ def _project_azimuth_counts(
                 float(projected.phi[event_index]),
                 np.asarray(expected.reco_phi_edges),
             )
-            if mass_bin is None or phi_bin is None:
-                continue
+            identity = (
+                f"run={run_number},file_sha256={sample.file_sha256[event_index]},"
+                f"tree_entry={int(sample.tree_entry[event_index])}"
+            )
+            observable = expected.response_key.observable
+            if mass_bin is None:
+                raise PolarizationContractError(
+                    f"selected N2 event {identity} observable={observable} "
+                    "lacks exactly one reco mass cell"
+                )
+            if phi_bin is None:
+                raise PolarizationContractError(
+                    f"selected N2 event {identity} observable={observable} "
+                    "lacks exactly one reco phi cell"
+                )
+            projected_cells.append((exposure_index, mass_bin, phi_bin))
+        weights = tuple(
+            event_bootstrap_weight(
+                str(sample.file_sha256[event_index]),
+                config.figure4_tree,
+                int(sample.tree_entry[event_index]),
+                replica_id,
+                algorithm=bootstrap.algorithm_version,
+                seed=bootstrap.seed,
+            )
+            for replica_id in replica_ids
+        )
+        for exposure_index, mass_bin, phi_bin in projected_cells:
             for replica_id, weight in enumerate(weights):
                 counts[exposure_index, replica_id, mass_bin, phi_bin] += weight
 

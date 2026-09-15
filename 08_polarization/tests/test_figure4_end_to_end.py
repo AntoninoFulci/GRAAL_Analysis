@@ -29,7 +29,7 @@ CANONICAL_BUNDLE = (
 )
 
 
-def write_root(path, injected_sigma):
+def write_root(path, injected_sigma, *, degenerate_plane=False):
     output = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree("reco_eta_pi0_chi2", "reco_eta_pi0_chi2")
     run = array("i", [7])
@@ -64,9 +64,12 @@ def write_root(path, injected_sigma):
                 px = momentum * np.cos(phi)
                 py = momentum * np.sin(phi)
                 beam.SetPxPyPzE(0.0, 0.0, 1.15, 1.15)
-                proton.SetPxPyPzE(
-                    px, py, 0.0, np.sqrt(0.938272**2 + momentum**2)
-                )
+                if degenerate_plane:
+                    proton.SetPxPyPzE(0.0, 0.0, momentum, np.sqrt(0.938272**2 + momentum**2))
+                else:
+                    proton.SetPxPyPzE(
+                        px, py, 0.0, np.sqrt(0.938272**2 + momentum**2)
+                    )
                 eta.SetPxPyPzE(0.01, -0.02, 0.0, np.sqrt(0.547862**2 + 0.0005))
                 pi0.SetPxPyPzE(0.0, 0.0, 0.0, 0.134977)
                 tree.Fill()
@@ -359,3 +362,33 @@ def test_framework_figure4_rejects_observed_run_mismatch_with_inventory(
         ]
     ) == 1
     assert "observed run set" in capsys.readouterr().err
+
+
+def test_framework_figure4_rejects_degenerate_plane_without_publication(
+    tmp_path, capsys
+):
+    handoff = write_gate0(tmp_path)
+    config = write_config(tmp_path)
+    reco = tmp_path / "reco.root"
+    write_root(reco, 0.2, degenerate_plane=True)
+    ledger = tmp_path / "processed.csv"
+    ledger.write_text("run_number,status\n7,complete\n")
+    inventory = tmp_path / "inventory.json"
+    build_reco_inventory(
+        repository_root=tmp_path, output_path=inventory, reco_paths=[reco],
+        processed_run_ledger=ledger, gate0_handoff_sha256=sha256_file(handoff),
+        gate0_run_numbers={7}, observed_event_run_numbers={7},
+        tree="reco_eta_pi0_chi2", vectors="kinematic_fit",
+        producer_commit="b" * 40,
+    )
+    output = tmp_path / "comparison"
+
+    assert main(
+        [
+            "--repository-root", str(tmp_path), "--config", str(config),
+            "--handoff", str(handoff), "--reco-inventory", str(inventory),
+            "--output-dir", str(output), "--producer-commit", "d" * 40,
+        ]
+    ) == 1
+    assert "degenerate reaction plane" in capsys.readouterr().err
+    assert not output.exists()

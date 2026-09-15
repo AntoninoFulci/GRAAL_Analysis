@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from analysis_config import AngleConfig
 from contracts import PolarizationContractError
 from figure4_analysis import (
     PanelExposure,
@@ -12,6 +13,17 @@ from figure4_analysis import (
     histogram_panel,
     invariant_mass,
     physical_mass_edges,
+)
+
+
+ANGLE = AngleConfig(
+    "reaction_plane_phi",
+    np.pi,
+    (0.0, np.pi),
+    (1.0, 0.0, 0.0),
+    "proton",
+    "invalid",
+    1e-12,
 )
 
 
@@ -47,6 +59,7 @@ def test_analyze_sigma_grid_builds_every_energy_pair_panel():
         mass_edges=mass_edges,
         phi_edges=np.linspace(0.0, np.pi, 13),
         exposures=exposures,
+        angle=ANGLE,
     )
     assert set(results) == {
         (row, pair)
@@ -67,7 +80,7 @@ def test_event_pair_observables_uses_pair_sum_mass_and_one_reaction_plane_phi():
     proton = np.array([[0.0, 1.0, 0.0, 2.0]])
     eta = np.array([[0.0, -1.0, 0.0, 1.5]])
     pi0 = np.array([[0.0, 1.0, 0.0, 1.2]])
-    observables = event_pair_observables(beam, proton, eta, pi0)
+    observables = event_pair_observables(beam, proton, eta, pi0, angle=ANGLE)
     assert observables["p_pi0"].mass[0] == pytest.approx(np.sqrt(3.2**2 - 4.0))
     assert [item.phi[0] for item in observables.values()] == pytest.approx(
         [np.pi / 2.0] * 3
@@ -81,7 +94,7 @@ def test_event_pair_observables_marks_degenerate_proton_plane_invalid_for_all_pa
     eta = np.array([[0.1, 0.0, 0.0, 0.6]])
     pi0 = np.array([[0.0, 0.1, 0.0, 0.2]])
 
-    observables = event_pair_observables(beam, proton, eta, pi0)
+    observables = event_pair_observables(beam, proton, eta, pi0, angle=ANGLE)
 
     assert all(not item.valid_phi[0] for item in observables.values())
     assert all(np.isnan(item.phi[0]) for item in observables.values())
@@ -90,10 +103,60 @@ def test_event_pair_observables_marks_degenerate_proton_plane_invalid_for_all_pa
 def test_event_pair_observables_rejects_bad_shapes_and_spacelike_vectors():
     good = np.array([[0.0, 0.0, 0.0, 1.0]])
     with pytest.raises(PolarizationContractError, match="shape"):
-        event_pair_observables(good[:, :3], good, good, good)
+        event_pair_observables(good[:, :3], good, good, good, angle=ANGLE)
     spacelike = np.array([[2.0, 0.0, 0.0, 1.0]])
     with pytest.raises(PolarizationContractError, match="spacelike"):
         invariant_mass(spacelike)
+
+
+def test_event_pair_observables_passes_exact_configured_axis_and_tolerance(monkeypatch):
+    calls = []
+
+    def tracked(beam, reference, momentum, *, tolerance):
+        calls.append((tuple(reference), tolerance))
+        from angles import PhiResult
+
+        return PhiResult(0.25, True, None)
+
+    monkeypatch.setattr("figure4_analysis.reaction_plane_phi", tracked)
+    vectors = np.array([[0.0, 0.1, 0.2, 1.0]])
+    configured = AngleConfig(
+        "reaction_plane_phi", np.pi, (0.0, np.pi), (0.5, 0.0, 0.0),
+        "proton", "invalid", 3e-9,
+    )
+
+    event_pair_observables(vectors, vectors, vectors, vectors, angle=configured)
+
+    assert calls == [((0.5, 0.0, 0.0), 3e-9)]
+
+
+def test_analyze_sigma_grid_rejects_degenerate_plane_before_histogram():
+    beam = np.array([[0.0, 0.0, 1.2, 1.2]])
+    proton = np.array([[0.0, 0.0, 0.2, 1.0]])
+    eta = np.array([[0.1, 0.0, 0.0, 0.6]])
+    pi0 = np.array([[0.0, 0.1, 0.0, 0.2]])
+    mass_edges = ({name: np.array([0.1, 2.0]) for name in ("p_pi0", "p_eta", "eta_pi0")},)
+
+    with pytest.raises(PolarizationContractError, match="degenerate reaction plane"):
+        analyze_sigma_grid(
+            [1.15], beam, proton, eta, pi0, [1],
+            energy_ranges=((1.1, 1.2),), mass_edges=mass_edges,
+            phi_edges=np.linspace(0.0, np.pi, 13),
+            exposures=(PanelExposure(1.0, 1.0, 0.8, 0.8),), angle=ANGLE,
+        )
+
+
+def test_analyze_sigma_grid_rejects_zero_events():
+    empty = np.empty((0, 4))
+    mass_edges = ({name: np.array([0.1, 2.0]) for name in ("p_pi0", "p_eta", "eta_pi0")},)
+
+    with pytest.raises(PolarizationContractError, match="no reconstructed events"):
+        analyze_sigma_grid(
+            [], empty, empty, empty, empty, [],
+            energy_ranges=((1.1, 1.2),), mass_edges=mass_edges,
+            phi_edges=np.linspace(0.0, np.pi, 13),
+            exposures=(PanelExposure(1.0, 1.0, 0.8, 0.8),), angle=ANGLE,
+        )
 
 
 def test_histogram_panel_uses_left_closed_bins_and_includes_final_upper_edge():

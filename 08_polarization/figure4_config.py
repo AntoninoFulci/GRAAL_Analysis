@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from analysis_config import load_analysis_config
+from analysis_config import AngleConfig, load_analysis_config
 from contracts import PolarizationContractError
 
 
@@ -18,6 +18,7 @@ class Figure4Config:
     tree: str
     vectors: str
     orientation_signs: dict[str, int]
+    angle: AngleConfig
 
 
 def load_figure4_config(path: Path, repository_root: Path | None = None) -> Figure4Config:
@@ -46,4 +47,5 @@ def load_figure4_config(path: Path, repository_root: Path | None = None) -> Figu
         tree=config.figure4_tree,
         vectors=config.figure4_vectors,
         orientation_signs=signs,
+        angle=config.angle,
     )

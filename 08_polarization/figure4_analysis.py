@@ -7,6 +7,7 @@ from typing import Mapping
 
 import numpy as np
 
+from analysis_config import AngleConfig
 from angles import reaction_plane_phi
 from contracts import PolarizationContractError
 from flux_ratio import fit_flux_ratio
@@ -156,11 +157,11 @@ def event_pair_observables(
     eta,
     pi0,
     *,
-    tolerance: float = 1e-12,
+    angle: AngleConfig,
 ) -> dict[str, PairObservables]:
     """Compute three pair masses and one proton reaction-plane phi per event."""
-    if not np.isfinite(tolerance) or tolerance <= 0.0:
-        raise PolarizationContractError("pair-plane tolerance must be positive")
+    if type(angle) is not AngleConfig:
+        raise PolarizationContractError("pair-plane angle must be an AngleConfig")
     beam_vectors = _four_vectors(beam, "beam")
     proton_vectors = _four_vectors(proton, "proton")
     eta_vectors = _four_vectors(eta, "eta")
@@ -171,7 +172,10 @@ def event_pair_observables(
     valid_phi = np.zeros(proton_vectors.shape[0], dtype=bool)
     for index, (beam_row, proton_row) in enumerate(zip(beam_vectors, proton_vectors)):
         result = reaction_plane_phi(
-            beam_row[:3], (1.0, 0.0, 0.0), proton_row[:3], tolerance=tolerance
+            beam_row[:3],
+            angle.reference_axis_lab,
+            proton_row[:3],
+            tolerance=angle.tolerance,
         )
         phi[index] = result.value
         valid_phi[index] = result.valid
@@ -331,6 +335,7 @@ def analyze_sigma_grid(
     mass_edges,
     phi_edges,
     exposures,
+    angle: AngleConfig,
 ) -> dict[tuple[int, str], list[SigmaPoint]]:
     """Build and fit every energy-by-pair panel from reconstructed events."""
     energy_values = np.asarray(energy, dtype=float)
@@ -341,10 +346,20 @@ def analyze_sigma_grid(
         )
     if not np.all(np.isfinite(energy_values)):
         raise PolarizationContractError("beam energy must be finite")
-    observables = event_pair_observables(beam, proton, eta, pi0)
+    if energy_values.size == 0:
+        raise PolarizationContractError("Figure 4 input has no reconstructed events")
+    observables = event_pair_observables(
+        beam, proton, eta, pi0, angle=angle
+    )
     if any(item.mass.shape != energy_values.shape for item in observables.values()):
         raise PolarizationContractError(
             "event four-vectors must match energy-vector length"
+        )
+    invalid_plane = np.flatnonzero(~observables[PAIR_NAMES[0]].valid_phi)
+    if invalid_plane.size:
+        raise PolarizationContractError(
+            "degenerate reaction plane for reconstructed event "
+            f"{int(invalid_plane[0])}"
         )
     ranges = tuple(energy_ranges)
     panel_exposures = tuple(exposures)

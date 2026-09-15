@@ -334,6 +334,7 @@ def main(argv: list[str] | None = None) -> int:
             mass_edges=mass_edges,
             phi_edges=np.linspace(0.0, np.pi, layout.phi_bins + 1),
             exposures=exposures,
+            angle=layout.angle,
         )
         def write_bundle(stage: Path) -> None:
             points_output = stage / "figure4_comparison.csv"
