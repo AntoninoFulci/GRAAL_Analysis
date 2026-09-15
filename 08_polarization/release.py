@@ -659,6 +659,13 @@ def _validate_replayed_release(
     atol = config.response_validation.replay_absolute_tolerance
     rtol = config.response_validation.replay_relative_tolerance
     nominal = evidence.nominal_fit
+    raw_s4_qa = load_json(evidence.directory / "sigma_fit_qa.json")
+    if qa.get("closure") != raw_s4_qa.get("forward_folded_closure"):
+        raise PolarizationContractError(
+            "S6 closure must equal exact replayed S4 forward-folded closure"
+        )
+    if evidence.forward_folded_closure.bin_keys != rows.bin_keys:
+        raise PolarizationContractError("S6 closure bin order disagrees with S4")
     if rows.bin_keys != nominal.bin_keys:
         raise PolarizationContractError("S6 bin order disagrees with replayed S4")
     if not np.allclose(rows.sigma, nominal.sigma, rtol=rtol, atol=atol):
@@ -907,14 +914,29 @@ def _validate_qa(
         raise PolarizationContractError("Sigma bin fails minimum event threshold")
     if np.any(rows.deviance_per_ndof > maximum_deviance):
         raise PolarizationContractError("Sigma bin fails deviance/ndof threshold")
-    closure_bias = _finite_number(closure, "bias", "closure")
-    closure_pull_mean = _finite_number(closure, "pull_mean", "closure")
-    closure_pull_width = _finite_number(closure, "pull_width", "closure")
-    if abs(closure_bias) > maximum_bias:
+    try:
+        closure_bias = np.asarray(closure.get("bias"), dtype=float)
+        closure_pull_mean = np.asarray(closure.get("pull_mean"), dtype=float)
+        closure_pull_width = np.asarray(closure.get("pull_width"), dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise PolarizationContractError(
+            "closure vector QA must be numeric"
+        ) from exc
+    closure_shape = (len(rows.bin_keys),)
+    if (
+        closure_bias.shape != closure_shape
+        or closure_pull_mean.shape != closure_shape
+        or closure_pull_width.shape != closure_shape
+        or not np.all(np.isfinite(closure_bias))
+        or not np.all(np.isfinite(closure_pull_mean))
+        or not np.all(np.isfinite(closure_pull_width))
+    ):
+        raise PolarizationContractError("closure vector QA is misaligned or nonfinite")
+    if np.any(np.abs(closure_bias) > maximum_bias):
         raise PolarizationContractError("closure bias exceeds approved threshold")
-    if abs(closure_pull_mean) > maximum_pull_mean:
+    if np.any(np.abs(closure_pull_mean) > maximum_pull_mean):
         raise PolarizationContractError("closure pull mean exceeds approved threshold")
-    if abs(closure_pull_width - 1.0) > pull_width_tolerance:
+    if np.any(np.abs(closure_pull_width - 1.0) > pull_width_tolerance):
         raise PolarizationContractError("closure pull width exceeds approved tolerance")
     systematics = qa.get("systematic_sources")
     if not isinstance(systematics, list) or not systematics:

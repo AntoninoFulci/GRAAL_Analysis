@@ -443,7 +443,9 @@ def write_valid_release(path):
         },
         "closure": {
             "valid": True, "sign_check_passed": True,
-            "bias": 0.01, "pull_mean": 0.05, "pull_width": 1.04,
+            "bias": [0.01, -0.01],
+            "pull_mean": [0.05, -0.05],
+            "pull_width": [1.04, 0.96],
         },
         "systematic_sources": [
             {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import closure_injected_sigma
@@ -82,3 +84,37 @@ def test_closure_design_uses_production_angle_and_state_mapping(monkeypatch):
 def test_closure_rejects_invalid_controls(injected, experiments, match):
     with pytest.raises(PolarizationContractError, match=match):
         run_injected_closure(injected, experiments=experiments)
+
+
+def test_legacy_scalar_closure_cli_cannot_report_success_for_blocked_config(
+    tmp_path, monkeypatch
+):
+    config = tmp_path / "blocked.json"
+    config.write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocked_reasons": ["release authorities absent"],
+                "closure": {
+                    "random_seed": 1701,
+                    "bias_absolute_max": 1.0,
+                    "pull_mean_absolute_max": 1.0,
+                    "pull_width_tolerance": 1.0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    called = False
+
+    def diagnostic(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("blocked config must fail before scalar diagnostic")
+
+    monkeypatch.setattr(closure_injected_sigma, "run_injected_closure", diagnostic)
+
+    assert closure_injected_sigma.main(
+        ["--config", str(config), "--injected", "0"]
+    ) == 1
+    assert not called

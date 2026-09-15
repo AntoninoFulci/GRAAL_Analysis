@@ -122,6 +122,7 @@ def replay_release(tmp_path, response_fixture, monkeypatch):
         schema_version=np.asarray(1),
     )
     config_payload = json.loads(paths["config"].read_text(encoding="utf-8"))
+    s4_qa = json.loads((s4_dir / "sigma_fit_qa.json").read_text(encoding="utf-8"))
     qa = {
         "schema_version": 1,
         "analysis_version": authority.config.analysis_version,
@@ -143,13 +144,7 @@ def replay_release(tmp_path, response_fixture, monkeypatch):
             "acceptance_phi_response_sha256": sha256_file(paths["response"]),
             "response_application": "forward_folded",
         },
-        "closure": {
-            "valid": True,
-            "sign_check_passed": True,
-            "bias": 0.0,
-            "pull_mean": 0.0,
-            "pull_width": 1.0,
-        },
+        "closure": s4_qa["forward_folded_closure"],
         "systematic_sources": [
             {
                 "name": name,
@@ -193,6 +188,31 @@ def test_s6_cannot_disable_replay(replay_release):
     root, release, _ = replay_release
     with pytest.raises(PolarizationContractError, match="cannot disable"):
         validate_sigma_release(release, root, replay_fit=False)
+
+
+@pytest.mark.parametrize("target", ["fitted_vector", "sign_swapped", "legacy_scalar"])
+def test_s6_rejects_inline_or_legacy_closure_not_equal_to_replayed_s4(
+    replay_release, target
+):
+    root, release, _ = replay_release
+    qa_path = release / "polarization_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    if target == "fitted_vector":
+        qa["closure"]["fitted_sigma_vectors"][0][0] += 0.01
+    elif target == "sign_swapped":
+        qa["closure"]["sign_swapped_sigma"][0] *= -1.0
+    else:
+        qa["closure"] = {
+            "valid": True,
+            "sign_check_passed": True,
+            "bias": 0.0,
+            "pull_mean": 0.0,
+            "pull_width": 1.0,
+        }
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="closure|S4"):
+        validate_sigma_release(release, root)
 
 
 def test_s6_rejects_extra_zero_systematic_everywhere(replay_release):

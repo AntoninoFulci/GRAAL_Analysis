@@ -18,6 +18,10 @@ from contracts import PolarizationContractError
 from fit_evidence import FIT_EVIDENCE_FILENAMES
 from response_uncertainty import ResponsePropagationResult
 from nuisance_uncertainty import NuisancePropagationResult
+from forward_folded_closure import (
+    ALGORITHM_VERSION as CLOSURE_ALGORITHM_VERSION,
+    ForwardFoldedClosureResult,
+)
 from sigma_fit import (
     JointSigmaFitResult,
     _row_order,
@@ -161,6 +165,28 @@ def cli_problem(response_fixture, monkeypatch):
         )
 
     nominal = result(0)
+    closure_injected = np.resize(
+        np.asarray([-0.35, 0.20, 0.50, -0.45, 0.10]), dimension
+    )
+    closure = ForwardFoldedClosureResult(
+        CLOSURE_ALGORITHM_VERSION,
+        bin_keys,
+        closure_injected,
+        np.tile(closure_injected, (64, 1)),
+        closure_injected.copy(),
+        np.zeros(dimension),
+        np.zeros(dimension),
+        np.ones(dimension),
+        -closure_injected,
+        64,
+        authority.config.bootstrap.seed,
+        authority.config.release_qa.closure_bias_absolute_max,
+        authority.config.release_qa.closure_pull_mean_absolute_max,
+        authority.config.release_qa.closure_pull_width_tolerance,
+        authority.config.response_validation.replay_absolute_tolerance,
+        True,
+        True,
+    )
     replica_order = []
 
     def fit_core(_counts, _response, *, config, replica_id=0):
@@ -173,6 +199,9 @@ def cli_problem(response_fixture, monkeypatch):
     monkeypatch.setattr(fit_sigma, "fit_sigma_forward_folded", lambda **_kw: nominal)
     monkeypatch.setattr(fit_sigma, "_fit_sigma_forward_folded_core", fit_core)
     monkeypatch.setattr(fit_evidence, "_fit_sigma_forward_folded_core", fit_core)
+    monkeypatch.setattr(
+        fit_evidence, "_run_closure", lambda *_args, **_kwargs: closure
+    )
     monkeypatch.setattr(
         fit_sigma,
         "bootstrap_sigma_covariance",

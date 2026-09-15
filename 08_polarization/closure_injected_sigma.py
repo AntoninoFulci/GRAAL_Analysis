@@ -1,4 +1,4 @@
-"""Injected-asymmetry closure and controlled orientation-sign test."""
+"""Legacy scalar diagnostic; not S4/S5 release closure evidence."""
 
 from __future__ import annotations
 
@@ -152,6 +152,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         config = load_json(args.config)
+        if config.get("status") != "approved" or config.get("blocked_reasons") != []:
+            raise PolarizationContractError(
+                "legacy scalar closure cannot release a blocked config"
+            )
         closure = config.get("closure")
         if not isinstance(closure, dict):
             raise PolarizationContractError("config closure must be a JSON object")

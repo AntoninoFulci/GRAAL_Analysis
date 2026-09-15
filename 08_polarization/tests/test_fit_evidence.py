@@ -217,6 +217,17 @@ def test_fit_evidence_round_trip_reconstructs_immutable_scientific_arrays(
     with pytest.raises(TypeError):
         evidence.qa["bootstrap"]["successful_replica_ids"][0] = 99
 
+    closure = evidence.forward_folded_closure
+    assert closure.bin_keys == evidence.nominal_fit.bin_keys
+    assert closure.fitted_sigma_vectors.shape == (
+        closure.experiments,
+        len(evidence.nominal_fit.bin_keys),
+    )
+    assert closure.sign_check_passed
+    assert closure.valid
+    with pytest.raises(ValueError):
+        closure.fitted_sigma_vectors[0, 0] = 9.0
+
 
 @pytest.mark.parametrize(
     "name",
@@ -327,6 +338,33 @@ def test_fit_evidence_writer_emits_exact_approved_state(evidence_problem):
     assert qa["status"] == "approved"
     assert qa["valid"] is True
     assert qa["blocked_reasons"] == []
+    assert qa["forward_folded_closure"]["algorithm_version"] == (
+        "forward-folded-poisson-ensemble-v1"
+    )
+
+
+@pytest.mark.parametrize(
+    "target",
+    ["fitted_vector", "sign_swapped", "threshold", "missing"],
+)
+def test_fit_evidence_rejects_forward_folded_closure_tamper_and_legacy_migration(
+    evidence_problem, target
+):
+    paths, authority, output = evidence_problem
+    qa_path = output / "sigma_fit_qa.json"
+    qa = json.loads(qa_path.read_text(encoding="utf-8"))
+    if target == "fitted_vector":
+        qa["forward_folded_closure"]["fitted_sigma_vectors"][0][0] += 0.01
+    elif target == "sign_swapped":
+        qa["forward_folded_closure"]["sign_swapped_sigma"][0] *= -1.0
+    elif target == "threshold":
+        qa["forward_folded_closure"]["bias_threshold"] *= 2.0
+    else:
+        qa.pop("forward_folded_closure")
+    qa_path.write_text(json.dumps(qa), encoding="utf-8")
+
+    with pytest.raises(PolarizationContractError, match="closure|top-level"):
+        validate_fit_evidence(output, paths["root"], config=authority.config)
 
 
 def test_fit_evidence_rejects_n4_claim_and_extra_file(evidence_problem):

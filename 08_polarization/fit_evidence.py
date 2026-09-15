@@ -49,6 +49,11 @@ from nuisance_uncertainty import (
     propagate_compton_covariance,
     propagate_flux_exposure_covariance,
 )
+from forward_folded_closure import (
+    ALGORITHM_VERSION as CLOSURE_ALGORITHM_VERSION,
+    ForwardFoldedClosureResult,
+    run_forward_folded_closure,
+)
 from sigma_fit import (
     JointSigmaFitResult,
     _fit_sigma_forward_folded_core,
@@ -77,7 +82,8 @@ _QA_KEYS = frozenset(
         "schema_version", "analysis_version", "fit_release_id",
         "producer_commit", "status", "valid", "blocked_reasons", "bin_set_id",
         "counts", "fit", "authorities", "optimizer", "bootstrap",
-        "nominal_fit", "response_propagation", "nuisance_propagations", "release_qa",
+        "nominal_fit", "response_propagation", "nuisance_propagations",
+        "forward_folded_closure", "release_qa",
     }
 )
 _AUTHORITY_KEYS = frozenset(
@@ -101,6 +107,7 @@ class FitEvidence:
     response_propagation: ResponsePropagationResult
     compton_propagation: NuisancePropagationResult
     flux_exposure_propagation: NuisancePropagationResult
+    forward_folded_closure: ForwardFoldedClosureResult
     bootstrap_sigma_vectors: np.ndarray
     successful_replica_ids: tuple[int, ...]
     failed_replica_ids: tuple[int, ...]
@@ -230,6 +237,46 @@ def _same_nuisance_propagation(
             ):
                 return False
     return True
+
+
+def _same_forward_folded_closure(
+    recorded: ForwardFoldedClosureResult,
+    replayed: ForwardFoldedClosureResult,
+    *,
+    rtol: float,
+    atol: float,
+) -> bool:
+    if (
+        recorded.algorithm_version != replayed.algorithm_version
+        or recorded.bin_keys != replayed.bin_keys
+        or recorded.experiments != replayed.experiments
+        or recorded.seed != replayed.seed
+        or recorded.sign_check_passed != replayed.sign_check_passed
+        or recorded.valid != replayed.valid
+    ):
+        return False
+    for name in (
+        "bias_threshold",
+        "pull_mean_threshold",
+        "pull_width_tolerance",
+        "sign_tolerance",
+    ):
+        if not math.isclose(
+            getattr(recorded, name), getattr(replayed, name), rel_tol=rtol, abs_tol=atol
+        ):
+            return False
+    return all(
+        np.allclose(getattr(recorded, name), getattr(replayed, name), rtol=rtol, atol=atol)
+        for name in (
+            "injected_sigma",
+            "fitted_sigma_vectors",
+            "fitted_mean",
+            "bias",
+            "pull_mean",
+            "pull_width",
+            "sign_swapped_sigma",
+        )
+    )
 
 
 def _finite(value: object, label: str) -> float:
@@ -403,6 +450,54 @@ def _nuisance_payload(result: NuisancePropagationResult) -> dict[str, object]:
     }
 
 
+def _closure_payload(result: ForwardFoldedClosureResult) -> dict[str, object]:
+    return {
+        "algorithm_version": result.algorithm_version,
+        "bin_keys": list(result.bin_keys),
+        "injected_sigma": result.injected_sigma.tolist(),
+        "fitted_sigma_vectors": result.fitted_sigma_vectors.tolist(),
+        "fitted_mean": result.fitted_mean.tolist(),
+        "bias": result.bias.tolist(),
+        "pull_mean": result.pull_mean.tolist(),
+        "pull_width": result.pull_width.tolist(),
+        "sign_swapped_sigma": result.sign_swapped_sigma.tolist(),
+        "experiments": result.experiments,
+        "seed": result.seed,
+        "bias_threshold": result.bias_threshold,
+        "pull_mean_threshold": result.pull_mean_threshold,
+        "pull_width_tolerance": result.pull_width_tolerance,
+        "sign_tolerance": result.sign_tolerance,
+        "sign_check_passed": result.sign_check_passed,
+        "valid": result.valid,
+    }
+
+
+def _run_closure(
+    counts: AzimuthCountTable,
+    authority: CountAuthority,
+    *,
+    experiments: int | None = None,
+    seed: int | None = None,
+) -> ForwardFoldedClosureResult:
+    config = authority.config
+    configured = config.bootstrap.replicas
+    configured_seed = config.bootstrap.seed
+    if type(configured) is not int or type(configured_seed) is not int:
+        raise PolarizationContractError("S4 closure requires approved deterministic controls")
+    qa = config.release_qa
+    return run_forward_folded_closure(
+        counts,
+        authority.response,
+        config,
+        seed=configured_seed if seed is None else seed,
+        experiments=max(configured, 64) if experiments is None else experiments,
+        bias_threshold=float(qa.closure_bias_absolute_max),
+        pull_mean_threshold=float(qa.closure_pull_mean_absolute_max),
+        pull_width_tolerance=float(qa.closure_pull_width_tolerance),
+        sign_tolerance=float(config.response_validation.replay_absolute_tolerance),
+    )
+
+
 def _fit_bin_diagnostics(
     counts: AzimuthCountTable, nominal: JointSigmaFitResult
 ) -> tuple[tuple[AzimuthCountRow, ...], tuple[int, ...], tuple[float, ...]]:
@@ -513,6 +608,11 @@ def write_fit_evidence(
         raise PolarizationContractError(
             "bootstrap Sigma vectors disagree with successful replicas"
         )
+    closure = _run_closure(counts, fresh)
+    if closure.bin_keys != nominal.bin_keys or not closure.valid:
+        raise PolarizationContractError(
+            "S4 evidence requires valid forward-folded full-vector closure"
+        )
 
     nominal_rows, observed_by_bin, deviance_by_bin = _fit_bin_diagnostics(
         counts, nominal
@@ -598,6 +698,7 @@ def write_fit_evidence(
             COMPTON_SOURCE_NAME: _nuisance_payload(compton_propagation),
             FLUX_SOURCE_NAME: _nuisance_payload(flux_exposure_propagation),
         },
+        "forward_folded_closure": _closure_payload(closure),
         "release_qa": _release_qa_payload(fresh, nominal, observed_by_bin),
     }
     (target / "sigma_fit_qa.json").write_text(
@@ -795,6 +896,90 @@ def _validate_nuisance_payload(
     return NuisancePropagationResult(
         expected_name, response_like.covariance, input_keys, input_covariance,
         response_like.retained_modes, refits, True,
+    )
+
+
+def _validate_closure_payload(
+    raw: object,
+    dimension: int,
+    *,
+    config: AnalysisConfig,
+) -> ForwardFoldedClosureResult:
+    required = {
+        "algorithm_version", "bin_keys", "injected_sigma",
+        "fitted_sigma_vectors", "fitted_mean", "bias", "pull_mean",
+        "pull_width", "sign_swapped_sigma", "experiments", "seed",
+        "bias_threshold", "pull_mean_threshold", "pull_width_tolerance",
+        "sign_tolerance", "sign_check_passed", "valid",
+    }
+    if (
+        not isinstance(raw, Mapping)
+        or set(raw) != required
+        or raw.get("algorithm_version") != CLOSURE_ALGORITHM_VERSION
+        or raw.get("sign_check_passed") is not True
+        or raw.get("valid") is not True
+    ):
+        raise PolarizationContractError(
+            "S4 forward-folded closure record is invalid"
+        )
+    bin_keys = tuple(raw["bin_keys"]) if isinstance(raw["bin_keys"], list) else ()
+    experiments = _integer(raw["experiments"], "S4 closure experiments", minimum=2)
+    seed = _integer(raw["seed"], "S4 closure seed")
+    vectors = _json_array(
+        raw["fitted_sigma_vectors"], "S4 closure fitted Sigma vectors", ndim=2
+    )
+    if vectors.shape != (experiments, dimension):
+        raise PolarizationContractError("S4 closure fitted vectors are misaligned")
+    arrays = {}
+    for name in (
+        "injected_sigma", "fitted_mean", "bias", "pull_mean", "pull_width",
+        "sign_swapped_sigma",
+    ):
+        value = _json_array(raw[name], f"S4 closure {name}", ndim=1)
+        if value.shape != (dimension,):
+            raise PolarizationContractError("S4 closure vector shape is invalid")
+        arrays[name] = _readonly(value)
+    thresholds = {
+        name: _finite(raw[name], f"S4 closure {name}")
+        for name in (
+            "bias_threshold", "pull_mean_threshold", "pull_width_tolerance",
+            "sign_tolerance",
+        )
+    }
+    expected_thresholds = (
+        float(config.release_qa.closure_bias_absolute_max),
+        float(config.release_qa.closure_pull_mean_absolute_max),
+        float(config.release_qa.closure_pull_width_tolerance),
+        float(config.response_validation.replay_absolute_tolerance),
+    )
+    if (
+        bin_keys == ()
+        or len(set(bin_keys)) != dimension
+        or any(not isinstance(key, str) or not key for key in bin_keys)
+        or any(value < 0.0 for value in thresholds.values())
+        or not np.allclose(
+            tuple(thresholds.values()), expected_thresholds, rtol=0.0, atol=0.0
+        )
+    ):
+        raise PolarizationContractError("S4 closure authority is invalid")
+    return ForwardFoldedClosureResult(
+        CLOSURE_ALGORITHM_VERSION,
+        bin_keys,
+        arrays["injected_sigma"],
+        _readonly(vectors),
+        arrays["fitted_mean"],
+        arrays["bias"],
+        arrays["pull_mean"],
+        arrays["pull_width"],
+        arrays["sign_swapped_sigma"],
+        experiments,
+        seed,
+        thresholds["bias_threshold"],
+        thresholds["pull_mean_threshold"],
+        thresholds["pull_width_tolerance"],
+        thresholds["sign_tolerance"],
+        True,
+        True,
     )
 
 
@@ -1055,6 +1240,32 @@ def validate_fit_evidence(
         flux_exposure, replayed_flux, rtol=response_relative, atol=response_tolerance
     ):
         raise PolarizationContractError("S4 nuisance modes disagree with authenticated replay")
+    closure = _validate_closure_payload(
+        qa.get("forward_folded_closure"), len(nominal.bin_keys), config=config
+    )
+    if (
+        closure.bin_keys != nominal.bin_keys
+        or closure.experiments != max(config.bootstrap.replicas, 64)
+        or closure.seed != config.bootstrap.seed
+    ):
+        raise PolarizationContractError(
+            "S4 closure layout or deterministic controls disagree with policy"
+        )
+    replayed_closure = _run_closure(
+        counts,
+        fresh_authority,
+        experiments=closure.experiments,
+        seed=closure.seed,
+    )
+    if not _same_forward_folded_closure(
+        closure,
+        replayed_closure,
+        rtol=response_relative,
+        atol=response_tolerance,
+    ):
+        raise PolarizationContractError(
+            "S4 forward-folded closure disagrees with authenticated replay"
+        )
     nominal_rows = tuple(
         sorted(
             (row for row in counts.rows if row.replica_id == 0),
@@ -1153,6 +1364,7 @@ def validate_fit_evidence(
         response,
         compton,
         flux_exposure,
+        closure,
         _readonly(vectors),
         successful,
         failed,
