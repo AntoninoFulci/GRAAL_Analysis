@@ -66,7 +66,7 @@ NEVENTS=1000000
 INPUT_TREE="auto"
 
 # Which channel the stage-1 BDT is trained to pick out. Any of the nine in
-# graal_common.channels can play signal; the rest become its background.
+# graal_common.physics.channels can play signal; the rest become its background.
 SIGNAL_CHANNEL="eta_pi0"
 # Recoil partner for the reconstruction's missing-mass cut (proton|neutron|deuteron).
 PARTNER="proton"
@@ -79,7 +79,7 @@ SIGNAL_PRIOR="0.5"
 MC_DIR="03_mc_simulation"
 MC_DATA_DIR="${MC_DIR}/data"
 BDT_DIR="04_bdt_training"
-MODEL_DIR="${BDT_DIR}/model"
+MODEL_DIR="${BDT_DIR}/artifacts/stage1"
 FEATURES_FILE="${BDT_DIR}/data/features_stage1.npz"
 BEAM_SPECTRUM_FILE="${BDT_DIR}/data/beam_spectrum.npz"
 CUTS_DIR="01_pre_analysis/cuts"
@@ -275,14 +275,14 @@ if [[ $NEED_MC -eq 1 ]]; then
     # The channel list comes from the registry, so a channel added there cannot
     # be forgotten here and quietly never generated.
     read -r -a channels <<< "$(${PYTHON} -c \
-        'from graal_common.channels import CHANNEL_NAMES; print(" ".join(CHANNEL_NAMES))')"
+        'from graal_common.physics.channels import CHANNEL_NAMES; print(" ".join(CHANNEL_NAMES))')"
 
     # The macros write their .root file into the current directory, so run them
     # from the data dir and reach back up for the macro itself.
     pushd "${MC_DATA_DIR}" > /dev/null
     for channel in "${channels[@]}"; do
         echo "  -> ${channel} (N=${NEVENTS})"
-        ${ROOT_EXEC} -l -b -q "../generate_${channel}_dataset.C(${NEVENTS})"
+        ${ROOT_EXEC} -l -b -q "../generators/generate_${channel}_dataset.C(${NEVENTS})"
     done
     popd > /dev/null
 

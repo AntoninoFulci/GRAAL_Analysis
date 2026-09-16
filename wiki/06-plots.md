@@ -4,13 +4,15 @@
 
 ## Struttura
 
-La cartella è divisa in tre moduli:
+La cartella separa calcolo, accesso dati e report:
 
-* **`kinematics.py`**: contiene solo funzioni matematiche su quadrivettori NumPy (`invariant_mass`, `sqrt_s`, `dalitz_limit`) e le costanti fisiche. Non usa ROOT.
-* **`dalitz.py`**: gestisce lettura ROOT, creazione degli istogrammi e grafici.
+* **`core/kinematics.py`**: funzioni matematiche su quadrivettori NumPy (`invariant_mass`, `sqrt_s`, `dalitz_limit`) e costanti fisiche. Non usa ROOT.
+* **`core/reconstruction_data.py`**: lettura degli alberi ROOT e conversione nei record usati dai plot.
+* **`dalitz.py`**: creazione degli istogrammi e dei report Dalitz.
 * **`kinfit_resolution.py`**: studia il miglioramento del fit cinematico usando MC di segnale, leggendo con `uproot` e producendo grafici con matplotlib.
+* **`fig7_compton_polarization.py`**: riproduce il grafico di polarizzazione Compton; gli output versionati vivono in `artifacts/`.
 
-La separazione permette di testare la parte fisica senza dipendere da ROOT.
+La separazione permette di testare calcolo, conversione dati e reporting in isolamento.
 
 ## Confronto chi² vs BDT
 

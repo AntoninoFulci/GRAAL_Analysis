@@ -11,7 +11,7 @@ CHANNELS = [
 ]
 ```
 
-`00_common/channels.py::CHANNEL_NAMES`, l'ordine in cui `mc_status` li riporta e in cui la fase 3 li genera.
+`00_common/physics/channels.py::CHANNEL_NAMES`, l'ordine in cui `mc_status` li riporta e in cui la fase 3 li genera.
 Ogni canale ha una propria macro ROOT generatrice (`generate_<canale>_dataset.C`) che scrive `03_mc_simulation/data/<canale>_mc.root`, il file viene creato dalla macro stessa (`TFile *fout = new TFile("pi0pi0_mc.root", "RECREATE")`), girata dalla cartella dati.
 
 
@@ -80,7 +80,7 @@ Un generatore estrae dalla soglia in su e poi smeara con la risoluzione del tagg
 
 ## Il peso di un canale: flusso integrato, non un numero fisso
 
-Il registry `00_common/channels.py` porta la sezione d'urto di riferimento **a una energia** per gli otto fondi. Il segnale (`eta_pi0`) non ne ha, e `eta_pi0_via_3pi0` nemmeno — vedi sotto per entrambi.
+Il registry `00_common/physics/channels.py` porta la sezione d'urto di riferimento **a una energia** per gli otto fondi. Il segnale (`eta_pi0`) non ne ha, e `eta_pi0_via_3pi0` nemmeno — vedi sotto per entrambi.
 
 | canale | `sigma_ref_ub` | `e_ref_gev` | fonte |
 |---|---|---|---|
@@ -101,7 +101,7 @@ Il registry `00_common/channels.py` porta la sezione d'urto di riferimento **a u
 
 Prima non era così: un `sigma_ref` piatto su tutto l'intervallo del fascio ignorava che un canale non esiste sotto soglia — `omega_pi0` apre a 1.366 GeV ed `etaprime` a 1.447, negli ultimi punti percentuali dell'intervallo di GRAAL, eppure entrambi venivano pesati al loro valore misurato ben sopra soglia. Il fix è in tre pezzi:
 
-**La forma `sigma(E)`** (`00_common/cross_sections.py::sigma_at`):
+**La forma `sigma(E)`** (`00_common/physics/cross_sections.py::sigma_at`):
 
 ```
 sigma(E) = sigma_ref * min(1, Phi_n(W(E)) / Phi_n(W(E_ref)))

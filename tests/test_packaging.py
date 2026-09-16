@@ -2,7 +2,7 @@
 
 
 def test_graal_common_importable():
-    from graal_common.channels import CHANNELS, M_ETA
+    from graal_common.physics.channels import CHANNELS, M_ETA
 
     assert M_ETA > 0
     assert "eta_pi0" in CHANNELS

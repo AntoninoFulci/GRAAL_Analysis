@@ -11,8 +11,8 @@ import re
 import sys
 from typing import Sequence
 
-from graal_common.run_manifest import ManifestError, validate_manifest
-from graal_common.strip_energy_flux import (
+from graal_common.calibration.run_manifest import ManifestError, validate_manifest
+from graal_common.calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
     EnergyBinning,

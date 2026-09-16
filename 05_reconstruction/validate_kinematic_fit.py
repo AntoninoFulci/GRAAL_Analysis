@@ -20,10 +20,10 @@ import uproot
 from scipy.stats import chi2 as chi2_distribution
 from scipy.stats import kstest
 
-from graal_common.channels import ETA_PI0_HYP, M_ETA
-from graal_common.pairing import Pairing
-from graal_common.vectors import lorentz_array as _vec
-from reconstruction.kinematic_fit import FitCovariance, fit_event
+from graal_common.physics.channels import ETA_PI0_HYP, M_ETA
+from graal_common.physics.pairing import Pairing
+from graal_common.io.vectors import lorentz_array as _vec
+from reconstruction.core.kinematic_fit import FitCovariance, fit_event
 
 PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
 

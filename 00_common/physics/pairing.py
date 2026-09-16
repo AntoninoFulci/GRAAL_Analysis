@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from graal_common.channels import CHI2_RESOLUTION, Hypothesis
+from graal_common.physics.channels import CHI2_RESOLUTION, Hypothesis
 
 # The C(4,2)=6 photon pairs, and the slot each occupies in a pair-mass array.
 PAIR_IDX: list[tuple[int, int]] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]

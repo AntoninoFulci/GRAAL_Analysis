@@ -14,8 +14,9 @@ true signal follows chi2(6) -- the basis of the confidence-level cut that
 replaces the missing-mass window.
 
 Pure numpy: the parametrisation is (E, theta, phi) per photon, (P, theta, phi)
-for the proton (E = sqrt(P^2 + m_p^2)), and E for the beam (along z). That keeps
-the covariance diagonal and equal to the smearing model in smearing.h.
+for the recoil, and E for the beam (along z). The default reaction model keeps
+the historical proton target and proton recoil assumptions. That parametrisation
+keeps the covariance diagonal and equal to the smearing model in smearing.h.
 """
 from __future__ import annotations
 
@@ -25,10 +26,24 @@ from typing import Protocol
 import numpy as np
 from scipy.stats import chi2 as _chi2dist
 
-from graal_common.channels import M_PROTON, TAGGER_SIGMA_GEV, Hypothesis
-from graal_common.pairing import Pairing
+from graal_common.physics.channels import M_PROTON, TAGGER_SIGMA_GEV, Hypothesis
+from graal_common.physics.pairing import Pairing
 
 _DEG = np.pi / 180.0
+
+
+@dataclass(frozen=True)
+class FitReactionModel:
+    """Target and recoil mass assumptions used by the kinematic constraints."""
+
+    target_mass: float
+    recoil_mass: float
+
+
+PROTON_TARGET_REACTION = FitReactionModel(
+    target_mass=M_PROTON,
+    recoil_mass=M_PROTON,
+)
 
 
 @dataclass(frozen=True)
@@ -115,14 +130,17 @@ def _vectors_to_params(photons: np.ndarray, proton: np.ndarray,
     return p
 
 
-def _params_to_vectors(p: np.ndarray):
+def _params_to_vectors(
+    p: np.ndarray,
+    reaction: FitReactionModel = PROTON_TARGET_REACTION,
+):
     photons = np.zeros((4, 4))
     for i in range(4):
         E, th, ph = p[3 * i], p[3 * i + 1], p[3 * i + 2]
         s = np.sin(th)
         photons[i] = [E * s * np.cos(ph), E * s * np.sin(ph), E * np.cos(th), E]
     P, thp, php = p[12], p[13], p[14]
-    Ep = np.sqrt(P ** 2 + M_PROTON ** 2)
+    Ep = np.sqrt(P ** 2 + reaction.recoil_mass ** 2)
     s = np.sin(thp)
     proton = np.array([P * s * np.cos(php), P * s * np.sin(php), P * np.cos(thp), Ep])
     Eb = p[15]
@@ -147,9 +165,10 @@ def _covariance_diag(p: np.ndarray, cov: FitCovariance) -> np.ndarray:
 
 
 def _constraints(p: np.ndarray, pairing: Pairing,
-                 m_heavy: float, m_light: float) -> np.ndarray:
-    photons, proton, beam = _params_to_vectors(p)
-    target = np.array([0.0, 0.0, 0.0, M_PROTON])
+                 m_heavy: float, m_light: float,
+                 reaction: FitReactionModel = PROTON_TARGET_REACTION) -> np.ndarray:
+    photons, proton, beam = _params_to_vectors(p, reaction)
+    target = np.array([0.0, 0.0, 0.0, reaction.target_mass])
     balance = (beam + target) - (proton + photons.sum(axis=0))   # (4,) px,py,pz,E
     gh = photons[pairing.heavy[0]] + photons[pairing.heavy[1]]
     gl = photons[pairing.light[0]] + photons[pairing.light[1]]
@@ -160,7 +179,8 @@ def _constraints(p: np.ndarray, pairing: Pairing,
 
 
 def _jacobian(p: np.ndarray, pairing: Pairing,
-              m_heavy: float, m_light: float) -> np.ndarray:
+              m_heavy: float, m_light: float,
+              reaction: FitReactionModel = PROTON_TARGET_REACTION) -> np.ndarray:
     """d f / d p, 6 x 16, by central differences."""
     n = p.size
     F = np.zeros((6, n))
@@ -168,8 +188,8 @@ def _jacobian(p: np.ndarray, pairing: Pairing,
         step = max(abs(p[j]) * 1e-6, 1e-8)
         pp = p.copy(); pp[j] += step
         pm = p.copy(); pm[j] -= step
-        F[:, j] = (_constraints(pp, pairing, m_heavy, m_light)
-                   - _constraints(pm, pairing, m_heavy, m_light)) / (2 * step)
+        F[:, j] = (_constraints(pp, pairing, m_heavy, m_light, reaction)
+                   - _constraints(pm, pairing, m_heavy, m_light, reaction)) / (2 * step)
     return F
 
 
@@ -177,7 +197,8 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
               pairing: Pairing, hypothesis: Hypothesis,
               cov: ResolutionModel = FitCovariance(),
               max_iter: int = 10, tol: float = 1e-8,
-              options: FitOptions | None = None) -> FitResult:
+              options: FitOptions | None = None,
+              reaction: FitReactionModel = PROTON_TARGET_REACTION) -> FitResult:
     """Fit one event onto 4-momentum conservation and the two pair masses."""
     options = options or FitOptions(max_iter=max_iter, constraint_tol=tol)
     m_heavy, m_light = hypothesis.heavy_mass, hypothesis.light_mass
@@ -210,8 +231,8 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
     scales = np.array([1.0, 1.0, 1.0, 1.0, m_heavy**2, m_light**2])
 
     for _ in range(options.max_iter):
-        f = _constraints(eta, pairing, m_heavy, m_light)
-        F = _jacobian(eta, pairing, m_heavy, m_light)
+        f = _constraints(eta, pairing, m_heavy, m_light, reaction)
+        F = _jacobian(eta, pairing, m_heavy, m_light, reaction)
         S = F @ (V[:, None] * F.T)                     # F V F^T, V diagonal
         if float(np.max(np.abs(f) / scales)) < options.constraint_tol:
             chi2 = 0.0 if np.array_equal(eta, y) else chi2
@@ -224,7 +245,7 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
             not np.isfinite(condition_number)
             or condition_number > options.max_condition_number
         ):
-            fp, pr, _ = _params_to_vectors(eta)
+            fp, pr, _ = _params_to_vectors(eta, reaction)
             return FitResult(
                 fp, pr, 1e12, 6, False, V.copy(),
                 failure_reason="singular_constraint_matrix",
@@ -233,7 +254,7 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
         try:
             lam = np.linalg.solve(S, r)
         except np.linalg.LinAlgError:
-            fp, pr, _ = _params_to_vectors(eta)
+            fp, pr, _ = _params_to_vectors(eta, reaction)
             return FitResult(
                 fp, pr, 1e12, 6, False, V.copy(),
                 failure_reason="singular_constraint_matrix",
@@ -241,7 +262,7 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
             )
         eta = y - V * (F.T @ lam)
         chi2 = float(r @ lam)
-        constraints = _constraints(eta, pairing, m_heavy, m_light)
+        constraints = _constraints(eta, pairing, m_heavy, m_light, reaction)
         scaled_residual = float(np.max(np.abs(constraints) / scales))
         chi2_stable = (
             np.isfinite(previous_chi2)
@@ -254,7 +275,7 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
             break
         previous_chi2 = chi2
 
-    fitted_photons, fitted_proton, _ = _params_to_vectors(eta)
+    fitted_photons, fitted_proton, _ = _params_to_vectors(eta, reaction)
     fitted_params_valid = (
         np.all(np.isfinite(eta))
         and np.all(eta[[0, 3, 6, 9, 15]] > 0.0)

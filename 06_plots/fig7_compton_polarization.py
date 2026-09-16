@@ -14,10 +14,9 @@ GREEN_WAVELENGTH_NM = 514.0
 UV_WAVELENGTH_NM = 351.0
 TAGGING_THRESHOLD_MEV = 550.0
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "fig7_compton_polarization.pdf"
-DEFAULT_ROOT_OUTPUT = (
-    Path(__file__).resolve().parent / "fig7_compton_polarization.root"
-)
+_ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
+DEFAULT_OUTPUT = _ARTIFACT_DIR / "fig7_compton_polarization.pdf"
+DEFAULT_ROOT_OUTPUT = _ARTIFACT_DIR / "fig7_compton_polarization.root"
 
 _ELECTRON_MASS_MEV = 0.51099895
 _HC_MEV_NM = 1.239841984e-3

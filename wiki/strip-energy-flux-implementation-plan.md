@@ -10,13 +10,13 @@
 `POL1/POL2/BREM` flux into publication energy bins and manifest groups.
 
 **Architecture:** Pure validation, lookup, binning, integration, aggregation,
-and serialization logic lives in `graal_common.strip_energy_flux`. ROOT input
+and serialization logic lives in `graal_common.calibration.strip_energy_flux`. ROOT input
 adaptation and command orchestration live in
 `scripts/build_strip_energy_flux.py`. Tests first exercise pure functions,
 then run CLI against real miniature ROOT files.
 
 **Tech Stack:** Python 3.10+, standard library, PyROOT, pytest, existing
-`graal_common.run_manifest`.
+`graal_common.calibration.run_manifest`.
 
 ## Global Constraints
 
@@ -48,12 +48,12 @@ then run CLI against real miniature ROOT files.
 
 ## File Map
 
-- Create `00_common/strip_energy_flux.py`: pure records, validation,
+- Create `00_common/calibration/strip_energy_flux.py`: pure records, validation,
   statistics, binning, integration, aggregation, CSV/JSON serialization.
 - Create `00_common/tests/test_strip_energy_flux.py`: pure unit tests.
 - Create `scripts/build_strip_energy_flux.py`: PyROOT readers, CLI, atomic
   output orchestration.
-- Create `00_common/tests/test_build_strip_energy_flux.py`: real ROOT CLI
+- Create `tests/test_build_strip_energy_flux.py`: real ROOT CLI
   integration and failure tests.
 - Modify `wiki/pipeline.md`: farm command, inputs, outputs, validation flow.
 - Modify `wiki/data-formats.md`: document lookup, flux CSV, and QA schemas.
@@ -64,7 +64,7 @@ then run CLI against real miniature ROOT files.
 
 **Files:**
 
-- Create: `00_common/strip_energy_flux.py`
+- Create: `00_common/calibration/strip_energy_flux.py`
 - Create: `00_common/tests/test_strip_energy_flux.py`
 
 **Interfaces:**
@@ -92,7 +92,7 @@ import math
 
 import pytest
 
-from graal_common.strip_energy_flux import (
+from graal_common.calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
     EnergySample,
@@ -148,7 +148,7 @@ Run:
 pytest -q 00_common/tests/test_strip_energy_flux.py
 ```
 
-Expected: collection error because `graal_common.strip_energy_flux` does not
+Expected: collection error because `graal_common.calibration.strip_energy_flux` does not
 exist.
 
 - [ ] **Step 3: Implement immutable records, preset validation, bin lookup,
@@ -309,7 +309,7 @@ Expected: all Task 1 tests pass.
 - [ ] **Step 6: Commit Task 1**
 
 ```bash
-git add 00_common/strip_energy_flux.py \
+git add 00_common/calibration/strip_energy_flux.py \
         00_common/tests/test_strip_energy_flux.py
 git commit -m "feat: derive run strip energy lookup"
 ```
@@ -320,13 +320,13 @@ git commit -m "feat: derive run strip energy lookup"
 
 **Files:**
 
-- Modify: `00_common/strip_energy_flux.py`
+- Modify: `00_common/calibration/strip_energy_flux.py`
 - Modify: `00_common/tests/test_strip_energy_flux.py`
 
 **Interfaces:**
 
 - Consumes: Task 1 `EnergyBinning`, `StripEnergyRecord`,
-  `energy_bin_index`; existing `graal_common.run_manifest.RunRecord`.
+  `energy_bin_index`; existing `graal_common.calibration.run_manifest.RunRecord`.
 - Produces:
   - `StripFlux(run_number, xstrip, pol1, brem, pol2)`
   - `FluxBinRecord(binning, run_number, source_period, target, beam_type,
@@ -340,8 +340,8 @@ git commit -m "feat: derive run strip energy lookup"
 - [ ] **Step 1: Write failing integration tests**
 
 ```python
-from graal_common.run_manifest import RunRecord
-from graal_common.strip_energy_flux import (
+from graal_common.calibration.run_manifest import RunRecord
+from graal_common.calibration.strip_energy_flux import (
     EnergyBinning,
     StripEnergyRecord,
     StripFlux,
@@ -539,7 +539,7 @@ Expected: all Task 1 and Task 2 tests pass.
 - [ ] **Step 6: Commit Task 2**
 
 ```bash
-git add 00_common/strip_energy_flux.py \
+git add 00_common/calibration/strip_energy_flux.py \
         00_common/tests/test_strip_energy_flux.py
 git commit -m "feat: integrate flux by energy and group"
 ```
@@ -550,7 +550,7 @@ git commit -m "feat: integrate flux by energy and group"
 
 **Files:**
 
-- Modify: `00_common/strip_energy_flux.py`
+- Modify: `00_common/calibration/strip_energy_flux.py`
 - Modify: `00_common/tests/test_strip_energy_flux.py`
 
 **Interfaces:**
@@ -684,7 +684,7 @@ Expected: all serialization tests pass.
 - [ ] **Step 5: Commit Task 3**
 
 ```bash
-git add 00_common/strip_energy_flux.py \
+git add 00_common/calibration/strip_energy_flux.py \
         00_common/tests/test_strip_energy_flux.py
 git commit -m "feat: serialize strip energy flux artifacts"
 ```
@@ -696,7 +696,7 @@ git commit -m "feat: serialize strip energy flux artifacts"
 **Files:**
 
 - Create: `scripts/build_strip_energy_flux.py`
-- Create: `00_common/tests/test_build_strip_energy_flux.py`
+- Create: `tests/test_build_strip_energy_flux.py`
 
 **Interfaces:**
 
@@ -777,7 +777,7 @@ Run:
 
 ```bash
 pytest -q \
-  00_common/tests/test_build_strip_energy_flux.py::test_root_adapters_read_h80_and_flux_triplet
+  tests/test_build_strip_energy_flux.py::test_root_adapters_read_h80_and_flux_triplet
 ```
 
 Expected: import error because script does not exist.
@@ -836,7 +836,7 @@ with pytest.raises(StripEnergyFluxError, match="run7_BREM"):
 Run:
 
 ```bash
-pytest -q 00_common/tests/test_build_strip_energy_flux.py
+pytest -q tests/test_build_strip_energy_flux.py
 ```
 
 Expected: all ROOT adapter tests pass.
@@ -845,7 +845,7 @@ Expected: all ROOT adapter tests pass.
 
 ```bash
 git add scripts/build_strip_energy_flux.py \
-        00_common/tests/test_build_strip_energy_flux.py
+        tests/test_build_strip_energy_flux.py
 git commit -m "feat: read h80 strip energies and ROOT flux"
 ```
 
@@ -856,7 +856,7 @@ git commit -m "feat: read h80 strip energies and ROOT flux"
 **Files:**
 
 - Modify: `scripts/build_strip_energy_flux.py`
-- Modify: `00_common/tests/test_build_strip_energy_flux.py`
+- Modify: `tests/test_build_strip_energy_flux.py`
 
 **Interfaces:**
 
@@ -952,7 +952,7 @@ Run:
 
 ```bash
 pytest -q \
-  00_common/tests/test_build_strip_energy_flux.py::test_cli_writes_lookup_run_group_and_valid_qa
+  tests/test_build_strip_energy_flux.py::test_cli_writes_lookup_run_group_and_valid_qa
 ```
 
 Expected: CLI argument parsing or missing `main` failure.
@@ -1079,7 +1079,7 @@ with pytest.raises(StripEnergyFluxError, match="duplicate binning name"):
 Run:
 
 ```bash
-pytest -q 00_common/tests/test_build_strip_energy_flux.py
+pytest -q tests/test_build_strip_energy_flux.py
 ```
 
 Expected: all CLI and ROOT integration tests pass.
@@ -1098,8 +1098,8 @@ Expected: all repository tests pass.
 
 ```bash
 git add scripts/build_strip_energy_flux.py \
-        00_common/tests/test_build_strip_energy_flux.py \
-        00_common/strip_energy_flux.py
+        tests/test_build_strip_energy_flux.py \
+        00_common/calibration/strip_energy_flux.py
 git commit -m "feat: build farm strip energy flux artifacts"
 ```
 

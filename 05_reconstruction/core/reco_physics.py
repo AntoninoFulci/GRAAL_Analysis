@@ -1,6 +1,6 @@
 """Channel definitions for the two-meson reconstruction.
 
-The chi2 itself lives in graal_common.pairing, which is also where the stage-1
+The chi2 itself lives in graal_common.physics.pairing, which is also where the stage-1
 features get it: one implementation, so the number the reconstruction minimises
 and the number the BDT is handed cannot drift apart. This module only says which
 final states the reconstruction knows how to name.
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from graal_common.channels import (
+from graal_common.physics.channels import (
     CHI2_RESOLUTION,
     ETA_PI0_HYP,
     M_DEUTERON,
@@ -26,7 +26,7 @@ from graal_common.channels import (
     TWO_PI0_HYP,
     Hypothesis,
 )
-from graal_common.pairing import Pairing, best_pairing, chi2, pair_masses
+from graal_common.physics.pairing import Pairing, best_pairing, chi2, pair_masses
 
 __all__ = [
     "CHI2_RESOLUTION",
@@ -77,11 +77,14 @@ def invariant_mass(v) -> float:
     return float(np.sqrt(max(m2, 0.0)))
 
 
-# Recoil partner of the eta-pi0 system: gamma N -> N eta pi0. The missing mass
-# of the eta-pi0 pair peaks at the partner's mass, and requiring it there is what
-# centres the reconstructed eta -- see the design note. Proton and neutron are
-# ~1.3 MeV apart, far below the missing-mass resolution, so they give the same
-# cut; only the deuteron (twice the mass) is a distinct hypothesis.
+# Recoil partner used by the missing-mass fallback when the kinematic fit is
+# disabled: gamma N -> N eta pi0. This selection does not change the active
+# fit's target or recoil assumptions; RecoConfig.fit_reaction controls those and
+# defaults to a proton target and proton recoil. The missing mass of the eta-pi0
+# pair peaks at the partner's mass, and requiring it there is what centres the
+# reconstructed eta -- see the design note. Proton and neutron are ~1.3 MeV
+# apart, far below the missing-mass resolution, so they give the same cut; only
+# the deuteron (twice the mass) is a distinct hypothesis.
 PARTNER_MASSES: dict[str, float] = {
     "proton": M_PROTON,
     "neutron": M_NEUTRON,

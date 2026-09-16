@@ -68,12 +68,12 @@ ERROR: i pacchetti della pipeline non sono importabili.
 | `PLOTS_DIR` | `results/plots` | `test_data/results/plots` |
 
 Altro:
-- `data/` è ciò che il rivelatore ha prodotto e che la selezione ne ha fatto: un **ingresso**. 
+- `data/` è ciò che il rivelatore ha prodotto e che la selezione ne ha fatto: un **ingresso**.
 - `results/` è ciò che l'analisi ha concluso.
 - `reco/` gli alberi ricostruiti.
-- `plots/` le figure disegnate da quelli. 
+- `plots/` le figure disegnate da quelli.
 
-Il Monte Carlo (`03_mc_simulation/data`) e il modello BDT (`04_bdt_training/model`) **non** vengono rimappati da `--test-data`: restano sempre quelli veri, in produzione come in collaudo. Duplicarli per il collaudo non proverebbe niente di più e costerebbe ore — vedi [Testing](testing).
+Il Monte Carlo (`03_mc_simulation/data`) e il modello BDT (`04_bdt_training/artifacts/stage1`) **non** vengono rimappati da `--test-data`: restano sempre quelli veri, in produzione come in collaudo. Duplicarli per il collaudo non proverebbe niente di più e costerebbe ore — vedi [Testing](testing).
 
 ## Fase 1 — Pre-analisi (raw → h80)
 
@@ -82,11 +82,11 @@ ${ROOT_EXEC} -l -b -q -e \
   'gROOT->ProcessLine(".L 01_pre_analysis/PreAnalysis.C"); AnalyzeAll("RAW_DIR", "PRE_DIR", "01_pre_analysis/cuts");'
 ```
 
-**Riuso**: se `PRE_DIR` contiene già almeno un file `pre_*.root`, la fase viene saltata (`--force-preanalysis` per rifarla comunque). 
-La pre-analisi legge run grezze intere ed è lunga: non deve ripartire per sbaglio ogni volta che si rilancia la pipeline. 
+**Riuso**: se `PRE_DIR` contiene già almeno un file `pre_*.root`, la fase viene saltata (`--force-preanalysis` per rifarla comunque).
+La pre-analisi legge run grezze intere ed è lunga: non deve ripartire per sbaglio ogni volta che si rilancia la pipeline.
 Se `RAW_DIR` non esiste, lo script si ferma con un errore che, sotto `--test-data`, dice di crearla e cosa copiarci dentro (vedi [Testing](testing)).
 
-**Questa fase usa**: `RAW_DIR/<run>/*.root` (una cartella per run). 
+**Questa fase usa**: `RAW_DIR/<run>/*.root` (una cartella per run).
 **Produce**: `PRE_DIR/pre_analisi_<run>.root`, un file per run, ciascuno con TTree `h80`.
 
 ## Lookup strip→Eγ e integrazione flussi
@@ -135,9 +135,9 @@ ${PYTHON} -u -m event_selector.select_events \
     --output-dir "${SELECTED_DIR}"
 ```
 
-Nessuna logica di riuso: gira sempre a meno di `--skip-selection`. 
-Usa i file `pre_*.root` di `PRE_DIR`; 
-produce in `SELECTED_DIR` un file per run (senza il prefisso `pre_`), con l'albero `h85`. 
+Nessuna logica di riuso: gira sempre a meno di `--skip-selection`.
+Usa i file `pre_*.root` di `PRE_DIR`;
+produce in `SELECTED_DIR` un file per run (senza il prefisso `pre_`), con l'albero `h85`.
 Dettagli sul perché dell'albero rinominato in [Formati dati](data-formats).
 
 ## Fase 3 — Generazione Monte Carlo
@@ -147,7 +147,7 @@ ${PYTHON} -m mc_simulation.mc_status --data-dir "${MC_DATA_DIR}"
 ```
 
 `mc_status` controlla se i canali scelti sono presenti in `03_mc_simulation/data/`.
-Attualmente i canali presenti sono `eta_pi0`, `pi0pi0`, `3pi0`, `eta_2pi0`, `omega_pi0`, `etaprime`, `eta_via_3pi0`, `4pi0`, `eta_pi0_via_3pi0` — la lista viene dal registry `00_common/channels.py`, non è ripetuta a mano qui. 
+Attualmente i canali presenti sono `eta_pi0`, `pi0pi0`, `3pi0`, `eta_2pi0`, `omega_pi0`, `etaprime`, `eta_via_3pi0`, `4pi0`, `eta_pi0_via_3pi0` — la lista viene dal registry `00_common/physics/channels.py`, non è ripetuta a mano qui.
 
 Il suo exit code guida la decisione:
 
@@ -163,7 +163,7 @@ ispezionare l'exit code prima di decidere.
 
 **Riuso**: la generazione è saltata di default se tutti i canali sono già presenti.
 `--skip-mc` la salta sempre;
-`--force-mc` la rifà sempre. 
+`--force-mc` la rifà sempre.
 Inoltre se i file sono più vecchi di 10 giorni genera solo un warning da promemoria in caso si sia aggiunto nel corso del tempo altro al MC.
 
 Se serve generare, le macro ROOT girano dalla cartella dati stessa (scrivono il `.root` nella directory corrente); la lista dei canali viene letta dal registry (`CHANNEL_NAMES`), così un canale aggiunto lì non può essere dimenticato:
@@ -180,7 +180,7 @@ generate_4pi0_dataset.C(NEVENTS)
 generate_eta_pi0_via_3pi0_dataset.C(NEVENTS)
 ```
 
-Produce: `03_mc_simulation/data/<canale>_mc.root`, uno per canale. 
+Produce: `03_mc_simulation/data/<canale>_mc.root`, uno per canale.
 I generatori estraggono l'energia del fascio piatta fino a un tetto di **1.75 GeV** (vedi [03 — Simulazione MC](03-mc-simulation)).
 
 Un canale deliberatamente **non** generato: `γp → n π⁺ π⁰ π⁰`, escluso finché non esiste una misura della leakage dei pioni carichi attraverso il taglio dE/dx ("banana") del BGO — vedi [03 — Simulazione MC](03-mc-simulation).
@@ -202,10 +202,10 @@ ${PYTHON} -u -m bdt_training.build_background_features \
     --output         "04_bdt_training/data/features_stage1.npz"
 ```
 
-`--signal-channel` nomina il canale che fa da segnale, e il registry `00_common/channels.py` risolve il suo file e quelli degli altri che diventano il fondo. 
+`--signal-channel` nomina il canale che fa da segnale, e il registry `00_common/physics/channels.py` risolve il suo file e quelli degli altri che diventano il fondo.
 Se trova un canale mancante si ferma printando `missing MC file for '<canale>'`.
 
-La misura dello spettro viene prima perché il MC va riponderato sul fascio che l'esperimento ha davvero avuto, non su quello piatto dei generatori (vedi [03 — Simulazione MC](03-mc-simulation)). 
+La misura dello spettro viene prima perché il MC va riponderato sul fascio che l'esperimento ha davvero avuto, non su quello piatto dei generatori (vedi [03 — Simulazione MC](03-mc-simulation)).
 
 **`--beam-spectrum` è obbligatorio, e se `SELECTED_DIR` non esiste la fase fallisce**, non prosegue con un fascio piatto come faceva prima:
 
@@ -225,7 +225,7 @@ Infine questa fase produce la matrice di feature a 26 colonne usata dalla fase 5
 ```bash
 ${PYTHON} -u -m bdt_training.grid_search_stage1 \
     --features "04_bdt_training/data/features_stage1.npz" \
-    --out-dir  "04_bdt_training/model" \
+    --out-dir  "04_bdt_training/artifacts/stage1" \
     --n-iter   "${GRID_SEARCH_NITER}"
 ```
 
@@ -237,11 +237,11 @@ Richiede che `features_stage1.npz` esista già (fase 4).
 ```bash
 ${PYTHON} -u -m bdt_training.train_bdt_stage1 \
     --features "04_bdt_training/data/features_stage1.npz" \
-    --out-dir  "04_bdt_training/model" \
-    [--hyperparams "04_bdt_training/model/best_hyperparams.json"]
+    --out-dir  "04_bdt_training/artifacts/stage1" \
+    [--hyperparams "04_bdt_training/artifacts/stage1/best_hyperparams.json"]
 ```
 
-Il flag `--hyperparams` viene aggiunto solo se `04_bdt_training/model/best_hyperparams.json` esiste già (cioè se la fase 5 è girata prima, in questo run o in uno precedente). Al termine lo script
+Il flag `--hyperparams` viene aggiunto solo se `04_bdt_training/artifacts/stage1/best_hyperparams.json` esiste già (cioè se la fase 5 è girata prima, in questo run o in uno precedente). Al termine lo script
 stampa la soglia migliore trovata (`stage1_threshold.txt`) e le metriche (`stage1_metrics.txt`).
 
 ## Fase 7 — Ricostruzione (chi2 e BDT)
@@ -258,7 +258,7 @@ ${PYTHON} -u -m reconstruction.reconstruct_eta_pi0_bdt \
     --input-tree  "${INPUT_TREE}" \
     --partner     "${PARTNER}" \
     --output-file "${RECO_DIR}/reco_eta_pi0_bdt.root" \
-    --model-dir   "04_bdt_training/model"
+    --model-dir   "04_bdt_training/artifacts/stage1"
 ```
 
 I due run condividono lo stesso `SELECTED_DIR` (albero `h85`) e lo stesso taglio chi2; l'unica differenza tra i due output è il gate BDT nel secondo — vedi [Formati dati](data-formats) per lo schema degli alberi di output.
@@ -266,7 +266,7 @@ I due run condividono lo stesso `SELECTED_DIR` (albero `h85`) e lo stesso taglio
 **Il fit cinematico 6C gira di default** su entrambi i run, dopo il chi2 (e dopo il gate, per il secondo): la sua confidence level seleziona l'evento finale al posto della massa mancante.
 
 Qui possono essere utilizzate le due flag:
-- `--no-fit` lo disattiva e fa tornare la selezione alla finestra sulla massa mancante (`--missing-mass-window`, default 0.06 GeV); 
+- `--no-fit` lo disattiva e fa tornare la selezione alla finestra sulla massa mancante (`--missing-mass-window`, default 0.06 GeV);
 - `--fit-cl` cambia la soglia sulla confidence level (default 0.01). Vedi [Fit cinematico](05-reconstruction-kinematic-fit).
 
 ## Fase 8 — Plot (Dalitz + masse invarianti)
@@ -286,7 +286,7 @@ ${PYTHON} -u -m plots.dalitz \
     (i plot confrontano le due analisi: servono entrambi)
 ```
 
-Usa i due TTree della fase 7; produce in `results/plots/` i Dalitz plot (con l'opzione `colz` di ROOT) per le due ricostruzioni e le due definizioni di protone, il confronto a 4 pannelli, le masse invarianti η/π⁰ sovrapposte, e salva gli istogrammi in un ROOT file `istogrammi.root` per poterli ristilizzare in seguito se necessario. 
+Usa i due TTree della fase 7; produce in `results/plots/` i Dalitz plot (con l'opzione `colz` di ROOT) per le due ricostruzioni e le due definizioni di protone, il confronto a 4 pannelli, le masse invarianti η/π⁰ sovrapposte, e salva gli istogrammi in un ROOT file `istogrammi.root` per poterli ristilizzare in seguito se necessario.
 Dettagli in [06 — Plot](06-plots).
 
 Subito dopo il Dalitz, se il MC di segnale è su disco, gira anche lo studio di risoluzione del fit cinematico:

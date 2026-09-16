@@ -5,7 +5,7 @@ most of what is worth testing here is that it really is the only copy.
 """
 import pytest
 
-from graal_common.channels import (
+from graal_common.physics.channels import (
     CHANNEL_NAMES,
     CHANNELS,
     ETA_PI0_HYP,

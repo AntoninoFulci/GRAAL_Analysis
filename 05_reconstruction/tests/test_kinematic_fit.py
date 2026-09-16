@@ -4,13 +4,15 @@ The fit adjusts measured photons/proton/beam within their resolution until the
 event conserves 4-momentum and the two photon pairs sit on the eta and pi0
 masses. Nothing here needs ROOT: the fitter is pure numpy on [px,py,pz,E] arrays.
 """
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
-import reconstruction.kinematic_fit as kf
-from graal_common.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
-from graal_common.pairing import Pairing
-from reconstruction.kinematic_fit import (
+import reconstruction.core.kinematic_fit as kf
+from graal_common.physics.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
+from graal_common.physics.pairing import Pairing
+from reconstruction.core.kinematic_fit import (
     _DEG,
     FitCovariance,
     FitResult,
@@ -92,6 +94,233 @@ def _conserving_event():
     p1, p2 = two_photons(pi0, M_PI0)
     photons = np.stack([e1, e2, p1, p2])
     return photons, proton, beam
+
+
+def _baseline_smeared_event():
+    photons, proton, beam = _conserving_event()
+    rng = np.random.default_rng(0)
+    smear = photons.copy()
+    smear[:, 3] *= 1.0 + rng.normal(0, 0.05, 4)
+    for i in range(4):
+        n3 = np.sqrt((smear[i, :3] ** 2).sum())
+        smear[i, :3] *= smear[i, 3] / n3
+    return smear, proton, beam
+
+
+class TestFitReactionModel:
+    def test_reaction_model_is_immutable(self):
+        reaction = kf.FitReactionModel(target_mass=1.0, recoil_mass=2.0)
+
+        with pytest.raises(FrozenInstanceError):
+            reaction.target_mass = 3.0
+
+    def test_target_and_recoil_masses_control_their_distinct_calculations(self):
+        photons, proton, beam = _conserving_event()
+        params = _vectors_to_params(photons, proton, beam)
+        reaction = kf.FitReactionModel(target_mass=1.5, recoil_mass=2.0)
+
+        converted_photons, converted_recoil, converted_beam = (
+            kf._params_to_vectors(params, reaction)
+        )
+        constraints = kf._constraints(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+            reaction,
+        )
+        jacobian = kf._jacobian(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+            reaction,
+        )
+
+        momentum = params[12]
+        expected_recoil_energy = np.sqrt(momentum**2 + 2.0**2)
+        expected_energy_balance = (
+            converted_beam[3]
+            + 1.5
+            - converted_recoil[3]
+            - converted_photons[:, 3].sum()
+        )
+        assert converted_recoil[3] == pytest.approx(expected_recoil_energy)
+        assert constraints[3] == pytest.approx(expected_energy_balance)
+        assert jacobian[3, 12] == pytest.approx(
+            -momentum / expected_recoil_energy,
+            rel=1e-6,
+        )
+
+    def test_explicit_proton_reaction_matches_omitted_legacy_default(self):
+        photons, proton, beam = _baseline_smeared_event()
+        params = _vectors_to_params(photons, proton, beam)
+
+        default_constraints = kf._constraints(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+        )
+        explicit_constraints = kf._constraints(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+            kf.PROTON_TARGET_REACTION,
+        )
+        default_jacobian = kf._jacobian(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+        )
+        explicit_jacobian = kf._jacobian(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+            kf.PROTON_TARGET_REACTION,
+        )
+        default_result = fit_event(
+            photons,
+            proton,
+            beam,
+            PAIRING,
+            ETA_PI0_HYP,
+        )
+        explicit_result = fit_event(
+            photons,
+            proton,
+            beam,
+            PAIRING,
+            ETA_PI0_HYP,
+            FitCovariance(),
+            10,
+            1e-8,
+            None,
+            kf.PROTON_TARGET_REACTION,
+        )
+
+        np.testing.assert_array_equal(explicit_constraints, default_constraints)
+        np.testing.assert_array_equal(explicit_jacobian, default_jacobian)
+        assert explicit_result.converged is default_result.converged
+        assert explicit_result.chi2 == default_result.chi2
+        assert explicit_result.condition_number == default_result.condition_number
+        assert explicit_result.failure_reason == default_result.failure_reason
+        np.testing.assert_array_equal(
+            explicit_result.fitted_photons,
+            default_result.fitted_photons,
+        )
+        np.testing.assert_array_equal(
+            explicit_result.fitted_proton,
+            default_result.fitted_proton,
+        )
+        np.testing.assert_array_equal(
+            explicit_result.fitted_cov,
+            default_result.fitted_cov,
+        )
+
+    def test_default_reaction_preserves_numerical_baseline(self):
+        photons, proton, beam = _baseline_smeared_event()
+        params = _vectors_to_params(photons, proton, beam)
+
+        constraints = kf._constraints(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+        )
+        jacobian = kf._jacobian(
+            params,
+            PAIRING,
+            ETA_PI0_HYP.heavy_mass,
+            ETA_PI0_HYP.light_mass,
+        )
+        result = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
+
+        np.testing.assert_allclose(
+            constraints,
+            [
+                -5.3385317494273193e-03,
+                -4.1633594286399850e-17,
+                1.1992600340260395e-04,
+                -2.3221415884280283e-03,
+                -1.0813184991298463e-04,
+                6.8200383355844496e-04,
+            ],
+            rtol=0.0,
+            atol=1e-15,
+        )
+        np.testing.assert_allclose(
+            jacobian[3],
+            [
+                -0.9999999999903875,
+                0.0,
+                0.0,
+                -1.000000000231296,
+                0.0,
+                0.0,
+                -0.9999999999160055,
+                0.0,
+                0.0,
+                -0.9999999992527989,
+                0.0,
+                0.0,
+                -0.3173524545870105,
+                0.0,
+                0.0,
+                0.9999999999494541,
+            ],
+            rtol=0.0,
+            atol=1e-15,
+        )
+        assert result.converged
+        assert result.chi2 == pytest.approx(0.07073600149366603, abs=1e-14)
+        assert result.condition_number == pytest.approx(
+            4400.060298310016,
+            abs=1e-10,
+        )
+        np.testing.assert_allclose(
+            result.fitted_photons,
+            [
+                [0.27319026578033329, 0.0, 0.54478041905457097, 0.60944124105807207],
+                [-0.27465764200889892, 0.0, 0.53838810996439734, 0.60439935246898180],
+                [0.068340705242136382, 0.0, 0.001445395997158283, 0.068355988490995931],
+                [-0.066646921711323887, 0.0, 0.0014085274754090144, 0.066661804080330123],
+            ],
+            rtol=0.0,
+            atol=1e-15,
+        )
+        np.testing.assert_allclose(
+            result.fitted_proton,
+            [-2.2640730224457231e-04, 0.0, 0.31397532539573003, 0.98941139178888626],
+            rtol=0.0,
+            atol=1e-15,
+        )
+        np.testing.assert_allclose(
+            result.fitted_cov,
+            [
+                1.4194998380519779e-03,
+                1.1228045854310134e-03,
+                1.4561705247991758e-03,
+                1.4179419665317564e-03,
+                1.1393722582606200e-03,
+                1.4423251506649967e-03,
+                2.3883201361417061e-05,
+                5.6604121877740065e-03,
+                2.6611186191224405e-03,
+                2.2699066642155970e-05,
+                5.7584912703266648e-03,
+                2.6650564320297204e-03,
+                7.9547578139372777e-05,
+                2.6245480011062965e-03,
+                1.2184695047578560e-03,
+                4.5529401957278284e-05,
+            ],
+            rtol=0.0,
+            atol=1e-15,
+        )
 
 
 class TestConfidenceLevel:

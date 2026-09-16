@@ -1,15 +1,16 @@
 """The channels the reconstruction can name.
 
-The chi2 and the pairing enumeration moved to graal_common.pairing, where the
+The chi2 and the pairing enumeration moved to graal_common.physics.pairing, where the
 stage-1 features get them too; they are tested in 00_common/tests/test_pairing.py.
 What is left here is the mapping from a channel to the branches it writes.
 """
 import numpy as np
+import pytest
 
-from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
-from graal_common.pairing import Pairing
-from reconstruction import reco_core
-from reconstruction import reco_physics as rp
+from graal_common.physics.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from graal_common.physics.pairing import Pairing
+from reconstruction.runtime import reco_core
+from reconstruction.core import reco_physics as rp
 
 
 def test_eta_pi0_labels_its_branches_after_its_mesons():
@@ -147,8 +148,56 @@ def test_reconstruction_preserves_event_metadata(tmp_path, monkeypatch):
 
     result = ROOT.TFile.Open(str(output_path))
     output = result.Get("reco")
+    assert output.GetName() == "reco"
+    assert output.GetEntries() == 1
+
+    branches = {branch.GetName(): branch for branch in output.GetListOfBranches()}
+    assert set(branches) == {
+        "chi2",
+        "eta_mass",
+        "pi0_mass",
+        "RunNumber",
+        "Polarization",
+        "Xstrip",
+        "beam",
+        "target",
+        "proton",
+        "neutron",
+        "eta",
+        "eta_gamma1",
+        "eta_gamma2",
+        "pi0",
+        "pi0_gamma1",
+        "pi0_gamma2",
+        "missing",
+    }
+    for name in ("chi2", "eta_mass", "pi0_mass", "Xstrip"):
+        assert branches[name].GetLeaf(name).GetTypeName() == "Float_t"
+    for name in ("RunNumber", "Polarization"):
+        assert branches[name].GetLeaf(name).GetTypeName() == "Int_t"
+    for name in (
+        "beam",
+        "target",
+        "proton",
+        "neutron",
+        "eta",
+        "eta_gamma1",
+        "eta_gamma2",
+        "pi0",
+        "pi0_gamma1",
+        "pi0_gamma2",
+        "missing",
+    ):
+        assert branches[name].GetClassName() == "TLorentzVector"
+
     output.GetEntry(0)
+    assert output.chi2 == pytest.approx(0.0)
+    assert output.eta_mass == pytest.approx(np.sqrt(0.20), rel=1e-6)
+    assert output.pi0_mass == pytest.approx(np.sqrt(0.05), rel=1e-6)
     assert output.RunNumber == 4242
     assert output.Polarization == 2
     assert output.Xstrip == 73.0
+    assert output.beam.E() == pytest.approx(1.5)
+    assert output.target.M() == pytest.approx(rp.M_PROTON)
+    assert output.proton.M() == pytest.approx(rp.M_PROTON)
     result.Close()

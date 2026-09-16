@@ -12,16 +12,20 @@ Sono presenti tre entrypoint:
 
 ## Struttura
 
-Tutti gli script usano:
+Tutti gli script chiamano:
 
-`reco_core.run_reconstruction(cfg, channel, gate)`
+`reconstruction.runtime.reco_core.run_reconstruction(cfg, channel, gate)`
 
-divisa in:
+La responsabilità è divisa in:
 
-* **`reco_core.py`**: gestione ROOT, selezione eventi, applicazione del gate e scrittura dell'output.
-* **`reco_physics.py`**: logica fisica (combinazioni fotoni, chi², assegnazione η/π⁰), indipendente da ROOT e basata su array NumPy.
+* **`runtime/reco_core.py`**: I/O ROOT e orchestrazione della ricostruzione.
+* **`runtime/stage1_gate.py`**: caricamento del modello BDT e adattamento del gate stage-1.
+* **`runtime/cli_options.py`**: opzioni CLI condivise dagli entrypoint.
+* **`core/event_logic.py`**: sequenza di decisione per singolo evento.
+* **`core/reco_physics.py`**: fisica di canale, combinazioni fotoni e massa mancante.
+* **`core/kinematic_fit.py`**: fit cinematico numerico.
 
-Questa separazione permette di mantenere la stessa catena di ricostruzione e confrontare direttamente i risultati con e senza BDT.
+I moduli `core/` non dipendono da ROOT. Questa separazione mantiene una sola catena di ricostruzione e permette il confronto diretto con e senza BDT.
 
 ## Confronto chi² vs BDT
 

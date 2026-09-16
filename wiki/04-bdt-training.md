@@ -1,6 +1,6 @@
 # 04 — Training BDT
 
-`04_bdt_training/` addestra il classificatore che il gate di [`05_reconstruction/stage1_gate.py`](05-reconstruction-bdt-gate) applica prima della combinatoria chi2: un BDT binario (XGBoost) che impara a distinguere il segnale η π⁰ dal fondo fisico prima ancora che si tenti di ricostruirlo.
+`04_bdt_training/` addestra il classificatore che il gate di [`05_reconstruction/runtime/stage1_gate.py`](05-reconstruction-bdt-gate) applica prima della combinatoria chi2: un BDT binario (XGBoost) che impara a distinguere il segnale η π⁰ dal fondo fisico prima ancora che si tenti di ricostruirlo.
 
 ## A cosa serve
 
@@ -12,7 +12,7 @@ Costruiti da `build_background_features.py` (vedi [Feature stage-1](04-bdt-train
 
 ## Metriche correnti
 
-Da `04_bdt_training/model/stage1_metrics.txt`:
+Da `04_bdt_training/artifacts/stage1/stage1_metrics.txt`:
 
 ```
 Signal:    eta_pi0
@@ -28,7 +28,7 @@ N_train:   2120715
 N_val:     530179
 ```
 
-La soglia operativa (`04_bdt_training/model/stage1_threshold.txt`) è scelta massimizzando l'F1 su un set di validazione (`_find_best_threshold` in `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99).
+La soglia operativa (`04_bdt_training/artifacts/stage1/stage1_threshold.txt`) è scelta massimizzando l'F1 su un set di validazione (`_find_best_threshold` in `train_bdt_stage1.py`, ricerca su 200 punti tra 0.01 e 0.99).
 Questo valore viene ricalcolato ad ogni training.
 
 Queste sono metriche di validazione sul Monte Carlo pesato descritto nella
@@ -42,7 +42,7 @@ training.
 ```bash
 python -m bdt_training.grid_search_stage1 \
     --features 04_bdt_training/data/features_stage1.npz \
-    --out-dir  04_bdt_training/model \
+    --out-dir  04_bdt_training/artifacts/stage1 \
     --n-iter   30
 ```
 
@@ -66,8 +66,8 @@ Di default esegue una ricerca randomizzata (`--n-iter` configurazioni campionate
 ```bash
 python -m bdt_training.train_bdt_stage1 \
     --features 04_bdt_training/data/features_stage1.npz \
-    --out-dir  04_bdt_training/model \
-    [--hyperparams 04_bdt_training/model/best_hyperparams.json]
+    --out-dir  04_bdt_training/artifacts/stage1 \
+    [--hyperparams 04_bdt_training/artifacts/stage1/best_hyperparams.json]
 ```
 
 Se `--hyperparams` è passato, il JSON prodotto dalla grid search sovrascrive `--n-estimators`, `--max-depth`, `--lr` e gli altri iperparametri di default.

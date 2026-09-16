@@ -30,7 +30,7 @@ Vedere la wiki per la lista completa di opzioni.
 
 | # | Fase | Cartella | Da → a |
 |---|------|----------|--------|
-| 0 | Common block | `01_common/` | Vocabolario condiviso dalle varie fasi|
+| 0 | Common block | `00_common/` | Vocabolario condiviso dalle varie fasi|
 | 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
 | 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
 | 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 9 canali: segnale + 8 fondi |

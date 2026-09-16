@@ -5,7 +5,7 @@ trains an XGBoost binary:logistic classifier with cross-section sample_weights,
 tunes the operating threshold on a validation set via F1-maximisation, and
 saves the model + threshold so reconstruct_eta_pi0.py can load them.
 
-Outputs (all in model/ by default):
+Outputs (all in artifacts/stage1/ by default):
     bdt_stage1.json       — XGBoost booster
     stage1_threshold.txt  — scalar operating threshold
     stage1_roc.png        — ROC curve (train vs val)
@@ -16,59 +16,38 @@ Outputs (all in model/ by default):
 Usage:
     python -m bdt_training.train_bdt_stage1 \\
         --features features_stage1.npz \\
-        --out-dir 04_bdt_training/model
+        --out-dir 04_bdt_training/artifacts/stage1
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-import numpy as np
-from graal_common.channels import TAGGER_FWHM_GEV, TAGGER_SIGMA_GEV
+from graal_common.physics.channels import TAGGER_FWHM_GEV, TAGGER_SIGMA_GEV
+from graal_common.stage1.artifacts import (
+    MODEL_FILE,
+    Stage1ArtifactPaths,
+    Stage1Provenance,
+)
 
-try:
-    import xgboost as xgb
-except ImportError as exc:
-    raise ImportError("xgboost required: pip install xgboost") from exc
-
-try:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    _HAVE_MPL = True
-except ImportError:
-    _HAVE_MPL = False
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
-
-from bdt_training.callbacks import TqdmCallback
-
-
-def _find_best_threshold(
-    y_true: np.ndarray,
-    scores: np.ndarray,
-    sample_weight: np.ndarray | None = None,
-) -> float:
-    """Find threshold maximising F1 on the provided set."""
-    thresholds = np.linspace(0.01, 0.99, 200)
-    best_f1, best_thr = -1.0, 0.5
-    for thr in thresholds:
-        pred = (scores >= thr).astype(int)
-        _, _, f1, _ = precision_recall_fscore_support(y_true, pred,
-                                                       average="binary",
-                                                       sample_weight=sample_weight,
-                                                       zero_division=0)
-        if f1 > best_f1:
-            best_f1, best_thr = f1, float(thr)
-    return best_thr
+from bdt_training.dataset.stage1_dataset import load_stage1_dataset
+from bdt_training.training.stage1_reporting import (
+    HAVE_MATPLOTLIB as _HAVE_MPL,
+    format_metrics_text,
+    render_stage1_plots,
+)
+from bdt_training.training.stage1_training import (
+    TrainingConfig,
+    _find_best_threshold,
+    fit_stage1,
+    xgb,
+)
 
 
 def train(
     features_path: str,
-    out_dir: str = "04_bdt_training/model",
+    out_dir: str = "04_bdt_training/artifacts/stage1",
     val_fraction: float = 0.2,
     seed: int = 42,
     n_estimators: int = 300,
@@ -82,45 +61,24 @@ def train(
     nthread: int = -1,
     verbose: bool = True,
 ) -> None:
-    data = np.load(features_path)
-    X: np.ndarray = data["X"].astype(np.float32)
-    y: np.ndarray = data["y"].astype(np.float32)
-    w: np.ndarray = data["w"].astype(np.float32)
-    feature_names: list[str] = list(data["feature_names"])
+    dataset = load_stage1_dataset(features_path)
 
     # Which channel these features were built to find, and around which two
     # mesons. Refuse features that do not say: the gate has to know, and a
     # default guess here would be a guess about physics.
-    for key in ("signal_channel", "hypothesis"):
-        if key not in data:
-            raise KeyError(
-                f"{features_path} has no {key!r}. It predates the channel "
-                "registry, so which channel it treats as signal is recorded "
-                "nowhere. Rebuild it with bdt_training.build_background_features."
-            )
-    signal_channel = str(data["signal_channel"])
-    hypothesis = str(data["hypothesis"])
+    signal_channel = dataset.metadata.signal_channel
+    hypothesis = dataset.metadata.hypothesis
     # Assumptions, not settings: what prior the classes were mixed at, and
     # whether the MC was shown the beam the experiment actually had. Older
     # feature files predate both; say so rather than implying a value.
-    signal_prior = float(data["signal_prior"]) if "signal_prior" in data else None
-    beam_reweighted = (
-        bool(data["beam_reweighted"]) if "beam_reweighted" in data else None
-    )
+    signal_prior = dataset.metadata.signal_prior
+    beam_reweighted = dataset.metadata.beam_reweighted
     print(f"signal channel: {signal_channel}   hypothesis: {hypothesis}")
     print(f"signal prior: {signal_prior}   beam reweighted: {beam_reweighted}")
 
-    X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
-        X, y, w, test_size=val_fraction, random_state=seed, stratify=y
-    )
-
-    callbacks = []
-    if verbose:
-        callbacks.append(
-            TqdmCallback(n_estimators=n_estimators, desc="training", val_metric="auc")
-        )
-
-    model = xgb.XGBClassifier(
+    config = TrainingConfig(
+        val_fraction=val_fraction,
+        seed=seed,
         n_estimators=n_estimators,
         max_depth=max_depth,
         learning_rate=learning_rate,
@@ -128,117 +86,52 @@ def train(
         colsample_bytree=colsample_bytree,
         min_child_weight=min_child_weight,
         gamma=gamma,
-        eval_metric="auc",
-        random_state=seed,
-        tree_method="hist",
         device=device,
         nthread=nthread,
-        callbacks=callbacks,
+        verbose=verbose,
     )
-    model.fit(
-        X_tr, y_tr,
-        sample_weight=w_tr,
-        eval_set=[(X_val, y_val)],
-        sample_weight_eval_set=[w_val],
-        verbose=False,
-    )
-
-    scores_val = model.predict_proba(X_val)[:, 1]
-    auc = roc_auc_score(y_val, scores_val, sample_weight=w_val)
-    threshold = _find_best_threshold(y_val, scores_val, sample_weight=w_val)
-    pred_val = (scores_val >= threshold).astype(int)
-    p, r, f1, _ = precision_recall_fscore_support(y_val, pred_val,
-                                                   average="binary",
-                                                   sample_weight=w_val,
-                                                   zero_division=0)
+    result = fit_stage1(dataset, config)
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    artifacts = Stage1ArtifactPaths.from_directory(out)
 
-    model.save_model(str(out / "bdt_stage1.json"))
-    (out / "stage1_threshold.txt").write_text(f"{threshold:.6f}\n")
+    result.model.save_model(str(artifacts.model))
+    artifacts.threshold.write_text(f"{result.threshold:.6f}\n")
 
     # Travels with the model so the gate can build its features around the same
     # mesons, and refuse when asked to gate something else. A .json booster on
     # its own does not remember what it was taught to look for.
-    (out / "stage1_provenance.json").write_text(
-        json.dumps(
-            {
-                "signal_channel": signal_channel,
-                "hypothesis": hypothesis,
-                "signal_prior": signal_prior,
-                "beam_reweighted": beam_reweighted,
-                "phase_space_sampling": "accept-reject-unweighted",
-                "tagger_resolution_fwhm_gev": TAGGER_FWHM_GEV,
-                "tagger_resolution_sigma_gev": TAGGER_SIGMA_GEV,
-                "detector_covariance_status": "legacy-uncalibrated",
-                "feature_names": feature_names,
-            },
-            indent=2,
-        )
-        + "\n"
+    provenance = Stage1Provenance(
+        signal_channel=signal_channel,
+        hypothesis=hypothesis,
+        signal_prior=signal_prior,
+        beam_reweighted=beam_reweighted,
+        phase_space_sampling="accept-reject-unweighted",
+        tagger_resolution_fwhm_gev=TAGGER_FWHM_GEV,
+        tagger_resolution_sigma_gev=TAGGER_SIGMA_GEV,
+        detector_covariance_status="legacy-uncalibrated",
+        feature_names=result.feature_metadata.feature_names,
     )
+    artifacts.provenance.write_text(provenance.to_json())
 
-    metrics_text = (
-        f"Signal:    {signal_channel}\n"
-        f"Hypothesis:{hypothesis}\n"
-        f"Prior:     {signal_prior}  (a training choice, not a cross-section)\n"
-        f"Beam rewt: {beam_reweighted}\n"
-        f"AUC:       {auc:.4f}\n"
-        f"Threshold: {threshold:.4f}\n"
-        f"Precision: {p:.4f}\n"
-        f"Recall:    {r:.4f}\n"
-        f"F1:        {f1:.4f}\n"
-        f"N_train:   {len(X_tr)}\n"
-        f"N_val:     {len(X_val)}\n"
-    )
-    (out / "stage1_metrics.txt").write_text(metrics_text)
+    metrics_text = format_metrics_text(result)
+    artifacts.metrics.write_text(metrics_text)
     print(metrics_text)
 
     if _HAVE_MPL:
-        from sklearn.metrics import roc_curve
+        render_stage1_plots(result, out)
 
-        # ROC
-        fpr, tpr, _ = roc_curve(y_val, scores_val, sample_weight=w_val)
-        fig, ax = plt.subplots()
-        ax.plot(fpr, tpr, label=f"AUC={auc:.3f}")
-        ax.plot([0, 1], [0, 1], "k--")
-        ax.set_xlabel("FPR"); ax.set_ylabel("TPR")
-        ax.set_title("Stage-1 BDT ROC")
-        ax.legend()
-        fig.savefig(str(out / "stage1_roc.png"), dpi=150)
-        plt.close(fig)
-
-        # feature importance
-        fi = model.feature_importances_
-        order = np.argsort(fi)[::-1]
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.barh([feature_names[i] for i in order[:20]][::-1], fi[order[:20]][::-1])
-        ax.set_xlabel("Importance (gain)")
-        ax.set_title("Stage-1 feature importance (top 20)")
-        fig.tight_layout()
-        fig.savefig(str(out / "stage1_feature_importance.png"), dpi=150)
-        plt.close(fig)
-
-        # score distribution
-        fig, ax = plt.subplots()
-        ax.hist(scores_val[y_val == 1], bins=50, alpha=0.6, label="signal", density=True)
-        ax.hist(scores_val[y_val == 0], bins=50, alpha=0.6, label="background", density=True)
-        ax.axvline(threshold, color="red", linestyle="--", label=f"threshold={threshold:.2f}")
-        ax.set_xlabel("BDT score"); ax.set_ylabel("Density")
-        ax.set_title("Stage-1 score distribution")
-        ax.legend()
-        fig.savefig(str(out / "stage1_score_dist.png"), dpi=150)
-        plt.close(fig)
-
-    print(f"Saved model to {out}/bdt_stage1.json")
-    print(f"Operating threshold: {threshold:.4f}")
+    print(f"Saved model to {out}/{MODEL_FILE}")
+    print(f"Operating threshold: {result.threshold:.4f}")
 
 
 def _cli() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features",     default="features_stage1.npz")
-    parser.add_argument("--out-dir",      default="04_bdt_training/model")
+    parser.add_argument(
+        "--out-dir", default="04_bdt_training/artifacts/stage1"
+    )
     parser.add_argument("--val-fraction", type=float, default=0.2)
     parser.add_argument("--n-estimators", type=int,   default=300)
     parser.add_argument("--max-depth",    type=int,   default=5)

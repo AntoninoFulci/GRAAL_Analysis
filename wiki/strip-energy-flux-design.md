@@ -269,7 +269,7 @@ completa, ma elencate nel QA prima dell'uscita.
 
 ## Organizzazione codice
 
-Logica pura e testabile in nuovo modulo `00_common/strip_energy_flux.py`:
+Logica pura e testabile in nuovo modulo `00_common/calibration/strip_energy_flux.py`:
 
 - validazione binning;
 - statistiche lookup;

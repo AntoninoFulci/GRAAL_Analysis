@@ -11,7 +11,7 @@ import numpy as np
 # From the same registry the reconstruction reads, rather than a copy kept in
 # step by hand: a plot that disagrees with the reconstruction about the eta mass
 # is worse than no plot.
-from graal_common.channels import M_ETA, M_PI0, M_PROTON
+from graal_common.physics.channels import M_ETA, M_PI0, M_PROTON
 
 __all__ = ["M_ETA", "M_PI0", "M_PROTON", "dalitz_limit", "invariant_mass",
            "invariant_masses", "sqrt_s"]

@@ -39,14 +39,14 @@ cross-section reale integrata sul flusso.
 
 Punti architetturali rilevanti per l'estensione:
 - Massa del partner di rinculo **già parametrica** (`RecoConfig.partner_mass`,
-  `05_reconstruction/reco_physics.py` `PARTNER_MASSES` conosce `proton`,
+  `05_reconstruction/core/reco_physics.py` `PARTNER_MASSES` conosce `proton`,
   `neutron` e `deuteron`); taglio missing-mass sul rinculo già presente
-  (`05_reconstruction/reco_core.py`).
+  (`05_reconstruction/runtime/reco_core.py`).
 - **Nessuna gestione della polarizzazione**: il generatore MC non scrive lo
   stato ⊥/∥, e non esiste codice di estrazione Σ. È il blocco mancante per ogni
   misura di asimmetria.
-- Generatore η' già presente (`03_mc_simulation/generate_etaprime_dataset.C`),
-  canale in registro (`00_common/channels.py`, oggi usato come **fondo**).
+- Generatore η' già presente (`03_mc_simulation/generators/generate_etaprime_dataset.C`),
+  canale in registro (`00_common/physics/channels.py`, oggi usato come **fondo**).
 
 ## Canali, in ordine di leva
 
@@ -113,7 +113,7 @@ Percorso minimo #1:
 1. Modulo di estrazione Σ dal cos2φ (metodo Ajaka/Levi Sandri): serve φ (piano
    di decadimento vs piano di reazione) e binning per stato di polarizzazione.
    Nuovo modulo in `06_plots/` o `05_reconstruction/`.
-2. Far scrivere al generatore MC (`03_mc_simulation/generate_eta_pi0_dataset.C`)
+2. Far scrivere al generatore MC (`03_mc_simulation/generators/generate_eta_pi0_dataset.C`)
    lo stato di polarizzazione del fascio — oggi assente.
 3. dσ/dMpη con taglio Mpπ0<1190 MeV, overlay Σ(Mpη).
 

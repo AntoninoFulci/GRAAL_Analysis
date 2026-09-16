@@ -29,8 +29,8 @@ from pathlib import Path
 # The six channels, and what each one's file is called, come from the registry
 # rather than a list repeated here: a channel added there but forgotten here
 # would make this report claim the MC was complete when it was not.
-from graal_common.channels import CHANNEL_NAMES as CHANNELS
-from graal_common.channels import get_channel
+from graal_common.physics.channels import CHANNEL_NAMES as CHANNELS
+from graal_common.physics.channels import get_channel
 
 STALE_DAYS = 10
 

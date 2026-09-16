@@ -6,8 +6,8 @@ import shutil
 
 import pytest
 
-from graal_common.run_manifest import RunRecord
-from graal_common.strip_energy_flux import (
+from graal_common.calibration.run_manifest import RunRecord
+from graal_common.calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
     EnergySample,

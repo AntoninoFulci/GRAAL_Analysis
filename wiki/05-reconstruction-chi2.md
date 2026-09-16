@@ -1,6 +1,6 @@
 # Ricostruzione chi2
 
-La fisica della combinatoria vive interamente in `00_common/pairing.py` funzioni su array numpy.
+La fisica della combinatoria vive interamente in `00_common/physics/pairing.py` funzioni su array numpy.
 Sta in `00_common/` e non in `05_reconstruction/` perché non è solo della ricostruzione: è **lo stesso chi2** che il BDT riceve come feature 8.
 
 ## Il problema: quattro fotoni, due mesoni

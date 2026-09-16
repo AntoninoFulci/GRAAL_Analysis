@@ -8,14 +8,14 @@ reconstruction minimises, not a lookalike.
 import numpy as np
 import pytest
 
-from graal_common.channels import (
+from graal_common.physics.channels import (
     CHI2_RESOLUTION,
     ETA_PI0_HYP,
     M_ETA,
     M_PI0,
     TWO_PI0_HYP,
 )
-from graal_common.pairing import (
+from graal_common.physics.pairing import (
     PAIR_IDX,
     PARTITIONS,
     best_chi2,

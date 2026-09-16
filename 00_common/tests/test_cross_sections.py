@@ -9,8 +9,8 @@ import pytest
 
 # Masses come from the registry, never a second copy: a test that restates
 # them is free to drift from the module it is testing, and would still pass.
-from graal_common.channels import M_ETA, M_PI0, M_PROTON
-from graal_common.cross_sections import W_of_E, phase_space_volume
+from graal_common.physics.channels import M_ETA, M_PI0, M_PROTON
+from graal_common.physics.cross_sections import W_of_E, phase_space_volume
 
 
 class TestWofE:
@@ -98,8 +98,8 @@ class TestPhaseSpaceVolume:
             phase_space_volume(1.5, (M_PROTON,))
 
 
-from graal_common.channels import M_OMEGA, MCChannel
-from graal_common.cross_sections import sigma_at
+from graal_common.physics.channels import M_OMEGA, MCChannel
+from graal_common.physics.cross_sections import sigma_at
 
 
 def _channel(name="probe", sigma=2.0, e_ref=1.5, masses=(M_PROTON, M_ETA, M_PI0)):

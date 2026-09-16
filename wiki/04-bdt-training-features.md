@@ -1,6 +1,6 @@
 # Feature stage-1
 
-`04_bdt_training/build_background_features.py::compute_stage1_features` calcola il vettore a 26 feature che il BDT stage-1 vede, sia in training sia in inferenza. 
+`00_common/stage1/features.py::compute_stage1_features` calcola il vettore a 26 feature che il BDT stage-1 vede, sia in training sia in inferenza. `04_bdt_training/build_background_features.py` importa e riesporta questa implementazione condivisa per mantenere compatibile l'interfaccia di training.
 Questa pagina elenca le 26 feature nell'ordine reale del codice e registra la regola che il bug del gate (vedi [Gate BDT](05-reconstruction-bdt-gate)) ha lasciato dietro di sé.
 
 ## `feature_names(hypothesis)`, nell'ordine

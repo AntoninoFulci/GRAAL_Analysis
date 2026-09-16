@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from graal_common.run_manifest import (
+from graal_common.calibration.run_manifest import (
     ManifestError,
     RunRecord,
     classify_period,

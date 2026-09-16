@@ -10,7 +10,8 @@ Three families of figure:
 
 Compares the two reconstructions — plain chi2 against the BDT-gated one — which
 is the whole reason both exist. Everything kinematic comes from
-plots.kinematics; this module only reads ROOT, fills histograms and draws.
+plots.core.kinematics; plots.core.reconstruction_data reads ROOT, while this module fills
+histograms and draws.
 
 When a tree carries the kinematic-fit branches (`eta_fit`/`pi0_fit`/`fit_chi2`,
 written by the reconstruction when the fit is on), the eta/pi0 masses and the
@@ -36,12 +37,14 @@ Run:
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
 import ROOT
 
-from plots import kinematics as kin
+from plots.core import kinematics as kin
+from plots.core import reconstruction_data
 
 CHI2_TREE = "reco_eta_pi0_chi2"
 BDT_TREE = "reco_eta_pi0_bdt"
@@ -60,107 +63,12 @@ _PI0_MASS_MIN, _PI0_MASS_MAX = 0.05, 0.25
 _MASS2D_BINS = 90
 
 
-def _as_array(v) -> np.ndarray:
-    """TLorentzVector -> (4,) [px, py, pz, E], the convention kinematics wants."""
-    return np.array([v.Px(), v.Py(), v.Pz(), v.E()], dtype=np.float64)
-
-
-def _open_tree(path: Path, tree_name: str):
-    """Open a file, hand back (file, tree). Fails loud on anything missing."""
-    if not path.exists():
-        raise FileNotFoundError(f"file ricostruito non trovato: {path}")
-
-    f = ROOT.TFile.Open(str(path))
-    if not f or f.IsZombie():
-        raise RuntimeError(f"impossibile aprire {path}")
-
-    t = f.Get(tree_name)
-    if not t:
-        keys = [k.GetName() for k in f.GetListOfKeys()]
-        raise RuntimeError(
-            f"albero '{tree_name}' non trovato in {path}; trovati: {keys}"
-        )
-
-    n = t.GetEntries()
-    if n == 0:
-        # An empty histogram still draws, and looks like a result. It is not.
-        raise RuntimeError(f"l'albero '{tree_name}' in {path} e' vuoto")
-
-    print(f"  {path.name}: {n} eventi")
-    return f, t
-
-
-def _has_fit(tree) -> bool:
-    """Whether this tree carries the kinematic-fit branches (Task 3).
-
-    PyROOT's TTree has no uproot-style .keys(), so this walks
-    GetListOfBranches() instead. A pre-fit reco file has none of the fit_*
-    branches, and every caller below is expected to fall back to the raw
-    eta/pi0 in that case.
-    """
-    return "fit_chi2" in {b.GetName() for b in tree.GetListOfBranches()}
-
-
-def _collect(tree) -> dict[str, np.ndarray]:
-    """One pass over the tree, pulling out everything the plots need."""
-    has_fit = _has_fit(tree)
-
-    mep_meas, mpp_meas, mep_miss, mpp_miss = [], [], [], []
-    eta_m, pi0_m, eta_m_raw, pi0_m_raw = [], [], [], []
-    over_limit, eta_over_beam = [], []
-
-    for e in tree:
-        eta_raw = _as_array(e.eta)
-        pi0_raw = _as_array(e.pi0)
-        # Use the fitted 4-vectors when the tree has them: better mass
-        # resolution feeds both the meson-mass plots and the Dalitz axes built
-        # from eta/pi0 below. The raw ones are kept alongside for the
-        # fitted-vs-raw overlay, never discarded.
-        eta = _as_array(e.eta_fit) if has_fit else eta_raw
-        pi0 = _as_array(e.pi0_fit) if has_fit else pi0_raw
-        proton = _as_array(e.proton)
-        missing = _as_array(e.missing)
-        beam = _as_array(e.beam)
-        target = _as_array(e.target)
-
-        mep_meas.append(kin.invariant_mass(eta, proton))
-        mpp_meas.append(kin.invariant_mass(pi0, proton))
-        mep_miss.append(kin.invariant_mass(eta, missing))
-        mpp_miss.append(kin.invariant_mass(pi0, missing))
-
-        eta_m.append(e.eta_fit.M() if has_fit else e.eta_mass)
-        pi0_m.append(e.pi0_fit.M() if has_fit else e.pi0_mass)
-        eta_m_raw.append(e.eta_mass)
-        pi0_m_raw.append(e.pi0_mass)
-
-        # Counted, never cut — so the summary can say how much of the sample
-        # sits outside what the kinematics allow. Mostly resolution smearing at
-        # the Dalitz boundary, which is why it is a number and not a cut.
-        limit = kin.dalitz_limit(kin.sqrt_s(beam, target), kin.M_PI0)
-        over_limit.append(mep_meas[-1] > limit)
-
-        # An eta carrying more energy than the beam photon is impossible rather
-        # than mismeasured, and the reconstruction drops those events outright
-        # now (reco_core._reconstruct_and_fill). Still counted here, and
-        # expected to read 0: anything else means this tree was produced before
-        # that cut existed, and the summary should say so rather than let it
-        # pass unnoticed. Checked on the raw eta/beam — this is validating the
-        # upstream cut, not something the fit should be able to paper over.
-        eta_over_beam.append(eta_raw[3] > beam[3])
-
-    return {
-        "mep_meas": np.array(mep_meas),
-        "mpp_meas": np.array(mpp_meas),
-        "mep_miss": np.array(mep_miss),
-        "mpp_miss": np.array(mpp_miss),
-        "eta_mass": np.array(eta_m),
-        "pi0_mass": np.array(pi0_m),
-        "eta_mass_raw": np.array(eta_m_raw),
-        "pi0_mass_raw": np.array(pi0_m_raw),
-        "over_limit": np.array(over_limit),
-        "eta_over_beam": np.array(eta_over_beam),
-        "has_fit": has_fit,
-    }
+# Compatibility for callers that imported the former private helpers. New code
+# uses the explicit adapter API and ReconstructionArrays structure below.
+_as_array = reconstruction_data.as_array
+_open_tree = reconstruction_data.open_tree
+_has_fit = reconstruction_data.has_fit
+_collect = reconstruction_data.collect_legacy
 
 
 def _dalitz_hist(name: str, title: str, x: np.ndarray, y: np.ndarray) -> ROOT.TH2F:
@@ -223,8 +131,8 @@ def _save(canvas, out_dir: Path, stem: str) -> None:
 def _draw_raw_mass_comparison(
     meson: str,
     truth: float,
-    chi2: dict[str, np.ndarray],
-    bdt: dict[str, np.ndarray],
+    chi2: reconstruction_data.ReconstructionArrays | Mapping[str, np.ndarray],
+    bdt: reconstruction_data.ReconstructionArrays | Mapping[str, np.ndarray],
     out_dir: Path,
     hists: dict,
 ) -> None:
@@ -237,11 +145,22 @@ def _draw_raw_mass_comparison(
     )
     chi2_name = f"massa_{meson}_chi2_raw_confronto"
     bdt_name = f"massa_{meson}_bdt_raw_confronto"
+    raw_mass_field = f"{meson}_mass_raw"
+    chi2_raw = (
+        chi2[raw_mass_field]
+        if isinstance(chi2, Mapping)
+        else getattr(chi2, raw_mass_field)
+    )
+    bdt_raw = (
+        bdt[raw_mass_field]
+        if isinstance(bdt, Mapping)
+        else getattr(bdt, raw_mass_field)
+    )
     hc = _mass_hist(
-        chi2_name, "solo chi2", chi2[f"{meson}_mass_raw"], lo, hi
+        chi2_name, "solo chi2", chi2_raw, lo, hi
     )
     hb = _mass_hist(
-        bdt_name, "gate BDT + chi2", bdt[f"{meson}_mass_raw"], lo, hi
+        bdt_name, "gate BDT + chi2", bdt_raw, lo, hi
     )
     hists[chi2_name] = hc
     hists[bdt_name] = hb
@@ -293,11 +212,11 @@ def main(argv: list[str] | None = None) -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     print("Lettura degli alberi ricostruiti:")
-    fc, tc = _open_tree(args.chi2, CHI2_TREE)
-    fb, tb = _open_tree(args.bdt, BDT_TREE)
+    fc, tc = reconstruction_data.open_tree(args.chi2, CHI2_TREE)
+    fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE)
 
-    chi2 = _collect(tc)
-    bdt = _collect(tb)
+    chi2 = reconstruction_data.collect(tc)
+    bdt = reconstruction_data.collect(tb)
     fc.Close()
     fb.Close()
 
@@ -307,36 +226,36 @@ def main(argv: list[str] | None = None) -> int:
             name = f"dalitz_{tag}_{vlab}"
             hists[name] = _dalitz_hist(
                 name, f"{lab}  -  protone {vlab}",
-                data[f"mep_{var}"], data[f"mpp_{var}"],
+                getattr(data, f"mep_{var}"), getattr(data, f"mpp_{var}"),
             )
 
     hists["massa_eta_chi2"] = _mass_hist(
-        "massa_eta_chi2", "solo chi2", chi2["eta_mass"], _ETA_MASS_MIN, _ETA_MASS_MAX)
+        "massa_eta_chi2", "solo chi2", chi2.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
     hists["massa_eta_bdt"] = _mass_hist(
-        "massa_eta_bdt", "gate BDT", bdt["eta_mass"], _ETA_MASS_MIN, _ETA_MASS_MAX)
+        "massa_eta_bdt", "gate BDT", bdt.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
     hists["massa_pi0_chi2"] = _mass_hist(
-        "massa_pi0_chi2", "solo chi2", chi2["pi0_mass"], _PI0_MASS_MIN, _PI0_MASS_MAX)
+        "massa_pi0_chi2", "solo chi2", chi2.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
     hists["massa_pi0_bdt"] = _mass_hist(
-        "massa_pi0_bdt", "gate BDT", bdt["pi0_mass"], _PI0_MASS_MIN, _PI0_MASS_MAX)
+        "massa_pi0_bdt", "gate BDT", bdt.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
 
     # Fitted-vs-raw overlay: only meaningful when the tree actually carries the
     # kinematic-fit branches (Task 3). When has_fit is False for a sample,
     # eta_mass/pi0_mass above are already the raw masses, so there is nothing
     # to overlay for it.
     for tag, data in (("chi2", chi2), ("bdt", bdt)):
-        if data["has_fit"]:
+        if data.has_fit:
             hists[f"massa_eta_{tag}_raw"] = _mass_hist(
                 f"massa_eta_{tag}_raw", "raw",
-                data["eta_mass_raw"], _ETA_MASS_MIN, _ETA_MASS_MAX)
+                data.eta_mass_raw, _ETA_MASS_MIN, _ETA_MASS_MAX)
             hists[f"massa_pi0_{tag}_raw"] = _mass_hist(
                 f"massa_pi0_{tag}_raw", "raw",
-                data["pi0_mass_raw"], _PI0_MASS_MIN, _PI0_MASS_MAX)
+                data.pi0_mass_raw, _PI0_MASS_MIN, _PI0_MASS_MAX)
 
     # The two meson masses against each other: on this figure the gate shows up
     # as the blob tightening onto the truth crossing, not as a shifted median.
     for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
         name = f"masse_2d_{tag}"
-        hists[name] = _mass2d_hist(name, lab, data["eta_mass"], data["pi0_mass"])
+        hists[name] = _mass2d_hist(name, lab, data.eta_mass, data.pi0_mass)
 
     # --- one canvas per Dalitz ---
     for name in [k for k in hists if k.startswith("dalitz_")]:
@@ -394,8 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         hb.Draw("hist same")
 
         leg = ROOT.TLegend(0.58, 0.62, 0.90, 0.88)
-        leg.AddEntry(hc, "solo chi2" + (" (fit)" if chi2["has_fit"] else ""), "f")
-        leg.AddEntry(hb, "gate BDT" + (" (fit)" if bdt["has_fit"] else ""), "l")
+        leg.AddEntry(hc, "solo chi2" + (" (fit)" if chi2.has_fit else ""), "f")
+        leg.AddEntry(hb, "gate BDT" + (" (fit)" if bdt.has_fit else ""), "l")
 
         # Before/after: the raw mass for the same sample, dashed in the same
         # color — what the kinematic fit did to the peak. Only drawn where a
@@ -437,15 +356,15 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n====================================")
     print(f"Scritti in {args.out_dir}/")
-    print(f"  eventi         chi2 {len(chi2['eta_mass']):7d}   BDT {len(bdt['eta_mass']):7d}")
-    print(f"  fit cinematico chi2 {'si' if chi2['has_fit'] else 'no':>7}   "
-          f"BDT {'si' if bdt['has_fit'] else 'no':>7}")
+    print(f"  eventi         chi2 {len(chi2.eta_mass):7d}   BDT {len(bdt.eta_mass):7d}")
+    print(f"  fit cinematico chi2 {'si' if chi2.has_fit else 'no':>7}   "
+          f"BDT {'si' if bdt.has_fit else 'no':>7}")
     print(f"  M(eta p) oltre il limite cinematico (soprattutto risoluzione al bordo Dalitz):"
-          f"  chi2 {100 * chi2['over_limit'].mean():.1f}%   BDT {100 * bdt['over_limit'].mean():.1f}%")
+          f"  chi2 {100 * chi2.over_limit.mean():.1f}%   BDT {100 * bdt.over_limit.mean():.1f}%")
     print("  (contati, non tagliati)")
 
     # Should be 0 on anything the current reconstruction produced.
-    stale = max(chi2["eta_over_beam"].mean(), bdt["eta_over_beam"].mean())
+    stale = max(chi2.eta_over_beam.mean(), bdt.eta_over_beam.mean())
     if stale > 0:
         print("")
         print(f"  ATTENZIONE: {100 * stale:.1f}% degli eventi ha un'eta piu' energetica")

@@ -16,7 +16,7 @@
 // Produces a labelled dataset (true + smeared 4-vectors) intended
 // for training a future ML reconstruction/identification model.
 //
-// Run:  root -l 'simulation/generate_eta_pi0_dataset.C(1000000)'
+// Run:  root -l '03_mc_simulation/generators/generate_eta_pi0_dataset.C(1000000)'
 // ================================================================
 
 void generate_eta_pi0_dataset(int Nevents = 1000000) {

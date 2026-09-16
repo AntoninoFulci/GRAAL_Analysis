@@ -7,7 +7,7 @@ configuration to a JSON file alongside a summary CSV.
 Usage:
     python -m bdt_training.grid_search_stage1 \\
         --features features_stage1.npz \\
-        --out-dir 04_bdt_training/model \\
+        --out-dir 04_bdt_training/artifacts/stage1 \\
         [--n-iter 30] [--seed 42]
 
 By default runs a randomised search (n_iter samples from the grid) because
@@ -37,6 +37,8 @@ except ImportError as exc:
 
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+
+from bdt_training.dataset.stage1_dataset import load_stage1_dataset
 
 
 _PARAM_GRID: dict[str, list] = {
@@ -92,7 +94,7 @@ def _train_single(
 
 def run_search(
     features_path: str,
-    out_dir: str = "04_bdt_training/model",
+    out_dir: str = "04_bdt_training/artifacts/stage1",
     n_iter: int = 30,
     full_grid: bool = False,
     val_fraction: float = 0.20,
@@ -103,10 +105,10 @@ def run_search(
     rng_py = random.Random(seed)
 
     print(f"Loading features from {features_path} …")
-    data = np.load(features_path)
-    X: np.ndarray = data["X"].astype(np.float32)
-    y: np.ndarray = data["y"].astype(np.float32)
-    w: np.ndarray = data["w"].astype(np.float32)
+    dataset = load_stage1_dataset(features_path)
+    X: np.ndarray = dataset.X.astype(np.float32)
+    y: np.ndarray = dataset.y.astype(np.float32)
+    w: np.ndarray = dataset.w.astype(np.float32)
     print(f"  {len(X)} events  ({(y==1).sum()} signal, {(y==0).sum()} background)")
 
     X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
@@ -187,7 +189,9 @@ def run_search(
 def _cli() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features",     default="features_stage1.npz")
-    parser.add_argument("--out-dir",      default="04_bdt_training/model")
+    parser.add_argument(
+        "--out-dir", default="04_bdt_training/artifacts/stage1"
+    )
     parser.add_argument("--n-iter",       type=int, default=30,
                         help="Random configs to try (ignored with --full-grid)")
     parser.add_argument("--full-grid",    action="store_true",

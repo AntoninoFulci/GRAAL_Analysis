@@ -26,7 +26,7 @@ same call reco_core makes. Data curves read the fitted branches already written
 to the reco file (eta_fit, pi0_fit, proton_fit — the fit adjusts the proton too,
 so both the meson and the proton use their fitted 4-vector).
 
-No ROOT: uproot reads the TLorentzVector branches, plots.kinematics does the
+No ROOT: uproot reads the TLorentzVector branches, plots.core.kinematics does the
 arithmetic, matplotlib draws.
 
 Run:
@@ -43,11 +43,11 @@ from pathlib import Path
 import numpy as np
 import uproot
 
-from graal_common.channels import ETA_PI0_HYP
-from graal_common.pairing import Pairing
-from graal_common.vectors import lorentz_array
-from plots.kinematics import invariant_mass, invariant_masses
-from reconstruction.kinematic_fit import FitCovariance, fit_event
+from graal_common.physics.channels import ETA_PI0_HYP
+from graal_common.physics.pairing import Pairing
+from graal_common.io.vectors import lorentz_array
+from plots.core.kinematics import invariant_mass, invariant_masses
+from reconstruction.core.kinematic_fit import FitCovariance, fit_event
 
 # The eta is the heavy pair (0, 1), the pi0 the light pair (2, 3): the same
 # order reco_core stacks the photons in before it calls the fit.

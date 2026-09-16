@@ -1,6 +1,6 @@
 # Gate BDT
 
-`05_reconstruction/stage1_gate.py` è il filtro che `reconstruct_eta_pi0_bdt.py` applica a ogni evento prima della combinatoria chi2: un classificatore BDT (stage-1, vedi [BDT stage-1](04-bdt-training)) addestrato a distinguere il segnale dal fondo. 
+`05_reconstruction/runtime/stage1_gate.py` è il filtro che `reconstruct_eta_pi0_bdt.py` applica a ogni evento prima della combinatoria chi2: un classificatore BDT (stage-1, vedi [BDT stage-1](04-bdt-training)) addestrato a distinguere il segnale dal fondo.
 
 ## Come funziona
 

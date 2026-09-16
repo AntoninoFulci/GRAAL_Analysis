@@ -9,10 +9,16 @@ import numpy as np
 import pytest
 import uproot
 
-from graal_common import channels
+from graal_common.physics import channels
 
 
-GENERATOR_FILES = sorted(Path("03_mc_simulation").glob("generate_*_dataset.C"))
+GENERATOR_FILES = sorted(
+    Path("03_mc_simulation/generators").glob("generate_*_dataset.C")
+)
+
+
+def test_generator_inventory_covers_registered_channels():
+    assert len(GENERATOR_FILES) == len(channels.CHANNEL_NAMES)
 
 
 @pytest.mark.parametrize("path", GENERATOR_FILES, ids=lambda path: path.stem)
@@ -32,7 +38,7 @@ def test_tagger_fwhm_is_converted_to_gaussian_sigma():
 
 @pytest.mark.skipif(shutil.which("root") is None, reason="ROOT is not installed")
 def test_phase_space_acceptance_tolerates_observed_root_roundoff(tmp_path: Path):
-    header = Path("03_mc_simulation/smearing.h").resolve()
+    header = Path("03_mc_simulation/generators/smearing.h").resolve()
     macro = tmp_path / "test_weight_roundoff.C"
     macro.write_text(
         f"""
@@ -67,7 +73,7 @@ def test_phase_space_generate_weight_is_not_ignored(path: Path):
 
 @pytest.mark.skipif(shutil.which("root") is None, reason="ROOT is not installed")
 def test_unweighted_phase_space_matches_weighted_reference(tmp_path: Path):
-    header = Path("03_mc_simulation/smearing.h").resolve()
+    header = Path("03_mc_simulation/generators/smearing.h").resolve()
     macro = tmp_path / "test_unweighting.C"
     macro.write_text(
         f"""
@@ -121,7 +127,7 @@ void test_unweighting() {{
 
 @pytest.mark.skipif(shutil.which("root") is None, reason="ROOT is not installed")
 def test_generated_tagged_beam_is_massless(tmp_path: Path):
-    macro = Path("03_mc_simulation/generate_eta_pi0_dataset.C").resolve()
+    macro = Path("03_mc_simulation/generators/generate_eta_pi0_dataset.C").resolve()
     subprocess.run(
         ["root", "-l", "-b", "-q", f"{macro}(50)"],
         cwd=tmp_path,

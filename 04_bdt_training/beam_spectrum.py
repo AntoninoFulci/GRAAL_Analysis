@@ -37,7 +37,7 @@ try:
 except ImportError as exc:
     raise ImportError("uproot required: pip install uproot") from exc
 
-from graal_common import trees
+from graal_common.io import trees
 
 # Wide enough to hold every tagged photon in the data (0.64 to 1.72 measured)
 # with room on both sides, so nothing piles into an edge bin unseen.

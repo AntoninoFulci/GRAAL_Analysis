@@ -1,9 +1,22 @@
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 
-from graal_common.channels import ETA_PI0_HYP, TWO_PI0_HYP
-from reconstruction.stage1_gate import Stage1Gate
-from bdt_training.build_background_features import compute_stage1_features
+from graal_common.physics.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from graal_common.stage1.artifacts import (
+    MODEL_FILE as SHARED_MODEL_FILE,
+    PROVENANCE_FILE as SHARED_PROVENANCE_FILE,
+    THRESHOLD_FILE as SHARED_THRESHOLD_FILE,
+)
+from graal_common.stage1.features import compute_stage1_features
+from reconstruction.runtime.stage1_gate import (
+    MODEL_FILE,
+    PROVENANCE_FILE,
+    THRESHOLD_FILE,
+    Stage1Gate,
+)
 
 
 class FakeModel:
@@ -46,6 +59,30 @@ def _events(n=1):
 def test_accepts_when_the_score_is_above_the_threshold():
     gate = Stage1Gate(FakeModel(0.9), threshold=0.5)
     assert gate.accepts_many(*_events()).tolist() == [True]
+
+
+def test_importing_gate_does_not_import_training_package():
+    script = """
+import sys
+import reconstruction.runtime.stage1_gate
+
+loaded = sorted(name for name in sys.modules if name.startswith("bdt_training"))
+if loaded:
+    raise SystemExit(f"training modules loaded: {loaded}")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_gate_reexports_shared_artifact_filenames():
+    assert MODEL_FILE is SHARED_MODEL_FILE
+    assert THRESHOLD_FILE is SHARED_THRESHOLD_FILE
+    assert PROVENANCE_FILE is SHARED_PROVENANCE_FILE
 
 
 def test_rejects_when_the_score_is_below_the_threshold():

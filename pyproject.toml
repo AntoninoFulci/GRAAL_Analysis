@@ -25,15 +25,24 @@ requires-python = ">=3.10"
 [tool.setuptools]
 packages = [
     "graal_common",
+    "graal_common.physics",
+    "graal_common.io",
+    "graal_common.calibration",
+    "graal_common.stage1",
     "graal_common.tests",
     "event_selector",
     "mc_simulation",
     "mc_simulation.tests",
     "bdt_training",
+    "bdt_training.dataset",
+    "bdt_training.training",
     "bdt_training.tests",
     "reconstruction",
+    "reconstruction.core",
+    "reconstruction.runtime",
     "reconstruction.tests",
     "plots",
+    "plots.core",
     "plots.tests",
 ]
 
@@ -48,7 +57,7 @@ reconstruction = "05_reconstruction"
 plots          = "06_plots"
 
 [tool.pytest.ini_options]
-testpaths = ["00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_plots/tests"]
+testpaths = ["tests", "00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_plots/tests"]
 # The tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"

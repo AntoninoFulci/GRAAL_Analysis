@@ -27,3 +27,5 @@ test_data/
 tmp/
 
 graphify-out/
+.work/
+/build/

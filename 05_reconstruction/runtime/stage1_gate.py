@@ -13,19 +13,26 @@ otherwise score happily and mean nothing.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
 
-from graal_common.channels import ETA_PI0_HYP, HYPOTHESES, Hypothesis
-from bdt_training.build_background_features import compute_stage1_features
+from graal_common.physics.channels import ETA_PI0_HYP, HYPOTHESES, Hypothesis
+from graal_common.stage1.artifacts import (
+    MODEL_FILE,
+    PROVENANCE_FILE,
+    THRESHOLD_FILE,
+    Stage1ArtifactPaths,
+    Stage1Provenance,
+)
+from graal_common.stage1.features import compute_stage1_features
 
-DEFAULT_MODEL_DIR = Path(__file__).parent.parent / "04_bdt_training" / "model"
-
-MODEL_FILE = "bdt_stage1.json"
-THRESHOLD_FILE = "stage1_threshold.txt"
-PROVENANCE_FILE = "stage1_provenance.json"
+DEFAULT_MODEL_DIR = (
+    Path(__file__).resolve().parents[2]
+    / "04_bdt_training"
+    / "artifacts"
+    / "stage1"
+)
 
 
 class Stage1Gate:
@@ -45,22 +52,21 @@ class Stage1Gate:
 
     @classmethod
     def load(cls, model_dir: Path = DEFAULT_MODEL_DIR) -> "Stage1Gate":
-        model_dir = Path(model_dir)
-        model_path = model_dir / MODEL_FILE
-        threshold_path = model_dir / THRESHOLD_FILE
-        provenance_path = model_dir / PROVENANCE_FILE
+        artifacts = Stage1ArtifactPaths.from_directory(model_dir)
 
-        if not model_path.exists():
+        if not artifacts.model.exists():
             raise FileNotFoundError(
-                f"stage-1 model not found: {model_path}. "
+                f"stage-1 model not found: {artifacts.model}. "
                 "Train it with run_pipeline.sh, or use reconstruct_eta_pi0_chi2.py "
                 "for the analysis without the BDT gate."
             )
-        if not threshold_path.exists():
-            raise FileNotFoundError(f"stage-1 threshold not found: {threshold_path}")
-        if not provenance_path.exists():
+        if not artifacts.threshold.exists():
             raise FileNotFoundError(
-                f"stage-1 provenance not found: {provenance_path}. It records which "
+                f"stage-1 threshold not found: {artifacts.threshold}"
+            )
+        if not artifacts.provenance.exists():
+            raise FileNotFoundError(
+                f"stage-1 provenance not found: {artifacts.provenance}. It records which "
                 "channel the model was trained to find and which mesons its features "
                 "were built around; without it the gate cannot know what it is "
                 "gating. Retrain with bdt_training.train_bdt_stage1 to produce it."
@@ -69,15 +75,15 @@ class Stage1Gate:
         import xgboost as xgb
 
         model = xgb.XGBClassifier()
-        model.load_model(str(model_path))
-        threshold = float(threshold_path.read_text().strip())
+        model.load_model(str(artifacts.model))
+        threshold = float(artifacts.threshold.read_text().strip())
 
-        provenance = json.loads(provenance_path.read_text())
-        hypothesis = HYPOTHESES[provenance["hypothesis"]]
-        signal_channel = str(provenance["signal_channel"])
+        provenance = Stage1Provenance.from_json(artifacts.provenance.read_text())
+        hypothesis = HYPOTHESES[provenance.hypothesis]
+        signal_channel = provenance.signal_channel
 
         print(
-            f"[stage1] loaded {model_path}, threshold={threshold:.4f}, "
+            f"[stage1] loaded {artifacts.model}, threshold={threshold:.4f}, "
             f"signal={signal_channel}, hypothesis={hypothesis.name}"
         )
         return cls(model, threshold, hypothesis, signal_channel)

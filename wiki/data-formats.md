@@ -5,7 +5,7 @@
 | `h70` | rivelatore| dati grezzi, fuori da questa repository |
 | `h80` | `01_pre_analysis/PreAnalysis.C` | un'entry per evento: `beam`, `gammas`, `protons`, `neutrons`, `deuterons` come quadrivettori |
 | `h85` | `02_event_selector/select_events.py` | come `h80`, ma solo gli eventi selezionati dal file |
-| `mc` (`<canale>_mc.root`) | `03_mc_simulation/generate_<canale>_dataset.C` | `beam`, `proton`, e i fotoni veri del canale — nome dei rami e conteggio dipendono dal canale, vedi sotto |
+| `mc` (`<canale>_mc.root`) | `03_mc_simulation/generators/generate_<canale>_dataset.C` | `beam`, `proton`, e i fotoni veri del canale — nome dei rami e conteggio dipendono dal canale, vedi sotto |
 | `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` | i due entrypoint di `05_reconstruction/` | `eta`, `pi0`, i loro fotoni, `missing`, `chi2`, le masse |
 
 ## Lookup strip→Eγ e flussi integrati
@@ -120,7 +120,7 @@ QA.
 
 ## `h80` — pre-analisi
 
-Scritto da `PreAnalysis::Loop` in `01_pre_analysis/PreAnalysis.C`. 
+Scritto da `PreAnalysis::Loop` in `01_pre_analysis/PreAnalysis.C`.
 I branch principali sono quadrivettori `ROOT::Math::PxPyPzEVector` (o vettori di essi):
 
 ```cpp
@@ -131,7 +131,7 @@ output_tree->Branch("protons",   "vector<ROOT::Math::LorentzVector<...>>", &prot
 output_tree->Branch("deuterons", "vector<ROOT::Math::LorentzVector<...>>", &deuterons);
 ```
 
-Oltre a questi, `h80` porta anche i rami di servizio usati per diagnostica e per i cut (angoli, tempo di volo, perdita di energia, polarizzazione, numero di run): 
+Oltre a questi, `h80` porta anche i rami di servizio usati per diagnostica e per i cut (angoli, tempo di volo, perdita di energia, polarizzazione, numero di run):
 - `gamma_theta`/`gamma_phi`
 - `pions_theta`/`pions_phi`
 - `deuterons_theta`/`deuterons_phi`
@@ -153,7 +153,7 @@ event.fcharged_theta.size() == 1
 
 cioè più di un fotone (necessario per ricostruire due mesoni) ed esattamente una traccia carica forward (il barione di rinculo come lo vede il rivelatore forward; un rinculo neutro non produce una traccia carica e non è contato).
 
-Lo schema dei rami è identico a `h80` — nessuna colonna aggiunta o rimossa, solo eventi filtrati. 
+Lo schema dei rami è identico a `h80` — nessuna colonna aggiunta o rimossa, solo eventi filtrati.
 Il nome dell'albero cambia comunque: `CloneTree` eredita il nome dell'albero sorgente, quindi il clone si chiamerebbe ancora `h80` se non venisse rinominato esplicitamente:
 
 ```python
@@ -166,7 +166,7 @@ Questo è l'intero motivo per cui `h85` esiste come nome distinto: non descrive 
 
 ## `mc` — i nove file `<canale>_mc.root`
 
-Ogni generatore (`03_mc_simulation/generate_<canale>_dataset.C`) scrive un albero `mc` con `beam` e `proton` come `TLorentzVector`, più i fotoni veri del canale. 
+Ogni generatore (`03_mc_simulation/generators/generate_<canale>_dataset.C`) scrive un albero `mc` con `beam` e `proton` come `TLorentzVector`, più i fotoni veri del canale.
 Il **numero** di fotoni non è lo stesso per tutti i canali — dipende da quanti mesoni lo stato finale prodotto contiene e in cosa decadono — e per questo il layout dei rami segue due convenzioni diverse:
 
 **Rami nominati.** Solo `eta_pi0` (il segnale): sempre esattamente 4 fotoni, con un nome che dice a quale genitore appartengono.
@@ -180,7 +180,7 @@ tree->Branch("pi0_gamma2", &pi0_gamma2);
 
 `build_background_features.py::load_photons` riconosce questo caso da `channel.photon_branches` nel registry, e li carica per nome.
 
-**Rami `*_true` (solo `eta_pi0`).** 
+**Rami `*_true` (solo `eta_pi0`).**
 `generate_eta_pi0_dataset.C` scrive, accanto ai quadrivettori smearati sopra, gli stessi quadrivettori **prima** dello smearing:
 - `eta_gamma1_true`
 - `eta_gamma2_true`
@@ -191,7 +191,7 @@ tree->Branch("pi0_gamma2", &pi0_gamma2);
 
 Servono solo alla validazione del fit cinematico (`validate_kinematic_fit.py`, vedi [Fit cinematico](05-reconstruction-kinematic-fit)): il calcolo degli pull richiede di confrontare il fittato con la verità del generatore, che senza questi rami non sarebbe recuperabile a partire dal solo MC smearato. Gli altri canali di fondo non li hanno — non serve la loro verità, solo il loro chi2 del fit per lo studio di reiezione.
 
-**Rami `g0..gN` + `n_true_gamma`.** 
+**Rami `g0..gN` + `n_true_gamma`.**
 Per tutti gli altri canali il numero di fotoni varia, e il file stesso dichiara quanti ce ne sono con un ramo scalare `n_true_gamma/I`, letto a runtime invece che assunto:
 
 ```cpp
@@ -217,7 +217,7 @@ Prima del gate a 4 fotoni stage-1, ognuno di questi passa per il modello di perd
 
 ## `reco_eta_pi0_chi2` / `reco_eta_pi0_bdt` — ricostruzione
 
-Scritti da `05_reconstruction/reco_core.py::run_reconstruction`, letti da `h85` in `SELECTED_DIR`.
+Scritti da `05_reconstruction/runtime/reco_core.py::run_reconstruction`, letti da `h85` in `SELECTED_DIR`.
 Il nome dell'albero di output è passato come parametro dai due entrypoint (`reconstruct_eta_pi0_chi2.py`, `reconstruct_eta_pi0_bdt.py`) e coincide col nome del file.
 I rami, identici nei due file (l'unica differenza è quali eventi sopravvivono, per via del gate BDT nel secondo):
 

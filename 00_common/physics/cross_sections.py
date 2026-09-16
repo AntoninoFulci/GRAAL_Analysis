@@ -40,7 +40,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from graal_common.channels import M_PROTON, MCChannel
+from graal_common.physics.channels import M_PROTON, MCChannel
 
 # Points per tabulated curve. The recursion below tabulates Phi_k once as a
 # function of the sub-system mass and interpolates it, rather than nesting a

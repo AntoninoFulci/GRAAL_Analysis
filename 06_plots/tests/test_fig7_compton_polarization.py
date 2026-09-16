@@ -9,13 +9,13 @@ def test_default_output_path_is_pdf():
     # Changing the default artifact type or location breaks the reproducible
     # Figure 7 workflow used by the paper build.
     assert fig7.DEFAULT_OUTPUT.name == "fig7_compton_polarization.pdf"
-    assert fig7.DEFAULT_OUTPUT.parent.name == "06_plots"
+    assert fig7.DEFAULT_OUTPUT.parent.name == "artifacts"
 
 
 def test_default_root_output_is_root_file():
     # The ROOT artifact is the machine-readable companion to the PDF figure.
     assert fig7.DEFAULT_ROOT_OUTPUT.name == "fig7_compton_polarization.root"
-    assert fig7.DEFAULT_ROOT_OUTPUT.parent.name == "06_plots"
+    assert fig7.DEFAULT_ROOT_OUTPUT.parent.name == "artifacts"
 
 
 def test_draw_fig7_persists_named_root_objects(tmp_path):

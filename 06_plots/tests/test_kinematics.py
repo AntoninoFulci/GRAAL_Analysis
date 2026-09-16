@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from plots import kinematics as kin
+from plots.core import kinematics as kin
 
 
 def test_constants_match_the_reconstruction():
-    # The plots must speak the same physics as 05_reconstruction/reco_physics.py.
-    from reconstruction import reco_physics as rp
+    # The plots must speak the same physics as 05_reconstruction/core/reco_physics.py.
+    from reconstruction.core import reco_physics as rp
 
     assert kin.M_PI0 == rp.M_PI0
     assert kin.M_ETA == rp.M_ETA

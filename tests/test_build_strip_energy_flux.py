@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from graal_common.run_manifest import RunRecord, write_manifest
-from graal_common.strip_energy_flux import EnergyBinning, StripEnergyFluxError
+from graal_common.calibration.run_manifest import RunRecord, write_manifest
+from graal_common.calibration.strip_energy_flux import EnergyBinning, StripEnergyFluxError
 
-SCRIPT = Path(__file__).parents[2] / "scripts" / "build_strip_energy_flux.py"
+SCRIPT = Path(__file__).parents[1] / "scripts" / "build_strip_energy_flux.py"
 SPEC = importlib.util.spec_from_file_location("build_strip_energy_flux_task4", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 cli = importlib.util.module_from_spec(SPEC)

@@ -1,7 +1,7 @@
 """ROOT IO for the two-meson reconstruction: chain, branches, event loop, write.
 
-The physics lives in reco_physics. This module only moves data in and out of
-ROOT and applies the optional event gate.
+Event decisions live in event_logic. This module moves data in and out of ROOT,
+applies the optional event gate, and counts rejected events.
 
 Event requirements, applied identically to the chi2 run and the BDT-gated run,
 before either the gate or the chi2 pairing run:
@@ -18,11 +18,11 @@ before either the gate or the chi2 pairing run:
 
 Two cuts are applied after the pairing, also to both runs. An event where
 either reconstructed meson carries more energy than the tagged beam photon is
-thrown away. And the missing mass of the two-meson system must sit within a
-window of the recoil partner's mass (RecoConfig.partner_mass /
+thrown away. When the fit is disabled, the missing mass of the two-meson system
+must sit within a window of the recoil partner's mass (RecoConfig.partner_mass /
 missing_mass_window): the reaction recoils against a single partner, so the
 contamination that does not is what pulls the reconstructed meson peak high.
-Both are in _reconstruct_and_fill, so the chi2 run and the BDT run lose the
+Both decisions are in event_logic, so the chi2 run and the BDT run lose the
 same events and the gate stays the only difference between them.
 """
 from __future__ import annotations
@@ -36,11 +36,21 @@ from typing import Protocol
 import numpy as np
 import ROOT
 
-from graal_common import pairing as pr
-from graal_common import trees
-from graal_common.pairing import Pairing
-from reconstruction import reco_physics as rp
-from reconstruction.kinematic_fit import FitCovariance, confidence_level, fit_event
+from graal_common.physics import pairing as pr
+from graal_common.io import trees
+from reconstruction.core import reco_physics as rp
+from reconstruction.core.event_logic import (
+    EventInput,
+    ReconstructedEvent,
+    RejectionReason,
+    reconstruct_event,
+)
+from reconstruction.core.kinematic_fit import (
+    PROTON_TARGET_REACTION,
+    FitCovariance,
+    FitReactionModel,
+    fit_event,
+)
 
 
 # How many events to hold before asking the gate about them. A gate asked one
@@ -84,6 +94,7 @@ class RecoConfig:
     do_fit: bool = True
     fit_cl: float = 0.01
     fit_cov: FitCovariance = field(default_factory=FitCovariance)
+    fit_reaction: FitReactionModel = PROTON_TARGET_REACTION
 
 
 def _as_array(v) -> np.ndarray:
@@ -209,94 +220,62 @@ def run_reconstruction(
     n_fit_cut = 0
     print("Starting event loop...")
 
-    def _reconstruct_and_fill(
-        photons,
-        proton_v,
-        neutron_v,
-        beam_v,
-        event_run,
-        event_polarization,
-        event_xstrip,
-    ) -> None:
-        """chi2-pair one accepted event and write it. Identical for both runs."""
+    def _reconstruct_and_fill(event: EventInput) -> None:
+        """Reconstruct one gate-accepted event and write it when retained."""
         nonlocal n_impossible, n_missing_cut, n_fit_cut
 
-        pairing, chi2_val = pr.best_pairing(photons, channel.hypothesis)
-        chi2[0] = chi2_val
-        if chi2_val >= cfg.chi2_cut:
+        decision = reconstruct_event(
+            event,
+            channel,
+            cfg,
+            pairing_fn=pr.best_pairing,
+            fit_fn=fit_event,
+        )
+        if decision is RejectionReason.CHI_SQUARE:
             return
-
-        heavy_idx, light_idx = pairing.heavy, pairing.light
-
-        beam.SetPxPyPzE(*beam_v)
-        proton.SetPxPyPzE(*proton_v)
-        neutron.SetPxPyPzE(*neutron_v)
-
-        hg1, hg2 = photons[heavy_idx[0]], photons[heavy_idx[1]]
-        lg1, lg2 = photons[light_idx[0]], photons[light_idx[1]]
-
-        heavy_g1.SetPxPyPzE(*hg1)
-        heavy_g2.SetPxPyPzE(*hg2)
-        light_g1.SetPxPyPzE(*lg1)
-        light_g2.SetPxPyPzE(*lg2)
-        heavy.SetPxPyPzE(*(hg1 + hg2))
-        light.SetPxPyPzE(*(lg1 + lg2))
-
-        # Drop what the reaction cannot produce. The target is a proton at rest,
-        # so it contributes its mass and no momentum: neither meson can carry
-        # away more energy than the tagged beam photon brought in. An event that
-        # says otherwise is not a badly measured event, it is a wrong one —
-        # almost always the tagger associating the wrong beam photon with the
-        # trigger. Neither the chi2 nor the gate can repair it, because both look
-        # at the photons and the proton and never at that association.
-        #
-        # Cut here, inside the shared path, so the chi2 run and the BDT run lose
-        # exactly the same events and the only difference between them stays the
-        # gate.
-        if heavy.E() > beam.E() or light.E() > beam.E():
+        if decision is RejectionReason.IMPOSSIBLE_ENERGY:
             n_impossible += 1
             return
+        if decision is RejectionReason.MISSING_MASS:
+            n_missing_cut += 1
+            return
+        if decision is RejectionReason.FIT:
+            n_fit_cut += 1
+            return
 
-        missing_v = (beam + target) - (heavy + light)
+        reconstructed: ReconstructedEvent = decision
+        raw_photons = reconstructed.photons
+
+        beam.SetPxPyPzE(*reconstructed.beam)
+        proton.SetPxPyPzE(*reconstructed.proton)
+        neutron.SetPxPyPzE(*reconstructed.neutron)
+        heavy_g1.SetPxPyPzE(*raw_photons[0])
+        heavy_g2.SetPxPyPzE(*raw_photons[1])
+        light_g1.SetPxPyPzE(*raw_photons[2])
+        light_g2.SetPxPyPzE(*raw_photons[3])
+        heavy.SetPxPyPzE(*reconstructed.heavy)
+        light.SetPxPyPzE(*reconstructed.light)
+        missing.SetPxPyPzE(*reconstructed.missing)
 
         if cfg.do_fit:
-            # photons stacked heavy-pair-first, so the fit's pairing is fixed:
-            photons_arr = np.stack([hg1, hg2, lg1, lg2])
-            res = fit_event(
-                photons_arr, _as_array(proton), _as_array(beam),
-                Pairing(heavy=(0, 1), light=(2, 3)), channel.hypothesis, cfg.fit_cov,
-            )
-            if not res.converged or confidence_level(res.chi2, res.ndf) < cfg.fit_cl:
-                n_fit_cut += 1
-                return
-            fh = res.fitted_photons
-            eta_fit_g1.SetPxPyPzE(*fh[0]); eta_fit_g2.SetPxPyPzE(*fh[1])
-            pi0_fit_g1.SetPxPyPzE(*fh[2]); pi0_fit_g2.SetPxPyPzE(*fh[3])
-            eta_fit.SetPxPyPzE(*(fh[0] + fh[1]))
-            pi0_fit.SetPxPyPzE(*(fh[2] + fh[3]))
-            proton_fit.SetPxPyPzE(*res.fitted_proton)
-            fit_chi2[0] = res.chi2; fit_ndf[0] = res.ndf; fit_conv[0] = 1
-        else:
-            # The reaction recoils the eta-pi0 system against a single partner,
-            # so the missing mass sits at the partner's mass. Requiring it there
-            # drops the contamination that has no such partner -- events that
-            # otherwise pull the reconstructed eta peak high. Shared path: the
-            # chi2 run and the BDT run lose the same events, leaving the gate the
-            # only difference.
-            if not rp.passes_missing_mass(
-                missing_v.M(), cfg.partner_mass, cfg.missing_mass_window
-            ):
-                n_missing_cut += 1
-                return
+            fitted_photons = reconstructed.fitted_photons
+            eta_fit_g1.SetPxPyPzE(*fitted_photons[0])
+            eta_fit_g2.SetPxPyPzE(*fitted_photons[1])
+            pi0_fit_g1.SetPxPyPzE(*fitted_photons[2])
+            pi0_fit_g2.SetPxPyPzE(*fitted_photons[3])
+            eta_fit.SetPxPyPzE(*reconstructed.fitted_heavy)
+            pi0_fit.SetPxPyPzE(*reconstructed.fitted_light)
+            proton_fit.SetPxPyPzE(*reconstructed.fitted_proton)
+            fit_chi2[0] = reconstructed.fit_chi2
+            fit_ndf[0] = reconstructed.fit_ndf
+            fit_conv[0] = 1
 
-        missing.SetPxPyPzE(
-            missing_v.Px(), missing_v.Py(), missing_v.Pz(), missing_v.E()
-        )
-        heavy_mass[0] = heavy.M()
-        light_mass[0] = light.M()
-        run_number[0] = event_run
-        polarization[0] = event_polarization
-        xstrip[0] = event_xstrip
+        chi2[0] = reconstructed.chi2
+        heavy_mass[0] = reconstructed.heavy_mass
+        light_mass[0] = reconstructed.light_mass
+        run_number[0] = reconstructed.run_number
+        polarization[0] = reconstructed.polarization
+        xstrip[0] = reconstructed.strip
         tout.Fill()
 
     def _flush(buf: list) -> None:
@@ -314,20 +293,20 @@ def run_reconstruction(
             keep = [True] * len(buf)
         else:
             accepted = gate.accepts_many(
-                np.stack([b[0] for b in buf]),
-                np.stack([b[1] for b in buf]),
-                np.stack([b[3] for b in buf]),
+                np.stack([event.photons for event in buf]),
+                np.stack([event.proton for event in buf]),
+                np.stack([event.beam for event in buf]),
             )
             n_gated_out += int(len(buf) - np.count_nonzero(accepted))
             keep = accepted
 
         for ok, event in zip(keep, buf):
             if ok:
-                _reconstruct_and_fill(*event)
+                _reconstruct_and_fill(event)
 
         buf.clear()
 
-    pending: list = []
+    pending: list[EventInput] = []
 
     for iev in range(n_entries):
         chain.GetEntry(iev)
@@ -356,14 +335,14 @@ def run_reconstruction(
         beam_v = np.array([0.0, 0.0, chain.beam.E(), chain.beam.E()])
 
         pending.append(
-            (
-                photons,
-                proton_v,
-                neutron_v,
-                beam_v,
-                int(chain.RunNumber),
-                int(chain.Polarization),
-                float(chain.Xstrip),
+            EventInput(
+                photons=photons,
+                proton=proton_v,
+                neutron=neutron_v,
+                beam=beam_v,
+                run_number=int(chain.RunNumber),
+                polarization=int(chain.Polarization),
+                strip=float(chain.Xstrip),
             )
         )
         if len(pending) >= _GATE_CHUNK:
