@@ -18,10 +18,9 @@ requires-python = ">=3.10"
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.
 #
-# The number is the order the stage runs in, and that has to hold or it is worth
-# nothing. It did not: the reconstruction was 03 while running fifth, after the
-# MC (04) and the training (05), because it needs the model those two produce.
-# Reading the folder list top to bottom taught you the wrong order.
+# Numbers show component order. Some components own several shell stages:
+# training (04) owns feature build, search, and fit; reconstruction (05) follows
+# it because the BDT-gated entry point consumes the trained model.
 [tool.setuptools]
 packages = [
     "graal_common",

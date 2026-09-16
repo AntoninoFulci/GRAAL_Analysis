@@ -2,7 +2,7 @@
 """Standard reconstruction of gamma p -> p eta pi0: chi2 pairing, no BDT gate.
 
 Reads the preselected tree and pairs the first four photons into an eta
-and a pi0 by minimising the chi2 over the combination table.
+and a pi0 by minimising chi2 over pairings derived from the eta-pi0 hypothesis.
 
 Run:
     python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/selected

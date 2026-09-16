@@ -1,8 +1,8 @@
 """Meson masses, two-meson hypotheses, and the MC channel registry.
 
-The one place that knows what a channel is. Everything downstream — the
-reconstruction (03), the MC bookkeeping (04), the stage-1 features and training
-(05), the plots (06) — imports from here rather than restating it, because a
+The one place that knows what a channel is. Everything downstream — MC
+bookkeeping (03), stage-1 features and training (04), reconstruction (05), and
+plots (06) — imports from here rather than restating it, because a
 second copy of the eta mass or of the channel list is free to drift out of the
 first, and has: the masses used to live in three modules at once, one of which
 carried a comment asking the reader to keep them in sync by hand.
@@ -17,7 +17,7 @@ Two ideas that are easy to confuse, and are deliberately separate here:
     layout on disk and its reference cross-section. It is a property of the
     file, and says nothing on its own about how the event will be tested.
 
-The stage-1 BDT needs both, and they are independent knobs. Any of the six
+The stage-1 BDT needs both, and they are independent knobs. Any of the nine
 channels can be the signal class; only some of them fix a hypothesis on their
 own. gamma p -> p 3pi0 seen as 4 photons is two visible pi0 out of three, and
 which pair is "the signal" is not something the channel answers, so those

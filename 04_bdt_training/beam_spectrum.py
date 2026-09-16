@@ -147,7 +147,7 @@ def reweight(
 
     w = p_data(E) / p_mc(E), with p_mc measured from the sample itself rather
     than assumed: each generator's flat range starts at its own production
-    threshold, so no single analytic form covers all six channels.
+    threshold, so no single analytic form covers all channels.
 
     Events at energies the data never produced get weight 0 — correctly, since
     the experiment could not have recorded them.

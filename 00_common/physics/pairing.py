@@ -1,25 +1,9 @@
-"""Assigning four observed photons to two mesons, and scoring the assignment.
+"""Assign four observed photons to two mesons and score each assignment.
 
-The one chi2 in the project. The reconstruction uses it to pick a pairing; the
-stage-1 features use it as a discriminant. Those were two separate
-implementations of the same formula — a table-driven loop there, a vectorised
-expression here — agreeing by inspection and free to drift. That is the shape of
-the bug that once had the gate scoring its model on a feature vector built by a
-second, drifted copy of the feature builder.
-
-The enumeration used to live in `05_reconstruction/data/combinations_*.txt`, a file
-per channel listing rows like
-
-    0 1 2 3 0.547862 0.134977      # photons (0,1) are the eta, (2,3) the pi0
-    0 1 2 3 0.134977 0.547862      # ...or the other way round
-
-Those files carried no information: they were exactly the three ways to split
-four photons into two pairs, times the two ways to assign the mesons to them
-(times one, not two, when the mesons are the same particle). Every row was
-derivable from the hypothesis, and the meson masses were copied into the table
-where they were free to disagree with the registry. `pairings()` derives them
-instead — which is also what lets a new hypothesis be reconstructed without
-anyone writing it a table first.
+Reconstruction uses this shared chi2 to choose a pairing; Stage-1 features use
+the same value as a discriminant. `pairings()` derives the three disjoint
+partitions and, for non-degenerate hypotheses, both meson assignments. Meson
+masses always come from the hypothesis registry.
 """
 from __future__ import annotations
 

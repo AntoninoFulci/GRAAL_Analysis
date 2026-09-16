@@ -5,7 +5,7 @@
 # Runs AFTER the pre-analysis and BEFORE the reconstruct_* scripts.
 # Reads the pre-analysis ROOT files (tree "h80", named "pre_*.root"),
 # keeps only the events that can feed the two-meson reconstruction
-# (more than one photon and exactly one recoil baryon), and writes the
+# (more than one photon and exactly one forward charged track), and writes the
 # surviving events to a new file as tree "h85", dropping the "pre_"
 # filename prefix.
 # ============================================================
@@ -87,7 +87,7 @@ def main():
 
         n_selected = 0
         for event in tree:
-            # keep events with >1 photon and exactly one recoil baryon
+            # Keep events with >1 photon and exactly one forward charged track.
             if (
                 event.gammas.size() > 1 and
                 event.fcharged_theta.size() == 1

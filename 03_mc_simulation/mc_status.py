@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report which Monte Carlo channels exist on disk and how old they are.
 
-Regenerating six channels takes hours, so the pipeline reuses whatever is
+Regenerating all registry channels takes hours, so the pipeline reuses whatever is
 already there. This module is what it asks. It is Python rather than shell
 because `stat` takes different flags on macOS and Linux.
 
@@ -14,7 +14,7 @@ Exit 2 = internal error (e.g. this module failed to import its dependencies,
          or crashed for any other reason). The caller MUST NOT treat this the
          same as exit 1: doing so once made a bare `python` interpreter that
          could not import the package look like "MC missing" and triggered a
-         multi-hour regeneration of six channels that were sitting on disk
+         multi-hour regeneration of channels that were sitting on disk
          the whole time.
 Staleness never changes the exit code: it warns, it does not block.
 """
@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-# The six channels, and what each one's file is called, come from the registry
+# Channels and their filenames come from the registry
 # rather than a list repeated here: a channel added there but forgotten here
 # would make this report claim the MC was complete when it was not.
 from graal_common.physics.channels import CHANNEL_NAMES as CHANNELS

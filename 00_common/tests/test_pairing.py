@@ -125,10 +125,8 @@ class TestPairings:
             for p in pairings(hyp):
                 assert sorted([*p.heavy, *p.light]) == [0, 1, 2, 3]
 
-    def test_they_reproduce_the_combination_table_that_used_to_be_on_disk(self):
-        # combinations_eta_pi0.txt, row for row: the three partitions, each with
-        # the eta first and then the pi0 first. The file carried no information
-        # beyond this, which is what made deriving it safe.
+    def test_pairings_have_stable_canonical_order(self):
+        # Three partitions, each with heavy first and then light first.
         assert [(p.heavy, p.light) for p in pairings(ETA_PI0_HYP)] == [
             ((0, 1), (2, 3)), ((2, 3), (0, 1)),
             ((0, 2), (1, 3)), ((1, 3), (0, 2)),

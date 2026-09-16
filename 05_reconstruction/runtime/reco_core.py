@@ -5,8 +5,7 @@ applies the optional event gate, and counts rejected events.
 
 Event requirements, applied identically to the chi2 run and the BDT-gated run,
 before either the gate or the chi2 pairing run:
-  - at least 4 reconstructed photons (the combination table only ever
-    references photons 0-3);
+  - at least 4 reconstructed photons (pairing uses photons 0-3);
   - exactly 1 reconstructed proton. The reaction is gamma p -> p eta pi0: the
     recoil is a proton. Events without exactly one proton are skipped, not
     padded with a fictitious (0,0,0,0) proton -- a zero proton fakes a missing
@@ -314,7 +313,7 @@ def run_reconstruction(
         if iev % 100000 == 0:
             print(f"Event {iev}/{n_entries}")
 
-        # The combination table only ever references photons 0-3.
+        # Pairing uses the first four reconstructed photons.
         if chain.gammas.size() < 4:
             continue
 

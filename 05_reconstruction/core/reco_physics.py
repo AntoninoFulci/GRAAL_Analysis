@@ -5,11 +5,9 @@ features get it: one implementation, so the number the reconstruction minimises
 and the number the BDT is handed cannot drift apart. This module only says which
 final states the reconstruction knows how to name.
 
-A channel is now little more than a hypothesis plus the branch labels it writes.
-It used to also carry the path to a combination table; those tables were a
-written-out enumeration of what `pairings()` derives, so they are gone, and with
-them the requirement that a channel have a file on disk before it can be
-reconstructed.
+A channel is a hypothesis plus branch labels it writes. Photon assignments are
+derived by `pairings()`, so reconstruction requires no channel-specific pairing
+file.
 """
 from __future__ import annotations
 
