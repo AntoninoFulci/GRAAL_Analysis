@@ -1,39 +1,43 @@
 # GRAAL Analysis
 
-Analisi dei dati dell'esperimento GRAAL (Grenoble Anneau Accélérateur Laser).
+GRAAL Analysis is a batch analysis pipeline for GRAAL photoproduction data.
+Its primary implemented analysis is **γp → pηπ⁰**, with η and π⁰ reconstructed
+from four detected photons and a recoil proton.
 
-In prima battuta il codice verrà utilizzato per la reazione fotoproduzione **γp → p η π⁰**.
+Two reconstruction paths are produced from the same selected events:
 
-L'η e il π⁰ decadono ciascuno in due fotoni (η→γγ, π⁰→γγ), quindi il rivelatore vede quattro fotoni nello stato finale.
-L'analisi deve risolvere un problema combinatorio: capire quali due fotoni vengono dall'η e quali due
-dal π⁰.
- Il codice risolve questo problema in due modi distinti, pensati fin dall'inizio per essere confrontati fra loro piuttosto che per sostituirsi l'uno all'altro:
+- standard χ² photon pairing;
+- the same reconstruction after a Stage-1 BDT rejects background-like events.
 
-- **ricostruzione chi2** (`reconstruction.reconstruct_eta_pi0_chi2`): l'analisi standard: prova tutti gli accoppiamenti possibili dei quattro fotoni e tiene quello che minimizza un chi2 contro le masse nominali di η e π⁰;
-- **ricostruzione con gate BDT** (`reconstruction.reconstruct_eta_pi0_bdt`): identica alla precedente, ma ogni evento deve prima superare un classificatore BDT (stage-1) addestrato a riconoscere il fondo fisico (π⁰π⁰, 3π⁰, η2π⁰, ωπ⁰, η′) prima ancora di arrivare al chi2.
+Both paths share event guards, pairing, cuts, and the default 6C kinematic fit.
+This makes the BDT gate the intended difference between their output samples.
 
-Il BDT **non ricostruisce**: non appaia fotoni e non produce masse. Restituisce
-uno score di classificazione; il gate accetta l'evento quando lo score supera
-la soglia scelta sul campione di validazione MC. Lo score non è automaticamente
-una probabilità calibrata sui dati reali.
+## Pipeline
 
-## Le varie fasi
+`run_pipeline.sh` is the main entry point.
 
-`run_pipeline.sh` esegue la catena in otto fasi numerate, in quest'ordine:
+| Stage | Responsibility | Primary output |
+|---:|---|---|
+| 1 | Detector pre-analysis | ROOT tree `h80` |
+| 2 | Event preselection | ROOT tree `h85` |
+| 3 | Monte Carlo generation | Nine channel files with tree `mc` |
+| 4 | Beam measurement and Stage-1 features | `features_stage1.npz` |
+| 5 | Hyperparameter search | `best_hyperparams.json` |
+| 6 | Stage-1 BDT training | Model, threshold, metrics, provenance |
+| 7 | χ² and BDT-gated reconstruction | Reconstructed ROOT trees |
+| 8 | Physics plots | PDF and ROOT plot artifacts |
 
-| # | Fase | Cartella | Da → a |
-|---|------|----------|--------|
-| 1 | Pre-analisi | `01_pre_analysis/` | `data/graal_data/` → `data/pre_analyzed/` (albero `h80`) |
-| 2 | Selezione eventi | `02_event_selector/` | `data/pre_analyzed/` → `data/selected/` (albero `h85`) |
-| 3 | Simulazione Monte Carlo | `03_mc_simulation/` | 9 canali: segnale + 8 fondi |
-| 4 | Build feature stage-1 | `04_bdt_training/` | MC → matrice di feature |
-| 5 | Grid search iper-parametri | `04_bdt_training/` | → `best_hyperparams.json` |
-| 6 | Training BDT stage-1 | `04_bdt_training/` | → modello + soglia |
-| 7 | Ricostruzione | `05_reconstruction/` | `data/selected/` → `results/reco/` (chi2 **e** BDT) |
-| 8 | Plot | `06_plots/` | `results/reco/` → `results/plots/` (Dalitz + masse) |
+## Documentation map
 
-## NEXT
+- [Architecture](architecture)
+- [Repository structure](repository-structure)
+- [Pipeline and entry points](pipeline)
+- [Data and storage](data-and-storage)
+- [Configuration](configuration)
+- [Development setup](development)
+- [Testing](testing)
+- [Architectural decisions](architecture-decisions)
+- [Extension points](extension-points)
 
-- [Pipeline](pipeline) — `run_pipeline.sh` fase per fase, tutti i flag, la logica di riuso di MC e pre-analisi.
-- [Formati dati](data-formats) — la lineage degli alberi ROOT, da `h70` grezzo fino a `reco_eta_pi0_chi2`/`reco_eta_pi0_bdt`.
-- Le pagine `01_`…`06_` — una per cartella, con il dettaglio dei cut, della fisica di ricostruzione, delle feature BDT e dei plot.
+Detailed pages cover each numbered stage, detector cuts, Stage-1 features,
+photon pairing, the BDT gate, the kinematic fit, calibration, and plotting.
