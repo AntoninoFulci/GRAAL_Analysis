@@ -1,108 +1,49 @@
-# 06 — Plot
+# 06 — Plotting
 
-`06_plots/` è la fase finale della pipeline: legge gli alberi ROOT prodotti dalla ricostruzione e genera i **Dalitz plot** M(ηp) vs M(π⁰p), confrontando la ricostruzione solo-chi² con quella con gate BDT.
+Plotting compares standard χ² and BDT-gated ηπ⁰ reconstruction and studies
+kinematic-fit resolution.
 
-## Struttura
+## Structure
 
-La cartella separa calcolo, accesso dati e report:
+- `core/kinematics.py`: ROOT-free invariant masses and Dalitz limits;
+- `core/reconstruction_data.py`: ROOT tree validation and array collection;
+- `dalitz.py`: comparison histograms and ROOT/PDF output;
+- `kinfit_resolution.py`: uproot/matplotlib fit-resolution study;
+- `fig7_compton_polarization.py`: Compton polarization reference artifact.
 
-* **`core/kinematics.py`**: funzioni matematiche su quadrivettori NumPy (`invariant_mass`, `sqrt_s`, `dalitz_limit`) e costanti fisiche. Non usa ROOT.
-* **`core/reconstruction_data.py`**: lettura degli alberi ROOT e conversione nei record usati dai plot.
-* **`dalitz.py`**: creazione degli istogrammi e dei report Dalitz.
-* **`kinfit_resolution.py`**: studia il miglioramento del fit cinematico usando MC di segnale, leggendo con `uproot` e producendo grafici con matplotlib.
-* **`fig7_compton_polarization.py`**: riproduce il grafico di polarizzazione Compton; gli output versionati vivono in `artifacts/`.
-
-La separazione permette di testare calcolo, conversione dati e reporting in isolamento.
-
-## Confronto chi² vs BDT
-
-Il comando principale:
+## Main comparison
 
 ```bash
 python -m plots.dalitz \
-    --chi2 results/reco/reco_eta_pi0_chi2.root \
-    --bdt results/reco/reco_eta_pi0_bdt.root
+  --chi2 results/reco/reco_eta_pi0_chi2.root \
+  --bdt results/reco/reco_eta_pi0_bdt.root \
+  --out-dir results/plots
 ```
 
-richiede entrambi gli alberi, perché lo scopo della fase è confrontare direttamente le due ricostruzioni.
+Both files are required and empty trees fail explicitly. Output includes
+measured- and implied-proton Dalitz plots, χ²-versus-BDT comparison, η and π⁰
+mass distributions, raw-before-fit comparisons, mass correlation, and
+`istogrammi.root` for restyling without rereading event trees.
 
-Se un file manca o l'albero è vuoto, la fase termina con un errore esplicito invece di produrre grafici vuoti.
+Dalitz boundary violations are counted rather than cut. Current reconstruction
+should already remove mesons carrying more energy than beam; plot warns when
+older trees still contain them.
 
-## Grafici prodotti
-
-Per entrambi i campioni vengono prodotti:
-
-* Dalitz plot con protone **misurato**;
-* Dalitz plot con protone **implicito** ottenuto dalla massa mancante;
-* distribuzioni delle masse η e π⁰;
-* confronti raw-only delle masse η e π⁰, dopo il pairing χ² ma prima del fit
-  cinematico:
-  `massa_eta_raw_confronto.pdf` e `massa_pi0_raw_confronto.pdf`;
-* correlazione M(η) vs M(π⁰).
-
-Tutti i plot sono salvati in formato **PDF**. Inoltre gli istogrammi ROOT vengono salvati in `istogrammi.root` per eventuali modifiche successive senza rileggere gli alberi.
-
-## Protone misurato e protone implicito
-
-Vengono confrontate due definizioni del protone:
-
-* **misurato**: usa il quadrimpulso del protone ricostruito dal rivelatore;
-* **implicito**: usa il quadrimpulso mancante:
-
-$missing = (beam + target) - (\eta + \pi^0)$
-
-Il secondo caso è equivalente a una massa mancante e non contiene informazione indipendente sul protone misurato.
-
-Per questo motivo solo il Dalitz con protone misurato permette di studiare eventuali problemi cinematici reali.
-
-## Controlli cinematici
-
-Il limite cinematico del Dalitz viene monitorato ma non usato come taglio: gli eventi oltre il limite vengono conteggiati, perché possono essere dovuti alla risoluzione sperimentale vicino al bordo.
-
-Gli eventi realmente impossibili (ad esempio un mesone con energia superiore al fotone di fascio) vengono invece rimossi già nella ricostruzione, prima dei plot.
-
-## Risoluzione del fit cinematico
-
-`kinfit_resolution.py` confronta eventi MC prima e dopo il fit 6C.
-
-Studia principalmente:
-
-* **M(ηp)**;
-* **M(π⁰p)**.
-
-Il confronto usa i residui rispetto alla verità del generatore:
-
-$M_{reco}-M_{true}$
-
-per misurare direttamente la risoluzione.
-
-Il fit migliora la risoluzione del Dalitz plot, ad esempio:
-
-* M(ηp): **52.2 → 9.7 MeV**;
-* M(π⁰p): **22.4 → 9.1 MeV**.
-
-Valori riprodotti su 20 000 eventi di `eta_pi0_mc.root` con il modello corrente
-(19 881 fit convergenti), usando `core_sigma` sui residui. Sono risultati di
-**closure MC**: generatore e fit condividono lo stesso modello di risoluzione.
-Non costituiscono una misura indipendente della risoluzione sui dati GRAAL.
-
-Le masse di η e π⁰ non sono usate per valutare il miglioramento perché sono già vincolate dal fit cinematico.
-
-## Pipeline
-
-La fase viene eseguita con:
-
-```bash
-python -m plots.dalitz \
-    --chi2 reco_eta_pi0_chi2.root \
-    --bdt reco_eta_pi0_bdt.root
-```
-
-e opzionalmente:
+## Fit-resolution study
 
 ```bash
 python -m plots.kinfit_resolution \
-    --signal eta_pi0_mc.root
+  --signal 03_mc_simulation/data/eta_pi0_mc.root \
+  --bdt results/reco/reco_eta_pi0_bdt.root \
+  --out-dir results/plots
 ```
 
-Se manca uno dei due file di ricostruzione, la fase viene saltata con un messaggio esplicito, perché senza entrambi i campioni il confronto non è possibile.
+Signal truth provides raw/fitted residuals for M(ηp) and M(π⁰p). Reconstructed
+data provides raw/fitted spectra when BDT file exists. Missing signal MC is
+fatal for residual study; missing BDT data skips only data figures.
+
+## Compton polarization
+
+`python -m plots.fig7_compton_polarization` writes default PDF and ROOT
+objects under `06_plots/artifacts/` using versioned GRAAL electron energy,
+laser wavelengths, and tagging threshold.

@@ -1,31 +1,30 @@
-# Gate BDT
+# BDT gate
 
-`05_reconstruction/runtime/stage1_gate.py` è il filtro che `reconstruct_eta_pi0_bdt.py` applica a ogni evento prima della combinatoria chi2: un classificatore BDT (stage-1, vedi [BDT stage-1](04-bdt-training)) addestrato a distinguere il segnale dal fondo.
+`reconstruction.runtime.stage1_gate.Stage1Gate` filters background-like
+events before χ² pairing.
 
-## Come funziona
+## Loading
 
-```python
-from bdt_training.build_background_features import compute_stage1_features
+`Stage1Gate.load(model_dir)` requires:
 
-class Stage1Gate:
-    def accepts_many(self, photons, protons, beams):
-        X = compute_stage1_features(photons, protons, beams, self.hypothesis)
-        scores = self.model.predict_proba(X)[:, 1]
-        return scores >= self.threshold
-```
+- `bdt_stage1.json`;
+- `stage1_threshold.txt`;
+- `stage1_provenance.json`.
 
-`Stage1Gate.load(model_dir)` carica `bdt_stage1.json` (il booster XGBoost) e `stage1_threshold.txt` (la soglia operativa), poi `accepts_many` chiama `compute_stage1_features` — **la stessa funzione**, non una riscrittura, usata da `04_bdt_training/build_background_features.py` per costruire il set di addestramento (vedi [Feature stage-1](04-bdt-training-features)).
+Provenance identifies signal channel, two-meson hypothesis, and exact feature
+schema. ηπ⁰ entry point refuses a model trained for incompatible hypothesis.
 
-### Perché a blocchi e non evento per evento
+## Scoring
 
-Il gate ML è stato ottimizzato passando da una valutazione evento per evento a una valutazione **a blocchi da 20.000 eventi**. La versione precedente introduceva un forte overhead dovuto alle milioni di chiamate separate al modello (**0,335 ms/evento**), che su 17 milioni di eventi rappresentavano circa **75 degli 85 minuti** totali.
+`accepts_many` computes shared 26-feature vectors, evaluates XGBoost signal
+probability column, and keeps scores at or above stored threshold. Score is
+classifier output; code does not claim calibration as detector-data
+probability.
 
-Il batching permette a NumPy e XGBoost di lavorare in modo vettoriale, riducendo il tempo di esecuzione di circa **300 volte**, senza modificare la logica di selezione degli eventi.
+ROOT runtime buffers up to 20,000 eligible events for vectorized scoring.
+Input guards run before buffering, so standard and gated reconstruction start
+from same event population. Accepted events continue through identical χ²,
+energy, and fit decisions.
 
-La correttezza è stata verificata: l'output è **bit-per-bit identico** alla versione evento per evento e un test di regressione garantisce che il modello riceva sempre le stesse feature usate durante l'addestramento.
-
-
-## Dopo il gate: il fit cinematico
-
-Gli eventi che superano il gate e l'accoppiamento chi2 passano poi dal fit cinematico 6C, che gira sui sopravvissuti e la cui confidence level — non più la massa mancante — seleziona l'evento finale. Vedi
-[Fit cinematico](05-reconstruction-kinematic-fit).
+Training and inference import same `compute_stage1_features`; cross-module
+tests enforce feature and artifact compatibility.

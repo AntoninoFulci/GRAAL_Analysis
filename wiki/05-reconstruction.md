@@ -1,63 +1,43 @@
-# 05 — Ricostruzione
+# 05 — Reconstruction
 
-`05_reconstruction/` trasforma i quattro fotoni e il barione di rinculo selezionati nella fase 2 (`h85`) in eventi ηπ⁰ o 2π⁰ ricostruiti.
+Reconstruction reads selected ROOT files, applies common topology guards,
+optionally applies Stage-1 BDT gate, chooses photon pairing by χ², and applies
+default 6C kinematic fit.
 
-Sono presenti tre entrypoint:
+## Structure
 
-| Entrypoint                    | Canale       | Gate BDT |
-| ----------------------------- | ------------ | -------- |
-| `reconstruct_eta_pi0_chi2.py` | γp → p η π⁰  | no       |
-| `reconstruct_eta_pi0_bdt.py`  | γp → p η π⁰  | sì       |
-| `reconstruct_2pi0.py`         | γp → p π⁰ π⁰ | no       |
+- `core/reco_physics.py`: channel definitions and missing-mass helpers;
+- `core/event_logic.py`: ROOT-free event decisions and cut order;
+- `core/kinematic_fit.py`: ROOT-free 6C fit;
+- `runtime/cli_options.py`: shared command-line configuration;
+- `runtime/reco_core.py`: ROOT chain, batched gate, branches, event loop;
+- `runtime/stage1_gate.py`: model loading, provenance checks, scoring;
+- `reconstruct_*.py`: channel-specific entry points.
 
-## Struttura
+## Entry points
 
-Tutti gli script chiamano:
-
-`reconstruction.runtime.reco_core.run_reconstruction(cfg, channel, gate)`
-
-La responsabilità è divisa in:
-
-* **`runtime/reco_core.py`**: I/O ROOT e orchestrazione della ricostruzione.
-* **`runtime/stage1_gate.py`**: caricamento del modello BDT e adattamento del gate stage-1.
-* **`runtime/cli_options.py`**: opzioni CLI condivise dagli entrypoint.
-* **`core/event_logic.py`**: sequenza di decisione per singolo evento.
-* **`core/reco_physics.py`**: fisica di canale, combinazioni fotoni e massa mancante.
-* **`core/kinematic_fit.py`**: fit cinematico numerico.
-
-I moduli `core/` non dipendono da ROOT. Questa separazione mantiene una sola catena di ricostruzione e permette il confronto diretto con e senza BDT.
-
-## Confronto chi² vs BDT
-
-`reconstruct_eta_pi0_chi2.py` e `reconstruct_eta_pi0_bdt.py` differiscono solo per il gate passato a `run_reconstruction`:
-
-* `None` nel caso chi²;
-* `Stage1Gate` nel caso BDT.
-
-Tutto il resto della ricostruzione è identico, quindi ogni differenza nei risultati è attribuibile esclusivamente al gate.
-
-## Selezione iniziale degli eventi
-
-Prima della combinatoria chi² e del gate vengono richiesti:
-
-* almeno 4 fotoni ricostruiti;
-* esattamente 1 protone.
-
-Gli eventi con un numero diverso di protoni vengono scartati:
-
-```python
-if chain.protons.size() != 1:
-    continue
+```bash
+python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/selected
+python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/selected
+python -m reconstruction.reconstruct_2pi0 --input-dir data/selected
 ```
 
-Non viene creato un protone fittizio, perché altererebbe la massa mancante e renderebbe diverso il campione iniziale tra il run chi² e quello BDT.
+ηπ⁰ commands expose `--chi2-cut`, `--partner`,
+`--missing-mass-window`, `--no-fit`, and `--fit-cl`. BDT command also
+accepts `--model-dir`. Input tree defaults to auto detection.
 
-## Canale 2π⁰
+## Common event path
 
-Non esiste un `reconstruct_2pi0_bdt.py` perché il modello BDT stage-1 è addestrato per distinguere ηπ⁰ dal fondo, e il canale 2π⁰ è uno dei fondi usati nell'addestramento.
+1. require at least four photons and exactly one reconstructed proton;
+2. optionally score event through BDT gate;
+3. derive best pairing and require χ² below configured cut;
+4. reject meson energy above tagged beam energy;
+5. run 6C fit and apply confidence-level cut, or use missing-mass window when
+   fit is disabled;
+6. write retained event.
 
-Applicare il gate BDT al campione 2π⁰ non avrebbe quindi significato fisico.
+Common logic ensures χ² and BDT outputs differ intentionally only by gate.
 
-## Fit cinematico
-
-Dopo la ricostruzione chi² (e il gate BDT per il canale ηπ⁰), gli eventi vengono sottoposti al fit cinematico 6C. La selezione finale usa la confidence level del fit invece della finestra sulla massa mancante.
+See [χ² photon pairing](05-reconstruction-chi2),
+[BDT gate](05-reconstruction-bdt-gate), and
+[6C kinematic fit](05-reconstruction-kinematic-fit).
