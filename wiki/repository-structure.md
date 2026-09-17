@@ -12,16 +12,16 @@
 | `05_reconstruction/` | ROOT-free reconstruction core, runtime adapters, channel entry points, validation |
 | `06_plots/` | Plot entry points, reusable kinematics/data adapters, versioned reference artifact |
 | `config/` | Versioned run manifest |
-| `scripts/` | Manifest, strip-energy/flux, and wiki synchronization commands |
+| `scripts/` | Repository setup, manifest, strip-energy/flux, and wiki synchronization commands |
 | `tests/` | Cross-package packaging, layout, pipeline, calibration, and Stage-1 contract tests |
 | `wiki/` | Source of GitHub Wiki pages |
 | `run_pipeline.sh` | Eight-stage pipeline orchestrator |
 | `pyproject.toml` | Package mapping, Python floor, pytest discovery |
 
-`data/`, `results/`, `test_data/`, and `graphify-out/` are ignored runtime or
-local analysis areas. Their local contents are not stable tracked repository
-structure. Executable defaults remain authoritative; see [Pipeline](pipeline)
-and [Data and storage](data-and-storage).
+Runtime contents under `data/`, plus `results/`, `test_data/`, and
+`graphify-out/`, are ignored local analysis areas. Small versioned exception:
+`data/00_external/flux.root`. Executable defaults remain authoritative; see
+[Pipeline](pipeline) and [Data and storage](data-and-storage).
 
 ## Shared package
 
@@ -70,6 +70,19 @@ versioned Compton-polarization reference PDF.
 
 Bulk ROOT/NPZ data and rebuilt results are ignored. See
 [Data and storage](data-and-storage) for ownership and lifecycle.
+
+## Planned layout changes
+
+Not implemented yet:
+
+- move plotting out of numbered analysis stages by renaming `06_plots/` to an
+  unnumbered plotting directory;
+- create `06_observable_extraction/` for yield, flux-normalization, and
+  observable-extraction workflows;
+- move `scripts/build_strip_energy_flux.py` into that stage, potentially under
+  a dedicated calibration subdirectory;
+- update package mappings, imports, tests, pipeline commands, and wiki links in
+  the same refactor.
 
 ## Wiki publication
 

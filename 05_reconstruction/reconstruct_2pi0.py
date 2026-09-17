@@ -8,7 +8,7 @@ There is no BDT variant of this channel: the stage-1 model is trained with 2pi0
 as a background, so gating 2pi0 on it would be meaningless.
 
 Run:
-    python -m reconstruction.reconstruct_2pi0 --input-dir data/selected
+    python -m reconstruction.reconstruct_2pi0 --input-dir data/03_selected
 """
 import argparse
 from pathlib import Path

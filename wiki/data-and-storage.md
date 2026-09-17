@@ -7,9 +7,10 @@ JSON, text, CSV, ROOT histograms, and PDF files store derived artifacts.
 
 | Artifact | Default location | Writer | Main readers |
 |---|---|---|---|
-| Raw detector ROOT data | `data/graal_data/` | External to repository | Pre-analysis |
-| Pre-analysis ROOT files | `data/pre_analyzed/pre_*.root` | `PreAnalysis.C` | Event selector, calibration |
-| Selected ROOT files | `data/selected/*.root` | `event_selector.select_events` | Beam measurement, reconstruction |
+| Incident beam flux ROOT file | `data/00_external/flux.root` | External to repository | Strip-energy/flux calibration |
+| Raw detector ROOT data | `data/01_raw/graal_data/` | External to repository | Pre-analysis |
+| Pre-analysis ROOT files | `data/02_pre_analyzed/pre_analisi/pre_*.root` | `PreAnalysis.C` | Event selector, calibration |
+| Selected ROOT files | `data/03_selected/*.root` | `event_selector.select_events` | Beam measurement, reconstruction |
 | MC ROOT files | `03_mc_simulation/data/*_mc.root` | ROOT generator macros | Feature builder, fit validation |
 | Beam spectrum NPZ | `04_bdt_training/data/beam_spectrum.npz` | `bdt_training.beam_spectrum` | MC reweighting |
 | Stage-1 dataset NPZ | `04_bdt_training/data/features_stage1.npz` | Feature builder | Search and training |
@@ -19,8 +20,16 @@ JSON, text, CSV, ROOT histograms, and PDF files store derived artifacts.
 | Run manifest | `config/run_manifest.csv` | Manifest script/manual review | Calibration workflow |
 | Flux calibration bundle | `results/strip_energy_flux/` | Flux script | Physics extraction and QA |
 
-Bulk data and rebuilt results are ignored by Git. Model artifacts required by
-runtime reconstruction and selected reference reports are versioned.
+Bulk data and rebuilt results are ignored by Git. Small external calibration
+input `data/00_external/flux.root`, model artifacts required by runtime
+reconstruction, and selected reference reports are versioned.
+
+On the farm, `data/01_raw/graal_data` and
+`data/02_pre_analyzed/pre_analisi` may be symbolic links to external storage.
+`data/00_external/flux.root` supplies run-by-run incident beam flux and remains a
+separate calibration input; the main event pipeline does not consume it.
+Create local layout and farm links with `scripts/setup.sh`; setup refuses to
+replace an existing path or a link pointing at a different target.
 
 ## ROOT tree lineage
 
@@ -52,7 +61,8 @@ event.gammas.size() > 1 and event.fcharged_theta.size() == 1
 ```
 
 and explicitly renames cloned tree to `h85`. Output filename drops `pre_`
-prefix.
+prefix. The selected directory is replaced atomically after every successful
+run; failed selection preserves the previously published directory.
 
 ## Monte Carlo tree
 

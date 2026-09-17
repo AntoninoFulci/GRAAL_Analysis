@@ -22,6 +22,15 @@ test_data/
 
 /data/
 
+# Small, versioned external calibration input. Keep all other runtime data
+# ignored while allowing this directory and its flux ROOT file into Git.
+!/data/
+/data/*
+!/data/00_external/
+/data/00_external/*
+!/data/00_external/.gitkeep
+!/data/00_external/flux.root
+
 /results/
 
 tmp/

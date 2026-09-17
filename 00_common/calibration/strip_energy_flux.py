@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from contextlib import contextmanager
 import csv
 from dataclasses import asdict, dataclass
 import json
 from math import isfinite
 from pathlib import Path
-import shutil
 from statistics import median
-import tempfile
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Sequence
 
+from ..io.filesystem import atomic_output_directory
 from .run_manifest import RunRecord
 
 
@@ -235,43 +233,6 @@ def write_qa_json(path: Path, qa: object) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(qa, indent=2, sort_keys=True) + "\n")
-
-
-@contextmanager
-def atomic_output_directory(destination: Path) -> Iterator[Path]:
-    destination = Path(destination)
-    if destination.exists() and not destination.is_dir():
-        raise StripEnergyFluxError(f"destination is not a directory: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(
-        tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent)
-    )
-    backup: Path | None = None
-    try:
-        yield staging
-        if destination.exists():
-            backup = Path(
-                tempfile.mkdtemp(
-                    prefix=f".{destination.name}.previous.",
-                    dir=destination.parent,
-                )
-            )
-            backup.rmdir()
-            destination.replace(backup)
-        try:
-            staging.replace(destination)
-        except BaseException:
-            if backup is not None and backup.exists() and not destination.exists():
-                backup.replace(destination)
-            raise
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-    if backup is not None:
-        try:
-            shutil.rmtree(backup)
-        except OSError:
-            pass
 
 
 def normalize_xstrip(value: float) -> int:

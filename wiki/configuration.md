@@ -9,6 +9,11 @@ overrides every stage.
 pipeline flags. `PYTHON` and `ROOT_EXEC` select executables without changing
 source.
 
+Detector paths default to `data/01_raw/graal_data`,
+`data/02_pre_analyzed/pre_analisi`, and `data/03_selected`. Override them with
+`--raw-dir`, `--pre-dir`, and `--selected-dir`; absolute farm paths and
+directory symlinks are supported.
+
 See [Pipeline and entry points](pipeline) for complete defaults.
 
 ## Run manifest

@@ -6,7 +6,7 @@ accepted by the stage-1 BDT. Both scripts share reco_core, so any difference
 between their outputs is the gate and nothing else.
 
 Run:
-    python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/selected
+    python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/03_selected
 """
 import argparse
 from pathlib import Path

@@ -16,8 +16,8 @@ Run `python -m pip install -e .` when this preflight fails.
 
 | Stage | Command or implementation | Input | Output |
 |---:|---|---|---|
-| 1 | ROOT `AnalyzeAll` in `PreAnalysis.C` | `data/graal_data/` | `data/pre_analyzed/pre_*.root`, tree `h80` |
-| 2 | `python -m event_selector.select_events` | pre-analysis ROOT files | `data/selected/*.root`, tree `h85` |
+| 1 | ROOT `AnalyzeAll` in `PreAnalysis.C` | `data/01_raw/graal_data/` | `data/02_pre_analyzed/pre_analisi/pre_*.root`, tree `h80` |
+| 2 | `python -m event_selector.select_events` | pre-analysis ROOT files | `data/03_selected/*.root`, tree `h85` |
 | 3 | ROOT channel generators | registry-defined macros | `03_mc_simulation/data/*_mc.root`, tree `mc` |
 | 4 | `bdt_training.beam_spectrum` and `build_background_features` | selected data and MC | beam and feature NPZ files |
 | 5 | `bdt_training.grid_search_stage1` | Stage-1 feature NPZ | search CSV and best hyperparameters |
@@ -33,6 +33,9 @@ under `results/`. Both are ignored by Git.
 | Option | Default | Effect |
 |---|---:|---|
 | `--test-data` | off | Remap detector data and results to `test_data/`; MC and model stay unchanged |
+| `--raw-dir DIR` | `data/01_raw/graal_data` | Raw run-directory root; may be a farm symlink |
+| `--pre-dir DIR` | `data/02_pre_analyzed/pre_analisi` | Pre-analysis ROOT input/output directory; may be a farm symlink |
+| `--selected-dir DIR` | `data/03_selected` | Selected ROOT output and downstream input directory |
 | `--nevents N` | `1000000` | Events generated per MC channel |
 | `--input-tree NAME` | `auto` | Use named preselection tree, or auto-detect `h85` then `h80` |
 | `--signal-channel NAME` | `eta_pi0` | Signal class for feature building and training |
@@ -76,15 +79,16 @@ Environment variables:
 
 | Purpose | Normal path | `--test-data` path |
 |---|---|---|
-| Raw detector input | `data/graal_data` | `test_data/raw` |
-| Pre-analysis | `data/pre_analyzed` | `test_data/pre_analyzed` |
-| Selected events | `data/selected` | `test_data/selected` |
+| Raw detector input | `data/01_raw/graal_data` | `test_data/raw` |
+| Pre-analysis | `data/02_pre_analyzed/pre_analisi` | `test_data/pre_analyzed` |
+| Selected events | `data/03_selected` | `test_data/selected` |
 | Reconstruction output | `results/reco` | `test_data/results/reco` |
 | Plot output | `results/plots` | `test_data/results/plots` |
 
 MC remains in `03_mc_simulation/data`; Stage-1 artifacts remain in
 `04_bdt_training/artifacts/stage1`. Test-data mode exercises file integration,
-not an independent training universe.
+not an independent training universe. Explicit `--raw-dir`, `--pre-dir`, or
+`--selected-dir` values override the corresponding test-data mapping.
 
 ## Focused entry points
 

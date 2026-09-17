@@ -71,7 +71,7 @@ def test_eta_pi0_chi2_defaults_build_expected_configuration(monkeypatch):
     reconstruct_eta_pi0_chi2.main()
 
     cfg = observed["cfg"]
-    assert cfg.input_dir == Path("data/selected")
+    assert cfg.input_dir == Path("data/03_selected")
     assert cfg.output_file == Path("results/reco/reco_eta_pi0_chi2.root")
     assert cfg.input_tree == trees.AUTO
     assert cfg.output_tree == "reco_eta_pi0_chi2"
@@ -118,7 +118,7 @@ def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeyp
 
     cfg = observed["cfg"]
     assert observed["model_dir"] == reconstruct_eta_pi0_bdt.DEFAULT_MODEL_DIR
-    assert cfg.input_dir == Path("data/selected")
+    assert cfg.input_dir == Path("data/03_selected")
     assert cfg.output_file == Path("results/reco/reco_eta_pi0_bdt.root")
     assert cfg.input_tree == trees.AUTO
     assert cfg.output_tree == "reco_eta_pi0_bdt"
@@ -146,7 +146,7 @@ def test_2pi0_defaults_build_expected_configuration(monkeypatch):
     reconstruct_2pi0.main()
 
     cfg = observed["cfg"]
-    assert cfg.input_dir == Path("data/selected")
+    assert cfg.input_dir == Path("data/03_selected")
     assert cfg.output_file == Path("results/reco/reco_2pi0.root")
     assert cfg.input_tree == trees.AUTO
     assert cfg.output_tree == "reco_2pi0"

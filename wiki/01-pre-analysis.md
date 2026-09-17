@@ -33,7 +33,7 @@ outputs using broader `pre_*.root` pattern.
 
 ```bash
 root -l -b -q -e \
-  'gROOT->ProcessLine(".L 01_pre_analysis/PreAnalysis.C"); AnalyzeAll("data/graal_data", "data/pre_analyzed", "01_pre_analysis/cuts");'
+  'gROOT->ProcessLine(".L 01_pre_analysis/PreAnalysis.C"); AnalyzeAll("data/01_raw/graal_data", "data/02_pre_analyzed/pre_analisi", "01_pre_analysis/cuts");'
 ```
 
 Pipeline skips stage when pre-analysis files already exist unless

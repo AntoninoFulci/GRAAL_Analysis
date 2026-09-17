@@ -100,7 +100,7 @@ def test_common_options_keep_fit_flags_out_of_non_fit_cli():
     assert exc_info.value.code == 2
     assert "no_fit" not in vars(args)
     assert "fit_cl" not in vars(args)
-    assert cfg.input_dir == Path("data/selected")
+    assert cfg.input_dir == Path("data/03_selected")
     assert cfg.output_file == Path("two_pi0.root")
     assert cfg.input_tree == "auto"
     assert cfg.output_tree == "reco_2pi0"

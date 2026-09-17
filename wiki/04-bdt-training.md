@@ -32,7 +32,7 @@ backgrounds retain relative physics weights.
 
 ```bash
 python -m bdt_training.beam_spectrum \
-  --selected-dir data/selected --tree auto \
+  --selected-dir data/03_selected --tree auto \
   --output 04_bdt_training/data/beam_spectrum.npz
 
 python -m bdt_training.build_background_features \

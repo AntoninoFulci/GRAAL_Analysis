@@ -4,7 +4,7 @@ The generators sample the tagged photon energy as `rng.Uniform(threshold, 1.75)`
 — flat between the channel's production threshold and a hard ceiling. GRAAL's
 beam is nothing like that. It is laser light Compton-backscattered off the
 storage ring, so the spectrum rises to a Compton edge that sits wherever the
-laser line puts it, and stops. Measured over data/selected: two superimposed
+laser line puts it, and stops. Measured over data/03_selected: two superimposed
 edges (the green and UV lines used in different run periods), a shoulder near
 0.79, and a tail out to 1.72. The 1.75 ceiling now spans that range, but a flat
 draw across it is still nothing like the shaped real spectrum.
@@ -21,7 +21,7 @@ from it: fix the marginal and the correlations follow.
 
 Usage:
     python -m bdt_training.beam_spectrum \\
-        --selected-dir data/selected \\
+        --selected-dir data/03_selected \\
         --output 04_bdt_training/data/beam_spectrum.npz
 """
 from __future__ import annotations
@@ -179,16 +179,20 @@ def reweight(
     return np.where(denominator > 0, numerator / np.maximum(denominator, 1e-12), 0.0)
 
 
-def main() -> None:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--selected-dir", default="data/selected",
+    parser.add_argument("--selected-dir", default="data/03_selected",
                         help="folder with the preselected detector files")
     parser.add_argument("--tree", default=trees.AUTO,
                         help="tree inside them; 'auto' takes whichever known "
                              "preselection tree is there")
     parser.add_argument("--bins", type=int, default=DEFAULT_BINS)
     parser.add_argument("--output", default="04_bdt_training/data/beam_spectrum.npz")
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main() -> None:
+    args = parse_args()
 
     spectrum = measure(args.selected_dir, args.tree, args.bins)
     spectrum.save(args.output)

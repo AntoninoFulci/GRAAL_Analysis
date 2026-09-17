@@ -7,7 +7,14 @@ events at energies the data never produced.
 import numpy as np
 import pytest
 
+from bdt_training import beam_spectrum
 from bdt_training.beam_spectrum import BeamSpectrum, from_energies, reweight
+
+
+def test_cli_defaults_to_numbered_selected_directory():
+    args = beam_spectrum.parse_args([])
+
+    assert args.selected_dir == "data/03_selected"
 
 
 def _flat(rng, n, lo, hi):

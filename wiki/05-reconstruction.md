@@ -17,9 +17,9 @@ default 6C kinematic fit.
 ## Entry points
 
 ```bash
-python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/selected
-python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/selected
-python -m reconstruction.reconstruct_2pi0 --input-dir data/selected
+python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
+python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/03_selected
+python -m reconstruction.reconstruct_2pi0 --input-dir data/03_selected
 ```
 
 ηπ⁰ commands expose `--chi2-cut`, `--partner`,

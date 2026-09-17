@@ -5,7 +5,7 @@ Reads the preselected tree and pairs the first four photons into an eta
 and a pi0 by minimising chi2 over pairings derived from the eta-pi0 hypothesis.
 
 Run:
-    python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/selected
+    python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
 """
 import argparse
 from pathlib import Path

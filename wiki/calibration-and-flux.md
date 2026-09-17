@@ -17,9 +17,9 @@ Run:
 python scripts/build_run_manifest.py --validate config/run_manifest.csv
 
 python scripts/build_strip_energy_flux.py \
-  --preanalysis-dir data/pre_analyzed \
+  --preanalysis-dir data/02_pre_analyzed/pre_analisi \
   --manifest config/run_manifest.csv \
-  --flux data/flux/flux.root \
+  --flux data/00_external/flux.root \
   --output-dir results/strip_energy_flux
 ```
 

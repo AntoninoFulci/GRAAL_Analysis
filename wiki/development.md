@@ -11,20 +11,33 @@ because analysis-farm PyROOT is built against Python 3.10.12.
 
 ## Install
 
-From repository root:
+Load the ROOT environment first. For a local installation, run from any
+directory:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r 04_bdt_training/requirements.txt
-python -m pip install -e .
+./scripts/setup.sh --mode local [--python /path/to/python]
 ```
 
-Editable installation maps numbered directories to clean package names.
-Confirm imports before long jobs:
+For the analysis farm:
 
 ```bash
+./scripts/setup.sh --mode farm \
+  --python /path/to/python3.10 \
+  --raw-target /farm/path/graal_data \
+  --pre-target /farm/path/pre_analisi
+```
+
+Setup creates `.venv` with `--system-site-packages` so centrally installed
+PyROOT remains visible. Existing valid `.venv` is reused. Farm targets must be
+existing directories; setup creates absolute links at
+`data/01_raw/graal_data` and `data/02_pre_analyzed/pre_analisi`. Existing
+paths, broken links, or links to different targets cause a non-destructive
+failure.
+
+Activate environment and confirm imports before long jobs:
+
+```bash
+source .venv/bin/activate
 python -c "import graal_common, event_selector, mc_simulation, bdt_training, reconstruction, plots"
 ```
 

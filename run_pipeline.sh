@@ -3,7 +3,8 @@
 # GRAAL full pipeline, from raw detector files to reconstructed events.
 #
 # Usage:
-#   ./run_pipeline.sh [--test-data] [--nevents N] [--input-tree NOME]
+#   ./run_pipeline.sh [--test-data] [--raw-dir DIR] [--pre-dir DIR]
+#                     [--selected-dir DIR] [--nevents N] [--input-tree NOME]
 #                     [--signal-channel CANALE] [--signal-prior F]
 #                     [--skip-preanalysis] [--force-preanalysis]
 #                     [--skip-selection]
@@ -13,13 +14,15 @@
 #                     [--skip-reco] [--skip-plots] [--help]
 #
 # Stages:
-#   1. Pre-analisi         data/graal_data/   -> data/pre_analyzed/ (albero h80)
-#   2. Selezione eventi    data/pre_analyzed/ -> data/selected/     (albero h85)
+#   1. Pre-analisi         data/01_raw/graal_data/ ->
+#                         data/02_pre_analyzed/pre_analisi/ (albero h80)
+#   2. Selezione eventi    data/02_pre_analyzed/pre_analisi/ ->
+#                         data/03_selected/ (albero h85)
 #   3. MC generation       (saltata se i 9 canali esistono gia')
 #   4. Build features stage-1
 #   5. Grid search iper-parametri
 #   6. Training BDT stage-1
-#   7. Ricostruzione       data/selected/     -> results/reco/      (chi2 e BDT)
+#   7. Ricostruzione       data/03_selected/  -> results/reco/      (chi2 e BDT)
 #   8. Plot                results/reco/      -> results/plots/    (Dalitz + masse)
 #
 # La ricostruzione e' in fondo perche' il run BDT ha bisogno del modello,
@@ -28,6 +31,8 @@
 # --test-data ridirige su test_data/ sia i dati del rivelatore (raw,
 # pre_analyzed, selected) sia i risultati (results/reco, results/plots). Il
 # Monte Carlo e il modello restano quelli veri.
+# --raw-dir, --pre-dir e --selected-dir cambiano i tre percorsi dei dati; un
+# percorso esplicito prevale sulla rimappatura di --test-data.
 #
 # I dati del rivelatore stanno sotto data/; i risultati sotto results/
 # (results/reco per gli alberi ricostruiti, results/plots per le figure).
@@ -96,11 +101,15 @@ PREANALYSIS_MACRO="01_pre_analysis/PreAnalysis.C"
 # 06_plots/plots/, next to the code that drew them. Results living inside a
 # source folder is how they end up committed, and how a figure ends up
 # disagreeing with the code beside it.
-RAW_DIR="data/graal_data"
-PRE_DIR="data/pre_analyzed"
-SELECTED_DIR="data/selected"
+RAW_DIR="data/01_raw/graal_data"
+PRE_DIR="data/02_pre_analyzed/pre_analisi"
+SELECTED_DIR="data/03_selected"
 RECO_DIR="results/reco"
 PLOTS_DIR="results/plots"
+
+RAW_DIR_EXPLICIT=0
+PRE_DIR_EXPLICIT=0
+SELECTED_DIR_EXPLICIT=0
 
 TEST_DATA=0
 SKIP_PREANALYSIS=0
@@ -119,6 +128,9 @@ GRID_SEARCH_NITER=30
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --test-data)          TEST_DATA=1;            shift   ;;
+        --raw-dir)            RAW_DIR="$2"; RAW_DIR_EXPLICIT=1; shift 2 ;;
+        --pre-dir)            PRE_DIR="$2"; PRE_DIR_EXPLICIT=1; shift 2 ;;
+        --selected-dir)       SELECTED_DIR="$2"; SELECTED_DIR_EXPLICIT=1; shift 2 ;;
         --nevents)            NEVENTS="$2";           shift 2 ;;
         --input-tree)         INPUT_TREE="$2";        shift 2 ;;
         --signal-channel)     SIGNAL_CHANNEL="$2";    shift 2 ;;
@@ -146,9 +158,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $TEST_DATA -eq 1 ]]; then
-    RAW_DIR="test_data/raw"
-    PRE_DIR="test_data/pre_analyzed"
-    SELECTED_DIR="test_data/selected"
+    if [[ $RAW_DIR_EXPLICIT -eq 0 ]]; then RAW_DIR="test_data/raw"; fi
+    if [[ $PRE_DIR_EXPLICIT -eq 0 ]]; then PRE_DIR="test_data/pre_analyzed"; fi
+    if [[ $SELECTED_DIR_EXPLICIT -eq 0 ]]; then SELECTED_DIR="test_data/selected"; fi
     RECO_DIR="test_data/results/reco"
     PLOTS_DIR="test_data/results/plots"
 fi
@@ -198,7 +210,7 @@ if [[ $SKIP_PREANALYSIS -eq 0 ]]; then
     # not restart by accident. Same policy as the MC in stage 3.
     n_pre=0
     if [[ -d "${PRE_DIR}" ]]; then
-        n_pre=$(find "${PRE_DIR}" -maxdepth 1 -name 'pre_*.root' | wc -l | tr -d ' ')
+        n_pre=$(find -H "${PRE_DIR}" -maxdepth 1 -name 'pre_*.root' | wc -l | tr -d ' ')
     fi
 
     if [[ $n_pre -gt 0 && $FORCE_PREANALYSIS -eq 0 ]]; then
