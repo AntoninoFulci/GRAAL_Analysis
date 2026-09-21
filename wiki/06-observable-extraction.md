@@ -141,3 +141,27 @@ Public output contains ROOT and PDF only:
 
 Original theory model is intentionally absent until separate audit of original
 equations, parameters, and references succeeds.
+
+## Overnight runner
+
+After flux calibration, points 3–6 can run unattended:
+
+```bash
+nohup bash scripts/run_beam_asymmetry_overnight.sh \
+  > results/beam_asymmetry_overnight.out 2>&1 &
+```
+
+Runner continues after failed commands, writes one timestamped log per step,
+skips only downstream steps whose newly produced inputs are unavailable, and
+prints final `OK`, `FAILED`, or `SKIPPED` summary. Final exit code is non-zero
+when any command fails.
+
+Farm paths can be overridden without editing script:
+
+```bash
+SIGNAL_MC_SELECTED_DIR=/farm/path/signal_mc_selected \
+PYTHON_BIN=/farm/path/venv/bin/python \
+BOOTSTRAP_REPLICAS=500 \
+nohup bash scripts/run_beam_asymmetry_overnight.sh \
+  > results/beam_asymmetry_overnight.out 2>&1 &
+```
