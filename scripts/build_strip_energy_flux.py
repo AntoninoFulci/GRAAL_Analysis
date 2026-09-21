@@ -15,6 +15,7 @@ from graal_common.calibration.run_manifest import ManifestError, validate_manife
 from graal_common.calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
+    FLUX_SCHEMA_VERSION,
     EnergyBinning,
     EnergySample,
     StripEnergyFluxError,
@@ -24,10 +25,12 @@ from graal_common.calibration.strip_energy_flux import (
     build_strip_energy_lookup,
     find_monotonic_inversions,
     integrate_run_flux,
+    join_strip_exposures,
     write_group_flux_csv,
     write_lookup_csv,
     write_qa_json,
     write_run_flux_csv,
+    write_strip_exposure_csv,
 )
 
 
@@ -260,8 +263,8 @@ def read_flux_histograms(
                         run,
                         strip,
                         float(histograms["POL1"].GetBinContent(strip)),
-                        float(histograms["BREM"].GetBinContent(strip)),
                         float(histograms["POL2"].GetBinContent(strip)),
+                        float(histograms["BREM"].GetBinContent(strip)),
                     )
                 )
     finally:
@@ -338,7 +341,7 @@ def build_qa_payload(
     h80_runs = {record.run_number for record in lookup}
     unique_errors = sorted(set(errors))
     return {
-        "schema_version": 1,
+        "schema_version": FLUX_SCHEMA_VERSION,
         "inputs": _input_paths(args),
         "thresholds": {
             "min_events_per_strip": args.min_events_per_strip,
@@ -362,7 +365,6 @@ def build_qa_payload(
                 "mad_warnings",
                 "missing_h80_runs",
                 "monotonic_inversions",
-                "negative_net_errors",
                 "nonzero_unmapped_strips",
                 "out_of_range",
             }
@@ -378,7 +380,6 @@ def build_qa_payload(
         "low_stat_warnings": flux_qa["low_stat_warnings"],
         "underflow_overflow": flux_qa["underflow_overflow"],
         "out_of_range": flux_qa["out_of_range"],
-        "negative_net_errors": flux_qa["negative_net_errors"],
         "run_flux_bin_count": len(run_flux),
         "errors": unique_errors,
         "valid": not unique_errors,
@@ -428,7 +429,11 @@ def run(args: argparse.Namespace) -> int:
     if missing_h80:
         errors.append(f"manifest runs absent from h80: {missing_h80}")
     if flux_qa["extra_runs"]:
-        errors.append(f"flux runs absent from manifest: {flux_qa['extra_runs']}")
+        for run_number in flux_qa["extra_runs"]:
+            print(
+                f"WARNING: unused complete flux run {run_number}",
+                file=sys.stderr,
+            )
     for problem in flux_qa["malformed_triplets"]:
         errors.append(
             f"malformed flux triplet for run {problem['run_number']}"
@@ -450,15 +455,20 @@ def run(args: argparse.Namespace) -> int:
             empty_strips.append({"run_number": run_number, "xstrip": xstrip})
             strip = flux_by_run_strip.get(run_number, {}).get(xstrip)
             if strip is not None and any(
-                value != 0.0 for value in (strip.pol1, strip.brem, strip.pol2)
+                value != 0.0
+                for value in (
+                    strip.flux_pol1,
+                    strip.flux_pol2,
+                    strip.flux_brem,
+                )
             ):
                 nonzero_unmapped.append(
                     {
                         "run_number": run_number,
                         "xstrip": xstrip,
-                        "pol1": strip.pol1,
-                        "brem": strip.brem,
-                        "pol2": strip.pol2,
+                        "flux_pol1": strip.flux_pol1,
+                        "flux_pol2": strip.flux_pol2,
+                        "flux_brem": strip.flux_brem,
                     }
                 )
                 errors.append(
@@ -518,7 +528,7 @@ def run(args: argparse.Namespace) -> int:
                     continue
                 strip = flux_by_strip[row.xstrip]
                 for index, value in enumerate(
-                    (strip.pol1, strip.brem, strip.pol2)
+                    (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
                 ):
                     excluded[index] += value
         out_of_range[binning.name] = {
@@ -533,14 +543,13 @@ def run(args: argparse.Namespace) -> int:
                 for run_number, xstrip in above
             ],
             "raw_flux_excluded": {
-                "pol1": excluded[0],
-                "brem": excluded[1],
-                "pol2": excluded[2],
+                "flux_pol1": excluded[0],
+                "flux_pol2": excluded[1],
+                "flux_brem": excluded[2],
             },
         }
 
     run_flux = []
-    negative_net_errors = []
     for binning in binnings:
         for run_number in sorted(manifest_runs & sample_runs):
             try:
@@ -554,24 +563,22 @@ def run(args: argparse.Namespace) -> int:
                 errors.append(str(exc))
                 continue
             run_flux.extend(integrated)
-            for bin_index, row in enumerate(integrated):
-                if row.status == "valid":
-                    continue
-                negative_net_errors.append(
-                    {
-                        "binning": row.binning,
-                        "run_number": row.run_number,
-                        "bin_index": bin_index,
-                        "energy_low_gev": row.energy_low_gev,
-                        "energy_high_gev": row.energy_high_gev,
-                        "pol1_net": row.pol1_net,
-                        "pol2_net": row.pol2_net,
-                    }
-                )
-                errors.append(
-                    f"run {row.run_number} binning {row.binning} "
-                    f"bin {bin_index}: negative net flux"
-                )
+
+    try:
+        strip_exposures = join_strip_exposures(
+            [row for row in lookup if row.run_number in manifest_by_run],
+            strips,
+            manifest_by_run,
+        )
+    except StripEnergyFluxError as exc:
+        errors.append(str(exc))
+        strip_exposures = ()
+    for row in strip_exposures:
+        if row.status != "valid":
+            errors.append(
+                f"run {row.run_number} strip {row.xstrip}: "
+                "selected polarization exposure must be positive"
+            )
 
     flux_qa.update(
         {
@@ -585,7 +592,6 @@ def run(args: argparse.Namespace) -> int:
             "monotonic_inversions": inversions,
             "mad_warnings": mad_warnings,
             "low_stat_warnings": low_stat_warnings,
-            "negative_net_errors": negative_net_errors,
             "out_of_range": out_of_range,
         }
     )
@@ -606,6 +612,9 @@ def run(args: argparse.Namespace) -> int:
             manifest_by_run,
         )
         write_run_flux_csv(staging / "flux_by_run_energy.csv", run_flux)
+        write_strip_exposure_csv(
+            staging / "flux_by_run_strip.csv", strip_exposures
+        )
         write_group_flux_csv(
             staging / "flux_by_group_energy.csv",
             aggregate_group_flux(run_flux),
@@ -638,7 +647,7 @@ def parse_args() -> argparse.Namespace:
 def _write_failure_qa(args: argparse.Namespace, error: str) -> None:
     _validate_output_location(args)
     payload = {
-        "schema_version": 1,
+        "schema_version": FLUX_SCHEMA_VERSION,
         "inputs": _input_paths(args),
         "valid": False,
         "errors": [error],

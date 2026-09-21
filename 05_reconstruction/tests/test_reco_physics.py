@@ -158,6 +158,7 @@ def test_reconstruction_preserves_event_metadata(tmp_path, monkeypatch):
         "pi0_mass",
         "RunNumber",
         "Polarization",
+        "n_photons_input",
         "Xstrip",
         "beam",
         "target",
@@ -173,7 +174,7 @@ def test_reconstruction_preserves_event_metadata(tmp_path, monkeypatch):
     }
     for name in ("chi2", "eta_mass", "pi0_mass", "Xstrip"):
         assert branches[name].GetLeaf(name).GetTypeName() == "Float_t"
-    for name in ("RunNumber", "Polarization"):
+    for name in ("RunNumber", "Polarization", "n_photons_input"):
         assert branches[name].GetLeaf(name).GetTypeName() == "Int_t"
     for name in (
         "beam",

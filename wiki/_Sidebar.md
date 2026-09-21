@@ -23,5 +23,6 @@
   - [χ² photon pairing](05-reconstruction-chi2)
   - [BDT gate](05-reconstruction-bdt-gate)
   - [6C kinematic fit](05-reconstruction-kinematic-fit)
+- [06 — Beam asymmetry](06-observable-extraction)
 - [06 — Plotting](06-plots)
 - [Calibration and flux](calibration-and-flux)

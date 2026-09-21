@@ -92,14 +92,15 @@ class _File:
 
 
 class _Gate:
-    def __init__(self, accepted):
-        self.accepted = accepted
+    def __init__(self, accepted, score=0.73):
+        self.threshold = 0.5
+        self.score = score if accepted else 0.27
 
-    def accepts_many(self, photons, protons, beams):
+    def scores_many(self, photons, protons, beams):
         assert photons.shape == (1, 4, 4)
         assert protons.shape == (1, 4)
         assert beams.shape == (1, 4)
-        return np.array([self.accepted])
+        return np.array([self.score])
 
 
 def _input_event():
@@ -110,6 +111,7 @@ def _input_event():
                 [-0.10, 0.00, 0.20, 0.30],
                 [0.00, 0.05, 0.10, 0.15],
                 [0.00, -0.05, 0.10, 0.15],
+                [0.20, 0.10, 0.30, 0.40],
             ]
         ),
         "proton": np.array([0.0, 0.0, 0.0, rp.M_PROTON]),
@@ -214,6 +216,8 @@ def test_root_adapter_routes_accepted_event_through_pure_core(
     assert entry["RunNumber"] == 4242
     assert entry["Polarization"] == 2
     assert entry["Xstrip"] == pytest.approx(73.0)
+    assert entry["n_photons_input"] == 5
+    assert "bdt_score" not in entry
     assert entry["eta_gamma1"] == tuple(photons[0])
     assert entry["eta_gamma2"] == tuple(photons[1])
     assert entry["pi0_gamma1"] == tuple(photons[2])
@@ -251,7 +255,11 @@ def test_accept_all_gate_matches_ungated_output(root_adapter, monkeypatch):
     assert reco_core.run_reconstruction(config, rp.ETA_PI0, gate=_Gate(True)) == 1
     gated_entry = trees[-1].entries[0]
 
-    assert gated_entry == ungated_entry
+    assert gated_entry["bdt_score"] == pytest.approx(0.73)
+    assert gated_entry["n_photons_input"] == 5
+    assert {
+        key: value for key, value in gated_entry.items() if key != "bdt_score"
+    } == ungated_entry
 
 
 def test_reject_all_gate_writes_nothing_without_pairing_or_fit(

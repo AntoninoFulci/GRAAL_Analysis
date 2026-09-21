@@ -20,7 +20,10 @@ flowchart LR
     SEARCH -->|best_hyperparams.json| TRAIN
     TRAIN -->|model + threshold + provenance| GATE[Stage-1 gate]
     GATE --> RECO
-    RECO -->|chi2 and BDT ROOT trees| PLOTS[8. Plotting]
+    RECO -->|chi2, BDT, fit, sideband trees| OBS[Beam-asymmetry extraction]
+    CALOUT --> OBS
+    OBS -->|ROOT + PDF| ASYM[Beam-asymmetry products]
+    RECO -->|chi2 and BDT ROOT trees| PLOTS[8. Legacy plotting]
     PLOTS --> OUT[PDF and ROOT artifacts]
     PRE --> CAL[Strip-energy and flux calibration]
     MANIFEST[Run manifest] --> CAL
@@ -54,6 +57,8 @@ flowchart TD
     RECOCORE --> RECORT
     PLOTCORE --> PLOTS
     RECORT --> PLOTS
+    RECORT --> OBS[observable_extraction\nestimators · sidebands · covariance]
+    COMMON --> OBS
 ```
 
 Physical directories remain numbered so pipeline order is visible. Editable
@@ -72,6 +77,8 @@ installation maps them to valid Python package names such as `graal_common`,
   loading.
 - `plots/core/` separates reusable calculations and ROOT data conversion from
   plot orchestration.
+- `observable_extraction/` owns run/strip-normalized asymmetry estimators,
+  sideband correction, systematic covariance, ROOT products, and Figure 4.
 - Tests enforce cross-module schemas where training output becomes runtime
   input.
 

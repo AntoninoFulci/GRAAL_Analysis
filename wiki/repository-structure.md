@@ -11,6 +11,7 @@
 | `04_bdt_training/` | Beam reweighting, datasets, feature build, search, training, versioned model artifacts |
 | `05_reconstruction/` | ROOT-free reconstruction core, runtime adapters, channel entry points, validation |
 | `06_plots/` | Plot entry points, reusable kinematics/data adapters, versioned reference artifact |
+| `06_observable_extraction/` | Beam-asymmetry estimators, background correction, covariance, ROOT/PDF products |
 | `config/` | Versioned run manifest |
 | `scripts/` | Repository setup, manifest, strip-energy/flux, and wiki synchronization commands |
 | `tests/` | Cross-package packaging, layout, pipeline, calibration, and Stage-1 contract tests |
@@ -57,6 +58,7 @@ directories to importable packages:
 | `04_bdt_training/` | `bdt_training` |
 | `05_reconstruction/` | `reconstruction` |
 | `06_plots/` | `plots` |
+| `06_observable_extraction/` | `observable_extraction` |
 
 `01_pre_analysis/` contains ROOT C++ macros and is not a Python package.
 
@@ -71,18 +73,11 @@ versioned Compton-polarization reference PDF.
 Bulk ROOT/NPZ data and rebuilt results are ignored. See
 [Data and storage](data-and-storage) for ownership and lifecycle.
 
-## Planned layout changes
+## Deferred layout change
 
-Not implemented yet:
-
-- move plotting out of numbered analysis stages by renaming `06_plots/` to an
-  unnumbered plotting directory;
-- create `06_observable_extraction/` for yield, flux-normalization, and
-  observable-extraction workflows;
-- move `scripts/build_strip_energy_flux.py` into that stage, potentially under
-  a dedicated calibration subdirectory;
-- update package mappings, imports, tests, pipeline commands, and wiki links in
-  the same refactor.
+`06_observable_extraction/` now owns physics extraction. `06_plots/` remains
+during validation and will be removed from pipeline only after farm dry run and
+remaining plot ownership migration.
 
 ## Wiki publication
 

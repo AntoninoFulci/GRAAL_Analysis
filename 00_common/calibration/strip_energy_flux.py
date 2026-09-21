@@ -38,6 +38,7 @@ AJAKA_CROSS_SECTION = EnergyBinning(
     tuple(0.95 + index * (1.50 - 0.95) / 15 for index in range(16)),
 )
 AJAKA_SIGMA = EnergyBinning("ajaka_sigma", (1.10, 1.20, 1.30, 1.40, 1.50))
+FLUX_SCHEMA_VERSION = 2
 
 LOOKUP_FIELDS = (
     "run_number",
@@ -62,12 +63,9 @@ RUN_FLUX_FIELDS = (
     "group",
     "energy_low_gev",
     "energy_high_gev",
-    "pol1",
-    "brem",
-    "pol2",
-    "pol1_net",
-    "pol2_net",
-    "total_net",
+    "flux_pol1",
+    "flux_pol2",
+    "flux_brem",
     "status",
 )
 GROUP_FLUX_FIELDS = (
@@ -77,12 +75,23 @@ GROUP_FLUX_FIELDS = (
     "group",
     "energy_low_gev",
     "energy_high_gev",
-    "pol1",
-    "brem",
-    "pol2",
-    "pol1_net",
-    "pol2_net",
-    "total_net",
+    "flux_pol1",
+    "flux_pol2",
+    "flux_brem",
+    "status",
+)
+STRIP_EXPOSURE_FIELDS = (
+    "schema_version",
+    "run_number",
+    "source_period",
+    "target",
+    "beam_type",
+    "group",
+    "xstrip",
+    "energy_median_gev",
+    "flux_pol1",
+    "flux_pol2",
+    "flux_brem",
     "status",
 )
 
@@ -110,9 +119,9 @@ class StripEnergyRecord:
 class StripFlux:
     run_number: int
     xstrip: int
-    pol1: float
-    brem: float
-    pol2: float
+    flux_pol1: float
+    flux_pol2: float
+    flux_brem: float
 
 
 @dataclass(frozen=True)
@@ -125,12 +134,9 @@ class FluxBinRecord:
     group: str
     energy_low_gev: float
     energy_high_gev: float
-    pol1: float
-    brem: float
-    pol2: float
-    pol1_net: float
-    pol2_net: float
-    total_net: float
+    flux_pol1: float
+    flux_pol2: float
+    flux_brem: float
     status: str
 
 
@@ -142,12 +148,25 @@ class GroupFluxBinRecord:
     group: str
     energy_low_gev: float
     energy_high_gev: float
-    pol1: float
-    brem: float
-    pol2: float
-    pol1_net: float
-    pol2_net: float
-    total_net: float
+    flux_pol1: float
+    flux_pol2: float
+    flux_brem: float
+    status: str
+
+
+@dataclass(frozen=True)
+class StripExposureRecord:
+    schema_version: int
+    run_number: int
+    source_period: str
+    target: str
+    beam_type: str
+    group: str
+    xstrip: int
+    energy_median_gev: float
+    flux_pol1: float
+    flux_pol2: float
+    flux_brem: float
     status: str
 
 
@@ -229,6 +248,22 @@ def write_group_flux_csv(path: Path, records: Sequence[GroupFluxBinRecord]) -> N
     )
 
 
+def write_strip_exposure_csv(
+    path: Path, records: Sequence[StripExposureRecord]
+) -> None:
+    _write_csv(
+        path,
+        STRIP_EXPOSURE_FIELDS,
+        (
+            asdict(record)
+            for record in sorted(
+                records,
+                key=lambda record: (record.run_number, record.xstrip),
+            )
+        ),
+    )
+
+
 def write_qa_json(path: Path, qa: object) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -305,11 +340,16 @@ def integrate_run_flux(
                 f"run {manifest.run_number} strip {strip.xstrip}: "
                 "flux run conflicts with manifest"
             )
-        values = (strip.pol1, strip.brem, strip.pol2)
+        values = (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
         if not all(isfinite(value) for value in values):
             raise StripEnergyFluxError(
                 f"run {manifest.run_number} strip {strip.xstrip}: "
                 "flux contents must be finite"
+            )
+        if any(value < 0.0 for value in values):
+            raise StripEnergyFluxError(
+                f"run {manifest.run_number} strip {strip.xstrip}: "
+                "flux contents must be non-negative"
             )
         if strip.xstrip not in energy_by_strip:
             if any(value != 0.0 for value in values):
@@ -327,10 +367,7 @@ def integrate_run_flux(
     for index, (low, high) in enumerate(
         zip(binning.edges_gev, binning.edges_gev[1:])
     ):
-        pol1, brem, pol2 = sums[index]
-        pol1_net = pol1 - brem
-        pol2_net = pol2 - brem
-        status = "invalid" if pol1_net < 0 or pol2_net < 0 else "valid"
+        pol1, pol2, brem = sums[index]
         result.append(
             FluxBinRecord(
                 binning.name,
@@ -342,12 +379,9 @@ def integrate_run_flux(
                 low,
                 high,
                 pol1,
-                brem,
                 pol2,
-                pol1_net,
-                pol2_net,
-                pol1_net + pol2_net,
-                status,
+                brem,
+                "valid",
             )
         )
     return tuple(result)
@@ -370,22 +404,18 @@ def aggregate_group_flux(
             record.energy_high_gev,
         )
         values = sums[key]
-        for index, value in enumerate((record.pol1, record.brem, record.pol2)):
+        for index, value in enumerate(
+            (record.flux_pol1, record.flux_pol2, record.flux_brem)
+        ):
             values[index] += value
         if record.status != "valid":
             invalid_keys.add(key)
 
     grouped = []
     for (binning, target, beam_type, group, low, high), values in sorted(sums.items()):
-        pol1, brem, pol2 = values
-        pol1_net = pol1 - brem
-        pol2_net = pol2 - brem
+        pol1, pol2, brem = values
         key = (binning, target, beam_type, group, low, high)
-        status = (
-            "invalid"
-            if key in invalid_keys or pol1_net < 0 or pol2_net < 0
-            else "valid"
-        )
+        status = "invalid" if key in invalid_keys else "valid"
         grouped.append(
             GroupFluxBinRecord(
                 binning,
@@ -395,15 +425,92 @@ def aggregate_group_flux(
                 low,
                 high,
                 pol1,
-                brem,
                 pol2,
-                pol1_net,
-                pol2_net,
-                pol1_net + pol2_net,
+                brem,
                 status,
             )
         )
     return tuple(grouped)
+
+
+def join_strip_exposures(
+    lookup: Sequence[StripEnergyRecord],
+    strips: Sequence[StripFlux],
+    manifest_by_run: dict[int, RunRecord],
+) -> tuple[StripExposureRecord, ...]:
+    energy_by_key: dict[tuple[int, int], StripEnergyRecord] = {}
+    for record in lookup:
+        key = (record.run_number, record.xstrip)
+        if key in energy_by_key:
+            raise StripEnergyFluxError(
+                f"duplicate strip-energy lookup for run {record.run_number} "
+                f"strip {record.xstrip}"
+            )
+        energy_by_key[key] = record
+
+    flux_by_key: dict[tuple[int, int], StripFlux] = {}
+    for strip in strips:
+        key = (strip.run_number, strip.xstrip)
+        if key in flux_by_key:
+            raise StripEnergyFluxError(
+                f"duplicate flux for run {strip.run_number} strip {strip.xstrip}"
+            )
+        values = (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
+        if not all(isfinite(value) for value in values):
+            raise StripEnergyFluxError(
+                f"run {strip.run_number} strip {strip.xstrip}: "
+                "flux contents must be finite"
+            )
+        if any(value < 0.0 for value in values):
+            raise StripEnergyFluxError(
+                f"run {strip.run_number} strip {strip.xstrip}: "
+                "flux contents must be non-negative"
+            )
+        flux_by_key[key] = strip
+
+    records = []
+    for key, energy in sorted(energy_by_key.items()):
+        run_number, xstrip = key
+        if run_number not in manifest_by_run:
+            raise StripEnergyFluxError(f"run {run_number} is absent from manifest")
+        if key not in flux_by_key:
+            raise StripEnergyFluxError(
+                f"missing flux for run {run_number} strip {xstrip}"
+            )
+        manifest = manifest_by_run[run_number]
+        flux = flux_by_key[key]
+        status = (
+            "valid"
+            if flux.flux_pol1 > 0.0 and flux.flux_pol2 > 0.0
+            else "invalid"
+        )
+        records.append(
+            StripExposureRecord(
+                FLUX_SCHEMA_VERSION,
+                run_number,
+                manifest.source_period,
+                manifest.target,
+                manifest.beam_type,
+                manifest.group,
+                xstrip,
+                energy.energy_median_gev,
+                flux.flux_pol1,
+                flux.flux_pol2,
+                flux.flux_brem,
+                status,
+            )
+        )
+
+    for key, flux in flux_by_key.items():
+        if key not in energy_by_key and any(
+            value != 0.0
+            for value in (flux.flux_pol1, flux.flux_pol2, flux.flux_brem)
+        ):
+            raise StripEnergyFluxError(
+                f"run {flux.run_number} strip {flux.xstrip}: "
+                "nonzero flux without lookup"
+            )
+    return tuple(records)
 
 
 def find_monotonic_inversions(

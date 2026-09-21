@@ -62,12 +62,14 @@ _GATE_CHUNK = 20000
 class Gate(Protocol):
     """An event filter applied before the chi2 pairing, asked in bulk."""
 
-    def accepts_many(
+    threshold: float
+
+    def scores_many(
         self, photons: np.ndarray, protons: np.ndarray, beams: np.ndarray
     ) -> np.ndarray:
         """photons: (N,4,4); protons, beams: (N,4) — all [px, py, pz, E].
 
-        Returns an (N,) bool array, one answer per event, True to keep.
+        Returns an (N,) signal-probability array.
         """
         ...
 
@@ -155,6 +157,8 @@ def run_reconstruction(
     run_number = array("i", [0])
     polarization = array("i", [0])
     xstrip = array("f", [0.0])
+    n_photons_input = array("i", [0])
+    bdt_score = array("f", [float("nan")])
 
     beam = ROOT.TLorentzVector()
     target = ROOT.TLorentzVector(0.0, 0.0, 0.0, cfg.partner_mass)  # partner at rest
@@ -187,6 +191,9 @@ def run_reconstruction(
     tout.Branch("RunNumber", run_number, "RunNumber/I")
     tout.Branch("Polarization", polarization, "Polarization/I")
     tout.Branch("Xstrip", xstrip, "Xstrip/F")
+    tout.Branch("n_photons_input", n_photons_input, "n_photons_input/I")
+    if gate is not None:
+        tout.Branch("bdt_score", bdt_score, "bdt_score/F")
 
     tout.Branch("beam", "TLorentzVector", beam)
     tout.Branch("target", "TLorentzVector", target)
@@ -219,7 +226,9 @@ def run_reconstruction(
     n_fit_cut = 0
     print("Starting event loop...")
 
-    def _reconstruct_and_fill(event: EventInput) -> None:
+    def _reconstruct_and_fill(
+        event: EventInput, score: float | None = None
+    ) -> None:
         """Reconstruct one gate-accepted event and write it when retained."""
         nonlocal n_impossible, n_missing_cut, n_fit_cut
 
@@ -275,6 +284,9 @@ def run_reconstruction(
         run_number[0] = reconstructed.run_number
         polarization[0] = reconstructed.polarization
         xstrip[0] = reconstructed.strip
+        n_photons_input[0] = event.n_photons_input
+        if score is not None:
+            bdt_score[0] = score
         tout.Fill()
 
     def _flush(buf: list) -> None:
@@ -290,18 +302,20 @@ def run_reconstruction(
 
         if gate is None:
             keep = [True] * len(buf)
+            scores: list[float | None] | np.ndarray = [None] * len(buf)
         else:
-            accepted = gate.accepts_many(
+            scores = gate.scores_many(
                 np.stack([event.photons for event in buf]),
                 np.stack([event.proton for event in buf]),
                 np.stack([event.beam for event in buf]),
             )
+            accepted = scores >= gate.threshold
             n_gated_out += int(len(buf) - np.count_nonzero(accepted))
             keep = accepted
 
-        for ok, event in zip(keep, buf):
+        for ok, event, score in zip(keep, buf, scores):
             if ok:
-                _reconstruct_and_fill(event)
+                _reconstruct_and_fill(event, score)
 
         buf.clear()
 
@@ -342,6 +356,7 @@ def run_reconstruction(
                 run_number=int(chain.RunNumber),
                 polarization=int(chain.Polarization),
                 strip=float(chain.Xstrip),
+                n_photons_input=int(chain.gammas.size()),
             )
         )
         if len(pending) >= _GATE_CHUNK:

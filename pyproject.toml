@@ -40,6 +40,12 @@ packages = [
     "reconstruction.core",
     "reconstruction.runtime",
     "reconstruction.tests",
+    "observable_extraction",
+    "observable_extraction.calibration",
+    "observable_extraction.core",
+    "observable_extraction.io",
+    "observable_extraction.plotting",
+    "observable_extraction.tests",
     "plots",
     "plots.core",
     "plots.tests",
@@ -53,10 +59,11 @@ event_selector = "02_event_selector"
 mc_simulation  = "03_mc_simulation"
 bdt_training   = "04_bdt_training"
 reconstruction = "05_reconstruction"
+observable_extraction = "06_observable_extraction"
 plots          = "06_plots"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_plots/tests"]
+testpaths = ["tests", "00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_observable_extraction/tests", "06_plots/tests"]
 # The tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"

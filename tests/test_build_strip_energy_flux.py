@@ -10,7 +10,12 @@ from types import SimpleNamespace
 import pytest
 
 from graal_common.calibration.run_manifest import RunRecord, write_manifest
-from graal_common.calibration.strip_energy_flux import EnergyBinning, StripEnergyFluxError
+from graal_common.calibration.strip_energy_flux import (
+    FLUX_SCHEMA_VERSION,
+    STRIP_EXPOSURE_FIELDS,
+    EnergyBinning,
+    StripEnergyFluxError,
+)
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "build_strip_energy_flux.py"
 SPEC = importlib.util.spec_from_file_location("build_strip_energy_flux_task4", SCRIPT)
@@ -67,6 +72,7 @@ def write_flux(
     bins: int = 128,
     low: float = 0.0,
     high: float = 128.0,
+    bin_error: float | None = None,
 ):
     import ROOT
 
@@ -76,6 +82,8 @@ def write_flux(
             histogram = ROOT.TH1D(f"run{run}_{suffix}", "", bins, low, high)
             for strip, value in contents.items():
                 histogram.SetBinContent(strip, value)
+                if bin_error is not None:
+                    histogram.SetBinError(strip, bin_error)
             histogram.Write()
     output.Close()
 
@@ -173,15 +181,52 @@ def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
     assert sorted(path.name for path in output.iterdir()) == [
         "flux_by_group_energy.csv",
         "flux_by_run_energy.csv",
+        "flux_by_run_strip.csv",
         "strip_energy_flux_qa.json",
         "strip_energy_lookup.csv",
     ]
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["schema_version"] == FLUX_SCHEMA_VERSION
     assert qa["valid"] is True
     assert qa["manifest_run_count"] == 2
     assert qa["h80_run_count"] == 2
     assert qa["flux_run_count"] == 2
     assert "Wrote 2-run strip-energy flux analysis" in result.stdout
+    with (output / "flux_by_run_strip.csv").open(newline="") as stream:
+        strip_rows = list(csv.DictReader(stream))
+    assert tuple(strip_rows[0]) == STRIP_EXPOSURE_FIELDS
+    assert strip_rows[0]["schema_version"] == str(FLUX_SCHEMA_VERSION)
+    assert (strip_rows[0]["target"], strip_rows[0]["beam_type"]) == ("P", "UV")
+
+
+def test_cli_complete_extra_flux_run_is_warning_only(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    append_histogram(flux, "run99_POL1")
+    append_histogram(flux, "run99_POL2")
+    append_histogram(flux, "run99_BREM")
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    assert "WARNING: unused complete flux run 99" in result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["valid"] is True
+    assert qa["extra_flux_runs"] == [99]
+
+
+def test_flux_histogram_bin_errors_do_not_change_final_flux(tmp_path):
+    flux = tmp_path / "flux.root"
+    write_flux(
+        flux,
+        {7: {"POL1": {12: 100.0}, "POL2": {12: 80.0}, "BREM": {12: 25.0}}},
+        bin_error=1.0e12,
+    )
+
+    strips, _ = cli.read_flux_histograms(flux, [7])
+
+    assert strips[11].flux_pol1 == 100.0
+    assert strips[11].flux_pol2 == 80.0
+    assert strips[11].flux_brem == 25.0
 
 
 def test_parse_custom_binnings_rejects_duplicate_name():
@@ -234,15 +279,15 @@ def test_cli_nonzero_flux_without_lookup_is_diagnostic(tmp_path):
         {
             "run_number": 7,
             "xstrip": 128,
-            "pol1": 10.0,
-            "brem": 1.0,
-            "pol2": 8.0,
+            "flux_pol1": 10.0,
+            "flux_pol2": 8.0,
+            "flux_brem": 1.0,
         }
     ]
     assert any("nonzero flux without lookup" in error for error in qa["errors"])
 
 
-def test_cli_negative_net_flux_is_diagnostic(tmp_path):
+def test_cli_negative_flux_content_is_fatal_without_net_fields(tmp_path):
     flux_by_run = {
         run: {
             "POL1": {
@@ -263,39 +308,11 @@ def test_cli_negative_net_flux_is_diagnostic(tmp_path):
     assert result.returncode == 1
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
     assert qa["valid"] is False
-    assert any("negative net flux" in error for error in qa["errors"])
-    assert [
-        (item["binning"], item["run_number"], item["bin_index"])
-        for item in qa["negative_net_errors"]
-    ] == [("ajaka_cross_section", 7, 1)]
+    assert any("non-negative" in error for error in qa["errors"])
+    assert "negative_net_errors" not in qa
     with (output / "flux_by_run_energy.csv").open(newline="") as stream:
         run_rows = list(csv.DictReader(stream))
-    with (output / "flux_by_group_energy.csv").open(newline="") as stream:
-        group_rows = list(csv.DictReader(stream))
-    assert len(run_rows) == 38
-    invalid_run_rows = [row for row in run_rows if row["status"] == "invalid"]
-    assert len(invalid_run_rows) == 1
-    invalid = invalid_run_rows[0]
-    assert (invalid["binning"], invalid["run_number"]) == (
-        "ajaka_cross_section",
-        "7",
-    )
-    assert (
-        float(invalid["pol1"]),
-        float(invalid["brem"]),
-        float(invalid["pol2"]),
-    ) == (-950.0, 6.0, 48.0)
-    assert (
-        float(invalid["pol1_net"]),
-        float(invalid["pol2_net"]),
-        float(invalid["total_net"]),
-    ) == (-956.0, 42.0, -914.0)
-    assert any(
-        row["binning"] == "ajaka_cross_section"
-        and row["group"] == "P_UV"
-        and row["status"] == "invalid"
-        for row in group_rows
-    )
+    assert all("net" not in field for field in run_rows[0])
 
 
 def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):
@@ -487,7 +504,7 @@ def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path)
     with (output / "flux_by_run_energy.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
     included_pol1 = sum(
-        float(row["pol1"])
+        float(row["flux_pol1"])
         for row in rows
         if row["binning"] == "ajaka_cross_section"
         and row["run_number"] == "7"
@@ -498,9 +515,9 @@ def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path)
     assert excluded["below_lookup_count"] == 1
     assert excluded["above_lookup_count"] == 0
     assert excluded["raw_flux_excluded"] == {
-        "pol1": 10.0,
-        "brem": 1.0,
-        "pol2": 8.0,
+        "flux_pol1": 10.0,
+        "flux_pol2": 8.0,
+        "flux_brem": 1.0,
     }
 
 
@@ -532,7 +549,7 @@ def test_cli_reports_underflow_overflow_as_warning_without_folding(tmp_path):
     with (output / "flux_by_run_energy.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert sum(
-        float(row["pol1"])
+        float(row["flux_pol1"])
         for row in rows
         if row["binning"] == "ajaka_cross_section"
         and row["run_number"] == "7"
@@ -594,8 +611,9 @@ def test_root_adapters_read_h80_and_flux_triplet(tmp_path):
     assert [(row.run_number, row.xstrip) for row in samples] == [
         (7, 12.0), (7, 13.0)
     ]
-    assert strips[11].pol1 == pytest.approx(100.0)
-    assert strips[11].brem == pytest.approx(10.0)
+    assert strips[11].flux_pol1 == pytest.approx(100.0)
+    assert strips[11].flux_pol2 == pytest.approx(80.0)
+    assert strips[11].flux_brem == pytest.approx(10.0)
     assert h80_qa["entries"] == 2
     assert flux_qa["run_count"] == 1
 

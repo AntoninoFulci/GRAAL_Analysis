@@ -1,6 +1,8 @@
 """Public command-line contracts for reconstruction entry points."""
 
 from pathlib import Path
+import importlib
+import math
 import subprocess
 import sys
 
@@ -33,6 +35,11 @@ COMMON_OPTIONS = {
         ),
         (
             "reconstruction.reconstruct_eta_pi0_bdt",
+            {"--no-fit", "--fit-cl", "--model-dir"},
+            set(),
+        ),
+        (
+            "reconstruction.reconstruct_eta_pi0_bdt_sideband",
             {"--no-fit", "--fit-cl", "--model-dir"},
             set(),
         ),
@@ -127,6 +134,37 @@ def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeyp
     assert cfg.missing_mass_window == 0.06
     assert cfg.do_fit is True
     assert cfg.fit_cl == 0.01
+    assert gate.checked is rp.ETA_PI0.hypothesis
+    assert observed["channel"] is rp.ETA_PI0
+    assert observed["gate"] is gate
+
+
+def test_eta_pi0_bdt_sideband_defaults_build_broad_control_configuration(
+    monkeypatch,
+):
+    module = importlib.import_module(
+        "reconstruction.reconstruct_eta_pi0_bdt_sideband"
+    )
+    observed = {}
+    gate = _Gate()
+    monkeypatch.setattr(module.Stage1Gate, "load", classmethod(lambda _cls, _path: gate))
+    monkeypatch.setattr(
+        module,
+        "run_reconstruction",
+        lambda cfg, channel, gate=None: observed.update(
+            cfg=cfg, channel=channel, gate=gate
+        ),
+    )
+    monkeypatch.setattr(sys, "argv", ["reconstruct_eta_pi0_bdt_sideband"])
+
+    module.main()
+
+    cfg = observed["cfg"]
+    assert cfg.output_file == Path("results/reco/reco_eta_pi0_bdt_sideband.root")
+    assert cfg.output_tree == "reco_eta_pi0_bdt_sideband"
+    assert math.isinf(cfg.chi2_cut)
+    assert cfg.missing_mass_window == 0.0
+    assert cfg.do_fit is False
     assert gate.checked is rp.ETA_PI0.hypothesis
     assert observed["channel"] is rp.ETA_PI0
     assert observed["gate"] is gate

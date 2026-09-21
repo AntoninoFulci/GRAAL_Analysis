@@ -29,6 +29,7 @@ class EventInput:
     run_number: int
     polarization: int
     strip: float
+    n_photons_input: int = 4
 
 
 @dataclass(frozen=True)

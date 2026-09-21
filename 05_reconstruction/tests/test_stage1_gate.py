@@ -61,6 +61,15 @@ def test_accepts_when_the_score_is_above_the_threshold():
     assert gate.accepts_many(*_events()).tolist() == [True]
 
 
+def test_scores_many_returns_signal_probability_before_thresholding():
+    gate = Stage1Gate(FakeModel(0.2, 0.9), threshold=0.6)
+
+    scores = gate.scores_many(*_events(2))
+
+    np.testing.assert_allclose(scores, [0.2, 0.9])
+    assert gate.accepts_many(*_events(2)).tolist() == [False, True]
+
+
 def test_importing_gate_does_not_import_training_package():
     script = """
 import sys

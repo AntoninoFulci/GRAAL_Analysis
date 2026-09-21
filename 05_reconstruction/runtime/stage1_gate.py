@@ -105,13 +105,13 @@ class Stage1Gate:
                 f"--signal-channel <ch> --hypothesis {expected.name}"
             )
 
-    def accepts_many(
+    def scores_many(
         self, photons: np.ndarray, protons: np.ndarray, beams: np.ndarray
     ) -> np.ndarray:
-        """Score a whole chunk of events at once.
+        """Return signal probability for a whole chunk of events.
 
         photons: (N,4,4); protons, beams: (N,4) — all [px, py, pz, E].
-        Returns an (N,) bool array; True keeps the event.
+        Returns an (N,) float array before thresholding.
 
         Asked one event at a time this cost 0.335 ms each — 0.098 building the
         features, 0.237 calling the model — and almost none of that was the model
@@ -121,5 +121,10 @@ class Stage1Gate:
         roughly 300.
         """
         X = compute_stage1_features(photons, protons, beams, self.hypothesis)
-        scores = self.model.predict_proba(X)[:, 1]
-        return scores >= self.threshold
+        return np.asarray(self.model.predict_proba(X)[:, 1], dtype=np.float64)
+
+    def accepts_many(
+        self, photons: np.ndarray, protons: np.ndarray, beams: np.ndarray
+    ) -> np.ndarray:
+        """Return one threshold decision per event."""
+        return self.scores_many(photons, protons, beams) >= self.threshold

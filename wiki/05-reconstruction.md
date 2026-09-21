@@ -19,6 +19,7 @@ default 6C kinematic fit.
 ```bash
 python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
 python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/03_selected
+python -m reconstruction.reconstruct_eta_pi0_bdt_sideband --input-dir data/03_selected
 python -m reconstruction.reconstruct_2pi0 --input-dir data/03_selected
 ```
 
@@ -37,6 +38,13 @@ accepts `--model-dir`. Input tree defaults to auto detection.
 6. write retained event.
 
 Common logic ensures χ² and BDT outputs differ intentionally only by gate.
+
+`reconstruct_eta_pi0_bdt_sideband` supplies background-control events. It uses
+same BDT gate and topology guards, stores continuous `bdt_score` plus original
+photon multiplicity, disables kinematic fit and missing-mass selection, and
+uses unbounded χ² ceiling. Output is not signal sample; downstream extraction
+defines hard multidimensional sidebands from raw η mass, π⁰ mass, and proton
+missing mass.
 
 See [χ² photon pairing](05-reconstruction-chi2),
 [BDT gate](05-reconstruction-bdt-gate), and

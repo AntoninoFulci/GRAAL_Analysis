@@ -107,3 +107,6 @@ python -m plots.dalitz --help
 ```
 
 Calibration commands are documented in [Calibration and flux](calibration-and-flux).
+Beam-asymmetry extraction is documented in
+[06 — Beam asymmetry](06-observable-extraction). It remains outside
+`run_pipeline.sh` until farm dry-run validation.

@@ -8,7 +8,7 @@ target/beam group, and writes a portable QA bundle.
 
 - pre-analysis directory containing `pre_*.root` with tree `h80`;
 - validated `config/run_manifest.csv`;
-- ROOT file containing per-run `POL1`, `BREM`, and `POL2` histograms;
+- ROOT file containing per-run `POL1`, `POL2`, and `BREM` histograms;
 - output directory.
 
 Run:
@@ -50,17 +50,20 @@ Lookup assigns each strip to energy bins. Bins use `[low, high)` except final
 bin includes right edge. Strips outside binning range are reported, not folded
 into edge bins.
 
-For each run and energy bin:
+Histogram names have fixed physical meaning for every run:
 
 ```text
-pol1_net = pol1 - brem
-pol2_net = pol2 - brem
-total_net = pol1_net + pol2_net
+runXXXX_POL1 -> vertical-polarization final flux
+runXXXX_POL2 -> horizontal-polarization final flux
+runXXXX_BREM -> bremsstrahlung final flux
 ```
 
-Negative net flux marks row invalid and makes QA invalid. Raw and negative
-values remain in CSV for diagnosis. Group output sums run rows without mixing
-target or beam type; invalid contributor keeps group row invalid.
+These are three independent final exposures. BREM is never subtracted from
+POL1 or POL2. ROOT histogram bin errors are not physical flux uncertainties and
+are ignored. Negative contents are fatal. Complete flux runs absent from the
+manifest are recorded and warned about, then ignored. Group output sums run
+rows without mixing target or beam type; invalid contributor keeps group row
+invalid.
 
 ## Output schemas
 
@@ -75,20 +78,29 @@ energy_median_gev,energy_mad_gev,energy_min_gev,energy_max_gev,provenance
 
 ```text
 binning,run_number,source_period,target,beam_type,group,
-energy_low_gev,energy_high_gev,pol1,brem,pol2,
-pol1_net,pol2_net,total_net,status
+energy_low_gev,energy_high_gev,flux_pol1,flux_pol2,flux_brem,status
 ```
 
 ### `flux_by_group_energy.csv`
 
 Same flux columns, keyed by binning, target, beam type, group, and energy bin.
 
+### `flux_by_run_strip.csv`
+
+```text
+schema_version,run_number,source_period,target,beam_type,group,xstrip,
+energy_median_gev,flux_pol1,flux_pol2,flux_brem,status
+```
+
+This event-likelihood input preserves run/strip exposure and calibrated energy.
+Rows with non-positive selected POL1 or POL2 exposure are invalid.
+
 ### `strip_energy_flux_qa.json`
 
-Schema version 1 records input paths, thresholds, binnings, run and strip
+Schema version 2 records input paths, thresholds, binnings, run and strip
 counts, malformed triplets, missing/extra runs, monotonic and spread warnings,
-underflow/overflow, out-of-range flux, negative net errors, structural errors,
-and final `valid` flag.
+underflow/overflow, out-of-range final fluxes, structural errors, warnings, and
+final `valid` flag.
 
 ## Atomic publication
 
@@ -100,7 +112,7 @@ partially refreshed bundle.
 
 | Exit | Meaning | Artifacts |
 |---:|---|---|
-| 0 | Analysis completed and QA valid | All four artifacts |
+| 0 | Analysis completed and QA valid | All five artifacts |
 | 1 | QA invalid or handled runtime/input error | Full diagnostic bundle when processing completed; minimal QA when possible for early failure |
 | 2 | Command usage error from `argparse` | No analysis artifacts |
 

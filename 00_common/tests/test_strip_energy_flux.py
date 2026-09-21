@@ -6,6 +6,7 @@ import shutil
 
 import pytest
 
+from graal_common.calibration import strip_energy_flux as sef
 from graal_common.calibration.run_manifest import RunRecord
 from graal_common.calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
@@ -64,15 +65,15 @@ def test_run_flux_csv_has_fixed_schema_and_numeric_order(tmp_path):
     records = (
         FluxBinRecord(
             "one", 20, "period", "D", "VIS", "D_VIS", 1.2, 1.3,
-            2.0, 0.2, 1.8, 1.8, 1.6, 3.4, "valid",
+            2.0, 1.8, 0.2, "valid",
         ),
         FluxBinRecord(
             "one", 3, "period", "P", "UV", "P_UV", 1.2, 1.3,
-            3.0, 0.3, 2.7, 2.7, 2.4, 5.1, "valid",
+            3.0, 2.7, 0.3, "valid",
         ),
         FluxBinRecord(
             "one", 3, "period", "P", "UV", "P_UV", 1.1, 1.2,
-            4.0, 0.4, 3.6, 3.6, 3.2, 6.8, "valid",
+            4.0, 3.6, 0.4, "valid",
         ),
     )
 
@@ -93,11 +94,11 @@ def test_group_flux_csv_has_fixed_schema_and_numeric_order(tmp_path):
     records = (
         GroupFluxBinRecord(
             "one", "P", "UV", "P_UV", 1.2, 1.3,
-            2.0, 0.2, 1.8, 1.8, 1.6, 3.4, "valid",
+            2.0, 1.8, 0.2, "valid",
         ),
         GroupFluxBinRecord(
             "one", "D", "VIS", "D_VIS", 1.1, 1.2,
-            3.0, 0.3, 2.7, 2.7, 2.4, 5.1, "valid",
+            3.0, 2.7, 0.3, "valid",
         ),
     )
 
@@ -267,26 +268,30 @@ def test_monotonicity_marks_zero_covariance_direction_as_undetermined():
     )
 
 
-def test_flux_integration_sums_whole_strips_and_subtracts_brem_twice():
+def test_flux_integration_sums_three_independent_final_fluxes():
     bins = EnergyBinning("two_bins", (1.0, 1.2, 1.4))
     result = integrate_run_flux(
         manifest(7),
         [lookup(7, 1, 1.10), lookup(7, 2, 1.19), lookup(7, 3, 1.30)],
         [
-            StripFlux(7, 1, 100.0, 10.0, 80.0),
-            StripFlux(7, 2, 50.0, 5.0, 40.0),
-            StripFlux(7, 3, 20.0, 2.0, 16.0),
+            StripFlux(7, 1, 100.0, 80.0, 10.0),
+            StripFlux(7, 2, 50.0, 40.0, 5.0),
+            StripFlux(7, 3, 20.0, 16.0, 2.0),
         ],
         bins,
     )
-    assert (result[0].pol1, result[0].brem, result[0].pol2) == (
+    assert (
+        result[0].flux_pol1,
+        result[0].flux_pol2,
+        result[0].flux_brem,
+    ) == (
         150.0,
-        15.0,
         120.0,
+        15.0,
     )
-    assert result[0].pol1_net == 135.0
-    assert result[0].pol2_net == 105.0
-    assert result[0].total_net == 240.0
+    assert not hasattr(result[0], "pol1_net")
+    assert not hasattr(result[0], "pol2_net")
+    assert not hasattr(result[0], "total_net")
 
 
 def test_nonzero_flux_without_lookup_is_fatal():
@@ -297,70 +302,74 @@ def test_nonzero_flux_without_lookup_is_fatal():
         )
 
 
-def test_negative_net_flux_preserves_raw_bin_with_invalid_status():
+def test_brem_larger_than_polarized_flux_does_not_invalidate_final_fluxes():
     result = integrate_run_flux(
         manifest(7), [lookup(7, 1, 1.2)],
-        [StripFlux(7, 1, 2.0, 3.0, 4.0)],
+        [StripFlux(7, 1, 2.0, 4.0, 3.0)],
         EnergyBinning("one", (1.0, 1.5)),
     )
 
     assert len(result) == 1
-    assert (result[0].pol1, result[0].brem, result[0].pol2) == (2.0, 3.0, 4.0)
-    assert (result[0].pol1_net, result[0].pol2_net) == (-1.0, 1.0)
-    assert result[0].status == "invalid"
+    assert (
+        result[0].flux_pol1,
+        result[0].flux_pol2,
+        result[0].flux_brem,
+    ) == (2.0, 4.0, 3.0)
+    assert result[0].status == "valid"
 
 
 def test_group_aggregation_never_mixes_manifest_groups():
     bins = EnergyBinning("one", (1.0, 1.5))
     p = integrate_run_flux(
         manifest(7, "P_UV"), [lookup(7, 1, 1.2)],
-        [StripFlux(7, 1, 10.0, 1.0, 8.0)], bins,
+        [StripFlux(7, 1, 10.0, 8.0, 1.0)], bins,
     )
     d = integrate_run_flux(
         manifest(8, "D_UV"), [lookup(8, 1, 1.2)],
-        [StripFlux(8, 1, 20.0, 2.0, 16.0)], bins,
+        [StripFlux(8, 1, 20.0, 16.0, 2.0)], bins,
     )
     grouped = aggregate_group_flux((*p, *d))
     assert [row.group for row in grouped] == ["D_UV", "P_UV"]
-    assert [row.total_net for row in grouped] == [32.0, 16.0]
+    assert [row.flux_pol1 for row in grouped] == [20.0, 10.0]
+    assert [row.flux_pol2 for row in grouped] == [16.0, 8.0]
+    assert [row.flux_brem for row in grouped] == [2.0, 1.0]
 
 
-def test_group_aggregation_recomputes_net_flux_from_raw_sums():
+def test_group_aggregation_sums_final_fluxes_without_brem_subtraction():
     grouped = aggregate_group_flux(
         (
             FluxBinRecord(
                 "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                10.0, 3.0, 8.0, 999.0, 999.0, 999.0, "valid",
+                10.0, 8.0, 3.0, "valid",
             ),
             FluxBinRecord(
                 "one", 8, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                5.0, 1.0, 4.0, -999.0, -999.0, -999.0, "valid",
+                5.0, 4.0, 1.0, "valid",
             ),
         )
     )
-    assert (grouped[0].pol1, grouped[0].brem, grouped[0].pol2) == (
+    assert (
+        grouped[0].flux_pol1,
+        grouped[0].flux_pol2,
+        grouped[0].flux_brem,
+    ) == (
         15.0,
-        4.0,
         12.0,
+        4.0,
     )
-    assert (grouped[0].pol1_net, grouped[0].pol2_net, grouped[0].total_net) == (
-        11.0,
-        8.0,
-        19.0,
-    )
+    assert not hasattr(grouped[0], "total_net")
 
 
-def test_group_aggregation_preserves_negative_net_flux_as_invalid():
+def test_group_aggregation_preserves_invalid_contributing_run_status():
     grouped = aggregate_group_flux(
         (
             FluxBinRecord(
                 "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                1.0, 2.0, 3.0, 999.0, 999.0, 1998.0, "valid",
+                1.0, 3.0, 2.0, "invalid",
             ),
         )
     )
 
-    assert (grouped[0].pol1_net, grouped[0].pol2_net) == (-1.0, 1.0)
     assert grouped[0].status == "invalid"
 
 
@@ -369,17 +378,67 @@ def test_group_status_keeps_invalid_contributing_run_visible_after_offset():
         (
             FluxBinRecord(
                 "one", 7, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                1.0, 2.0, 3.0, -1.0, 1.0, 0.0, "invalid",
+                1.0, 3.0, 2.0, "invalid",
             ),
             FluxBinRecord(
                 "one", 8, "period", "P", "UV", "P_UV", 1.0, 1.5,
-                10.0, 0.0, 8.0, 10.0, 8.0, 18.0, "valid",
+                10.0, 8.0, 0.0, "valid",
             ),
         )
     )
 
-    assert (grouped[0].pol1_net, grouped[0].pol2_net) == (9.0, 9.0)
+    assert (grouped[0].flux_pol1, grouped[0].flux_pol2) == (11.0, 11.0)
     assert grouped[0].status == "invalid"
+
+
+def test_join_strip_exposures_adds_manifest_and_schema_v2():
+    records = sef.join_strip_exposures(
+        [lookup(7, 12, 1.25)],
+        [StripFlux(7, 12, 100.0, 80.0, 25.0)],
+        {7: manifest(7)},
+    )
+
+    assert records == (
+        sef.StripExposureRecord(
+            sef.FLUX_SCHEMA_VERSION,
+            7,
+            "period",
+            "P",
+            "UV",
+            "P_UV",
+            12,
+            1.25,
+            100.0,
+            80.0,
+            25.0,
+            "valid",
+        ),
+    )
+
+
+def test_write_strip_exposure_csv_has_fixed_v2_schema(tmp_path):
+    output = tmp_path / "strip-exposure.csv"
+    record = sef.StripExposureRecord(
+        sef.FLUX_SCHEMA_VERSION,
+        7,
+        "period",
+        "P",
+        "UV",
+        "P_UV",
+        12,
+        1.25,
+        100.0,
+        80.0,
+        25.0,
+        "valid",
+    )
+
+    sef.write_strip_exposure_csv(output, [record])
+
+    with output.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert tuple(rows[0]) == sef.STRIP_EXPOSURE_FIELDS
+    assert rows[0]["schema_version"] == "2"
 
 
 def test_flux_run_conflict_error_includes_manifest_run_and_flux_strip():

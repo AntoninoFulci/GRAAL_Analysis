@@ -17,6 +17,7 @@ tests/
 04_bdt_training/tests/
 05_reconstruction/tests/
 06_plots/tests/
+06_observable_extraction/tests/
 ```
 
 `--import-mode=importlib` prevents each numbered directory's `tests` package
@@ -32,6 +33,7 @@ from colliding with others.
 | `04_bdt_training/tests/` | Beam reweighting, photon loss, MC decoding, weights, NPZ storage, fitting, reporting, CLI facade |
 | `05_reconstruction/tests/` | CLI translation, event decisions, pairing physics, kinematic fit, ROOT runtime adapter, BDT gate |
 | `06_plots/tests/` | Kinematics, reconstruction data adapter, Dalitz orchestration, resolution helpers, Compton plot calculations |
+| `06_observable_extraction/tests/` | Flux joins, pair projections, both Sigma estimators, sidebands, bootstrap/systematics, ROOT/PDF products, synthetic end-to-end recovery |
 
 Most physics and schema tests are ROOT-free. ROOT-facing tests use small test
 doubles where they verify adapter behavior without detector files. Generator
