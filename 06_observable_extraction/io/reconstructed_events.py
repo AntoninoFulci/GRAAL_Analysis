@@ -94,7 +94,7 @@ def read_reconstructed(
             )
             raw_missing = _vector(event.missing)
             values["run_number"].append(int(event.RunNumber))
-            values["xstrip"].append(int(round(float(event.Xstrip))))
+            values["xstrip"].append(int(float(event.Xstrip)))
             values["polarization"].append(int(event.Polarization))
             values["beam_energy_gev"].append(float(beam[3]))
             values["eta"].append(eta)

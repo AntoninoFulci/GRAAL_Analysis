@@ -16,7 +16,7 @@ def _write_reconstructed(path):
     output = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree("reco", "reco")
     run = array("i", [811])
-    strip = array("f", [17.0])
+    strip = array("f", [17.75])
     polarization = array("i", [1])
     eta_mass = array("f", [0.55])
     pi0_mass = array("f", [0.135])
@@ -50,7 +50,7 @@ def _write_reconstructed(path):
     tree.Fill()
 
     polarization[0] = 0
-    strip[0] = 18.0
+    strip[0] = 18.75
     score[0] = 0.75
     multiplicity[0] = 4
     tree.Fill()
@@ -71,6 +71,7 @@ def test_read_reconstructed_selects_raw_or_fitted_vectors(tmp_path):
     assert raw.n_photons_input[0] == 5
     assert raw.missing_mass_gev[0] == pytest.approx(0.94)
     assert raw.eta_mass_gev[0] == pytest.approx(0.55)
+    assert raw.xstrip.tolist() == [17, 18]
 
 
 def test_select_sigma_events_and_brem_control_are_disjoint(tmp_path):

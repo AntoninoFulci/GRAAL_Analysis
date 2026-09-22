@@ -273,9 +273,7 @@ def write_qa_json(path: Path, qa: object) -> None:
 def normalize_xstrip(value: float) -> int:
     if not isfinite(value):
         raise StripEnergyFluxError("Xstrip must be finite")
-    strip = round(value)
-    if abs(value - strip) > 1e-6:
-        raise StripEnergyFluxError(f"Xstrip is not integral: {value}")
+    strip = int(value)
     if not 1 <= strip <= 128:
         raise StripEnergyFluxError(f"Xstrip outside 1..128: {value}")
     return strip

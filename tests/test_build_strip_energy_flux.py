@@ -241,6 +241,24 @@ def test_cli_rejects_nonpositive_rdataframe_thread_count(tmp_path):
     assert qa["errors"] == ["threads must be at least 1"]
 
 
+def test_cli_rejects_nonpositive_sample_capacity(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+
+    result = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--samples-per-run-strip",
+        "0",
+    )
+
+    assert result.returncode == 1
+    assert "samples-per-run-strip must be at least 1" in result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["errors"] == ["samples-per-run-strip must be at least 1"]
+
+
 def test_zero_event_interval_disables_only_inner_event_updates(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
 
@@ -664,7 +682,9 @@ def test_root_adapters_read_h80_and_flux_triplet(tmp_path):
         "POL1": {12: 100}, "POL2": {12: 80}, "BREM": {12: 10},
     }})
 
-    lookup, h80_qa = cli.read_h80_lookup(pre, threads=1)
+    lookup, h80_qa = cli.read_h80_lookup(
+        pre, run_numbers=[7], samples_per_run_strip=256, threads=1
+    )
     strips, flux_qa = cli.read_flux_histograms(flux, [7])
 
     assert [(row.run_number, row.xstrip) for row in lookup] == [
@@ -684,12 +704,14 @@ def test_h80_reader_recursively_sorts_root_files(tmp_path):
     write_h80(pre / "b" / "second.root", [(8, 2, 1.2)])
     write_h80(pre / "a" / "first.root", [(7, 1, 1.3)])
 
-    lookup, _ = cli.read_h80_lookup(pre, threads=1)
+    lookup, _ = cli.read_h80_lookup(
+        pre, run_numbers=[7, 8], samples_per_run_strip=256, threads=1
+    )
 
     assert [row.run_number for row in lookup] == [7, 8]
 
 
-def test_rdataframe_lookup_computes_exact_statistics_across_files_and_runs(
+def test_rdataframe_lookup_computes_sample_statistics_across_files_and_runs(
     tmp_path,
 ):
     pre = tmp_path / "pre"
@@ -703,14 +725,61 @@ def test_rdataframe_lookup_computes_exact_statistics_across_files_and_runs(
         [(7, 1, 1.4), (8, 2, 2.0), (7, 3, 1.5)],
     )
 
-    lookup, qa = cli.read_h80_lookup(pre, threads=1)
+    lookup, qa = cli.read_h80_lookup(
+        pre, run_numbers=[7, 8], samples_per_run_strip=256, threads=1
+    )
 
     assert lookup == (
-        StripEnergyRecord(7, 1, 3, 1.2, pytest.approx(0.2), 1.0, 1.4),
-        StripEnergyRecord(7, 3, 1, 1.5, 0.0, 1.5, 1.5),
-        StripEnergyRecord(8, 2, 2, 1.9, pytest.approx(0.1), 1.8, 2.0),
+        StripEnergyRecord(7, 1, 3, 1.2, pytest.approx(0.2), 1.0, 1.4, "sampled"),
+        StripEnergyRecord(7, 3, 1, 1.5, 0.0, 1.5, 1.5, "sampled"),
+        StripEnergyRecord(8, 2, 2, 1.9, pytest.approx(0.1), 1.8, 2.0, "sampled"),
     )
-    assert qa == {"entries": 6, "file_count": 2}
+    assert qa == {
+        "entries": 6,
+        "file_count": 2,
+        "sample_capacity": 256,
+        "sampled_entries": 6,
+        "fractional_xstrip_entries": 0,
+        "invalid_xstrip_entries": 0,
+        "extra_runs": [],
+    }
+
+
+def test_rdataframe_lookup_samples_once_and_reports_strip_conversion_qa(tmp_path):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80(
+        pre / "mixed.root",
+        [
+            (7, 3.75, 1.0),
+            (7, 3.75, 1.2),
+            (7, 3.75, 9.0),
+            (7, 0.75, 1.1),
+            (8, 4.25, 1.4),
+            (99, 5.5, 1.5),
+        ],
+    )
+
+    lookup, qa = cli.read_h80_lookup(
+        pre,
+        run_numbers=[7, 8],
+        samples_per_run_strip=2,
+        threads=1,
+    )
+
+    assert lookup == (
+        StripEnergyRecord(7, 3, 3, 1.1, pytest.approx(0.1), 1.0, 1.2, "sampled"),
+        StripEnergyRecord(8, 4, 1, 1.4, 0.0, 1.4, 1.4, "sampled"),
+    )
+    assert qa == {
+        "entries": 6,
+        "file_count": 1,
+        "sample_capacity": 2,
+        "sampled_entries": 3,
+        "fractional_xstrip_entries": 6,
+        "invalid_xstrip_entries": 1,
+        "extra_runs": [99],
+    }
 
 
 def test_rdataframe_lookup_is_identical_with_one_and_multiple_threads(tmp_path):
@@ -726,8 +795,12 @@ def test_rdataframe_lookup_is_identical_with_one_and_multiple_threads(tmp_path):
         ],
     )
 
-    serial, serial_qa = cli.read_h80_lookup(pre, threads=1)
-    parallel, parallel_qa = cli.read_h80_lookup(pre, threads=2)
+    serial, serial_qa = cli.read_h80_lookup(
+        pre, run_numbers=[7, 8], samples_per_run_strip=100, threads=1
+    )
+    parallel, parallel_qa = cli.read_h80_lookup(
+        pre, run_numbers=[7, 8], samples_per_run_strip=100, threads=2
+    )
 
     assert parallel == serial
     assert parallel_qa == serial_qa
@@ -738,7 +811,9 @@ def test_h80_reader_rejects_no_root_files(tmp_path):
     pre.mkdir()
 
     with pytest.raises(StripEnergyFluxError, match="no ROOT files"):
-        cli.read_h80_lookup(pre, threads=1)
+        cli.read_h80_lookup(
+            pre, run_numbers=[7], samples_per_run_strip=256, threads=1
+        )
 
 
 def test_h80_reader_rejects_zombie_file(tmp_path):
@@ -747,7 +822,9 @@ def test_h80_reader_rejects_zombie_file(tmp_path):
     (pre / "broken.root").write_text("not a ROOT file")
 
     with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli.read_h80_lookup(pre, threads=1)
+        cli.read_h80_lookup(
+            pre, run_numbers=[7], samples_per_run_strip=256, threads=1
+        )
 
 
 def test_h80_reader_rejects_missing_tree(tmp_path):
@@ -760,7 +837,9 @@ def test_h80_reader_rejects_missing_tree(tmp_path):
     output.Close()
 
     with pytest.raises(StripEnergyFluxError, match="missing h80"):
-        cli.read_h80_lookup(pre, threads=1)
+        cli.read_h80_lookup(
+            pre, run_numbers=[7], samples_per_run_strip=256, threads=1
+        )
 
 
 def test_h80_reader_rejects_missing_required_branch(tmp_path):
@@ -769,7 +848,9 @@ def test_h80_reader_rejects_missing_required_branch(tmp_path):
     write_h80(pre / "missing_beam.root", [(7, 12, 1.2)], branches=("RunNumber", "Xstrip"))
 
     with pytest.raises(StripEnergyFluxError, match="missing branch beam"):
-        cli.read_h80_lookup(pre, threads=1)
+        cli.read_h80_lookup(
+            pre, run_numbers=[7], samples_per_run_strip=256, threads=1
+        )
 
 
 def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):

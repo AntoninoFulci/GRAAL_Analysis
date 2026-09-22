@@ -12,6 +12,7 @@ default 6C kinematic fit.
 - `runtime/cli_options.py`: shared command-line configuration;
 - `runtime/reco_core.py`: ROOT chain, batched gate, branches, event loop;
 - `runtime/stage1_gate.py`: model loading, provenance checks, scoring;
+- `prepare_signal_mc_selected.py`: generated-MC to detector-like `h85` adapter;
 - `reconstruct_*.py`: channel-specific entry points.
 
 ## Entry points
@@ -21,6 +22,10 @@ python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
 python -m reconstruction.reconstruct_eta_pi0_bdt --input-dir data/03_selected
 python -m reconstruction.reconstruct_eta_pi0_bdt_sideband --input-dir data/03_selected
 python -m reconstruction.reconstruct_2pi0 --input-dir data/03_selected
+
+python -m reconstruction.prepare_signal_mc_selected \
+  --input-file 03_mc_simulation/data/eta_pi0_mc.root \
+  --output-dir data/signal_mc_selected
 ```
 
 ηπ⁰ commands expose `--chi2-cut`, `--partner`,
@@ -38,6 +43,10 @@ accepts `--model-dir`. Input tree defaults to auto detection.
 6. write retained event.
 
 Common logic ensures χ² and BDT outputs differ intentionally only by gate.
+
+Signal-MC adapter packs generated η and π⁰ daughter photons into four-photon
+`gammas`, packs generated proton into `protons`, and writes empty `neutrons`.
+It publishes output atomically and uses all available CPU cores by default.
 
 `reconstruct_eta_pi0_bdt_sideband` supplies background-control events. It uses
 same BDT gate and topology guards, stores continuous `bdt_score` plus original

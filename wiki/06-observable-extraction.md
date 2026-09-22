@@ -54,10 +54,19 @@ Run broad sideband reconstruction over signal MC too; output must contain tree
 `reco_eta_pi0_bdt_sideband`:
 
 ```bash
+python -m reconstruction.prepare_signal_mc_selected \
+  --input-file 03_mc_simulation/data/eta_pi0_mc.root \
+  --output-dir data/signal_mc_selected
+
 python -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
   --input-dir data/signal_mc_selected \
   --output-file results/reco/reco_eta_pi0_signal_mc.root
 ```
+
+Adapter creates detector-like `h85`: four daughter photons, one proton, empty
+neutron collection, and sentinel run/polarization/strip metadata. Existing BDT
+and photon-pairing reconstruction therefore acts on signal MC exactly as on
+selected data. Sentinel metadata is not used for signal-template exposure.
 
 All streams retain run, strip, polarization, raw masses/vectors, input-photon
 multiplicity, and BDT score when gated. Current first-four-photon association
@@ -149,24 +158,37 @@ unattended:
 
 ```bash
 nohup bash scripts/run_beam_asymmetry_overnight.sh \
-  > results/beam_asymmetry_overnight.out 2>&1 &
+  >> results/beam_asymmetry_overnight.out 2>&1 &
 ```
 
 Runner continues after failed commands, writes one timestamped log per step,
 skips only downstream steps whose newly produced inputs are unavailable, and
 prints final `OK`, `FAILED`, or `SKIPPED` summary. Final exit code is non-zero
 when any command fails. Calibration failure does not stop reconstruction, but
-both extraction steps are skipped to prevent reuse of stale calibration.
+both extraction steps are skipped to prevent reuse of stale calibration. A
+PID-owned directory lock rejects simultaneous launches with exit code 73; a
+stale lock is reported but never deleted automatically.
 
 Farm paths can be overridden without editing script:
 
 ```bash
-SIGNAL_MC_SELECTED_DIR=/farm/path/signal_mc_selected \
+SELECTED_DIR=/data/graal/selected \
+SIGNAL_MC_INPUT=03_mc_simulation/data/eta_pi0_mc.root \
+SIGNAL_MC_SELECTED_DIR=data/signal_mc_selected \
 PREANALYSIS_DIR=/farm/path/pre_analisi \
 FLUX_FILE=/farm/path/flux.root \
 PYTHON_BIN=/farm/path/venv/bin/python \
 FLUX_PROGRESS_EVERY_EVENTS=100000 \
 BOOTSTRAP_REPLICAS=500 \
 nohup bash scripts/run_beam_asymmetry_overnight.sh \
-  > results/beam_asymmetry_overnight.out 2>&1 &
+  >> results/beam_asymmetry_overnight.out 2>&1 &
 ```
+
+Default selected-data path is `/data/graal/selected`. Adapter output is rebuilt
+atomically before signal-MC sideband reconstruction. `FLUX_THREADS` defaults to
+all online CPU cores and is also used by adapter; `FLUX_SAMPLES_PER_RUN_STRIP`
+defaults to 256.
+
+Use append redirection (`>>`), not truncating redirection (`>`): shell opens
+master log before script can inspect lock, so `>` could still create sparse/NUL
+regions while an older process retains open file descriptor.

@@ -3,7 +3,7 @@
 #
 # Typical server launch:
 #   nohup bash scripts/run_beam_asymmetry_overnight.sh \
-#     > results/beam_asymmetry_overnight.out 2>&1 &
+#     >> results/beam_asymmetry_overnight.out 2>&1 &
 #
 # Every path can be overridden through environment variables defined below.
 
@@ -18,7 +18,9 @@ MANIFEST_FILE="${MANIFEST_FILE:-config/run_manifest.csv}"
 FLUX_FILE="${FLUX_FILE:-data/00_external/flux.root}"
 FLUX_PROGRESS_EVERY_EVENTS="${FLUX_PROGRESS_EVERY_EVENTS:-100000}"
 FLUX_THREADS="${FLUX_THREADS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}"
-SELECTED_DIR="${SELECTED_DIR:-data/03_selected}"
+FLUX_SAMPLES_PER_RUN_STRIP="${FLUX_SAMPLES_PER_RUN_STRIP:-256}"
+SELECTED_DIR="${SELECTED_DIR:-/data/graal/selected}"
+SIGNAL_MC_INPUT="${SIGNAL_MC_INPUT:-03_mc_simulation/data/eta_pi0_mc.root}"
 SIGNAL_MC_SELECTED_DIR="${SIGNAL_MC_SELECTED_DIR:-data/signal_mc_selected}"
 RECO_DIR="${RECO_DIR:-results/reco}"
 CALIBRATION_DIR="${CALIBRATION_DIR:-results/strip_energy_flux}"
@@ -28,6 +30,33 @@ LOG_DIR="${LOG_DIR:-results/logs/beam_asymmetry_overnight}"
 BOOTSTRAP_REPLICAS="${BOOTSTRAP_REPLICAS:-500}"
 BOOTSTRAP_SEED="${BOOTSTRAP_SEED:-1208}"
 RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
+OVERNIGHT_LOCK_DIR="${OVERNIGHT_LOCK_DIR:-results/locks/beam_asymmetry_overnight.lock}"
+
+LOCK_ACQUIRED=0
+cleanup_lock() {
+    if [[ $LOCK_ACQUIRED -eq 1 && -f "$OVERNIGHT_LOCK_DIR/pid" ]]; then
+        local owner
+        owner="$(<"$OVERNIGHT_LOCK_DIR/pid")"
+        if [[ "$owner" == "$$" ]]; then
+            rm -f "$OVERNIGHT_LOCK_DIR/pid"
+            rmdir "$OVERNIGHT_LOCK_DIR" 2>/dev/null || true
+        fi
+    fi
+}
+trap cleanup_lock EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -p "$(dirname "$OVERNIGHT_LOCK_DIR")"
+if ! mkdir "$OVERNIGHT_LOCK_DIR" 2>/dev/null; then
+    lock_owner="unknown"
+    [[ -f "$OVERNIGHT_LOCK_DIR/pid" ]] && lock_owner="$(<"$OVERNIGHT_LOCK_DIR/pid")"
+    echo "ERROR: overnight runner already running or stale lock exists: $OVERNIGHT_LOCK_DIR (owner PID: $lock_owner)" >&2
+    echo "Inspect the owner process; remove only a confirmed stale lock." >&2
+    exit 73
+fi
+printf '%s\n' "$$" > "$OVERNIGHT_LOCK_DIR/pid"
+LOCK_ACQUIRED=1
 
 mkdir -p "$LOG_DIR" "$RECO_DIR"
 
@@ -94,13 +123,27 @@ RAW_BDT_FILE="$RECO_DIR/reco_eta_pi0_bdt_raw.root"
 FIT_FILE="$RECO_DIR/reco_eta_pi0_bdt_fit.root"
 SIDEBAND_FILE="$RECO_DIR/reco_eta_pi0_bdt_sideband.root"
 SIGNAL_MC_FILE="$RECO_DIR/reco_eta_pi0_signal_mc.root"
+SIGNAL_MC_SELECTED_FILE="$SIGNAL_MC_SELECTED_DIR/eta_pi0_mc_selected.root"
 
 raw_ok=0
 raw_bdt_ok=0
 fit_ok=0
 sideband_ok=0
 signal_mc_ok=0
+signal_mc_adapter_ok=0
 calibration_ok=0
+selected_input_ok=0
+
+if [[ -d "$SELECTED_DIR" ]] && compgen -G "$SELECTED_DIR/*.root" >/dev/null; then
+    selected_input_ok=1
+    echo "Selected data input: $SELECTED_DIR"
+else
+    selected_log="$LOG_DIR/${RUN_STAMP}_selected_input.log"
+    echo "ERROR: no selected ROOT files found in $SELECTED_DIR" \
+        | tee "$selected_log" >&2
+    record_result selected_input FAILED "$selected_log"
+    FAILED_ANY=1
+fi
 
 run_step \
     flux_calibration \
@@ -112,37 +155,44 @@ run_step \
     --flux "$FLUX_FILE" \
     --output-dir "$CALIBRATION_DIR" \
     --progress-every-events "$FLUX_PROGRESS_EVERY_EVENTS" \
+    --samples-per-run-strip "$FLUX_SAMPLES_PER_RUN_STRIP" \
     --threads "$FLUX_THREADS"
 [[ $? -eq 0 ]] && calibration_ok=1
 
-run_step \
-    raw \
-    "Raw chi2 reconstruction" \
-    "$RAW_FILE" \
-    "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_chi2 \
-    --input-dir "$SELECTED_DIR" \
-    --no-fit \
-    --output-file "$RAW_FILE"
-[[ $? -eq 0 ]] && raw_ok=1
+if [[ $selected_input_ok -eq 1 ]]; then
+    run_step \
+        raw \
+        "Raw chi2 reconstruction" \
+        "$RAW_FILE" \
+        "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_chi2 \
+        --input-dir "$SELECTED_DIR" \
+        --no-fit \
+        --output-file "$RAW_FILE"
+    [[ $? -eq 0 ]] && raw_ok=1
 
-run_step \
-    raw_bdt \
-    "Raw plus BDT reconstruction" \
-    "$RAW_BDT_FILE" \
-    "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt \
-    --input-dir "$SELECTED_DIR" \
-    --no-fit \
-    --output-file "$RAW_BDT_FILE"
-[[ $? -eq 0 ]] && raw_bdt_ok=1
+    run_step \
+        raw_bdt \
+        "Raw plus BDT reconstruction" \
+        "$RAW_BDT_FILE" \
+        "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt \
+        --input-dir "$SELECTED_DIR" \
+        --no-fit \
+        --output-file "$RAW_BDT_FILE"
+    [[ $? -eq 0 ]] && raw_bdt_ok=1
 
-run_step \
-    raw_bdt_fit \
-    "Raw plus BDT plus kinematic-fit reconstruction" \
-    "$FIT_FILE" \
-    "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt \
-    --input-dir "$SELECTED_DIR" \
-    --output-file "$FIT_FILE"
-[[ $? -eq 0 ]] && fit_ok=1
+    run_step \
+        raw_bdt_fit \
+        "Raw plus BDT plus kinematic-fit reconstruction" \
+        "$FIT_FILE" \
+        "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt \
+        --input-dir "$SELECTED_DIR" \
+        --output-file "$FIT_FILE"
+    [[ $? -eq 0 ]] && fit_ok=1
+else
+    skip_step raw "selected data input is unavailable"
+    skip_step raw_bdt "selected data input is unavailable"
+    skip_step raw_bdt_fit "selected data input is unavailable"
+fi
 
 if [[ $calibration_ok -eq 1 && $raw_bdt_ok -eq 1 ]]; then
     run_step \
@@ -157,23 +207,41 @@ else
     skip_step first_pass "flux_calibration or raw_bdt failed in this run"
 fi
 
-run_step \
-    sideband \
-    "Broad sideband reconstruction on data" \
-    "$SIDEBAND_FILE" \
-    "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
-    --input-dir "$SELECTED_DIR" \
-    --output-file "$SIDEBAND_FILE"
-[[ $? -eq 0 ]] && sideband_ok=1
+if [[ $selected_input_ok -eq 1 ]]; then
+    run_step \
+        sideband \
+        "Broad sideband reconstruction on data" \
+        "$SIDEBAND_FILE" \
+        "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
+        --input-dir "$SELECTED_DIR" \
+        --output-file "$SIDEBAND_FILE"
+    [[ $? -eq 0 ]] && sideband_ok=1
+else
+    skip_step sideband "selected data input is unavailable"
+fi
 
 run_step \
-    signal_mc \
-    "Broad sideband reconstruction on signal MC" \
-    "$SIGNAL_MC_FILE" \
-    "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
-    --input-dir "$SIGNAL_MC_SELECTED_DIR" \
-    --output-file "$SIGNAL_MC_FILE"
-[[ $? -eq 0 ]] && signal_mc_ok=1
+    signal_mc_adapter \
+    "Adapt generated signal MC to detector-like h85" \
+    "$SIGNAL_MC_SELECTED_FILE" \
+    "$PYTHON_BIN" -m reconstruction.prepare_signal_mc_selected \
+    --input-file "$SIGNAL_MC_INPUT" \
+    --output-dir "$SIGNAL_MC_SELECTED_DIR" \
+    --threads "$FLUX_THREADS"
+[[ $? -eq 0 ]] && signal_mc_adapter_ok=1
+
+if [[ $signal_mc_adapter_ok -eq 1 ]]; then
+    run_step \
+        signal_mc \
+        "Broad sideband reconstruction on signal MC" \
+        "$SIGNAL_MC_FILE" \
+        "$PYTHON_BIN" -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
+        --input-dir "$SIGNAL_MC_SELECTED_DIR" \
+        --output-file "$SIGNAL_MC_FILE"
+    [[ $? -eq 0 ]] && signal_mc_ok=1
+else
+    skip_step signal_mc "signal_mc_adapter failed in this run"
+fi
 
 if [[ $calibration_ok -eq 1 && $raw_ok -eq 1 && $raw_bdt_ok -eq 1 && $fit_ok -eq 1 \
       && $sideband_ok -eq 1 && $signal_mc_ok -eq 1 ]]; then

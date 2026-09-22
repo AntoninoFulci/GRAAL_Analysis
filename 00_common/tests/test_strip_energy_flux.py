@@ -233,8 +233,13 @@ def test_lookup_uses_median_and_mad_per_run_strip():
     assert first.energy_max_gev == pytest.approx(1.80)
 
 
-@pytest.mark.parametrize("value", [0.0, 129.0, 12.25, math.nan, math.inf])
-def test_xstrip_rejects_out_of_domain_or_nonintegral_values(value):
+def test_xstrip_truncates_fractional_coordinate_toward_zero():
+    assert normalize_xstrip(3.75) == 3
+    assert normalize_xstrip(128.75) == 128
+
+
+@pytest.mark.parametrize("value", [0.75, 129.0, math.nan, math.inf])
+def test_xstrip_rejects_values_outside_converted_domain(value):
     with pytest.raises(StripEnergyFluxError):
         normalize_xstrip(value)
 

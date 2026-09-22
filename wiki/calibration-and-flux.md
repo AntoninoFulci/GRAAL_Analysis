@@ -31,6 +31,7 @@ Optional controls:
 | `--max-mad-gev` | `0.005` |
 | `--monotonic-tolerance-gev` | `0.002` |
 | `--progress-every-events` | `250000`; `0` disables event-level updates |
+| `--samples-per-run-strip` | `256` beam energies per `(run, strip)` |
 | `--threads` | all CPU cores visible to process |
 | `--binning NAME:EDGE,...` | repeatable; adds custom binning |
 
@@ -47,15 +48,17 @@ Built-in `ajaka_cross_section` and `ajaka_sigma` binnings are always produced.
 
 ## Lookup construction
 
-For each observed `(run_number, Xstrip)` pair, lookup records event count,
-median `beam.E()`, median absolute deviation, minimum, maximum, and `observed`
-provenance. Strip index must normalize to integer range 1–128. Runs are never
-pooled, so target, beam type, and acquisition period remain distinct.
+For each observed `(run_number, Xstrip)` pair, lookup records exact event count
+and sampled median `beam.E()`, median absolute deviation, minimum, and maximum.
+`Xstrip` is truncated toward zero before the required 1–128 range check, so
+values such as `3.75` map to strip 3. Runs are never pooled, preserving target,
+beam type, and acquisition period.
 
-Median and MAD remain exact: no histogram approximation is used. A compiled
-C++ accumulator stores only beam-energy `double` values and processes one run
-at a time. Python receives final run/strip summaries rather than one object per
-event, bounding event storage to the largest run instead of the full dataset.
+A single compiled ROOT RDataFrame scan covers all h80 files. It retains at most
+`--samples-per-run-strip` beam energies for each manifest `(run, strip)` and
+marks resulting lookup provenance as `sampled`; this bounds memory independently
+of billions of source events. Runs present only in h80 are warned about and
+ignored. Manifest runs absent from h80 remain fatal.
 
 Monotonic inversions, low statistics, large MAD, empty strips, unmapped strips,
 and manifest/run mismatches are retained in QA.
