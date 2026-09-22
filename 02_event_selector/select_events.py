@@ -66,6 +66,7 @@ def _select_file(input_path: Path, output_path: Path) -> None:
                 f"{input_path}: tree '{INPUT_TREE}' is missing branches: "
                 + ", ".join(missing)
             )
+        branch_names = [branch.GetName() for branch in tree.GetListOfBranches()]
         n_entries = int(tree.GetEntries())
     finally:
         input_file.Close()
@@ -76,7 +77,13 @@ def _select_file(input_path: Path, output_path: Path) -> None:
         "gammas.size() > 1 && fcharged_theta.size() == 1",
         "event preselection",
     )
-    selected.Snapshot(OUTPUT_TREE, str(output_path))
+    options = ROOT.RDF.RSnapshotOptions()
+    options.fMode = "RECREATE"
+    # Keep input std::vector branches as std::vector. ROOT's default conversion
+    # to RVec requires an I/O CollectionProxy that is unavailable for the
+    # nested LorentzVector type used by the real h80 `gammas` branch.
+    options.fVector2RVec = False
+    selected.Snapshot(OUTPUT_TREE, str(output_path), branch_names, options)
 
     output_file = ROOT.TFile.Open(str(output_path), "READ")
     if not output_file or output_file.IsZombie():

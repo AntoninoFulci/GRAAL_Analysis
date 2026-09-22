@@ -14,20 +14,25 @@ def _write_preanalysis_fixture(path: Path) -> None:
 
     output = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree("h80", "h80")
-    gammas = ROOT.std.vector("int")()
+    vector_type = "ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >"
+    vector = getattr(ROOT, vector_type)
+    vector_list = ROOT.std.vector(vector_type)
+    gammas = vector_list()
     charged_theta = ROOT.std.vector("float")()
     run_number = array("i", [1321])
     polarization = array("i", [1])
     xstrip = array("f", [3.75])
-    tree.Branch("gammas", gammas)
+    tree.Branch("gammas", vector_list.__cpp_name__, gammas)
     tree.Branch("fcharged_theta", charged_theta)
     tree.Branch("RunNumber", run_number, "RunNumber/I")
     tree.Branch("Polarization", polarization, "Polarization/I")
     tree.Branch("Xstrip", xstrip, "Xstrip/F")
 
     charged_theta.push_back(0.1)
-    gammas.push_back(1)
-    gammas.push_back(2)
+    for px in (0.1, -0.1):
+        photon = vector()
+        photon.SetPxPyPzE(px, 0.0, 0.2, 0.3)
+        gammas.push_back(photon)
     tree.Fill()
     gammas.resize(1)
     tree.Fill()
@@ -69,6 +74,7 @@ def test_rdataframe_selection_preserves_metadata_in_h85(tmp_path):
         assert tree and tree.GetEntries() == 1
         branches = {branch.GetName() for branch in tree.GetListOfBranches()}
         assert {"RunNumber", "Polarization", "Xstrip"} <= branches
+        assert "RVec" not in tree.GetBranch("gammas").GetClassName()
         tree.GetEntry(0)
         assert tree.RunNumber == 1321
         assert tree.Polarization == 1
