@@ -169,6 +169,13 @@ both extraction steps are skipped to prevent reuse of stale calibration. A
 PID-owned directory lock rejects simultaneous launches with exit code 73; a
 stale lock is reported but never deleted automatically.
 
+Before reconstruction, runner rebuilds selected h85 files from pre-analysis
+using multithreaded event selector. Set `RUN_EVENT_SELECTION=0` only to reuse a
+selected dataset already known to contain `RunNumber`, `Polarization`, and
+`Xstrip`. Signal ηπ⁰ MC is reused when present; if absent, runner invokes
+existing ROOT generator before detector-like adapter. `SIGNAL_MC_EVENTS`
+controls generated sample size and defaults to 1,000,000.
+
 Farm paths can be overridden without editing script:
 
 ```bash
@@ -178,7 +185,9 @@ SIGNAL_MC_SELECTED_DIR=data/signal_mc_selected \
 PREANALYSIS_DIR=/farm/path/pre_analisi \
 FLUX_FILE=/farm/path/flux.root \
 PYTHON_BIN=/farm/path/venv/bin/python \
-FLUX_PROGRESS_EVERY_EVENTS=100000 \
+FLUX_PROGRESS_EVERY_EVENTS=1000000 \
+RUN_EVENT_SELECTION=1 \
+SIGNAL_MC_EVENTS=1000000 \
 BOOTSTRAP_REPLICAS=500 \
 nohup bash scripts/run_beam_asymmetry_overnight.sh \
   >> results/beam_asymmetry_overnight.out 2>&1 &

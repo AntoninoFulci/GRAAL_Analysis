@@ -13,14 +13,17 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
+ROOT_BIN="${ROOT_BIN:-root}"
 PREANALYSIS_DIR="${PREANALYSIS_DIR:-data/02_pre_analyzed/pre_analisi}"
 MANIFEST_FILE="${MANIFEST_FILE:-config/run_manifest.csv}"
 FLUX_FILE="${FLUX_FILE:-data/00_external/flux.root}"
-FLUX_PROGRESS_EVERY_EVENTS="${FLUX_PROGRESS_EVERY_EVENTS:-100000}"
+FLUX_PROGRESS_EVERY_EVENTS="${FLUX_PROGRESS_EVERY_EVENTS:-1000000}"
 FLUX_THREADS="${FLUX_THREADS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}"
 FLUX_SAMPLES_PER_RUN_STRIP="${FLUX_SAMPLES_PER_RUN_STRIP:-256}"
 SELECTED_DIR="${SELECTED_DIR:-/data/graal/selected}"
+RUN_EVENT_SELECTION="${RUN_EVENT_SELECTION:-1}"
 SIGNAL_MC_INPUT="${SIGNAL_MC_INPUT:-03_mc_simulation/data/eta_pi0_mc.root}"
+SIGNAL_MC_EVENTS="${SIGNAL_MC_EVENTS:-1000000}"
 SIGNAL_MC_SELECTED_DIR="${SIGNAL_MC_SELECTED_DIR:-data/signal_mc_selected}"
 RECO_DIR="${RECO_DIR:-results/reco}"
 CALIBRATION_DIR="${CALIBRATION_DIR:-results/strip_energy_flux}"
@@ -92,7 +95,7 @@ run_step() {
     } 2>&1 | tee "$log_file"
     command_status=${PIPESTATUS[0]}
 
-    if [[ $command_status -eq 0 && ! -f "$expected_output" ]]; then
+    if [[ $command_status -eq 0 && ! -e "$expected_output" ]]; then
         command_status=98
         echo "ERROR: command returned 0 but expected output is missing: $expected_output" \
             | tee -a "$log_file" >&2
@@ -118,6 +121,26 @@ skip_step() {
     record_result "$key" "SKIPPED" "$reason"
 }
 
+ensure_signal_mc_source() {
+    if [[ -f "$SIGNAL_MC_INPUT" ]]; then
+        echo "Reusing existing signal MC: $SIGNAL_MC_INPUT"
+        return 0
+    fi
+    if [[ "$(basename "$SIGNAL_MC_INPUT")" != "eta_pi0_mc.root" ]]; then
+        echo "ERROR: automatic eta-pi0 generation requires SIGNAL_MC_INPUT basename eta_pi0_mc.root" >&2
+        return 64
+    fi
+    local output_dir
+    output_dir="$(dirname "$SIGNAL_MC_INPUT")"
+    mkdir -p "$output_dir"
+    echo "Generating $SIGNAL_MC_EVENTS eta-pi0 signal events in $output_dir"
+    (
+        cd "$output_dir" || exit 1
+        "$ROOT_BIN" -l -b -q \
+            "$REPO_ROOT/03_mc_simulation/generators/generate_eta_pi0_dataset.C($SIGNAL_MC_EVENTS)"
+    )
+}
+
 RAW_FILE="$RECO_DIR/reco_eta_pi0_chi2_raw.root"
 RAW_BDT_FILE="$RECO_DIR/reco_eta_pi0_bdt_raw.root"
 FIT_FILE="$RECO_DIR/reco_eta_pi0_bdt_fit.root"
@@ -131,18 +154,40 @@ fit_ok=0
 sideband_ok=0
 signal_mc_ok=0
 signal_mc_adapter_ok=0
+signal_mc_source_ok=0
 calibration_ok=0
 selected_input_ok=0
+event_selection_ok=0
 
-if [[ -d "$SELECTED_DIR" ]] && compgen -G "$SELECTED_DIR/*.root" >/dev/null; then
-    selected_input_ok=1
-    echo "Selected data input: $SELECTED_DIR"
+if [[ "$RUN_EVENT_SELECTION" == "1" ]]; then
+    run_step \
+        event_selection \
+        "Multithreaded event selection (h80 -> h85)" \
+        "$SELECTED_DIR" \
+        "$PYTHON_BIN" -m event_selector.select_events \
+        --input-dir "$PREANALYSIS_DIR" \
+        --output-dir "$SELECTED_DIR" \
+        --threads "$FLUX_THREADS"
+    [[ $? -eq 0 ]] && event_selection_ok=1
+elif [[ "$RUN_EVENT_SELECTION" == "0" ]]; then
+    event_selection_ok=1
+    echo "Event selection disabled; validating existing dataset: $SELECTED_DIR"
 else
-    selected_log="$LOG_DIR/${RUN_STAMP}_selected_input.log"
-    echo "ERROR: no selected ROOT files found in $SELECTED_DIR" \
-        | tee "$selected_log" >&2
-    record_result selected_input FAILED "$selected_log"
+    echo "ERROR: RUN_EVENT_SELECTION must be 0 or 1" >&2
     FAILED_ANY=1
+fi
+
+if [[ $event_selection_ok -eq 1 ]]; then
+    if [[ -d "$SELECTED_DIR" ]] && compgen -G "$SELECTED_DIR/*.root" >/dev/null; then
+        selected_input_ok=1
+        echo "Selected data input: $SELECTED_DIR"
+    else
+        selected_log="$LOG_DIR/${RUN_STAMP}_selected_input.log"
+        echo "ERROR: no selected ROOT files found in $SELECTED_DIR" \
+            | tee "$selected_log" >&2
+        record_result selected_input FAILED "$selected_log"
+        FAILED_ANY=1
+    fi
 fi
 
 run_step \
@@ -221,14 +266,25 @@ else
 fi
 
 run_step \
-    signal_mc_adapter \
-    "Adapt generated signal MC to detector-like h85" \
-    "$SIGNAL_MC_SELECTED_FILE" \
-    "$PYTHON_BIN" -m reconstruction.prepare_signal_mc_selected \
-    --input-file "$SIGNAL_MC_INPUT" \
-    --output-dir "$SIGNAL_MC_SELECTED_DIR" \
-    --threads "$FLUX_THREADS"
-[[ $? -eq 0 ]] && signal_mc_adapter_ok=1
+    signal_mc_source \
+    "Ensure generated eta-pi0 signal MC" \
+    "$SIGNAL_MC_INPUT" \
+    ensure_signal_mc_source
+[[ $? -eq 0 ]] && signal_mc_source_ok=1
+
+if [[ $signal_mc_source_ok -eq 1 ]]; then
+    run_step \
+        signal_mc_adapter \
+        "Adapt generated signal MC to detector-like h85" \
+        "$SIGNAL_MC_SELECTED_FILE" \
+        "$PYTHON_BIN" -m reconstruction.prepare_signal_mc_selected \
+        --input-file "$SIGNAL_MC_INPUT" \
+        --output-dir "$SIGNAL_MC_SELECTED_DIR" \
+        --threads "$FLUX_THREADS"
+    [[ $? -eq 0 ]] && signal_mc_adapter_ok=1
+else
+    skip_step signal_mc_adapter "signal_mc_source failed in this run"
+fi
 
 if [[ $signal_mc_adapter_ok -eq 1 ]]; then
     run_step \

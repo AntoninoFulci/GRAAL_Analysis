@@ -24,6 +24,7 @@ from graal_common.calibration.strip_energy_flux import (
     aggregate_group_flux,
     atomic_output_directory,
     build_strip_energy_lookup,
+    complete_strip_energy_lookup,
     energy_bin_index,
     find_monotonic_inversions,
     integrate_run_flux,
@@ -236,6 +237,39 @@ def test_lookup_uses_median_and_mad_per_run_strip():
 def test_xstrip_truncates_fractional_coordinate_toward_zero():
     assert normalize_xstrip(3.75) == 3
     assert normalize_xstrip(128.75) == 128
+
+
+def test_missing_strip_energies_are_interpolated_and_edge_extrapolated():
+    observed = (
+        StripEnergyRecord(7, 2, 10, 1.20, 0.001, 1.19, 1.21, "sampled"),
+        StripEnergyRecord(7, 4, 12, 1.00, 0.001, 0.99, 1.01, "sampled"),
+    )
+
+    completed, filled = complete_strip_energy_lookup(
+        observed,
+        run_numbers=[7],
+        first_strip=1,
+        last_strip=5,
+    )
+
+    assert [(row.xstrip, row.energy_median_gev) for row in completed] == [
+        (1, pytest.approx(1.30)),
+        (2, pytest.approx(1.20)),
+        (3, pytest.approx(1.10)),
+        (4, pytest.approx(1.00)),
+        (5, pytest.approx(0.90)),
+    ]
+    by_strip = {row.xstrip: row for row in completed}
+    assert by_strip[1].provenance == "extrapolated"
+    assert by_strip[3].provenance == "interpolated"
+    assert by_strip[5].provenance == "extrapolated"
+    assert by_strip[3].event_count == 0
+    assert by_strip[3].energy_mad_gev == 0.0
+    assert filled == (
+        {"run_number": 7, "xstrip": 1, "provenance": "extrapolated"},
+        {"run_number": 7, "xstrip": 3, "provenance": "interpolated"},
+        {"run_number": 7, "xstrip": 5, "provenance": "extrapolated"},
+    )
 
 
 @pytest.mark.parametrize("value", [0.75, 129.0, math.nan, math.inf])

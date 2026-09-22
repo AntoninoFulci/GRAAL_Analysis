@@ -4,6 +4,7 @@ import json
 import importlib.util
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -228,6 +229,11 @@ def test_cli_reports_phase_file_run_and_event_progress(tmp_path):
         "completed successfully",
     ):
         assert message in result.stderr
+    assert re.search(
+        r"\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\] "
+        r"\[\+\d+\.\d+s\] h80 events processed: 100(?:\D|$)",
+        result.stderr,
+    )
 
 
 def test_cli_rejects_nonpositive_rdataframe_thread_count(tmp_path):
@@ -335,7 +341,7 @@ def test_cli_missing_h80_manifest_run_writes_invalid_analysis(tmp_path):
     assert (output / "flux_by_run_energy.csv").is_file()
 
 
-def test_cli_nonzero_flux_without_lookup_is_diagnostic(tmp_path):
+def test_cli_interpolates_missing_lookup_with_nonzero_flux(tmp_path):
     entries = {
         run: [
             (run, strip, 1.00 + (strip - 1) * 0.5 / 127)
@@ -350,18 +356,27 @@ def test_cli_nonzero_flux_without_lookup_is_diagnostic(tmp_path):
 
     result = run_cli(pre, flux, manifest_path, output)
 
-    assert result.returncode == 1
+    assert result.returncode == 0, result.stderr
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["nonzero_unmapped_strips"] == [
+    assert qa["valid"] is True
+    assert qa["nonzero_unmapped_strips"] == []
+    assert qa["h80"]["observed_strip_count"] == 255
+    assert qa["h80"]["completed_strip_count"] == 256
+    assert qa["h80"]["filled_strips"] == [
         {
             "run_number": 7,
             "xstrip": 128,
-            "flux_pol1": 10.0,
-            "flux_pol2": 8.0,
-            "flux_brem": 1.0,
+            "provenance": "extrapolated",
         }
     ]
-    assert any("nonzero flux without lookup" in error for error in qa["errors"])
+    with (output / "strip_energy_lookup.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    filled = next(
+        row for row in rows
+        if row["run_number"] == "7" and row["xstrip"] == "128"
+    )
+    assert filled["event_count"] == "0"
+    assert filled["provenance"] == "extrapolated"
 
 
 def test_cli_negative_flux_content_is_fatal_without_net_fields(tmp_path):
@@ -412,6 +427,8 @@ def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
     assert qa["monotonic_inversions"]
     assert any("monotonic inversion" in error for error in qa["errors"])
+    assert "QA ERROR [1/" in result.stderr
+    assert "monotonic inversion" in result.stderr
 
 
 def test_cli_mad_and_low_stat_findings_are_warnings_only(tmp_path):

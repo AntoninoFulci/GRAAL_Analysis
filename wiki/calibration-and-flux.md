@@ -30,7 +30,7 @@ Optional controls:
 | `--min-events-per-strip` | `1` |
 | `--max-mad-gev` | `0.005` |
 | `--monotonic-tolerance-gev` | `0.002` |
-| `--progress-every-events` | `250000`; `0` disables event-level updates |
+| `--progress-every-events` | `1000000`; `0` disables event-level updates |
 | `--samples-per-run-strip` | `256` beam energies per `(run, strip)` |
 | `--threads` | all CPU cores visible to process |
 | `--binning NAME:EDGE,...` | repeatable; adds custom binning |
@@ -60,8 +60,16 @@ marks resulting lookup provenance as `sampled`; this bounds memory independently
 of billions of source events. Runs present only in h80 are warned about and
 ignored. Manifest runs absent from h80 remain fatal.
 
-Monotonic inversions, low statistics, large MAD, empty strips, unmapped strips,
-and manifest/run mismatches are retained in QA.
+If a run has no h80 events for one or more tagger strips, missing energies are
+completed from same-run calibration: linear interpolation between neighboring
+observed strips and two-point extrapolation only beyond observed edges. These
+rows have `event_count=0` and provenance `interpolated` or `extrapolated`.
+Observed and completed rows therefore remain distinguishable while nonzero
+final flux is retained instead of being discarded for lack of an event sample.
+
+Monotonic inversions, low statistics, large MAD, completed strips, unmapped
+strips, and manifest/run mismatches are retained in QA. Up to the first 20 QA
+errors are also printed in the run log; full list remains in QA JSON.
 
 ## Flux integration
 

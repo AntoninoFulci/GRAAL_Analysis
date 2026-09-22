@@ -54,7 +54,7 @@ name must exist.
 `RunNumber`, and `Xstrip` information required by selection, reconstruction,
 and calibration.
 
-Event selector clones h80 schema without adding or removing branches, applies:
+Event selector snapshots h80 schema without adding or removing branches, applies:
 
 ```python
 event.gammas.size() > 1 and event.fcharged_theta.size() == 1

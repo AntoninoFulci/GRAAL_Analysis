@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections import defaultdict
 import csv
 from dataclasses import asdict, dataclass
@@ -318,6 +319,105 @@ def build_strip_energy_lookup(
             )
         )
     return tuple(records)
+
+
+def complete_strip_energy_lookup(
+    records: Sequence[StripEnergyRecord],
+    *,
+    run_numbers: Sequence[int],
+    first_strip: int = 1,
+    last_strip: int = 128,
+) -> tuple[tuple[StripEnergyRecord, ...], tuple[dict[str, object], ...]]:
+    """Complete missing run/strip energies using neighboring calibration points."""
+    if first_strip < 1 or last_strip < first_strip:
+        raise StripEnergyFluxError("invalid strip completion range")
+    requested_runs = tuple(sorted(set(int(run) for run in run_numbers)))
+    if any(run <= 0 for run in requested_runs):
+        raise StripEnergyFluxError("run_number must be positive")
+
+    by_run: dict[int, dict[int, StripEnergyRecord]] = {
+        run: {} for run in requested_runs
+    }
+    for record in records:
+        if record.run_number not in by_run:
+            raise StripEnergyFluxError(
+                f"run {record.run_number} is absent from completion request"
+            )
+        if not first_strip <= record.xstrip <= last_strip:
+            raise StripEnergyFluxError(
+                f"run {record.run_number} strip {record.xstrip}: "
+                "outside completion range"
+            )
+        if not isfinite(record.energy_median_gev) or record.energy_median_gev <= 0:
+            raise StripEnergyFluxError(
+                f"run {record.run_number} strip {record.xstrip}: "
+                "energy must be finite and positive"
+            )
+        run_records = by_run[record.run_number]
+        if record.xstrip in run_records:
+            raise StripEnergyFluxError(
+                f"duplicate strip-energy lookup for run {record.run_number} "
+                f"strip {record.xstrip}"
+            )
+        run_records[record.xstrip] = record
+
+    completed: list[StripEnergyRecord] = []
+    filled: list[dict[str, object]] = []
+    for run_number in requested_runs:
+        observed = by_run[run_number]
+        if len(observed) < 2:
+            raise StripEnergyFluxError(
+                f"run {run_number}: at least two observed strips are required "
+                "for interpolation"
+            )
+        observed_strips = sorted(observed)
+        for xstrip in range(first_strip, last_strip + 1):
+            if xstrip in observed:
+                completed.append(observed[xstrip])
+                continue
+
+            insertion = bisect_left(observed_strips, xstrip)
+            if insertion == 0:
+                left_strip, right_strip = observed_strips[:2]
+                provenance = "extrapolated"
+            elif insertion == len(observed_strips):
+                left_strip, right_strip = observed_strips[-2:]
+                provenance = "extrapolated"
+            else:
+                left_strip = observed_strips[insertion - 1]
+                right_strip = observed_strips[insertion]
+                provenance = "interpolated"
+
+            left_energy = observed[left_strip].energy_median_gev
+            right_energy = observed[right_strip].energy_median_gev
+            fraction = (xstrip - left_strip) / (right_strip - left_strip)
+            energy = left_energy + fraction * (right_energy - left_energy)
+            if not isfinite(energy) or energy <= 0:
+                raise StripEnergyFluxError(
+                    f"run {run_number} strip {xstrip}: completed energy must "
+                    "be finite and positive"
+                )
+            completed.append(
+                StripEnergyRecord(
+                    run_number,
+                    xstrip,
+                    0,
+                    energy,
+                    0.0,
+                    energy,
+                    energy,
+                    provenance,
+                )
+            )
+            filled.append(
+                {
+                    "run_number": run_number,
+                    "xstrip": xstrip,
+                    "provenance": provenance,
+                }
+            )
+
+    return tuple(completed), tuple(filled)
 
 
 def integrate_run_flux(

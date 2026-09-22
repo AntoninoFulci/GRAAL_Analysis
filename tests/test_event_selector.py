@@ -1,11 +1,38 @@
 """Publication behavior for event-selection outputs."""
 
+from array import array
 from pathlib import Path
 import sys
 
 import pytest
 
 from event_selector import select_events
+
+
+def _write_preanalysis_fixture(path: Path) -> None:
+    import ROOT
+
+    output = ROOT.TFile(str(path), "RECREATE")
+    tree = ROOT.TTree("h80", "h80")
+    gammas = ROOT.std.vector("int")()
+    charged_theta = ROOT.std.vector("float")()
+    run_number = array("i", [1321])
+    polarization = array("i", [1])
+    xstrip = array("f", [3.75])
+    tree.Branch("gammas", gammas)
+    tree.Branch("fcharged_theta", charged_theta)
+    tree.Branch("RunNumber", run_number, "RunNumber/I")
+    tree.Branch("Polarization", polarization, "Polarization/I")
+    tree.Branch("Xstrip", xstrip, "Xstrip/F")
+
+    charged_theta.push_back(0.1)
+    gammas.push_back(1)
+    gammas.push_back(2)
+    tree.Fill()
+    gammas.resize(1)
+    tree.Fill()
+    tree.Write()
+    output.Close()
 
 
 def test_cli_defaults_follow_numbered_data_layout(monkeypatch):
@@ -15,6 +42,39 @@ def test_cli_defaults_follow_numbered_data_layout(monkeypatch):
 
     assert args.input_dir == "data/02_pre_analyzed/pre_analisi"
     assert args.output_dir == "data/03_selected"
+    assert args.threads >= 1
+
+
+def test_cli_accepts_explicit_rdataframe_thread_count(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["select_events", "--threads", "3"])
+
+    args = select_events.parse_args()
+
+    assert args.threads == 3
+
+
+def test_rdataframe_selection_preserves_metadata_in_h85(tmp_path):
+    input_dir = tmp_path / "pre"
+    input_dir.mkdir()
+    _write_preanalysis_fixture(input_dir / "pre_sample.root")
+    output_dir = tmp_path / "selected"
+
+    select_events.run(input_dir, output_dir, threads=2)
+
+    import ROOT
+
+    selected = ROOT.TFile.Open(str(output_dir / "sample.root"), "READ")
+    try:
+        tree = selected.Get("h85")
+        assert tree and tree.GetEntries() == 1
+        branches = {branch.GetName() for branch in tree.GetListOfBranches()}
+        assert {"RunNumber", "Polarization", "Xstrip"} <= branches
+        tree.GetEntry(0)
+        assert tree.RunNumber == 1321
+        assert tree.Polarization == 1
+        assert tree.Xstrip == pytest.approx(3.75)
+    finally:
+        selected.Close()
 
 
 def test_successful_selection_replaces_stale_output_dataset(tmp_path, monkeypatch):

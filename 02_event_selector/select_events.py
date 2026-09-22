@@ -11,6 +11,7 @@
 # ============================================================
 
 import argparse
+import os
 from pathlib import Path
 
 import ROOT
@@ -29,6 +30,12 @@ def parse_args():
                    help="folder with the pre_*.root files")
     p.add_argument("--output-dir", default="data/03_selected",
                    help="folder for the preselected files")
+    p.add_argument(
+        "--threads",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="RDataFrame worker threads (default: all available cores)",
+    )
     return p.parse_args()
 
 
@@ -38,44 +45,64 @@ def _select_file(input_path: Path, output_path: Path) -> None:
     input_file = ROOT.TFile.Open(str(input_path))
     if not input_file or input_file.IsZombie():
         raise RuntimeError(f"cannot open {input_path}")
+    try:
+        tree = input_file.Get(INPUT_TREE)
+        if not tree:
+            keys = [k.GetName() for k in input_file.GetListOfKeys()]
+            raise RuntimeError(
+                f"tree '{INPUT_TREE}' not found in {input_path}; found: {keys}"
+            )
 
-    tree = input_file.Get(INPUT_TREE)
-    if not tree:
-        keys = [k.GetName() for k in input_file.GetListOfKeys()]
-        raise RuntimeError(
-            f"tree '{INPUT_TREE}' not found in {input_path}; found: {keys}"
+        required = (
+            "gammas",
+            "fcharged_theta",
+            "RunNumber",
+            "Polarization",
+            "Xstrip",
         )
-
-    output_file = ROOT.TFile(str(output_path), "RECREATE")
-
-    # CloneTree keeps the source name ("h80"), so rename explicitly.
-    selected_tree = tree.CloneTree(0)
-    selected_tree.SetName(OUTPUT_TREE)
-    selected_tree.SetTitle(OUTPUT_TREE)
-
-    n_entries = tree.GetEntries()
+        missing = [name for name in required if not tree.GetBranch(name)]
+        if missing:
+            raise RuntimeError(
+                f"{input_path}: tree '{INPUT_TREE}' is missing branches: "
+                + ", ".join(missing)
+            )
+        n_entries = int(tree.GetEntries())
+    finally:
+        input_file.Close()
     print(f"  Number of events: {n_entries}")
 
-    n_selected = 0
-    for event in tree:
-        # Keep events with >1 photon and exactly one forward charged track.
-        if (
-            event.gammas.size() > 1 and
-            event.fcharged_theta.size() == 1
-        ):
-            selected_tree.Fill()
-            n_selected += 1
+    frame = ROOT.RDataFrame(INPUT_TREE, str(input_path))
+    selected = frame.Filter(
+        "gammas.size() > 1 && fcharged_theta.size() == 1",
+        "event preselection",
+    )
+    selected.Snapshot(OUTPUT_TREE, str(output_path))
 
+    output_file = ROOT.TFile.Open(str(output_path), "READ")
+    if not output_file or output_file.IsZombie():
+        raise RuntimeError(f"cannot validate selected output {output_path}")
+    try:
+        output_tree = output_file.Get(OUTPUT_TREE)
+        if not output_tree:
+            raise RuntimeError(
+                f"tree '{OUTPUT_TREE}' not found in selected output {output_path}"
+            )
+        n_selected = int(output_tree.GetEntries())
+    finally:
+        output_file.Close()
     print(f"  Selected events: {n_selected}")
 
-    selected_tree.Write("", ROOT.TObject.kOverwrite)
-    output_file.Close()
-    input_file.Close()
 
-
-def run(input_dir: Path, output_dir: Path) -> None:
+def run(input_dir: Path, output_dir: Path, *, threads: int = 1) -> None:
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
+    if threads < 1:
+        raise ValueError("threads must be at least 1")
+    if ROOT.IsImplicitMTEnabled():
+        ROOT.DisableImplicitMT()
+    if threads > 1:
+        ROOT.EnableImplicitMT(threads)
+    print(f"RDataFrame implicit multithreading: {threads} threads")
 
     root_files = sorted(
         path
@@ -108,7 +135,7 @@ def run(input_dir: Path, output_dir: Path) -> None:
 
 def main():
     args = parse_args()
-    run(Path(args.input_dir), Path(args.output_dir))
+    run(Path(args.input_dir), Path(args.output_dir), threads=args.threads)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ from graal_common.calibration.strip_energy_flux import (
     StripFlux,
     aggregate_group_flux,
     atomic_output_directory,
+    complete_strip_energy_lookup,
     find_monotonic_inversions,
     integrate_run_flux,
     join_strip_exposures,
@@ -46,10 +47,15 @@ _RDF_HELPER_CODE = r"""
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <limits>
+#include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -57,6 +63,28 @@ _RDF_HELPER_CODE = r"""
 #include <vector>
 
 namespace GraalStripEnergyRDF {
+
+std::string IsoTimestamp()
+{
+    const auto now = std::chrono::system_clock::now();
+    const std::time_t raw_time = std::chrono::system_clock::to_time_t(now);
+    std::tm local_time{};
+#if defined(_WIN32)
+    localtime_s(&local_time, &raw_time);
+#else
+    localtime_r(&raw_time, &local_time);
+#endif
+    char date_buffer[32]{};
+    char zone_buffer[8]{};
+    std::strftime(
+        date_buffer, sizeof(date_buffer), "%Y-%m-%dT%H:%M:%S", &local_time
+    );
+    std::strftime(zone_buffer, sizeof(zone_buffer), "%z", &local_time);
+    std::string zone(zone_buffer);
+    if (zone.size() == 5)
+        zone.insert(3, ":");
+    return std::string(date_buffer) + zone;
+}
 
 struct StripSummary {
     int run_number = 0;
@@ -95,7 +123,8 @@ BuildResult BuildSampledLookup(
     const std::vector<std::string> &paths,
     const std::vector<int> &requested_runs,
     std::uint64_t sample_capacity,
-    std::uint64_t progress_every
+    std::uint64_t progress_every,
+    double elapsed_before_scan
 )
 {
     if (requested_runs.empty())
@@ -136,6 +165,8 @@ BuildResult BuildSampledLookup(
         );
     std::atomic<std::uint64_t> aggregated_progress{0};
     std::atomic<std::uint64_t> next_progress{progress_every};
+    std::mutex progress_mutex;
+    const auto scan_started = std::chrono::steady_clock::now();
     const auto report_progress = [&](std::uint64_t current) {
         if (progress_every == 0)
             return;
@@ -144,8 +175,18 @@ BuildResult BuildSampledLookup(
             if (next_progress.compare_exchange_weak(
                     next, next + progress_every, std::memory_order_relaxed
                 )) {
-                std::cerr << "[RDataFrame] h80 events processed: " << next
-                          << std::endl;
+                const double elapsed = elapsed_before_scan +
+                    std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - scan_started
+                    ).count();
+                std::ostringstream line;
+                line << "[" << IsoTimestamp() << "] [+"
+                     << std::fixed << std::setprecision(1) << elapsed
+                     << "s] h80 events processed: " << next;
+                {
+                    std::lock_guard<std::mutex> lock(progress_mutex);
+                    std::cerr << line.str() << std::endl;
+                }
                 next += progress_every;
             }
         }
@@ -277,6 +318,10 @@ class ProgressReporter:
             flush=True,
         )
 
+    @property
+    def elapsed_seconds(self) -> float:
+        return time.monotonic() - self._started
+
 
 def _import_root():
     try:
@@ -370,7 +415,7 @@ def read_h80_lookup(
     samples_per_run_strip: int,
     threads: int,
     progress: ProgressReporter | None = None,
-    progress_every_events: int = 250_000,
+    progress_every_events: int = 1_000_000,
 ) -> tuple[tuple[StripEnergyRecord, ...], dict[str, object]]:
     """Build sampled run/strip energy statistics in one RDataFrame scan."""
     if progress_every_events < 0:
@@ -401,6 +446,7 @@ def read_h80_lookup(
             _root_int_vector(root, ordered_runs),
             samples_per_run_strip,
             progress_every_events,
+            progress.elapsed_seconds if progress is not None else 0.0,
         )
     except Exception as exc:
         raise StripEnergyFluxError(
@@ -715,7 +761,7 @@ def build_qa_payload(
 
 def run(args: argparse.Namespace) -> int:
     progress = ProgressReporter()
-    progress_every_events = getattr(args, "progress_every_events", 250_000)
+    progress_every_events = getattr(args, "progress_every_events", 1_000_000)
     threads = getattr(args, "threads", os.cpu_count() or 1)
     samples_per_run_strip = getattr(args, "samples_per_run_strip", 256)
     progress.log("starting strip-energy/flux build")
@@ -756,7 +802,23 @@ def run(args: argparse.Namespace) -> int:
         progress_every_events=progress_every_events,
     )
     progress.log(f"h80 scan complete: {h80_qa['entries']} events")
-    progress.log(f"strip-energy lookup built: {len(lookup)} run/strip rows")
+    observed_strip_count = len(lookup)
+    observed_runs = sorted({row.run_number for row in lookup})
+    lookup, filled_strips = complete_strip_energy_lookup(
+        lookup,
+        run_numbers=observed_runs,
+    )
+    h80_qa.update(
+        {
+            "observed_strip_count": observed_strip_count,
+            "completed_strip_count": len(lookup),
+            "filled_strips": list(filled_strips),
+        }
+    )
+    progress.log(
+        f"strip-energy lookup built: {len(lookup)} run/strip rows; "
+        f"filled missing rows: {len(filled_strips)}"
+    )
 
     lookup_by_run = defaultdict(list)
     for row in lookup:
@@ -970,6 +1032,16 @@ def run(args: argparse.Namespace) -> int:
         flux_qa,
         errors,
     )
+    if qa["errors"]:
+        visible_errors = qa["errors"][:20]
+        total_errors = len(qa["errors"])
+        for index, error in enumerate(visible_errors, start=1):
+            progress.log(f"QA ERROR [{index}/{total_errors}]: {error}")
+        if total_errors > len(visible_errors):
+            progress.log(
+                f"QA ERROR: {total_errors - len(visible_errors)} additional "
+                "errors omitted from log; see strip_energy_flux_qa.json"
+            )
     progress.log("writing output artifacts")
     with atomic_output_directory(args.output_dir) as staging:
         progress.log("writing strip_energy_lookup.csv")
@@ -1016,7 +1088,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--progress-every-events",
         type=int,
-        default=250_000,
+        default=1_000_000,
         help="emit h80 event progress every N entries; 0 disables inner updates",
     )
     parser.add_argument(

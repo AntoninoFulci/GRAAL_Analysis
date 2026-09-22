@@ -18,16 +18,19 @@ requires at least four photons and exactly one reconstructed proton.
 For every `pre_*.root` input:
 
 - open tree `h80`;
-- clone branch schema with `CloneTree(0)`;
-- rename clone to `h85`;
-- fill entries passing predicate;
+- validate `RunNumber`, `Polarization`, and `Xstrip` metadata;
+- filter entries with ROOT RDataFrame and implicit multithreading;
+- snapshot every source branch into tree `h85`;
 - drop `pre_` filename prefix.
 
 ```bash
 python -m event_selector.select_events \
   --input-dir data/02_pre_analyzed/pre_analisi \
-  --output-dir data/03_selected
+  --output-dir data/03_selected \
+  --threads 48
 ```
+
+`--threads` defaults to all CPU cores visible to process.
 
 Command fails when input directory has no matching files, input ROOT file is
 invalid, or h80 is absent. Empty discovery never permits stale selected files
