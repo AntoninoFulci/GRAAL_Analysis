@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+from datetime import datetime
 from math import isfinite
 import os
 from pathlib import Path
 import re
 import sys
+import time
 from typing import Sequence
 
 from graal_common.calibration.run_manifest import ManifestError, validate_manifest
@@ -38,6 +40,22 @@ _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
 
 
+class ProgressReporter:
+    """Timestamped, flushed progress messages for long ROOT scans."""
+
+    def __init__(self) -> None:
+        self._started = time.monotonic()
+
+    def log(self, message: str) -> None:
+        timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+        elapsed = time.monotonic() - self._started
+        print(
+            f"[{timestamp}] [+{elapsed:,.1f}s] {message}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
 def _import_root():
     try:
         import ROOT
@@ -63,7 +81,12 @@ def _open_root_file(path: Path):
     return source
 
 
-def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[str, object]]:
+def read_h80_samples(
+    preanalysis_dir: Path,
+    *,
+    progress: ProgressReporter | None = None,
+    progress_every_events: int = 250_000,
+) -> tuple[list[EnergySample], dict[str, object]]:
     """Read the required h80 branches from every ROOT file below a directory."""
     preanalysis_dir = Path(preanalysis_dir)
     if not preanalysis_dir.is_dir():
@@ -71,9 +94,16 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
     paths = sorted(path for path in preanalysis_dir.rglob("*.root") if path.is_file())
     if not paths:
         raise StripEnergyFluxError(f"no ROOT files below: {preanalysis_dir}")
+    if progress_every_events < 0:
+        raise StripEnergyFluxError("progress-every-events must be nonnegative")
+    if progress is not None:
+        progress.log(f"h80 files discovered: {len(paths)}")
 
     samples: list[EnergySample] = []
-    for path in paths:
+    processed_events = 0
+    for file_index, path in enumerate(paths, start=1):
+        if progress is not None:
+            progress.log(f"h80 file {file_index}/{len(paths)}: {path}")
         source = _open_root_file(path)
         try:
             tree = source.Get("h80")
@@ -105,8 +135,20 @@ def read_h80_samples(preanalysis_dir: Path) -> tuple[list[EnergySample], dict[st
                         "cannot convert RunNumber/Xstrip/beam.E()"
                     ) from exc
                 samples.append(sample)
+                processed_events += 1
+                if (
+                    progress is not None
+                    and progress_every_events > 0
+                    and processed_events % progress_every_events == 0
+                ):
+                    progress.log(f"h80 events processed: {processed_events}")
         finally:
             source.Close()
+        if progress is not None:
+            progress.log(
+                f"h80 file {file_index}/{len(paths)} complete; "
+                f"cumulative events: {processed_events}"
+            )
 
     return samples, {"entries": len(samples), "file_count": len(paths)}
 
@@ -210,7 +252,10 @@ def _required_histogram(key, run: int, suffix: str):
 
 
 def read_flux_histograms(
-    path: Path, run_numbers: Sequence[int]
+    path: Path,
+    run_numbers: Sequence[int],
+    *,
+    progress: ProgressReporter | None = None,
 ) -> tuple[list[StripFlux], dict[str, object]]:
     """Read one validated POL1/POL2/BREM triplet per requested run."""
     path = Path(path)
@@ -226,7 +271,10 @@ def read_flux_histograms(
         qa = _triplet_qa(objects, requested_runs)
 
         strips: list[StripFlux] = []
-        for run in sorted(requested_runs):
+        sorted_runs = sorted(requested_runs)
+        for run_index, run in enumerate(sorted_runs, start=1):
+            if progress is not None:
+                progress.log(f"flux run {run_index}/{len(sorted_runs)}: {run}")
             suffixes = objects.get(run, {})
             if not suffixes:
                 raise StripEnergyFluxError(f"requested flux run {run} is absent")
@@ -387,6 +435,13 @@ def build_qa_payload(
 
 
 def run(args: argparse.Namespace) -> int:
+    progress = ProgressReporter()
+    progress_every_events = getattr(args, "progress_every_events", 250_000)
+    progress.log("starting strip-energy/flux build")
+    progress.log(
+        f"inputs: preanalysis={args.preanalysis_dir}; manifest={args.manifest}; "
+        f"flux={args.flux}; output={args.output_dir}"
+    )
     _validate_output_location(args)
     if args.min_events_per_strip < 1:
         raise StripEnergyFluxError("min-events-per-strip must be at least 1")
@@ -399,12 +454,24 @@ def run(args: argparse.Namespace) -> int:
         raise StripEnergyFluxError(
             "monotonic-tolerance-gev must be finite and nonnegative"
         )
+    if progress_every_events < 0:
+        raise StripEnergyFluxError("progress-every-events must be nonnegative")
 
+    progress.log("validating run manifest")
     records = validate_manifest(args.manifest)
+    progress.log(f"manifest loaded: {len(records)} runs")
     manifest_by_run = {record.run_number: record for record in records}
-    samples, h80_qa = read_h80_samples(args.preanalysis_dir)
+    progress.log("reading h80 energy samples")
+    samples, h80_qa = read_h80_samples(
+        args.preanalysis_dir,
+        progress=progress,
+        progress_every_events=progress_every_events,
+    )
+    progress.log(f"h80 scan complete: {h80_qa['entries']} events")
+    progress.log("building strip-energy lookup")
     lookup = build_strip_energy_lookup(samples)
     del samples
+    progress.log(f"strip-energy lookup built: {len(lookup)} run/strip rows")
 
     lookup_by_run = defaultdict(list)
     for row in lookup:
@@ -412,7 +479,13 @@ def run(args: argparse.Namespace) -> int:
     manifest_runs = set(manifest_by_run)
     sample_runs = set(lookup_by_run)
 
-    strips, flux_qa = read_flux_histograms(args.flux, sorted(manifest_runs))
+    progress.log("reading POL1/POL2/BREM flux histograms")
+    strips, flux_qa = read_flux_histograms(
+        args.flux,
+        sorted(manifest_runs),
+        progress=progress,
+    )
+    progress.log(f"flux scan complete: {len(strips)} run/strip rows")
     flux_by_run = defaultdict(list)
     for row in strips:
         flux_by_run[row.run_number].append(row)
@@ -445,6 +518,7 @@ def run(args: argparse.Namespace) -> int:
         *parse_custom_binnings(args.binning),
     )
 
+    progress.log("running lookup and flux QA")
     empty_strips = []
     nonzero_unmapped = []
     for run_number in sorted(manifest_runs):
@@ -551,6 +625,7 @@ def run(args: argparse.Namespace) -> int:
 
     run_flux = []
     for binning in binnings:
+        progress.log(f"integrating flux binning: {binning.name}")
         for run_number in sorted(manifest_runs & sample_runs):
             try:
                 integrated = integrate_run_flux(
@@ -564,6 +639,7 @@ def run(args: argparse.Namespace) -> int:
                 continue
             run_flux.extend(integrated)
 
+    progress.log("joining event strata to run/strip exposures")
     try:
         strip_exposures = join_strip_exposures(
             [row for row in lookup if row.run_number in manifest_by_run],
@@ -605,27 +681,35 @@ def run(args: argparse.Namespace) -> int:
         flux_qa,
         errors,
     )
+    progress.log("writing output artifacts")
     with atomic_output_directory(args.output_dir) as staging:
+        progress.log("writing strip_energy_lookup.csv")
         write_lookup_csv(
             staging / "strip_energy_lookup.csv",
             [row for row in lookup if row.run_number in manifest_by_run],
             manifest_by_run,
         )
+        progress.log("writing flux_by_run_energy.csv")
         write_run_flux_csv(staging / "flux_by_run_energy.csv", run_flux)
+        progress.log("writing flux_by_run_strip.csv")
         write_strip_exposure_csv(
             staging / "flux_by_run_strip.csv", strip_exposures
         )
+        progress.log("writing flux_by_group_energy.csv")
         write_group_flux_csv(
             staging / "flux_by_group_energy.csv",
             aggregate_group_flux(run_flux),
         )
+        progress.log("writing strip_energy_flux_qa.json")
         write_qa_json(staging / "strip_energy_flux_qa.json", qa)
     if qa["valid"]:
+        progress.log("completed successfully")
         print(
             f"Wrote {len(records)}-run strip-energy flux analysis "
             f"to {args.output_dir}"
         )
         return 0
+    progress.log(f"completed with invalid QA: {len(qa['errors'])} errors")
     return 1
 
 
@@ -640,6 +724,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-events-per-strip", type=int, default=1)
     parser.add_argument("--max-mad-gev", type=float, default=0.005)
     parser.add_argument("--monotonic-tolerance-gev", type=float, default=0.002)
+    parser.add_argument(
+        "--progress-every-events",
+        type=int,
+        default=250_000,
+        help="emit h80 event progress every N entries; 0 disables inner updates",
+    )
     parser.add_argument("--binning", action="append", default=[])
     return parser.parse_args()
 

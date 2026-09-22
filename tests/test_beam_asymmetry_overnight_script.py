@@ -15,6 +15,7 @@ def _fake_python(tmp_path: Path) -> Path:
         """#!/usr/bin/env bash
 set -u
 printf '%s\n' "$*" >> "${OVERNIGHT_TEST_CALLS:?}"
+all_args="$*"
 if [[ "$*" == *"${OVERNIGHT_FAIL_MATCH:-never-match}"* ]]; then
     echo "synthetic overnight failure" >&2
     exit 42
@@ -34,7 +35,11 @@ if [[ -n "$output_file" ]]; then
 fi
 if [[ -n "$output_dir" ]]; then
     mkdir -p "$output_dir"
-    touch "$output_dir/beam_asymmetry.root"
+    if [[ "$all_args" == *"build_strip_energy_flux.py"* ]]; then
+        touch "$output_dir/strip_energy_flux_qa.json"
+    else
+        touch "$output_dir/beam_asymmetry.root"
+    fi
 fi
 exit 0
 """
@@ -47,6 +52,10 @@ def _environment(tmp_path: Path, fake_python: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.update(
         PYTHON_BIN=str(fake_python),
+        PREANALYSIS_DIR=str(tmp_path / "preanalysis"),
+        MANIFEST_FILE=str(tmp_path / "run_manifest.csv"),
+        FLUX_FILE=str(tmp_path / "flux.root"),
+        FLUX_PROGRESS_EVERY_EVENTS="123",
         SELECTED_DIR=str(tmp_path / "selected"),
         SIGNAL_MC_SELECTED_DIR=str(tmp_path / "signal_mc_selected"),
         RECO_DIR=str(tmp_path / "reco"),
@@ -101,7 +110,32 @@ def test_runner_executes_full_chain_and_writes_step_logs(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "OK      full_extraction" in result.stdout
     calls = (tmp_path / "calls.log").read_text()
+    assert "scripts/build_strip_energy_flux.py" in calls
+    assert "--progress-every-events 123" in calls
     assert "--bootstrap-replicas 7" in calls
-    assert len(calls.splitlines()) == 7
+    assert len(calls.splitlines()) == 8
     logs = sorted((tmp_path / "logs").glob("test-run_*.log"))
-    assert len(logs) == 7
+    assert len(logs) == 8
+
+
+def test_calibration_failure_does_not_stop_reconstruction(tmp_path):
+    fake_python = _fake_python(tmp_path)
+    env = _environment(tmp_path, fake_python)
+    env["OVERNIGHT_FAIL_MATCH"] = "build_strip_energy_flux.py"
+
+    result = subprocess.run(
+        ["bash", str(SCRIPT)],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1
+    combined = result.stdout + result.stderr
+    assert "FAILED  flux_calibration" in combined
+    assert "OK      raw" in combined
+    assert "OK      raw_bdt" in combined
+    assert "OK      sideband" in combined
+    assert "SKIPPED first_pass" in combined
+    assert "SKIPPED full_extraction" in combined

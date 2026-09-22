@@ -13,6 +13,10 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
+PREANALYSIS_DIR="${PREANALYSIS_DIR:-data/02_pre_analyzed/pre_analisi}"
+MANIFEST_FILE="${MANIFEST_FILE:-config/run_manifest.csv}"
+FLUX_FILE="${FLUX_FILE:-data/00_external/flux.root}"
+FLUX_PROGRESS_EVERY_EVENTS="${FLUX_PROGRESS_EVERY_EVENTS:-100000}"
 SELECTED_DIR="${SELECTED_DIR:-data/03_selected}"
 SIGNAL_MC_SELECTED_DIR="${SIGNAL_MC_SELECTED_DIR:-data/signal_mc_selected}"
 RECO_DIR="${RECO_DIR:-results/reco}"
@@ -95,6 +99,19 @@ raw_bdt_ok=0
 fit_ok=0
 sideband_ok=0
 signal_mc_ok=0
+calibration_ok=0
+
+run_step \
+    flux_calibration \
+    "Strip-energy and final-flux calibration" \
+    "$CALIBRATION_DIR/strip_energy_flux_qa.json" \
+    "$PYTHON_BIN" scripts/build_strip_energy_flux.py \
+    --preanalysis-dir "$PREANALYSIS_DIR" \
+    --manifest "$MANIFEST_FILE" \
+    --flux "$FLUX_FILE" \
+    --output-dir "$CALIBRATION_DIR" \
+    --progress-every-events "$FLUX_PROGRESS_EVERY_EVENTS"
+[[ $? -eq 0 ]] && calibration_ok=1
 
 run_step \
     raw \
@@ -125,7 +142,7 @@ run_step \
     --output-file "$FIT_FILE"
 [[ $? -eq 0 ]] && fit_ok=1
 
-if [[ $raw_bdt_ok -eq 1 ]]; then
+if [[ $calibration_ok -eq 1 && $raw_bdt_ok -eq 1 ]]; then
     run_step \
         first_pass \
         "First raw plus BDT asymmetry extraction" \
@@ -135,7 +152,7 @@ if [[ $raw_bdt_ok -eq 1 ]]; then
         --calibration-dir "$CALIBRATION_DIR" \
         --output-dir "$ASYMMETRY_FIRST_DIR"
 else
-    skip_step first_pass "raw_bdt failed in this run"
+    skip_step first_pass "flux_calibration or raw_bdt failed in this run"
 fi
 
 run_step \
@@ -156,7 +173,7 @@ run_step \
     --output-file "$SIGNAL_MC_FILE"
 [[ $? -eq 0 ]] && signal_mc_ok=1
 
-if [[ $raw_ok -eq 1 && $raw_bdt_ok -eq 1 && $fit_ok -eq 1 \
+if [[ $calibration_ok -eq 1 && $raw_ok -eq 1 && $raw_bdt_ok -eq 1 && $fit_ok -eq 1 \
       && $sideband_ok -eq 1 && $signal_mc_ok -eq 1 ]]; then
     run_step \
         full_extraction \
@@ -175,7 +192,7 @@ if [[ $raw_ok -eq 1 && $raw_bdt_ok -eq 1 && $fit_ok -eq 1 \
         --bootstrap-seed "$BOOTSTRAP_SEED"
 else
     skip_step full_extraction \
-        "one or more required reconstruction/sideband steps failed in this run"
+        "calibration or one or more required reconstruction/sideband steps failed"
 fi
 
 echo

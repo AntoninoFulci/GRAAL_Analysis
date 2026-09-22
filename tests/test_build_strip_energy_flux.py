@@ -199,6 +199,51 @@ def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
     assert (strip_rows[0]["target"], strip_rows[0]["beam_type"]) == ("P", "UV")
 
 
+def test_cli_reports_phase_file_run_and_event_progress(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+
+    result = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--progress-every-events",
+        "100",
+    )
+
+    assert result.returncode == 0, result.stderr
+    for message in (
+        "starting strip-energy/flux build",
+        "manifest loaded: 2 runs",
+        "h80 files discovered: 2",
+        "h80 file 1/2:",
+        "h80 events processed: 100",
+        "flux run 1/2:",
+        "building strip-energy lookup",
+        "integrating flux binning: ajaka_sigma",
+        "writing output artifacts",
+        "completed successfully",
+    ):
+        assert message in result.stderr
+
+
+def test_zero_event_interval_disables_only_inner_event_updates(tmp_path):
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+
+    result = run_cli(
+        pre,
+        flux,
+        manifest_path,
+        output,
+        "--progress-every-events",
+        "0",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "h80 file 1/2:" in result.stderr
+    assert "h80 events processed:" not in result.stderr
+
+
 def test_cli_complete_extra_flux_run_is_warning_only(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
     append_histogram(flux, "run99_POL1")

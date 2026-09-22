@@ -144,7 +144,8 @@ equations, parameters, and references succeeds.
 
 ## Overnight runner
 
-After flux calibration, points 3–6 can run unattended:
+Full workflow from flux calibration through corrected extraction can run
+unattended:
 
 ```bash
 nohup bash scripts/run_beam_asymmetry_overnight.sh \
@@ -154,13 +155,17 @@ nohup bash scripts/run_beam_asymmetry_overnight.sh \
 Runner continues after failed commands, writes one timestamped log per step,
 skips only downstream steps whose newly produced inputs are unavailable, and
 prints final `OK`, `FAILED`, or `SKIPPED` summary. Final exit code is non-zero
-when any command fails.
+when any command fails. Calibration failure does not stop reconstruction, but
+both extraction steps are skipped to prevent reuse of stale calibration.
 
 Farm paths can be overridden without editing script:
 
 ```bash
 SIGNAL_MC_SELECTED_DIR=/farm/path/signal_mc_selected \
+PREANALYSIS_DIR=/farm/path/pre_analisi \
+FLUX_FILE=/farm/path/flux.root \
 PYTHON_BIN=/farm/path/venv/bin/python \
+FLUX_PROGRESS_EVERY_EVENTS=100000 \
 BOOTSTRAP_REPLICAS=500 \
 nohup bash scripts/run_beam_asymmetry_overnight.sh \
   > results/beam_asymmetry_overnight.out 2>&1 &

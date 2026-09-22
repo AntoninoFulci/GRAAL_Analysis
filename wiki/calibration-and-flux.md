@@ -30,7 +30,12 @@ Optional controls:
 | `--min-events-per-strip` | `1` |
 | `--max-mad-gev` | `0.005` |
 | `--monotonic-tolerance-gev` | `0.002` |
+| `--progress-every-events` | `250000`; `0` disables event-level updates |
 | `--binning NAME:EDGE,...` | repeatable; adds custom binning |
+
+Progress is written immediately to stderr with timestamp and elapsed time.
+Messages cover manifest loading, each h80 file, periodic event counts, each
+flux run, QA/integration phases, and artifact writes.
 
 Built-in `ajaka_cross_section` and `ajaka_sigma` binnings are always produced.
 
