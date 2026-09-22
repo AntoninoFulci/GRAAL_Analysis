@@ -56,6 +56,7 @@ def _environment(tmp_path: Path, fake_python: Path) -> dict[str, str]:
         MANIFEST_FILE=str(tmp_path / "run_manifest.csv"),
         FLUX_FILE=str(tmp_path / "flux.root"),
         FLUX_PROGRESS_EVERY_EVENTS="123",
+        FLUX_THREADS="3",
         SELECTED_DIR=str(tmp_path / "selected"),
         SIGNAL_MC_SELECTED_DIR=str(tmp_path / "signal_mc_selected"),
         RECO_DIR=str(tmp_path / "reco"),
@@ -112,6 +113,7 @@ def test_runner_executes_full_chain_and_writes_step_logs(tmp_path):
     calls = (tmp_path / "calls.log").read_text()
     assert "scripts/build_strip_energy_flux.py" in calls
     assert "--progress-every-events 123" in calls
+    assert "--threads 3" in calls
     assert "--bootstrap-replicas 7" in calls
     assert len(calls.splitlines()) == 8
     logs = sorted((tmp_path / "logs").glob("test-run_*.log"))

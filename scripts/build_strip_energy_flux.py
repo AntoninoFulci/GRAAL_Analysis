@@ -19,12 +19,11 @@ from graal_common.calibration.strip_energy_flux import (
     AJAKA_SIGMA,
     FLUX_SCHEMA_VERSION,
     EnergyBinning,
-    EnergySample,
+    StripEnergyRecord,
     StripEnergyFluxError,
     StripFlux,
     aggregate_group_flux,
     atomic_output_directory,
-    build_strip_energy_lookup,
     find_monotonic_inversions,
     integrate_run_flux,
     join_strip_exposures,
@@ -38,6 +37,177 @@ from graal_common.calibration.strip_energy_flux import (
 
 _FLUX_NAME = re.compile(r"^run([0-9]+)_(POL1|POL2|BREM)$")
 _FLUX_SUFFIXES = ("POL1", "POL2", "BREM")
+_RDF_HELPERS_DECLARED = False
+
+
+_RDF_HELPER_CODE = r"""
+#include <ROOT/RDataFrame.hxx>
+
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cmath>
+#include <cstdint>
+#include <iostream>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
+namespace GraalStripEnergyRDF {
+
+struct FileDiscovery {
+    std::vector<int> runs;
+    std::uint64_t entries = 0;
+};
+
+struct StripSummary {
+    int run_number = 0;
+    int xstrip = 0;
+    std::uint64_t event_count = 0;
+    double energy_median_gev = 0.0;
+    double energy_mad_gev = 0.0;
+    double energy_min_gev = 0.0;
+    double energy_max_gev = 0.0;
+};
+
+double ExactMedian(std::vector<double> &values)
+{
+    const auto size = values.size();
+    if (size == 0)
+        throw std::runtime_error("cannot compute median of empty values");
+    const auto middle = size / 2;
+    std::nth_element(values.begin(), values.begin() + middle, values.end());
+    const double upper = values[middle];
+    if (size % 2 != 0)
+        return upper;
+    const double lower = *std::max_element(values.begin(), values.begin() + middle);
+    return (lower + upper) / 2.0;
+}
+
+FileDiscovery DiscoverFile(const std::string &path)
+{
+    ROOT::RDataFrame frame("h80", path);
+    auto runs_frame = frame.Define(
+        "graal_run_number_for_discovery",
+        "static_cast<int>(RunNumber)"
+    );
+    const auto slots = runs_frame.GetNSlots();
+    std::vector<std::unordered_set<int>> run_sets(slots);
+    std::atomic<std::uint64_t> entries{0};
+    runs_frame.ForeachSlot(
+        [&](unsigned int slot, int run_number) {
+            if (run_number <= 0)
+                throw std::runtime_error("run_number must be positive");
+            run_sets.at(slot).insert(run_number);
+            entries.fetch_add(1, std::memory_order_relaxed);
+        },
+        {"graal_run_number_for_discovery"}
+    );
+
+    std::unordered_set<int> unique_runs;
+    for (const auto &slot_runs : run_sets)
+        unique_runs.insert(slot_runs.begin(), slot_runs.end());
+    FileDiscovery result;
+    result.runs.assign(unique_runs.begin(), unique_runs.end());
+    std::sort(result.runs.begin(), result.runs.end());
+    result.entries = entries.load(std::memory_order_relaxed);
+    return result;
+}
+
+std::vector<StripSummary> BuildRun(
+    const std::vector<std::string> &paths,
+    int requested_run,
+    std::uint64_t progress_offset,
+    std::uint64_t progress_every
+)
+{
+    ROOT::RDataFrame frame("h80", paths);
+    auto selected = frame
+        .Define("graal_run_number", "static_cast<int>(RunNumber)")
+        .Define("graal_xstrip", "static_cast<double>(Xstrip)")
+        .Define("graal_beam_energy", "static_cast<double>(beam.E())")
+        .Filter(
+            [requested_run](int run_number) {
+                return run_number == requested_run;
+            },
+            {"graal_run_number"}
+        );
+
+    const auto slots = selected.GetNSlots();
+    using StripVectors = std::array<std::vector<double>, 128>;
+    std::vector<StripVectors> slot_values(slots);
+    std::atomic<std::uint64_t> processed{0};
+
+    selected.ForeachSlot(
+        [&](unsigned int slot, double xstrip, double energy) {
+            if (!std::isfinite(xstrip))
+                throw std::runtime_error("Xstrip must be finite");
+            const auto rounded = std::llround(xstrip);
+            if (std::abs(xstrip - static_cast<double>(rounded)) > 1e-6)
+                throw std::runtime_error("Xstrip is not integral");
+            if (rounded < 1 || rounded > 128)
+                throw std::runtime_error("Xstrip outside 1..128");
+            if (!std::isfinite(energy) || energy <= 0.0)
+                throw std::runtime_error("beam energy must be finite and positive");
+            slot_values.at(slot).at(static_cast<std::size_t>(rounded - 1))
+                .push_back(energy);
+            const auto current = progress_offset +
+                processed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (progress_every > 0 && current % progress_every == 0) {
+                std::cerr << "[RDataFrame] h80 events processed: " << current
+                          << std::endl;
+            }
+        },
+        {"graal_xstrip", "graal_beam_energy"}
+    );
+
+    std::vector<StripSummary> result;
+    result.reserve(128);
+    for (std::size_t strip_index = 0; strip_index < 128; ++strip_index) {
+        std::size_t count = 0;
+        for (const auto &slot : slot_values)
+            count += slot[strip_index].size();
+        if (count == 0)
+            continue;
+
+        std::vector<double> energies;
+        energies.reserve(count);
+        for (auto &slot : slot_values) {
+            auto &source = slot[strip_index];
+            energies.insert(
+                energies.end(),
+                std::make_move_iterator(source.begin()),
+                std::make_move_iterator(source.end())
+            );
+            std::vector<double>().swap(source);
+        }
+        const auto limits = std::minmax_element(energies.begin(), energies.end());
+        const double minimum = *limits.first;
+        const double maximum = *limits.second;
+        const double center = ExactMedian(energies);
+        std::vector<double> deviations;
+        deviations.reserve(count);
+        for (const double energy : energies)
+            deviations.push_back(std::abs(energy - center));
+
+        result.push_back(StripSummary{
+            requested_run,
+            static_cast<int>(strip_index + 1),
+            static_cast<std::uint64_t>(count),
+            center,
+            ExactMedian(deviations),
+            minimum,
+            maximum,
+        });
+    }
+    return result;
+}
+
+} // namespace GraalStripEnergyRDF
+"""
 
 
 class ProgressReporter:
@@ -81,29 +251,32 @@ def _open_root_file(path: Path):
     return source
 
 
-def read_h80_samples(
-    preanalysis_dir: Path,
-    *,
-    progress: ProgressReporter | None = None,
-    progress_every_events: int = 250_000,
-) -> tuple[list[EnergySample], dict[str, object]]:
-    """Read the required h80 branches from every ROOT file below a directory."""
+def _declare_rdataframe_helpers(root) -> None:
+    global _RDF_HELPERS_DECLARED
+    if _RDF_HELPERS_DECLARED:
+        return
+    if not root.gInterpreter.Declare(_RDF_HELPER_CODE):
+        raise StripEnergyFluxError("cannot compile RDataFrame strip-energy helpers")
+    _RDF_HELPERS_DECLARED = True
+
+
+def _configure_implicit_mt(root, threads: int) -> None:
+    if threads < 1:
+        raise StripEnergyFluxError("threads must be at least 1")
+    if root.IsImplicitMTEnabled():
+        root.DisableImplicitMT()
+    if threads > 1:
+        root.EnableImplicitMT(threads)
+
+
+def _validated_h80_paths(preanalysis_dir: Path) -> list[Path]:
     preanalysis_dir = Path(preanalysis_dir)
     if not preanalysis_dir.is_dir():
         raise StripEnergyFluxError(f"preanalysis directory not found: {preanalysis_dir}")
     paths = sorted(path for path in preanalysis_dir.rglob("*.root") if path.is_file())
     if not paths:
         raise StripEnergyFluxError(f"no ROOT files below: {preanalysis_dir}")
-    if progress_every_events < 0:
-        raise StripEnergyFluxError("progress-every-events must be nonnegative")
-    if progress is not None:
-        progress.log(f"h80 files discovered: {len(paths)}")
-
-    samples: list[EnergySample] = []
-    processed_events = 0
-    for file_index, path in enumerate(paths, start=1):
-        if progress is not None:
-            progress.log(f"h80 file {file_index}/{len(paths)}: {path}")
+    for path in paths:
         source = _open_root_file(path)
         try:
             tree = source.Get("h80")
@@ -111,46 +284,113 @@ def read_h80_samples(
                 raise StripEnergyFluxError(f"{path}: missing h80 tree")
             if not tree.InheritsFrom("TTree"):
                 raise StripEnergyFluxError(f"{path}: h80 is not a TTree")
-            for branch in ("RunNumber", "Xstrip", "beam"):
-                if not tree.GetBranch(branch):
-                    raise StripEnergyFluxError(f"{path}: missing branch {branch}")
-
-            tree.SetBranchStatus("*", 0)
-            for branch in ("RunNumber", "Xstrip", "beam"):
-                pending = [tree.GetBranch(branch)]
-                while pending:
-                    active = pending.pop()
-                    active.SetStatus(1)
-                    pending.extend(active.GetListOfBranches())
-            for entry_index, entry in enumerate(tree):
-                try:
-                    sample = EnergySample(
-                        int(entry.RunNumber),
-                        float(entry.Xstrip),
-                        float(entry.beam.E()),
-                    )
-                except Exception as exc:
-                    raise StripEnergyFluxError(
-                        f"{path}: h80 entry {entry_index}: "
-                        "cannot convert RunNumber/Xstrip/beam.E()"
-                    ) from exc
-                samples.append(sample)
-                processed_events += 1
-                if (
-                    progress is not None
-                    and progress_every_events > 0
-                    and processed_events % progress_every_events == 0
-                ):
-                    progress.log(f"h80 events processed: {processed_events}")
+            for branch_name in ("RunNumber", "Xstrip", "beam"):
+                if not tree.GetBranch(branch_name):
+                    raise StripEnergyFluxError(f"{path}: missing branch {branch_name}")
+            if not tree.GetBranch("beam").GetClassName():
+                raise StripEnergyFluxError(
+                    f"{path}: h80 entry 0: "
+                    "cannot convert RunNumber/Xstrip/beam.E()"
+                )
         finally:
             source.Close()
+    return paths
+
+
+def _root_string_vector(root, values: Sequence[Path]):
+    result = root.std.vector("string")()
+    for value in values:
+        result.push_back(str(value))
+    return result
+
+
+def read_h80_lookup(
+    preanalysis_dir: Path,
+    *,
+    threads: int,
+    progress: ProgressReporter | None = None,
+    progress_every_events: int = 250_000,
+) -> tuple[tuple[StripEnergyRecord, ...], dict[str, object]]:
+    """Build exact run/strip energy statistics with memory bounded by one run."""
+    if progress_every_events < 0:
+        raise StripEnergyFluxError("progress-every-events must be nonnegative")
+    root = _import_root()
+    _configure_implicit_mt(root, threads)
+    _declare_rdataframe_helpers(root)
+    paths = _validated_h80_paths(preanalysis_dir)
+    if progress is not None:
+        progress.log(f"h80 files discovered: {len(paths)}")
+        progress.log(f"RDataFrame implicit multithreading: {threads} threads")
+
+    paths_by_run: dict[int, list[Path]] = defaultdict(list)
+    total_entries = 0
+    for file_index, path in enumerate(paths, start=1):
+        if progress is not None:
+            progress.log(f"h80 file {file_index}/{len(paths)}: {path}")
+        try:
+            discovery = root.GraalStripEnergyRDF.DiscoverFile(str(path))
+        except Exception as exc:
+            raise StripEnergyFluxError(
+                f"{path}: RDataFrame run discovery failed: {exc}"
+            ) from exc
+        entries = int(discovery.entries)
+        total_entries += entries
+        for run_number in discovery.runs:
+            paths_by_run[int(run_number)].append(path)
         if progress is not None:
             progress.log(
-                f"h80 file {file_index}/{len(paths)} complete; "
-                f"cumulative events: {processed_events}"
+                f"h80 file {file_index}/{len(paths)} indexed; "
+                f"entries: {entries}; cumulative entries: {total_entries}"
             )
 
-    return samples, {"entries": len(samples), "file_count": len(paths)}
+    lookup: list[StripEnergyRecord] = []
+    processed_entries = 0
+    sorted_runs = sorted(paths_by_run)
+    for run_index, run_number in enumerate(sorted_runs, start=1):
+        if progress is not None:
+            progress.log(
+                f"h80 run {run_index}/{len(sorted_runs)}: {run_number}; "
+                f"files: {len(paths_by_run[run_number])}"
+            )
+        try:
+            summaries = root.GraalStripEnergyRDF.BuildRun(
+                _root_string_vector(root, paths_by_run[run_number]),
+                run_number,
+                processed_entries,
+                progress_every_events,
+            )
+        except Exception as exc:
+            raise StripEnergyFluxError(
+                f"run {run_number}: RDataFrame strip-energy build failed: {exc}"
+            ) from exc
+        run_entries = 0
+        for summary in summaries:
+            event_count = int(summary.event_count)
+            run_entries += event_count
+            lookup.append(
+                StripEnergyRecord(
+                    int(summary.run_number),
+                    int(summary.xstrip),
+                    event_count,
+                    float(summary.energy_median_gev),
+                    float(summary.energy_mad_gev),
+                    float(summary.energy_min_gev),
+                    float(summary.energy_max_gev),
+                )
+            )
+        processed_entries += run_entries
+        if progress is not None:
+            progress.log(
+                f"h80 run {run_index}/{len(sorted_runs)} complete; "
+                f"entries: {run_entries}; cumulative events: {processed_entries}"
+            )
+
+    if processed_entries != total_entries:
+        raise StripEnergyFluxError(
+            "RDataFrame entry count mismatch: "
+            f"indexed {total_entries}, aggregated {processed_entries}"
+        )
+    return tuple(lookup), {"entries": total_entries, "file_count": len(paths)}
 
 
 def _triplet_qa(
@@ -437,6 +677,7 @@ def build_qa_payload(
 def run(args: argparse.Namespace) -> int:
     progress = ProgressReporter()
     progress_every_events = getattr(args, "progress_every_events", 250_000)
+    threads = getattr(args, "threads", os.cpu_count() or 1)
     progress.log("starting strip-energy/flux build")
     progress.log(
         f"inputs: preanalysis={args.preanalysis_dir}; manifest={args.manifest}; "
@@ -456,21 +697,21 @@ def run(args: argparse.Namespace) -> int:
         )
     if progress_every_events < 0:
         raise StripEnergyFluxError("progress-every-events must be nonnegative")
+    if threads < 1:
+        raise StripEnergyFluxError("threads must be at least 1")
 
     progress.log("validating run manifest")
     records = validate_manifest(args.manifest)
     progress.log(f"manifest loaded: {len(records)} runs")
     manifest_by_run = {record.run_number: record for record in records}
-    progress.log("reading h80 energy samples")
-    samples, h80_qa = read_h80_samples(
+    progress.log("building strip-energy lookup with ROOT RDataFrame")
+    lookup, h80_qa = read_h80_lookup(
         args.preanalysis_dir,
+        threads=threads,
         progress=progress,
         progress_every_events=progress_every_events,
     )
     progress.log(f"h80 scan complete: {h80_qa['entries']} events")
-    progress.log("building strip-energy lookup")
-    lookup = build_strip_energy_lookup(samples)
-    del samples
     progress.log(f"strip-energy lookup built: {len(lookup)} run/strip rows")
 
     lookup_by_run = defaultdict(list)
@@ -729,6 +970,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=250_000,
         help="emit h80 event progress every N entries; 0 disables inner updates",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="RDataFrame worker threads; default: all available CPU cores",
     )
     parser.add_argument("--binning", action="append", default=[])
     return parser.parse_args()

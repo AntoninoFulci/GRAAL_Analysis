@@ -31,11 +31,17 @@ Optional controls:
 | `--max-mad-gev` | `0.005` |
 | `--monotonic-tolerance-gev` | `0.002` |
 | `--progress-every-events` | `250000`; `0` disables event-level updates |
+| `--threads` | all CPU cores visible to process |
 | `--binning NAME:EDGE,...` | repeatable; adds custom binning |
 
 Progress is written immediately to stderr with timestamp and elapsed time.
 Messages cover manifest loading, each h80 file, periodic event counts, each
 flux run, QA/integration phases, and artifact writes.
+
+The h80 scan uses ROOT RDataFrame with implicit multithreading. Override worker
+count with `--threads N`, or set `FLUX_THREADS=N` for
+`scripts/run_beam_asymmetry_overnight.sh`. Its default also uses all online CPU
+cores.
 
 Built-in `ajaka_cross_section` and `ajaka_sigma` binnings are always produced.
 
@@ -45,6 +51,11 @@ For each observed `(run_number, Xstrip)` pair, lookup records event count,
 median `beam.E()`, median absolute deviation, minimum, maximum, and `observed`
 provenance. Strip index must normalize to integer range 1–128. Runs are never
 pooled, so target, beam type, and acquisition period remain distinct.
+
+Median and MAD remain exact: no histogram approximation is used. A compiled
+C++ accumulator stores only beam-energy `double` values and processes one run
+at a time. Python receives final run/strip summaries rather than one object per
+event, bounding event storage to the largest run instead of the full dataset.
 
 Monotonic inversions, low statistics, large MAD, empty strips, unmapped strips,
 and manifest/run mismatches are retained in QA.

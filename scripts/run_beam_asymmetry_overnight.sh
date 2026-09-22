@@ -17,6 +17,7 @@ PREANALYSIS_DIR="${PREANALYSIS_DIR:-data/02_pre_analyzed/pre_analisi}"
 MANIFEST_FILE="${MANIFEST_FILE:-config/run_manifest.csv}"
 FLUX_FILE="${FLUX_FILE:-data/00_external/flux.root}"
 FLUX_PROGRESS_EVERY_EVENTS="${FLUX_PROGRESS_EVERY_EVENTS:-100000}"
+FLUX_THREADS="${FLUX_THREADS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}"
 SELECTED_DIR="${SELECTED_DIR:-data/03_selected}"
 SIGNAL_MC_SELECTED_DIR="${SIGNAL_MC_SELECTED_DIR:-data/signal_mc_selected}"
 RECO_DIR="${RECO_DIR:-results/reco}"
@@ -110,7 +111,8 @@ run_step \
     --manifest "$MANIFEST_FILE" \
     --flux "$FLUX_FILE" \
     --output-dir "$CALIBRATION_DIR" \
-    --progress-every-events "$FLUX_PROGRESS_EVERY_EVENTS"
+    --progress-every-events "$FLUX_PROGRESS_EVERY_EVENTS" \
+    --threads "$FLUX_THREADS"
 [[ $? -eq 0 ]] && calibration_ok=1
 
 run_step \
