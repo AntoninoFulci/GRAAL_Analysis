@@ -38,6 +38,8 @@ imports. It never replaces an existing data path or mismatched link.
 ```bash
 graal-pipeline --help
 graal-pipeline
+graal-pipeline prepare --final-state eta_pi0
+graal-pipeline reconstruct --final-state eta_pi0
 graal-pipeline plan extract beam-asymmetry --final-state eta_pi0
 graal-pipeline extract beam-asymmetry --final-state eta_pi0
 ```

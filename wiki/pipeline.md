@@ -37,6 +37,13 @@ Controllare lo stato senza modificare file:
 graal-pipeline status --final-state eta_pi0
 ```
 
+Preparare i prerequisiti o produrre la ricostruzione principale:
+
+```bash
+graal-pipeline prepare --final-state eta_pi0
+graal-pipeline reconstruct --final-state eta_pi0
+```
+
 Preparare un piano esplicito per un job batch:
 
 ```bash
@@ -58,6 +65,8 @@ graal-pipeline extract beam-asymmetry \
   --stale-policy rebuild \
   --untracked-policy rebuild
 ```
+
+Per la prima passata diagnostica aggiungere `--first-pass`.
 
 ## Entry point dei singoli componenti
 

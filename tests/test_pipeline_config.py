@@ -135,3 +135,10 @@ def test_python_310_falls_back_to_tomli():
 
     assert _load_toml_module(fake_import) is sentinel
     assert calls == ["tomllib", "tomli"]
+
+
+def test_explicit_missing_config_is_rejected(tmp_path):
+    from graal_pipeline.config import ConfigError, load_config
+
+    with pytest.raises(ConfigError, match="configuration file does not exist"):
+        load_config(tmp_path / "missing.toml", repo_root=tmp_path)

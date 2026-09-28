@@ -241,6 +241,7 @@ def test_directory_publication_is_atomic_and_checkpoint_is_written_last(tmp_path
 
     assert (output / "product.txt").read_text() == f"new {stage}\n"
     assert list((state / "checkpoints").rglob("*.json")) == []
+    assert json.loads((state / "latest.json").read_text())["run_id"] == "crash-run"
     status = classify_artifact(
         exists=True,
         validation=_validator(stage, _invocation(stage, output, kind="directory")),
@@ -312,3 +313,154 @@ def test_checkpoint_code_fingerprint_uses_repository_root_not_caller_cwd(
     assert checkpoint["code"]["files"] == {
         "responsible.py": "e0cb9debdb563025b7c11817ec16198da076090d46dbee8ccc4c3d58a3734ab9"
     }
+
+
+def test_existing_lock_prevents_all_run_state_mutation(tmp_path):
+    from graal_pipeline.model import PlanAction
+    from graal_pipeline.runner import RunLock, RunLockedError, run_plan
+
+    state = tmp_path / "state"
+    lock = RunLock(state, run_id="existing")
+    lock.path.mkdir(parents=True)
+    (lock.path / "owner.json").write_text(
+        json.dumps({"pid": os.getpid(), "run_id": "existing", "host": lock.host})
+    )
+
+    with pytest.raises(RunLockedError):
+        run_plan(
+            _plan(_item("signal_mc_generation", PlanAction.RUN)),
+            {
+                "signal_mc_generation": _invocation(
+                    "signal_mc_generation", tmp_path / "mc.root"
+                )
+            },
+            state_directory=state,
+            repository_root=tmp_path,
+            run_id="refused",
+            executor=FakeExecutor(),
+            validator=_validator,
+        )
+
+    assert not (state / "runs").exists()
+    assert not (state / "logs").exists()
+
+
+def test_failed_enabled_optional_dependency_blocks_consumer(tmp_path):
+    from graal_pipeline.model import PlanAction
+    from graal_pipeline.runner import run_plan
+
+    executor = FakeExecutor(failures=("grid_search",))
+    summary = run_plan(
+        _plan(
+            _item("grid_search", PlanAction.RUN),
+            _item("bdt_training", PlanAction.RUN),
+        ),
+        {
+            "grid_search": _invocation("grid_search", tmp_path / "grid.json"),
+            "bdt_training": _invocation("bdt_training", tmp_path / "model.json"),
+        },
+        state_directory=tmp_path / "state",
+        repository_root=tmp_path,
+        executor=executor,
+        validator=_validator,
+    )
+
+    assert [result.status for result in summary.results] == ["FAILED", "BLOCKED"]
+    assert executor.calls == ["grid_search"]
+
+
+def test_full_verification_checkpoint_is_immediately_fresh_and_records_profile(
+    tmp_path,
+):
+    from graal_pipeline.model import ArtifactState, PlanAction
+    from graal_pipeline.runner import run_plan
+    from graal_pipeline.state import CheckpointStore, inspect_invocation_status
+
+    output = tmp_path / "large.root"
+    invocation = _invocation("signal_mc_generation", output)
+
+    def large_executor(command, _cwd, _log_path):
+        Path(command[2]).write_bytes(b"x" * (1024 * 1024 + 1))
+        return 0
+
+    state = tmp_path / "state"
+    configuration = {"profile": "farm"}
+    run_plan(
+        _plan(_item("signal_mc_generation", PlanAction.RUN)),
+        {"signal_mc_generation": invocation},
+        state_directory=state,
+        repository_root=tmp_path,
+        verification="full",
+        configuration=configuration,
+        executor=large_executor,
+        validator=_validator,
+    )
+
+    checkpoint_path = state / "checkpoints/eta_pi0/signal_mc_generation.json"
+    checkpoint = json.loads(checkpoint_path.read_text())
+    status = inspect_invocation_status(
+        invocation,
+        checkpoint_store=CheckpointStore(state),
+        configuration=configuration,
+        repository_root=tmp_path,
+        final_state="eta_pi0",
+        observable=None,
+        max_age_days=30,
+        verification="full",
+        validator=_validator,
+    )
+
+    assert checkpoint["verification"] == "full"
+    assert checkpoint["profile"] == "farm"
+    assert "sha256" in next(iter(checkpoint["outputs"].values()))
+    assert status.state is ArtifactState.FRESH
+
+
+def test_automatic_run_ids_do_not_collide_within_one_second(tmp_path):
+    from graal_pipeline.model import PlanAction
+    from graal_pipeline.runner import run_plan
+
+    stage = "signal_mc_generation"
+    invocation = _invocation(stage, tmp_path / "mc.root")
+    kwargs = {
+        "state_directory": tmp_path / "state",
+        "repository_root": tmp_path,
+        "executor": FakeExecutor(),
+        "validator": _validator,
+    }
+    first = run_plan(_plan(_item(stage, PlanAction.RUN)), {stage: invocation}, **kwargs)
+    second = run_plan(_plan(_item(stage, PlanAction.RUN)), {stage: invocation}, **kwargs)
+
+    assert first.run_id != second.run_id
+
+
+def test_unrelated_configuration_change_does_not_stale_stage_checkpoint(tmp_path):
+    from graal_pipeline.model import ArtifactState, PlanAction
+    from graal_pipeline.runner import run_plan
+    from graal_pipeline.state import CheckpointStore, inspect_invocation_status
+
+    stage = "signal_mc_generation"
+    invocation = _invocation(stage, tmp_path / "mc.root")
+    state = tmp_path / "state"
+    run_plan(
+        _plan(_item(stage, PlanAction.RUN)),
+        {stage: invocation},
+        state_directory=state,
+        repository_root=tmp_path,
+        configuration={"profile": "production", "bootstrap_replicas": 10},
+        executor=FakeExecutor(),
+        validator=_validator,
+    )
+
+    status = inspect_invocation_status(
+        invocation,
+        checkpoint_store=CheckpointStore(state),
+        configuration={"profile": "production", "bootstrap_replicas": 999},
+        repository_root=tmp_path,
+        final_state="eta_pi0",
+        observable=None,
+        max_age_days=30,
+        validator=_validator,
+    )
+
+    assert status.state is ArtifactState.FRESH

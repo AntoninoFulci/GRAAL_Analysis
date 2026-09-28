@@ -46,7 +46,7 @@ def test_full_asymmetry_closure_has_deterministic_dependency_order():
     assert ordered == target_closure("beam_asymmetry_full")
 
 
-def test_first_pass_excludes_independent_signal_mc_and_sideband_branches():
+def test_first_pass_reuses_training_signal_mc_but_excludes_sideband_branch():
     from graal_pipeline.registry import target_closure
 
     closure = target_closure("beam_asymmetry_first_pass")
@@ -55,7 +55,7 @@ def test_first_pass_excludes_independent_signal_mc_and_sideband_branches():
     assert "reco_bdt_raw" in closure
     assert "reco_chi2_raw" not in closure
     assert "reco_data_sideband" not in closure
-    assert "signal_mc_generation" not in closure
+    assert "signal_mc_generation" in closure
     assert "reco_signal_mc_sideband" not in closure
 
 

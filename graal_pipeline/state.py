@@ -151,7 +151,20 @@ def _responsible_file_hashes(paths: Iterable[Path], root: Path) -> dict[str, str
             label = path.relative_to(root).as_posix()
         except ValueError:
             label = str(path)
-        hashes[label] = _sha256_file(path) if path.is_file() else "<missing>"
+        if path.is_file():
+            hashes[label] = _sha256_file(path)
+        elif path.is_dir():
+            children = sorted(item for item in path.rglob("*") if item.is_file())
+            if not children:
+                hashes[f"{label}/"] = "<empty>"
+            for child in children:
+                try:
+                    child_label = child.relative_to(root).as_posix()
+                except ValueError:
+                    child_label = str(child)
+                hashes[child_label] = _sha256_file(child)
+        else:
+            hashes[label] = "<missing>"
     return hashes
 
 
@@ -252,6 +265,16 @@ def make_checkpoint(
         "working_directory": working_directory,
         "validator": validator,
         "verification": verification,
+    }
+
+
+def invocation_configuration(invocation: StageInvocation) -> Fingerprint:
+    """Return only configuration that can change this stage's artifact."""
+    return {
+        "commands": [list(command) for command in invocation.commands],
+        "working_directory": str(invocation.working_directory),
+        "validator": invocation.validator,
+        "output_kind": invocation.output_kind,
     }
 
 
@@ -409,6 +432,7 @@ def inspect_invocation_status(
     validator: Callable[[str, StageInvocation], ValidationResult],
     now: datetime | None = None,
 ) -> ArtifactStatus:
+    del configuration
     exists = bool(invocation.outputs) and all(path.exists() for path in invocation.outputs)
     if not exists:
         return ArtifactStatus(
@@ -441,7 +465,7 @@ def inspect_invocation_status(
         checkpoint=checkpoint_store.read(checkpoint_path),
         current_inputs=inputs,
         current_outputs=outputs,
-        current_configuration=configuration,
+        current_configuration=invocation_configuration(invocation),
         current_code=code,
         max_age_days=max_age_days,
         now=now,

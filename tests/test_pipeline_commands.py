@@ -232,9 +232,12 @@ def test_mc_generation_uses_one_root_argv_per_registered_channel():
 
     config = load_config()
     invocation = build_stage_invocation("mc_generation", config)
+    background_channels = tuple(
+        channel for channel in CHANNEL_NAMES if channel != "eta_pi0"
+    )
 
-    assert len(invocation.commands) == len(CHANNEL_NAMES)
-    for channel, command in zip(CHANNEL_NAMES, invocation.commands):
+    assert len(invocation.commands) == len(background_channels)
+    for channel, command in zip(background_channels, invocation.commands):
         assert command == (
             config.runtime.root_executable,
             "-l",
@@ -247,6 +250,20 @@ def test_mc_generation_uses_one_root_argv_per_registered_channel():
             + f"({config.runtime.mc_events})",
         )
     assert invocation.working_directory == config.paths.mc_data_dir
+
+
+def test_signal_mc_has_single_owner_shared_by_training_and_extraction():
+    from graal_pipeline.config import load_config
+    from graal_pipeline.registry import STAGES, build_stage_invocation
+
+    config = load_config()
+    background = build_stage_invocation("mc_generation", config)
+    signal = build_stage_invocation("signal_mc_generation", config)
+    signal_path = config.paths.mc_data_dir / "eta_pi0_mc.root"
+
+    assert signal_path not in background.outputs
+    assert signal.outputs == (signal_path,)
+    assert "signal_mc_generation" in STAGES["feature_build"].dependencies
 
 
 def test_result_path_rejects_parent_and_symlink_escape(tmp_path):

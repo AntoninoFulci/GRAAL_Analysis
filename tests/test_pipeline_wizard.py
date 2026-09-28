@@ -65,3 +65,54 @@ def test_confirmation_requires_explicit_yes():
     output = StringIO()
     assert confirm_plan(input_fn=_scripted_input("no"), output=output) is False
     assert confirm_plan(input_fn=_scripted_input("sì"), output=output) is True
+
+
+def test_wizard_routes_enabled_actions_to_reproducible_cli_commands():
+    from graal_pipeline.cli import run_wizard
+
+    commands = []
+    output = StringIO()
+    run_wizard(
+        input_fn=_scripted_input(
+            "1",
+            "4", "1", "1", "2", "6",
+            "5", "1", "1",
+            "6", "1",
+            "7",
+        ),
+        output=output,
+        command_runner=lambda argv: commands.append(tuple(argv)) or 0,
+    )
+
+    assert commands == [
+        ("resume",),
+        ("extract", "beam-asymmetry", "--final-state", "eta_pi0", "--first-pass"),
+        (
+            "validate",
+            "beam-asymmetry",
+            "--final-state",
+            "eta_pi0",
+            "--profile",
+            "smoke",
+        ),
+        ("status", "--final-state", "eta_pi0"),
+    ]
+
+
+def test_interactive_failure_prompt_can_show_log_then_abort(tmp_path):
+    from graal_pipeline.cli import ask_failure_action
+
+    log_path = tmp_path / "stage.log"
+    log_path.write_text("ROOT failed here\n")
+    output = StringIO()
+
+    action = ask_failure_action(
+        "preanalysis",
+        42,
+        log_path,
+        input_fn=_scripted_input("3", "4"),
+        output=output,
+    )
+
+    assert action == "abort"
+    assert "ROOT failed here" in output.getvalue()

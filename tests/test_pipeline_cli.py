@@ -46,6 +46,8 @@ def test_pyproject_registers_console_command_and_python_310_tomli():
     ("argv", "command", "operation"),
     [
         (["resume"], "resume", None),
+        (["prepare", "--final-state", "eta_pi0"], "prepare", None),
+        (["reconstruct", "--final-state", "eta_pi0"], "reconstruct", None),
         (["status", "--final-state", "eta_pi0"], "status", None),
         (
             ["plan", "extract", "beam-asymmetry", "--final-state", "eta_pi0"],
@@ -182,3 +184,53 @@ def test_module_and_console_help_are_equivalent():
 
     assert module.returncode == console.returncode == 0
     assert module.stdout == console.stdout
+
+
+def test_common_options_work_before_or_after_subcommand():
+    from graal_pipeline.cli import build_parser
+
+    before = build_parser().parse_args(
+        ["--profile", "farm", "--config", "farm.toml", "status"]
+    )
+    after = build_parser().parse_args(
+        ["status", "--profile", "farm", "--config", "farm.toml"]
+    )
+
+    assert before.profile == after.profile == "farm"
+    assert before.config == after.config == "farm.toml"
+
+
+def test_toml_checkpoint_policies_apply_when_cli_does_not_override():
+    from graal_pipeline.cli import _planning_policies_from_args, build_parser
+    from graal_pipeline.config import load_config
+
+    args = build_parser().parse_args(["status"])
+    config = load_config(
+        cli_overrides={
+            "checkpoint.old_policy": "reuse",
+            "checkpoint.stale_policy": "fail",
+            "checkpoint.untracked_policy": "adopt",
+        }
+    )
+
+    policies = _planning_policies_from_args(args, config)
+
+    assert (policies.old, policies.stale, policies.untracked) == (
+        "reuse",
+        "fail",
+        "adopt",
+    )
+
+
+def test_first_pass_flag_selects_first_pass_target():
+    from graal_pipeline.cli import _target_from_args, build_parser
+
+    args = build_parser().parse_args(
+        ["extract", "beam-asymmetry", "--first-pass", "--final-state", "eta_pi0"]
+    )
+
+    assert _target_from_args(args) == (
+        "beam_asymmetry_first_pass",
+        "eta_pi0",
+        "beam_asymmetry",
+    )

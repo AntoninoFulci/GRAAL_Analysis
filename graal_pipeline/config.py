@@ -174,6 +174,8 @@ def load_config(
 ) -> PipelineConfig:
     root = Path(repo_root).resolve() if repo_root is not None else repository_root()
     config_path = Path(path).resolve() if path is not None else root / "config/pipeline.toml"
+    if path is not None and not config_path.is_file():
+        raise ConfigError(f"configuration file does not exist: {config_path}")
     document: Mapping[str, Any] = {}
     if config_path.exists():
         parser = _load_toml_module()

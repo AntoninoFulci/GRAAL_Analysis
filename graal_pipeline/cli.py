@@ -14,6 +14,7 @@ from .config import (
     configuration_snapshot,
     load_config,
     materialize_profile_run,
+    resolve_within_root,
     validate_profile_inputs,
 )
 from .model import ArtifactState, PipelinePlan
@@ -32,18 +33,43 @@ from .state import CheckpointStore, inspect_invocation_status
 from .validators import validate_invocation
 
 
-def _common_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(add_help=False)
+def _common_parser(*, suppress_defaults: bool = False) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        add_help=False,
+        argument_default=argparse.SUPPRESS if suppress_defaults else None,
+    )
     parser.add_argument("--config", help="Percorso configurazione TOML")
-    parser.add_argument("--profile", default="production", help="Profilo di esecuzione")
+    parser.add_argument(
+        "--profile",
+        default=argparse.SUPPRESS if suppress_defaults else "production",
+        help="Profilo di esecuzione",
+    )
     parser.add_argument("--state-dir", help="Directory checkpoint, log e report")
     parser.add_argument("--dry-run", action="store_true", help="Pianifica senza eseguire")
     parser.add_argument("--non-interactive", action="store_true", help="Disabilita domande interattive")
     parser.add_argument("--yes", action="store_true", help="Conferma piano finale")
-    parser.add_argument("--force-stage", action="append", default=[], metavar="STAGE", help="Forza rifacimento stage")
-    parser.add_argument("--old-policy", choices=("ask", "rebuild", "reuse", "fail"), default="ask")
-    parser.add_argument("--stale-policy", choices=("ask", "rebuild", "reuse", "fail"), default="ask")
-    parser.add_argument("--untracked-policy", choices=("ask", "adopt", "rebuild", "fail"), default="ask")
+    parser.add_argument(
+        "--force-stage",
+        action="append",
+        default=argparse.SUPPRESS if suppress_defaults else [],
+        metavar="STAGE",
+        help="Forza rifacimento stage",
+    )
+    parser.add_argument(
+        "--old-policy",
+        choices=("ask", "rebuild", "reuse", "fail"),
+        default=argparse.SUPPRESS if suppress_defaults else None,
+    )
+    parser.add_argument(
+        "--stale-policy",
+        choices=("ask", "rebuild", "reuse", "fail"),
+        default=argparse.SUPPRESS if suppress_defaults else None,
+    )
+    parser.add_argument(
+        "--untracked-policy",
+        choices=("ask", "adopt", "rebuild", "fail"),
+        default=argparse.SUPPRESS if suppress_defaults else None,
+    )
     parser.add_argument("--verify", choices=("fast", "full"), help="Livello verifica artifact")
     parser.add_argument("--keep-failed-work", action="store_true", help="Conserva prodotti staged falliti")
     return parser
@@ -51,14 +77,25 @@ def _common_parser() -> argparse.ArgumentParser:
 
 def build_parser() -> argparse.ArgumentParser:
     common = _common_parser()
+    leaf_common = _common_parser(suppress_defaults=True)
     parser = argparse.ArgumentParser(
         prog="graal-pipeline",
         description="GRAAL pipeline orchestrator — pianificazione, checkpoint ed estrazione",
         parents=[common],
     )
     commands = parser.add_subparsers(dest="command")
-    commands.add_parser("resume", parents=[common], help="Resume latest incomplete run").set_defaults(command="resume")
-    status = commands.add_parser("status", parents=[common], help="Inspect checkpoints and artifacts")
+    commands.add_parser("resume", parents=[leaf_common], help="Resume latest incomplete run").set_defaults(command="resume")
+    prepare = commands.add_parser(
+        "prepare", parents=[leaf_common], help="Prepare data and model prerequisites"
+    )
+    prepare.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
+    prepare.set_defaults(command="prepare")
+    reconstruct = commands.add_parser(
+        "reconstruct", parents=[leaf_common], help="Reconstruct a final state"
+    )
+    reconstruct.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
+    reconstruct.set_defaults(command="reconstruct")
+    status = commands.add_parser("status", parents=[leaf_common], help="Inspect checkpoints and artifacts")
     status.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
     status.set_defaults(command="status")
 
@@ -66,22 +103,24 @@ def build_parser() -> argparse.ArgumentParser:
     plan_operations = plan.add_subparsers(dest="operation", required=True)
     plan_extract = plan_operations.add_parser("extract", help="Plan observable extraction")
     plan_observables = plan_extract.add_subparsers(dest="observable_command", required=True)
-    plan_beam = plan_observables.add_parser("beam-asymmetry", parents=[common])
+    plan_beam = plan_observables.add_parser("beam-asymmetry", parents=[leaf_common])
     plan_beam.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
+    plan_beam.add_argument("--first-pass", action="store_true", help="Pianifica la prima passata")
     plan_beam.set_defaults(command="plan", operation="extract")
 
     extract = commands.add_parser("extract", help="Extract a physics observable")
     extract_operations = extract.add_subparsers(dest="operation", required=True)
-    beam = extract_operations.add_parser("beam-asymmetry", parents=[common])
+    beam = extract_operations.add_parser("beam-asymmetry", parents=[leaf_common])
     beam.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
+    beam.add_argument("--first-pass", action="store_true", help="Esegue la prima passata")
     beam.set_defaults(command="extract", operation="beam-asymmetry")
 
     validate = commands.add_parser("validate", help="Validate pipeline integration")
     validate_operations = validate.add_subparsers(dest="operation", required=True)
-    validate_beam = validate_operations.add_parser("beam-asymmetry", parents=[common])
+    validate_beam = validate_operations.add_parser("beam-asymmetry", parents=[leaf_common])
     validate_beam.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
     validate_beam.set_defaults(command="validate", operation="beam-asymmetry")
-    validate_full = validate_operations.add_parser("full", parents=[common])
+    validate_full = validate_operations.add_parser("full", parents=[leaf_common])
     validate_full.add_argument("--final-state", default="eta_pi0", choices=tuple(FINAL_STATES))
     validate_full.set_defaults(command="validate", operation="full")
     return parser
@@ -130,13 +169,43 @@ def confirm_plan(
     return accepted
 
 
+def ask_failure_action(
+    stage_key: str,
+    exit_code: int,
+    log_path: Path,
+    *,
+    input_fn: Callable[[str], str] = input,
+    output: TextIO = sys.stdout,
+) -> str:
+    _write(output, f"Stage {stage_key} fallito con exit code {exit_code}.")
+    while True:
+        _write(output, "1. Riprova")
+        _write(output, "2. Continua i rami indipendenti")
+        _write(output, "3. Mostra log")
+        _write(output, "4. Interrompi esecuzione")
+        answer = input_fn("Scelta: ").strip()
+        if answer == "1":
+            return "retry"
+        if answer == "2":
+            return "continue"
+        if answer == "3":
+            try:
+                _write(output, log_path.read_text(encoding="utf-8"))
+            except OSError as exc:
+                _write(output, f"Impossibile leggere il log: {exc}")
+            continue
+        if answer == "4":
+            return "abort"
+        _write(output, "Scelta non valida.")
+
+
 def _show_main_menu(output: TextIO) -> None:
     _write(output, "GRAAL Pipeline")
     _write(output)
     entries = (
         ("1", "Continua ultima esecuzione", "Riparte dal primo checkpoint incompleto o scelto per il rifacimento."),
         ("2", "Prepara dati e modelli", "Esegue preanalisi, selezione, MC, feature e training necessari."),
-        ("3", "Ricostruisci final state", "Produce campioni standard, BDT, fit e controlli sideband."),
+        ("3", "Ricostruisci final state", "Produce la ricostruzione principale dello stato finale scelto."),
         ("4", "Estrai osservabile", "Calcola quantità fisiche usando ricostruzione, flusso e correzioni."),
         ("5", "Valida pipeline", "Esegue profili ridotti o completi e produce un report."),
         ("6", "Controlla checkpoint e output", "Mostra validità, età, dipendenze e motivi dello stato."),
@@ -176,7 +245,24 @@ def _observable_menu(final_state: str, input_fn: Callable[[str], str], output: T
     return None
 
 
-def _beam_menu(input_fn: Callable[[str], str], output: TextIO) -> None:
+def _choose_validation_profile(
+    input_fn: Callable[[str], str], output: TextIO
+) -> str | None:
+    _write(output, "Profilo di validazione")
+    _write(output, "1. smoke")
+    _write(output, "   Integrazione completa su un campione ROOT reale ridotto.")
+    _write(output, "2. farm")
+    _write(output, "   Validazione completa isolata con parametri nominali.")
+    answer = input_fn("Scelta: ").strip()
+    return {"1": "smoke", "2": "farm"}.get(answer)
+
+
+def _beam_menu(
+    final_state: str,
+    input_fn: Callable[[str], str],
+    output: TextIO,
+    command_runner: Callable[[Sequence[str]], int],
+) -> None:
     while True:
         entries = (
             ("1", "Estrazione finale", "Esegue correzioni, sideband e covarianze complete."),
@@ -194,8 +280,43 @@ def _beam_menu(input_fn: Callable[[str], str], output: TextIO) -> None:
             _write(output, "Estrazione finale è target produzione; prima passata è diagnostica.")
         elif answer == "6":
             return
-        elif answer in {"1", "2", "3", "4", "5"}:
-            _write(output, "Comando disponibile nella CLI riproducibile.")
+        elif answer == "1":
+            command_runner(
+                ("extract", "beam-asymmetry", "--final-state", final_state)
+            )
+        elif answer == "2":
+            command_runner(
+                (
+                    "extract",
+                    "beam-asymmetry",
+                    "--final-state",
+                    final_state,
+                    "--first-pass",
+                )
+            )
+        elif answer == "3":
+            profile = _choose_validation_profile(input_fn, output)
+            if profile is None:
+                _write(output, "Scelta non valida.")
+                continue
+            command_runner(
+                (
+                    "validate",
+                    "beam-asymmetry",
+                    "--final-state",
+                    final_state,
+                    "--profile",
+                    profile,
+                )
+            )
+        elif answer == "4":
+            _write(
+                output,
+                "Imposta estimator, bootstrap e seed in config/pipeline.toml "
+                "oppure in un file passato con --config.",
+            )
+        elif answer == "5":
+            command_runner(("status", "--final-state", final_state))
         else:
             _write(output, "Scelta non valida.")
 
@@ -204,12 +325,25 @@ def run_wizard(
     *,
     input_fn: Callable[[str], str] = input,
     output: TextIO = sys.stdout,
+    command_runner: Callable[[Sequence[str]], int] | None = None,
 ) -> int:
+    execute = command_runner or main
     while True:
         _show_main_menu(output)
         answer = input_fn("Scelta: ").strip()
         if answer == "7":
             return 0
+        if answer == "1":
+            execute(("resume",))
+            continue
+        if answer in {"2", "3"}:
+            final_state = _choose_final_state(input_fn, output)
+            if final_state is None:
+                _write(output, "Scelta non valida.")
+                continue
+            command = "prepare" if answer == "2" else "reconstruct"
+            execute((command, "--final-state", final_state))
+            continue
         if answer == "4":
             final_state = _choose_final_state(input_fn, output)
             if final_state is None:
@@ -217,12 +351,34 @@ def run_wizard(
                 continue
             observable = _observable_menu(final_state, input_fn, output)
             if observable == "beam_asymmetry":
-                _beam_menu(input_fn, output)
+                _beam_menu(final_state, input_fn, output, execute)
+            continue
+        if answer == "5":
+            profile = _choose_validation_profile(input_fn, output)
+            final_state = _choose_final_state(input_fn, output)
+            if profile is None or final_state is None:
+                _write(output, "Scelta non valida.")
+                continue
+            execute(
+                (
+                    "validate",
+                    "beam-asymmetry",
+                    "--final-state",
+                    final_state,
+                    "--profile",
+                    profile,
+                )
+            )
+            continue
+        if answer == "6":
+            final_state = _choose_final_state(input_fn, output)
+            if final_state is None:
+                _write(output, "Scelta non valida.")
+                continue
+            execute(("status", "--final-state", final_state))
             continue
         if answer == "?":
             _write(output, "Scegli target; planner controllerà artifact e checkpoint disponibili.")
-        elif answer in {"1", "2", "3", "5", "6"}:
-            _write(output, "Selezione disponibile anche tramite CLI.")
         else:
             _write(output, "Scelta non valida.")
 
@@ -237,14 +393,34 @@ def _target_from_args(args: argparse.Namespace, state_root: Path | None = None) 
         return previous["target"], previous.get("final_state") or "eta_pi0", previous.get("observable")
     if args.command == "status":
         return "beam_asymmetry_full", final_state, "beam_asymmetry"
+    if args.command == "prepare":
+        target = "bdt_training" if final_state == "eta_pi0" else "event_selection"
+        return target, final_state, None
+    if args.command == "reconstruct":
+        return FINAL_STATES[final_state].reconstruction_target, final_state, None
     operation = getattr(args, "operation", None)
     if operation in {"extract", "beam-asymmetry"}:
         selected = require_capability(final_state, "beam_asymmetry")
-        assert selected.production_target is not None
-        return selected.production_target, final_state, "beam_asymmetry"
+        target = (
+            selected.first_pass_target
+            if getattr(args, "first_pass", False)
+            else selected.production_target
+        )
+        assert target is not None
+        return target, final_state, "beam_asymmetry"
     if operation == "full":
         return "beam_asymmetry_full", final_state, "beam_asymmetry"
     raise PlanningError(f"unsupported command: {args.command}")
+
+
+def _planning_policies_from_args(
+    args: argparse.Namespace, config
+) -> PlanningPolicies:
+    return PlanningPolicies(
+        getattr(args, "old_policy", None) or config.checkpoint.old_policy,
+        getattr(args, "stale_policy", None) or config.checkpoint.stale_policy,
+        getattr(args, "untracked_policy", None) or config.checkpoint.untracked_policy,
+    )
 
 
 def _print_statuses(statuses, output: TextIO) -> None:
@@ -278,7 +454,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = materialize_profile_run(config, profile_run_id)
         if args.command == "validate":
             print(f"CLAIM: {config.profile_settings.claim}")
-        state_root = Path(args.state_dir).expanduser().resolve() if args.state_dir else config.paths.results_dir / ".pipeline"
+        state_root = (
+            resolve_within_root(config.repository_root, args.state_dir)
+            if args.state_dir
+            else config.paths.results_dir / ".pipeline"
+        )
         target, final_state, observable = _target_from_args(args, state_root)
         enabled_optional = frozenset({"grid_search"}) if config.runtime.use_grid_search else frozenset()
         ordered = target_closure(target, enabled_optional_dependencies=enabled_optional)
@@ -302,7 +482,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "status":
             _print_statuses(statuses, sys.stdout)
             return 0
-        old_policy, stale_policy, untracked_policy = args.old_policy, args.stale_policy, args.untracked_policy
+        selected_policies = _planning_policies_from_args(args, config)
+        old_policy = selected_policies.old
+        stale_policy = selected_policies.stale
+        untracked_policy = selected_policies.untracked
         if not args.non_interactive:
             states = {status.state for status in statuses.values()}
             if old_policy == "ask" and ArtifactState.OLD in states:
@@ -333,8 +516,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             state_directory=state_root,
             repository_root=config.repository_root,
             validator=validate_invocation,
+            on_failure=None if args.non_interactive else ask_failure_action,
+            max_retries=3,
             keep_failed_work=args.keep_failed_work,
             configuration=snapshot,
+            verification=config.checkpoint.verification,
             run_id=profile_run_id,
         )
         return summary.exit_code

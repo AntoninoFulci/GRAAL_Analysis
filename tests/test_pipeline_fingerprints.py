@@ -143,3 +143,23 @@ def test_no_git_and_unavailable_git_remain_deterministic(tmp_path):
     assert no_repo_first["git_commit"] is None
     assert no_binary_first["git_commit"] is None
     assert no_repo_first["files"] == no_binary_first["files"]
+
+
+def test_responsible_code_fingerprint_hashes_directory_contents_without_git(tmp_path):
+    from graal_pipeline.state import responsible_code_fingerprint
+
+    source = tmp_path / "generators"
+    source.mkdir()
+    macro = source / "generate.C"
+    macro.write_text("void generate() {}\n")
+
+    before = responsible_code_fingerprint(
+        ("generators",), tmp_path, git_executable="missing-git"
+    )
+    macro.write_text("void generate() { int changed = 1; }\n")
+    after = responsible_code_fingerprint(
+        ("generators",), tmp_path, git_executable="missing-git"
+    )
+
+    assert before["files"] != after["files"]
+    assert tuple(before["files"]) == ("generators/generate.C",)

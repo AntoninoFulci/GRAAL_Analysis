@@ -123,7 +123,7 @@ STAGES = MappingProxyType(
         "feature_build": StageSpec(
             "feature_build",
             "Build Stage-1 signal and background features.",
-            ("beam_spectrum", "mc_generation"),
+            ("beam_spectrum", "mc_generation", "signal_mc_generation"),
         ),
         "grid_search": StageSpec(
             "grid_search",
@@ -303,6 +303,9 @@ def build_stage_invocation(
         commands = ((python, "-u", "-m", "event_selector.select_events", "--input-dir", str(config.paths.preanalysis_dir), "--output-dir", str(config.paths.selected_dir), "--threads", str(config.runtime.threads)),)
         inputs, outputs = (config.paths.preanalysis_dir,), (config.paths.selected_dir,)
     elif stage_key == "mc_generation":
+        background_channels = tuple(
+            channel for channel in CHANNEL_NAMES if channel != "eta_pi0"
+        )
         commands = tuple(
             (
                 config.runtime.root_executable,
@@ -312,11 +315,11 @@ def build_stage_invocation(
                 str(root / f"03_mc_simulation/generators/generate_{channel}_dataset.C")
                 + f"({config.runtime.mc_events})",
             )
-            for channel in CHANNEL_NAMES
+            for channel in background_channels
         )
         working_directory = config.paths.mc_data_dir
-        inputs = tuple(root / f"03_mc_simulation/generators/generate_{channel}_dataset.C" for channel in CHANNEL_NAMES)
-        outputs = tuple(config.paths.mc_data_dir / get_channel(channel).mc_filename for channel in CHANNEL_NAMES)
+        inputs = tuple(root / f"03_mc_simulation/generators/generate_{channel}_dataset.C" for channel in background_channels)
+        outputs = tuple(config.paths.mc_data_dir / get_channel(channel).mc_filename for channel in background_channels)
     elif stage_key == "beam_spectrum":
         commands = ((python, "-u", "-m", "bdt_training.beam_spectrum", "--selected-dir", str(config.paths.selected_dir), "--tree", config.runtime.input_tree, "--output", str(config.paths.beam_spectrum_file)),)
         inputs, outputs = (config.paths.selected_dir,), (config.paths.beam_spectrum_file,)

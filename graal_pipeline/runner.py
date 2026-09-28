@@ -24,6 +24,7 @@ from .registry import STAGES
 from .state import (
     CheckpointStore,
     fingerprint_path,
+    invocation_configuration,
     make_checkpoint,
     responsible_code_fingerprint,
 )
@@ -225,28 +226,36 @@ def _checkpoint_stage(
     run_id: str,
     repository_root: Path,
     configuration: Mapping[str, Any],
+    verification: str,
     provenance: str = "produced",
     provenance_confident: bool = True,
 ) -> None:
-    inputs = {str(path): fingerprint_path(path) for path in invocation.inputs}
-    outputs = {str(path): fingerprint_path(path) for path in invocation.outputs}
+    inputs = {
+        str(path): fingerprint_path(path, mode=verification)
+        for path in invocation.inputs
+    }
+    outputs = {
+        str(path): fingerprint_path(path, mode=verification)
+        for path in invocation.outputs
+    }
     code = responsible_code_fingerprint(invocation.responsible_paths, repository_root)
     checkpoint = make_checkpoint(
         stage=invocation.stage_key,
         completed_at=datetime.now(timezone.utc),
         inputs=inputs,
         outputs=outputs,
-        configuration=configuration,
+        configuration=invocation_configuration(invocation),
         code=code,
         run_id=run_id,
         final_state=plan.final_state,
         observable=plan.observable,
+        profile=str(configuration.get("profile", "production")),
         provenance=provenance,
         provenance_confident=provenance_confident,
         command=invocation.commands[-1],
         working_directory=str(invocation.working_directory),
         validator=validation.validator,
-        verification=validation.level,
+        verification=verification,
     )
     path = store.path_for(
         invocation.stage_key,
@@ -271,16 +280,27 @@ def run_plan(
     run_id: str | None = None,
     after_publish: Callable[[str, tuple[Path, ...]], None] | None = None,
     configuration: Mapping[str, Any] | None = None,
+    verification: str = "fast",
 ) -> RunSummary:
-    selected_run_id = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    selected_run_id = run_id or datetime.now(timezone.utc).strftime(
+        "%Y%m%dT%H%M%S%fZ"
+    )
     state_root = Path(state_directory)
     run_root = state_root / "runs" / selected_run_id
     log_root = state_root / "logs" / selected_run_id
-    run_root.mkdir(parents=True, exist_ok=True)
-    log_root.mkdir(parents=True, exist_ok=True)
-    _write_json(run_root / "plan.json", _plan_payload(plan))
     lock = RunLock(state_root, run_id=selected_run_id)
     lock.acquire()
+    try:
+        run_root.mkdir(parents=True, exist_ok=True)
+        log_root.mkdir(parents=True, exist_ok=True)
+        _write_json(run_root / "plan.json", _plan_payload(plan))
+        _write_json(
+            state_root / "latest.json",
+            {"run_id": selected_run_id, "status": "RUNNING"},
+        )
+    except BaseException:
+        lock.release()
+        raise
     store = CheckpointStore(state_root)
     results: list[StageRunResult] = []
     by_stage: dict[str, StageRunResult] = {}
@@ -309,6 +329,7 @@ def run_plan(
                         run_id=selected_run_id,
                         repository_root=effective_repository_root,
                         configuration=effective_configuration,
+                        verification=verification,
                         provenance="adopted_legacy_output",
                         provenance_confident=False,
                     )
@@ -316,9 +337,13 @@ def run_plan(
                 else:
                     result = StageRunResult(item.stage_key, "FAILED", 98, None, validation.reasons)
             else:
+                dependency_keys = (
+                    *STAGES[item.stage_key].dependencies,
+                    *STAGES[item.stage_key].optional_dependencies,
+                )
                 dependencies = [
                     by_stage[key]
-                    for key in STAGES[item.stage_key].dependencies
+                    for key in dependency_keys
                     if key in by_stage
                 ]
                 failed_dependencies = [
@@ -363,6 +388,7 @@ def run_plan(
                                     run_id=selected_run_id,
                                     repository_root=effective_repository_root,
                                     configuration=effective_configuration,
+                                    verification=verification,
                                 )
                                 result = StageRunResult(item.stage_key, "PASSED", 0, log_path)
                                 break

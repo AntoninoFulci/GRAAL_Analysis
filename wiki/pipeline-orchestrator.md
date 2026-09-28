@@ -45,8 +45,8 @@ Il menu principale propone:
    scelto per il rifacimento.
 2. **Prepara dati e modelli**: prepara preanalisi, selezione, Monte Carlo,
    feature e modello BDT richiesti dal target.
-3. **Ricostruisci final state**: produce i campioni di ricostruzione necessari
-   per lo stato finale selezionato.
+3. **Ricostruisci final state**: produce la ricostruzione principale dello
+   stato finale selezionato.
 4. **Estrai osservabile**: apre prima la scelta dello stato finale, poi quella
    dell'osservabile.
 5. **Valida pipeline**: seleziona un profilo di integrazione isolato.
@@ -71,6 +71,25 @@ informazioni contestuali. Le funzionalità non implementate sono visibili con
 l'indicazione `[non disponibile]` e non possono essere selezionate.
 
 ## Comandi CLI
+
+### Preparare dati e modello
+
+```bash
+graal-pipeline prepare --final-state eta_pi0
+```
+
+`prepare` pianifica preanalisi, selezione, campioni MC, spettro, feature e
+training necessari allo stato finale. Per `2pi0`, che non usa ancora un bundle
+BDT dedicato, il target di preparazione termina alla selezione eventi.
+
+### Ricostruire uno stato finale
+
+```bash
+graal-pipeline reconstruct --final-state eta_pi0
+```
+
+`reconstruct` usa il target principale registrato per lo stato finale:
+ricostruzione BDT con fit per `eta_pi0`, ricostruzione χ² di base per `2pi0`.
 
 ### Riprendere un'esecuzione
 
@@ -111,6 +130,15 @@ seleziona il primo stadio effettivamente necessario. Il piano usa le azioni
 
 ```bash
 graal-pipeline extract beam-asymmetry --final-state eta_pi0
+```
+
+La prima passata diagnostica, senza correzione sideband completa, è disponibile
+con:
+
+```bash
+graal-pipeline extract beam-asymmetry \
+  --final-state eta_pi0 \
+  --first-pass
 ```
 
 In modalità interattiva vengono richieste le decisioni relative agli artifact
@@ -188,6 +216,7 @@ graal-pipeline extract beam-asymmetry \
 | `--verify fast\|full` | Seleziona il livello di fingerprint e validazione. |
 | `--keep-failed-work` | Conserva la directory staged di uno stadio fallito per il debug. |
 | `--final-state KEY` | Seleziona lo stato finale del comando. |
+| `--first-pass` | Seleziona il target diagnostico dell'asimmetria invece dell'estrazione completa. |
 
 Le opzioni possono essere consultate sul comando foglia interessato, per
 esempio:
@@ -212,6 +241,8 @@ richiesta da CLI termina prima di qualsiasi mutazione con exit code 2.
 L'estrazione completa di `eta_pi0` collega i seguenti rami:
 
 ```text
+signal_mc_generation ───────────────────────────────┐
+                                                    v
 preanalysis → event_selection → beam_spectrum → feature_build
                                                ├→ grid_search
                                                └→ bdt_training
@@ -224,10 +255,17 @@ flux_calibration + ricostruzioni dati + sideband MC
 └→ beam_asymmetry_full
 ```
 
-`grid_search` è una dipendenza soltanto quando la configurazione di training ne
-usa il risultato. Un fallimento blocca i discendenti, mentre i rami indipendenti
-continuano; il riepilogo finale resta non valido se uno stadio richiesto è
-fallito o bloccato.
+Il campione MC `eta_pi0` ha un solo stadio proprietario ed è condiviso fra
+training e ricostruzione sideband; gli altri canali sono prodotti da
+`mc_generation`. `grid_search` è una dipendenza soltanto quando la
+configurazione di training ne usa il risultato. Un fallimento blocca i
+discendenti, mentre i rami indipendenti continuano; il riepilogo finale resta
+non valido se uno stadio richiesto è fallito o bloccato.
+
+Dopo un fallimento, un run interattivo consente di riprovare, continuare i rami
+indipendenti, mostrare il log dello stadio oppure interrompere. Un run
+non interattivo continua automaticamente i rami indipendenti e restituisce un
+exit code non nullo.
 
 ## Stati degli artifact
 
