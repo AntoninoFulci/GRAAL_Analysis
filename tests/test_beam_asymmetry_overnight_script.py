@@ -180,6 +180,26 @@ def test_runner_defaults_to_one_million_event_progress_interval(tmp_path):
     assert "--progress-every-events 1000000" in calls
 
 
+def test_runner_defaults_selected_output_to_repo_data_directory(tmp_path):
+    fake_python = _fake_python(tmp_path)
+    env = _environment(tmp_path, fake_python)
+    env.pop("SELECTED_DIR")
+    env["OVERNIGHT_FAIL_MATCH"] = "event_selector.select_events"
+
+    result = subprocess.run(
+        ["bash", str(SCRIPT)],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1
+    calls = (tmp_path / "calls.log").read_text()
+    assert "event_selector.select_events --input-dir " in calls
+    assert "--output-dir data/graal/selected --threads" in calls
+
+
 def test_calibration_failure_does_not_stop_reconstruction(tmp_path):
     fake_python = _fake_python(tmp_path)
     env = _environment(tmp_path, fake_python)
