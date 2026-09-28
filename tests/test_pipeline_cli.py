@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -234,3 +235,217 @@ def test_first_pass_flag_selects_first_pass_target():
         "eta_pi0",
         "beam_asymmetry",
     )
+
+
+def test_resume_farm_profile_reopens_latest_isolated_validation_run(tmp_path, capsys):
+    from graal_pipeline.cli import main
+
+    results = tmp_path / "validation/farm"
+    profile_run = results / "20260928T120000000000Z"
+    state = profile_run / ".pipeline"
+    attempt = "initial-attempt"
+    (state / "runs" / attempt).mkdir(parents=True)
+    (state / "runs" / attempt / "plan.json").write_text(
+        json.dumps(
+            {
+                "target": "beam_asymmetry_first_pass",
+                "final_state": "eta_pi0",
+                "observable": "beam_asymmetry",
+                "items": [],
+            }
+        )
+    )
+    (state / "latest.json").write_text(
+        json.dumps({"run_id": attempt, "status": "FAILED"})
+    )
+    config = tmp_path / "pipeline.toml"
+    config.write_text(
+        f"""
+[profiles.farm.paths]
+results_dir = "{results}"
+
+[profiles.farm.profile_settings]
+claim = "full farm validation"
+isolated_results = true
+requires_real_fixture = false
+"""
+    )
+
+    code = main(
+        [
+            "resume",
+            "--profile",
+            "farm",
+            "--config",
+            str(config),
+            "--dry-run",
+            "--non-interactive",
+            "--old-policy",
+            "rebuild",
+            "--stale-policy",
+            "rebuild",
+            "--untracked-policy",
+            "rebuild",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == 0, captured.err
+    assert "beam_asymmetry_first_pass" in captured.out
+    assert "no previous run is available to resume" not in captured.err
+
+
+def test_isolated_profile_does_not_reuse_output_run_id_for_execution_attempt(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from graal_pipeline.cli import main
+
+    results = tmp_path / "validation/farm"
+    config = tmp_path / "pipeline.toml"
+    config.write_text(
+        f"""
+[profiles.farm.paths]
+results_dir = "{results}"
+
+[profiles.farm.profile_settings]
+claim = "full farm validation"
+isolated_results = true
+requires_real_fixture = false
+"""
+    )
+    captured = {}
+
+    def record_run(*args, **kwargs):
+        captured["run_id"] = kwargs["run_id"]
+        captured["state_directory"] = Path(kwargs["state_directory"])
+        return SimpleNamespace(exit_code=0)
+
+    monkeypatch.setattr("graal_pipeline.cli.run_plan", record_run)
+
+    code = main(
+        [
+            "validate",
+            "full",
+            "--profile",
+            "farm",
+            "--config",
+            str(config),
+            "--non-interactive",
+            "--yes",
+            "--old-policy",
+            "rebuild",
+            "--stale-policy",
+            "rebuild",
+            "--untracked-policy",
+            "rebuild",
+        ]
+    )
+
+    assert code == 0
+    assert captured["run_id"] is None
+    assert captured["state_directory"].parent.parent == results
+
+
+def test_status_farm_profile_inspects_latest_isolated_validation_run(
+    tmp_path, monkeypatch
+):
+    import graal_pipeline.cli as cli
+
+    results = tmp_path / "validation/farm"
+    older = results / "20260928T110000000000Z"
+    latest = results / "20260928T120000000000Z"
+    for index, profile_run in enumerate((older, latest)):
+        state = profile_run / ".pipeline"
+        state.mkdir(parents=True)
+        (state / "latest.json").write_text(
+            json.dumps({"run_id": f"attempt-{index}", "status": "FAILED"})
+        )
+        os.utime(state / "latest.json", ns=(index + 1, index + 1))
+    config = tmp_path / "pipeline.toml"
+    config.write_text(
+        f"""
+[profiles.farm.paths]
+results_dir = "{results}"
+
+[profiles.farm.profile_settings]
+claim = "full farm validation"
+isolated_results = true
+requires_real_fixture = false
+"""
+    )
+    real_builder = cli.build_stage_invocation
+    invoked_results = set()
+
+    def record_results(stage, pipeline_config, **kwargs):
+        invoked_results.add(pipeline_config.paths.results_dir)
+        return real_builder(stage, pipeline_config, **kwargs)
+
+    monkeypatch.setattr(cli, "build_stage_invocation", record_results)
+
+    code = cli.main(
+        [
+            "status",
+            "--profile",
+            "farm",
+            "--config",
+            str(config),
+            "--final-state",
+            "eta_pi0",
+        ]
+    )
+
+    assert code == 0
+    assert invoked_results == {latest}
+
+
+def test_status_state_dir_selects_requested_isolated_validation_run(
+    tmp_path, monkeypatch
+):
+    import graal_pipeline.cli as cli
+
+    results = tmp_path / "validation/farm"
+    requested = results / "20260928T110000000000Z"
+    newer = results / "20260928T120000000000Z"
+    for profile_run in (requested, newer):
+        state = profile_run / ".pipeline"
+        state.mkdir(parents=True)
+        (state / "latest.json").write_text(
+            json.dumps({"run_id": "attempt", "status": "FAILED"})
+        )
+    config = tmp_path / "pipeline.toml"
+    config.write_text(
+        f"""
+[profiles.farm.paths]
+results_dir = "{results}"
+
+[profiles.farm.profile_settings]
+claim = "full farm validation"
+isolated_results = true
+requires_real_fixture = false
+"""
+    )
+    real_builder = cli.build_stage_invocation
+    invoked_results = set()
+
+    def record_results(stage, pipeline_config, **kwargs):
+        invoked_results.add(pipeline_config.paths.results_dir)
+        return real_builder(stage, pipeline_config, **kwargs)
+
+    monkeypatch.setattr(cli, "build_stage_invocation", record_results)
+
+    code = cli.main(
+        [
+            "status",
+            "--profile",
+            "farm",
+            "--config",
+            str(config),
+            "--state-dir",
+            str(requested / ".pipeline"),
+        ]
+    )
+
+    assert code == 0
+    assert invoked_results == {requested}

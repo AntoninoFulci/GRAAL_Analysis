@@ -27,6 +27,8 @@ external detector data:
   --python /path/to/python3.10 \
   --raw-target /farm/path/graal_data \
   --pre-target /farm/path/pre_analisi
+
+source .venv/bin/activate
 ```
 
 Setup creates or reuses `.venv` with system site packages, installs
@@ -45,6 +47,9 @@ graal-pipeline extract beam-asymmetry --final-state eta_pi0
 ```
 
 `python -m graal_pipeline` is equivalent to the installed console command.
+Without activating the virtual environment, invoke
+`.venv/bin/python -m graal_pipeline` directly; this form does not depend on
+`PATH`.
 The orchestrator inspects existing artifacts, validates checkpoints, and runs
 only the stages required by the requested result. Paths and farm overrides are
 configured in `config/pipeline.toml`; relative paths are resolved from the

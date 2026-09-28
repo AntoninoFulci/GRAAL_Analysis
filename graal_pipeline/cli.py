@@ -11,6 +11,7 @@ from typing import TextIO
 
 from .config import (
     ConfigError,
+    PipelineConfig,
     configuration_snapshot,
     load_config,
     materialize_profile_run,
@@ -434,6 +435,40 @@ def _print_plan(plan: PipelinePlan, output: TextIO) -> None:
         _write(output, f"{item.action.value:<8} {item.stage_key:<30}{duration} {'; '.join(item.reasons)}")
 
 
+def _latest_isolated_profile_run(config: PipelineConfig) -> Path | None:
+    base = config.paths.results_dir
+    if not base.is_dir():
+        return None
+    candidates = [
+        child
+        for child in base.iterdir()
+        if child.is_dir() and (child / ".pipeline/latest.json").is_file()
+    ]
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda child: (
+            (child / ".pipeline/latest.json").stat().st_mtime_ns,
+            child.name,
+        ),
+    )
+
+
+def _isolated_profile_run_from_state_dir(
+    config: PipelineConfig, state_directory: Path
+) -> Path:
+    state_root = state_directory.resolve()
+    base = config.paths.results_dir.resolve()
+    profile_run = state_root.parent
+    if state_root.name != ".pipeline" or profile_run.parent != base:
+        raise ConfigError(
+            "isolated profile state directory must be "
+            f"{base}/<run-id>/.pipeline"
+        )
+    return profile_run
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     if not arguments:
@@ -446,17 +481,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = load_config(args.config, profile=args.profile)
         if args.verify:
             config = replace(config, checkpoint=replace(config.checkpoint, verification=args.verify))
-        profile_run_id = None
+        requested_state_root = (
+            resolve_within_root(config.repository_root, args.state_dir)
+            if args.state_dir
+            else None
+        )
+        output_run_id = None
         if config.profile_settings.requires_real_fixture:
             validate_profile_inputs(config)
         if config.profile_settings.isolated_results:
-            profile_run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-            config = materialize_profile_run(config, profile_run_id)
+            previous_run = None
+            if args.command in {"resume", "status"}:
+                previous_run = (
+                    _isolated_profile_run_from_state_dir(config, requested_state_root)
+                    if requested_state_root is not None
+                    else _latest_isolated_profile_run(config)
+                )
+            output_run_id = (
+                previous_run.name
+                if previous_run is not None
+                else datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            )
+            config = materialize_profile_run(config, output_run_id)
         if args.command == "validate":
             print(f"CLAIM: {config.profile_settings.claim}")
         state_root = (
-            resolve_within_root(config.repository_root, args.state_dir)
-            if args.state_dir
+            requested_state_root
+            if requested_state_root is not None
             else config.paths.results_dir / ".pipeline"
         )
         target, final_state, observable = _target_from_args(args, state_root)
@@ -521,7 +572,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             keep_failed_work=args.keep_failed_work,
             configuration=snapshot,
             verification=config.checkpoint.verification,
-            run_id=profile_run_id,
+            run_id=None,
         )
         return summary.exit_code
     except (CapabilityError, ConfigError, PlanningError) as exc:

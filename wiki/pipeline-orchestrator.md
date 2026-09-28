@@ -19,6 +19,8 @@ della repository oppure installare il progetto in modalità editable:
 ./scripts/setup.sh --mode local
 # oppure
 python -m pip install -e .
+
+source .venv/bin/activate
 ```
 
 Sono disponibili due entry point equivalenti:
@@ -26,6 +28,13 @@ Sono disponibili due entry point equivalenti:
 ```bash
 graal-pipeline --help
 python -m graal_pipeline --help
+```
+
+Senza attivare l'ambiente, l'invocazione equivalente e indipendente dal
+`PATH` è:
+
+```bash
+.venv/bin/python -m graal_pipeline --help
 ```
 
 L'esecuzione senza argomenti apre il wizard interattivo in italiano:
@@ -101,6 +110,18 @@ graal-pipeline resume
 target e pianifica nuovamente gli stadi in base agli artifact presenti. Non
 considera automaticamente valido un prodotto parziale lasciato da un processo
 interrotto.
+
+Con i profili isolati `smoke` e `farm`, `resume` riapre automaticamente la
+directory di validazione isolata aggiornata più di recente. Gli output restano
+nello stesso `<run-id>`, mentre ogni ripresa riceve un nuovo ID di tentativo e
+nuovi file di piano, riepilogo e log. Per riprendere o ispezionare un run meno
+recente, indicare esplicitamente la sua directory di stato:
+
+```bash
+graal-pipeline resume \
+  --profile farm \
+  --state-dir results/validation/farm/<run-id>/.pipeline
+```
 
 ### Controllare stato e checkpoint
 
@@ -339,6 +360,9 @@ Il profilo `farm` è il successore funzionale del precedente job overnight:
 mantiene output isolati, verifica completa e continuazione dei rami
 indipendenti.
 
+`status --profile smoke|farm` ispeziona l'ultimo run isolato disponibile senza
+crearne uno nuovo. `--state-dir` seleziona un run isolato specifico.
+
 ## Layout di input, risultati e stato
 
 ```text
@@ -354,7 +378,14 @@ results/
 ├── eta_pi0/
 │   ├── reconstruction/
 │   └── observables/beam_asymmetry/
-└── 2pi0/
+├── 2pi0/
+└── validation/farm/<run-id>/
+    ├── eta_pi0/
+    └── .pipeline/
+        ├── runs/<attempt-id>/
+        ├── logs/<attempt-id>/
+        ├── checkpoints/
+        └── latest.json
 ```
 
 La directory di stato predefinita contiene:
@@ -432,19 +463,20 @@ all'ultimo riepilogo utilizzabile da `resume`.
   dello stadio; non forzare il riutilizzo.
 - **Fixture smoke assente**: copiare uno o più run ROOT rappresentativi sotto
   `test_data/raw/` mantenendo la struttura attesa.
-- **Import o comando non trovato**: attivare l'ambiente corretto ed eseguire
+- **`graal-pipeline: command not found`**: il console script è installato in
+  `.venv/bin`. Eseguire `source .venv/bin/activate`, oppure usare
+  `.venv/bin/python -m graal_pipeline`. Un successivo traceback Ubuntu relativo
+  ad `apt_pkg` proviene dal gestore di comandi mancanti del sistema, non dalla
+  pipeline.
+- **Import Python non trovato**: attivare l'ambiente corretto ed eseguire
   `python -m pip install -e .`.
 - **Output staged da analizzare**: ripetere con `--keep-failed-work`.
 
 ## Stato della migrazione dagli script shell
 
-L'interfaccia Python è quella raccomandata per nuovi run. I file
-`run_pipeline.sh` e `scripts/run_beam_asymmetry_overnight.sh` sono mantenuti
-temporaneamente perché nella repository corrente manca il fixture ROOT reale
-richiesto dal gate `smoke` (`test_data/raw/**/*.root`). Non sono wrapper del
-nuovo comando e non devono essere usati come base per nuove automazioni.
-
-La rimozione avverrà soltanto dopo che il profilo `smoke` avrà completato con
-successo l'intera integrazione su dati reali ridotti. Fino a quel momento i
-test contrattuali degli script restano intenzionalmente presenti come rete di
-sicurezza per la migrazione.
+I precedenti runner `run_pipeline.sh` e
+`scripts/run_beam_asymmetry_overnight.sh` sono stati rimossi. Anche i relativi
+test contrattuali sono stati eliminati: l'interfaccia supportata è
+`graal-pipeline`, oppure `python -m graal_pipeline`. Il profilo `farm` copre il
+ruolo del vecchio job overnight; il profilo `smoke` resta il gate richiesto sui
+dati ROOT reali ridotti.

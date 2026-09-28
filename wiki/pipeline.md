@@ -89,8 +89,7 @@ e validazione integrata è quindi preferibile `graal-pipeline`.
 
 ## Migrazione
 
-I precedenti runner shell restano temporaneamente nella repository perché il
-gate di rimozione richiede uno smoke test completo su fixture ROOT reali
-ridotte. Il fixture `test_data/raw/**/*.root` non è attualmente disponibile.
-Per nuovi job e nuova documentazione operativa va utilizzata l'interfaccia
-Python; i dettagli del gate sono riportati nella guida dell'orchestratore.
+I precedenti runner shell sono stati rimossi. L'orchestratore Python e i
+profili `smoke` e `farm` costituiscono ora l'interfaccia supportata. Resta da
+eseguire il gate `smoke` su `test_data/raw/**/*.root`; i dettagli sono riportati
+nella guida dell'orchestratore.

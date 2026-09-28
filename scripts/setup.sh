@@ -172,4 +172,6 @@ if [[ ! -f ${REPO_ROOT}/data/00_external/flux.root ]]; then
     echo "WARNING: data/00_external/flux.root is not present"
 fi
 
-echo "Setup complete (${MODE}). Activate with: source ${VENV_DIR}/bin/activate"
+echo "Setup complete (${MODE})."
+echo "Activate environment: source ${VENV_DIR}/bin/activate"
+echo "Run without activation: ${VENV_PYTHON} -m graal_pipeline --help"

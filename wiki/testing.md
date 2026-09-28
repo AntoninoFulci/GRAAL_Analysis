@@ -58,8 +58,9 @@ I test `tests/test_pipeline_*.py` verificano in particolare:
 - equivalenza fra `graal-pipeline` e `python -m graal_pipeline`;
 - isolamento dei profili `smoke` e `farm`.
 
-I vecchi test contrattuali dei runner shell restano temporaneamente presenti
-finché il gate di migrazione non viene completato su dati reali ridotti.
+I test contrattuali dei runner shell rimossi non fanno più parte della suite.
+I contratti equivalenti sono verificati sui comandi Python, sui profili
+`smoke` e `farm` e sul runner con checkpoint.
 
 ## Smoke test con dati reali ridotti
 
@@ -70,7 +71,7 @@ Il profilo `smoke` richiede almeno un file ROOT reale rappresentativo sotto
 mkdir -p test_data/raw
 # Copiare qui uno o più run ridotti dalla farm.
 
-graal-pipeline validate beam-asymmetry \
+.venv/bin/python -m graal_pipeline validate beam-asymmetry \
   --final-state eta_pi0 \
   --profile smoke \
   --non-interactive \
@@ -91,7 +92,7 @@ pianificazione con istruzioni di copia e non crea output.
 ## Validazione completa sulla farm
 
 ```bash
-graal-pipeline validate full \
+.venv/bin/python -m graal_pipeline validate full \
   --final-state eta_pi0 \
   --profile farm \
   --non-interactive \

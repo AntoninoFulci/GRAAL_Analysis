@@ -169,7 +169,7 @@ atomica.
 Per un job farm riproducibile:
 
 ```bash
-nohup graal-pipeline validate full \
+nohup .venv/bin/python -m graal_pipeline validate full \
   --final-state eta_pi0 \
   --profile farm \
   --non-interactive \
@@ -189,6 +189,6 @@ con stati `PASSED`, `FAILED`, `BLOCKED`, `REUSED` e `SKIPPED`. La guida
 [Orchestratore della pipeline](pipeline-orchestrator) documenta checkpoint,
 policy, lock, log ed exit code.
 
-Il precedente runner shell è mantenuto soltanto fino al completamento dello
-smoke test su fixture ROOT reali ridotte. Non va usato come base per nuove
-automazioni.
+Il precedente runner shell è stato rimosso. Il profilo `farm` è il percorso
+supportato per la validazione completa; `smoke` verifica prima l'integrazione
+su dati ROOT reali ridotti.
