@@ -80,9 +80,10 @@ graal-pipeline = "graal_pipeline.cli:main"
 ```
 
 The equivalent module invocation is `python -m graal_pipeline`. The initial
-implementation uses the Python standard library (`argparse`, `json`, `tomllib`,
+implementation uses the Python standard library (`argparse`, `json`,
 `subprocess`, and `pathlib`) plus dependencies already required by pipeline
-stages. It does not add a terminal UI dependency.
+stages. Python 3.11 and newer use `tomllib`; Python 3.10 uses the conditional
+compatibility dependency `tomli>=2`. It does not add a terminal UI dependency.
 
 ## Registry model
 
