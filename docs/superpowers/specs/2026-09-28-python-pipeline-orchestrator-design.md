@@ -494,10 +494,11 @@ Three validation layers have different claims:
 
 1. Automated tests use controlled executors and small generated data to verify
    the orchestrator, schemas, and failure behavior. They are part of `pytest`.
-2. The `smoke` profile generates synthetic fixtures by default to exercise
-   stage integration and validators quickly. A configured local reduced ROOT
-   sample may replace them. Its report explicitly says `integration only` and
-   makes no physics-validity claim.
+2. The `smoke` profile uses a configured reduced ROOT fixture under
+   `test_data/` to exercise real stage integration and validators quickly. If
+   the fixture is absent, planning fails with copy/setup instructions instead
+   of synthesizing physics data. Its report explicitly says `integration only`
+   and makes no physics-validity claim.
 3. The `farm` profile is the functional successor of the overnight runner. It
    uses real farm configuration, isolated outputs, full validation, independent
    branch continuation, and a final `PASSED`, `FAILED`, `BLOCKED`, `REUSED`, and
@@ -508,8 +509,10 @@ Smoke and farm validation write under an isolated validation result root keyed
 by run ID. Profile overrides may reduce signal-MC event counts and bootstrap
 replicas without changing the graph.
 
-`test_data/` remains unversioned for local ROOT samples. Tests generate small
-synthetic fixtures rather than committing large binary files.
+`test_data/` remains unversioned for local ROOT samples. Automated tests
+generate small synthetic contract fixtures rather than committing large binary
+files; production smoke validation does not replace real stage inputs with test
+doubles.
 
 ## Migration and deletion
 
