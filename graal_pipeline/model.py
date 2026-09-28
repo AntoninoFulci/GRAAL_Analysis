@@ -22,6 +22,14 @@ class ArtifactState(str, Enum):
     INVALID = "INVALID"
 
 
+class PlanAction(str, Enum):
+    REUSE = "REUSE"
+    ADOPT = "ADOPT"
+    REBUILD = "REBUILD"
+    RUN = "RUN"
+    BLOCKED = "BLOCKED"
+
+
 @dataclass(frozen=True)
 class ValidationResult:
     valid: bool
@@ -35,6 +43,27 @@ class ArtifactStatus:
     state: ArtifactState
     reasons: tuple[str, ...] = ()
     age_days: float | None = None
+
+
+@dataclass(frozen=True)
+class PlanItem:
+    stage_key: str
+    state: ArtifactState
+    action: PlanAction
+    reasons: tuple[str, ...] = ()
+    estimated_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class PipelinePlan:
+    target: str
+    items: tuple[PlanItem, ...]
+    final_state: str | None = None
+    observable: str | None = None
+
+    @property
+    def executable(self) -> bool:
+        return all(item.action is not PlanAction.BLOCKED for item in self.items)
 
 
 @dataclass(frozen=True)
