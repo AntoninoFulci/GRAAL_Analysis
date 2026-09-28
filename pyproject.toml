@@ -14,6 +14,12 @@ description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
 # interpreter sets the floor — not our preference. The code itself needs nothing
 # newer: modern annotations are all behind `from __future__ import annotations`.
 requires-python = ">=3.10"
+dependencies = [
+    "tomli>=2; python_version < '3.11'",
+]
+
+[project.scripts]
+graal-pipeline = "graal_pipeline.cli:main"
 
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.
@@ -23,6 +29,7 @@ requires-python = ">=3.10"
 # it because the BDT-gated entry point consumes the trained model.
 [tool.setuptools]
 packages = [
+    "graal_pipeline",
     "graal_common",
     "graal_common.physics",
     "graal_common.io",
