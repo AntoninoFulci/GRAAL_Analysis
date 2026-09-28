@@ -1,10 +1,89 @@
 from __future__ import annotations
 
-from pathlib import Path
+import io
 import json
 import os
+import sys
+import threading
+from pathlib import Path
 
 import pytest
+
+
+def test_default_executor_tees_stdout_and_stderr_to_console_and_log(
+    tmp_path, capsys
+):
+    from graal_pipeline.runner import _default_executor
+
+    log_path = tmp_path / "stage.log"
+    command = (
+        sys.executable,
+        "-c",
+        (
+            "import sys; "
+            "print('child stdout', flush=True); "
+            "print('child stderr', file=sys.stderr, flush=True); "
+            "raise SystemExit(7)"
+        ),
+    )
+
+    exit_code = _default_executor(command, tmp_path, log_path)
+
+    console = capsys.readouterr().out
+    persisted = log_path.read_text(encoding="utf-8")
+    assert console == persisted
+    assert console.endswith("child stdout\nchild stderr\n")
+    assert exit_code == 7
+
+
+def test_default_executor_streams_output_before_child_exits(tmp_path, monkeypatch):
+    from graal_pipeline.runner import _default_executor
+
+    output_seen = threading.Event()
+
+    class ConsoleProbe(io.StringIO):
+        def write(self, value):
+            written = super().write(value)
+            if "streamed before exit\n" in self.getvalue():
+                output_seen.set()
+            return written
+
+    console = ConsoleProbe()
+    monkeypatch.setattr(sys, "stdout", console)
+    continue_marker = tmp_path / "continue"
+    log_path = tmp_path / "stage.log"
+    command = (
+        sys.executable,
+        "-c",
+        (
+            "from pathlib import Path; import sys, time; "
+            "print('streamed before exit', flush=True); "
+            "marker = Path(sys.argv[1]); "
+            "exec(\"while not marker.exists():\\n time.sleep(0.01)\"); "
+            "print('finished', flush=True)"
+        ),
+        str(continue_marker),
+    )
+    result = {}
+    worker = threading.Thread(
+        target=lambda: result.setdefault(
+            "exit_code", _default_executor(command, tmp_path, log_path)
+        )
+    )
+
+    worker.start()
+    try:
+        assert output_seen.wait(timeout=2)
+        assert worker.is_alive()
+    finally:
+        continue_marker.touch()
+        worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert result["exit_code"] == 0
+    assert "streamed before exit\nfinished\n" in log_path.read_text(
+        encoding="utf-8"
+    )
 
 
 def _item(stage_key, action):

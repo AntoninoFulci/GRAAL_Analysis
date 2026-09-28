@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 from typing import Any
 
@@ -121,19 +122,34 @@ Validator = Callable[[str, StageInvocation], ValidationResult]
 FailureHandler = Callable[[str, int, Path], str]
 
 
+def _write_console(chunk: bytes) -> None:
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:
+        sys.stdout.write(chunk.decode("utf-8", errors="replace"))
+    else:
+        buffer.write(chunk)
+    sys.stdout.flush()
+
+
 def _default_executor(command: tuple[str, ...], cwd: Path, log_path: Path) -> int:
     cwd.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as stream:
-        stream.write("COMMAND: " + " ".join(command) + "\n")
+    with log_path.open("ab") as stream:
+        header = ("COMMAND: " + " ".join(command) + "\n").encode("utf-8")
+        stream.write(header)
         stream.flush()
-        completed = subprocess.run(
+        _write_console(header)
+        process = subprocess.Popen(
             command,
             cwd=cwd,
-            stdout=stream,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            check=False,
         )
-    return completed.returncode
+        assert process.stdout is not None
+        while chunk := process.stdout.read1(64 * 1024):
+            stream.write(chunk)
+            stream.flush()
+            _write_console(chunk)
+        return process.wait()
 
 
 def _write_json(path: Path, value: Mapping[str, Any]) -> None:

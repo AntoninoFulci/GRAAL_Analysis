@@ -452,6 +452,14 @@ soltanto segnalato e non viene eliminato automaticamente. `status`, `plan` e
 Ogni run conserva piano, log per stadio e riepilogo JSON. `latest.json` punta
 all'ultimo riepilogo utilizzabile da `resume`.
 
+Durante l'esecuzione, comando, standard output e standard error di ogni stadio
+vengono mostrati in tempo reale sullo standard output dell'orchestratore e
+copiati contemporaneamente nel relativo file sotto
+`.pipeline/logs/<attempt-id>/`. Se il processo è avviato con `nohup` e una
+redirezione, lo stesso flusso progressivo viene quindi scritto anche nel file
+esterno scelto dall'utente; i log per stadio restano disponibili per diagnosi e
+resume successivi.
+
 | Exit code | Significato |
 |---:|---|
 | `0` | Piano, ispezione o esecuzione conclusi senza stadi falliti. |
