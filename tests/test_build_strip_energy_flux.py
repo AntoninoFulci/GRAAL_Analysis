@@ -320,7 +320,7 @@ def test_parse_custom_binnings_rejects_duplicate_name():
         cli.parse_custom_binnings(["fine:1.0,1.1", "fine:1.1,1.2"])
 
 
-def test_cli_missing_h80_manifest_run_writes_invalid_analysis(tmp_path):
+def test_cli_missing_h80_manifest_run_is_warning_only(tmp_path):
     entries = {
         7: [
             (7, strip, 1.00 + (strip - 1) * 0.5 / 127)
@@ -333,11 +333,13 @@ def test_cli_missing_h80_manifest_run_writes_invalid_analysis(tmp_path):
 
     result = run_cli(pre, flux, manifest_path, output)
 
-    assert result.returncode == 1
+    assert result.returncode == 0, result.stderr
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is False
+    assert qa["valid"] is True
     assert qa["missing_h80_runs"] == [8]
-    assert "manifest runs absent from h80: [8]" in qa["errors"]
+    assert qa["errors"] == []
+    assert "manifest runs absent from h80: [8]" in qa["warnings"]
+    assert "QA WARNING [1/1]" in result.stderr
     assert (output / "flux_by_run_energy.csv").is_file()
 
 
@@ -422,7 +424,7 @@ def test_cli_accepts_single_observed_strip_when_all_other_flux_is_zero(tmp_path)
     ]
 
 
-def test_cli_negative_flux_content_is_fatal_without_net_fields(tmp_path):
+def test_cli_negative_flux_content_is_clamped_and_warned(tmp_path):
     flux_by_run = {
         run: {
             "POL1": {
@@ -440,14 +442,35 @@ def test_cli_negative_flux_content_is_fatal_without_net_fields(tmp_path):
 
     result = run_cli(pre, flux, manifest_path, output)
 
-    assert result.returncode == 1
+    assert result.returncode == 0, result.stderr
     qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is False
-    assert any("non-negative" in error for error in qa["errors"])
+    assert qa["valid"] is True
+    assert qa["errors"] == []
+    assert qa["warnings"] == [
+        "1 negative flux histogram bin clamped to zero",
+        "1 run/strip exposure with non-positive POL1/POL2 excluded from extraction",
+    ]
+    assert qa["negative_flux_bins"] == [
+        {
+            "run_number": 7,
+            "xstrip": 1,
+            "component": "flux_pol1",
+            "value": -1000.0,
+            "action": "clamped_to_zero",
+        }
+    ]
+    assert qa["nonpositive_selected_exposures"] == [
+        {"run_number": 7, "xstrip": 1}
+    ]
     assert "negative_net_errors" not in qa
-    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
-        run_rows = list(csv.DictReader(stream))
-    assert all("net" not in field for field in run_rows[0])
+    with (output / "flux_by_run_strip.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    clamped = next(
+        row for row in rows
+        if row["run_number"] == "7" and row["xstrip"] == "1"
+    )
+    assert float(clamped["flux_pol1"]) == 0.0
+    assert clamped["status"] == "invalid"
 
 
 def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):

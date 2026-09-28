@@ -57,7 +57,9 @@ A single compiled ROOT RDataFrame scan covers all h80 files. It retains at most
 `--samples-per-run-strip` beam energies for each manifest `(run, strip)` and
 marks resulting lookup provenance as `sampled`; this bounds memory independently
 of billions of source events. Runs present only in h80 are warned about and
-ignored. Manifest runs absent from h80 remain fatal.
+ignored. Manifest runs absent from h80 are also recorded as warnings and
+omitted from calibration output so production can continue with available
+runs.
 
 If a run has no h80 events for one or more tagger strips and at least two strips
 were observed, missing energies are completed from same-run calibration: linear
@@ -89,10 +91,13 @@ runXXXX_BREM -> bremsstrahlung final flux
 
 These are three independent final exposures. BREM is never subtracted from
 POL1 or POL2. ROOT histogram bin errors are not physical flux uncertainties and
-are ignored. Negative contents are fatal. Complete flux runs absent from the
-manifest are recorded and warned about, then ignored. Group output sums run
-rows without mixing target or beam type; invalid contributor keeps group row
-invalid.
+are ignored. Negative contents are recorded in `negative_flux_bins`, warned
+about, and clamped to zero. A row whose resulting POL1 or POL2 exposure is
+non-positive is marked invalid and omitted by beam-asymmetry extraction;
+matching reconstructed events are dropped with an aggregate warning. Complete
+flux runs absent from the manifest are recorded and warned about, then ignored.
+Group output sums run rows without mixing target or beam type; invalid
+contributor keeps group row invalid.
 
 ## Output schemas
 
@@ -122,7 +127,8 @@ energy_median_gev,flux_pol1,flux_pol2,flux_brem,status
 ```
 
 This event-likelihood input preserves run/strip exposure and calibrated energy.
-Rows with non-positive selected POL1 or POL2 exposure are invalid.
+Rows with non-positive selected POL1 or POL2 exposure are invalid. Production
+extraction skips these rows and corresponding events, emitting warnings.
 
 ### `strip_energy_flux_qa.json`
 
@@ -146,4 +152,6 @@ partially refreshed bundle.
 | 2 | Command usage error from `argparse` | No analysis artifacts |
 
 Never consume CSV outputs for physics extraction unless QA JSON has
-`"valid": true`.
+`"valid": true`. A valid bundle may still contain warning-driven exclusions;
+inspect `warnings`, `negative_flux_bins`, `missing_h80_runs`, and
+`nonpositive_selected_exposures` before interpreting physics results.

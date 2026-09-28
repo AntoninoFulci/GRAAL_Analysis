@@ -97,3 +97,19 @@ def test_select_sigma_events_fails_on_missing_selected_run_strip(tmp_path):
 
     with pytest.raises(ValueError, match=r"missing exposure.*\(811, 17\)"):
         select_sigma_events(events, {})
+
+
+def test_select_sigma_events_can_drop_missing_exposures_with_warning(
+    tmp_path, capsys
+):
+    path = tmp_path / "reco.root"
+    _write_reconstructed(path)
+    events = read_reconstructed(path, "reco", vector_mode="raw")
+
+    selected = select_sigma_events(events, {}, drop_missing=True)
+
+    assert len(selected) == 0
+    assert (
+        "warning: dropped 1 event across 1 run/strip without valid flux exposure"
+        in capsys.readouterr().err
+    )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from pathlib import Path
+import sys
 from typing import Mapping
 
 import numpy as np
@@ -124,6 +125,8 @@ def _select_by_polarization(
     events: EventArrays,
     exposures: Mapping[tuple[int, int], FluxExposure],
     accepted_polarizations: tuple[int, ...],
+    *,
+    drop_missing: bool = False,
 ) -> EventArrays:
     base = (
         np.isin(events.polarization, accepted_polarizations)
@@ -138,6 +141,22 @@ def _select_by_polarization(
         }
     )
     if missing:
+        if drop_missing:
+            has_exposure = np.array(
+                [
+                    (int(run), int(strip)) in exposures
+                    for run, strip in zip(events.run_number, events.xstrip)
+                ],
+                dtype=bool,
+            )
+            dropped = int(np.count_nonzero(base & ~has_exposure))
+            noun = "event" if dropped == 1 else "events"
+            print(
+                f"warning: dropped {dropped} {noun} across {len(missing)} "
+                "run/strip without valid flux exposure",
+                file=sys.stderr,
+            )
+            return events.take(base & has_exposure)
         raise ValueError(f"missing exposure for selected run/strip: {missing}")
     return events.take(base)
 
@@ -145,12 +164,20 @@ def _select_by_polarization(
 def select_sigma_events(
     events: EventArrays,
     exposures: Mapping[tuple[int, int], FluxExposure],
+    *,
+    drop_missing: bool = False,
 ) -> EventArrays:
-    return _select_by_polarization(events, exposures, (1, 2))
+    return _select_by_polarization(
+        events, exposures, (1, 2), drop_missing=drop_missing
+    )
 
 
 def select_brem_control(
     events: EventArrays,
     exposures: Mapping[tuple[int, int], FluxExposure],
+    *,
+    drop_missing: bool = False,
 ) -> EventArrays:
-    return _select_by_polarization(events, exposures, (0,))
+    return _select_by_polarization(
+        events, exposures, (0,), drop_missing=drop_missing
+    )

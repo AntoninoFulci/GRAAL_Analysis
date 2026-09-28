@@ -77,3 +77,25 @@ def test_load_exposures_rejects_wrong_schema_version(tmp_path):
 
     with pytest.raises(ValueError, match="schema version 2"):
         load_exposures(path, polarization_model=lambda energy: 0.5)
+
+
+def test_load_exposures_can_skip_invalid_selected_rows_with_warning(
+    tmp_path, capsys
+):
+    path = tmp_path / "flux_by_run_strip.csv"
+    _write_rows(
+        path,
+        [
+            _row(status="invalid", flux_pol1=0.0),
+            _row(run_number=812, xstrip=18),
+        ],
+    )
+
+    exposures = load_exposures(
+        path,
+        polarization_model=lambda energy: 0.5,
+        skip_invalid=True,
+    )
+
+    assert set(exposures) == {(812, 18)}
+    assert "warning: skipped 1 invalid selected flux exposure" in capsys.readouterr().err

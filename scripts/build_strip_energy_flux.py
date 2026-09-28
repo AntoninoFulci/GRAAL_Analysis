@@ -646,6 +646,38 @@ def read_flux_histograms(
     return strips, qa
 
 
+def clamp_negative_flux(
+    strips: Sequence[StripFlux],
+) -> tuple[list[StripFlux], list[dict[str, object]]]:
+    """Clamp unphysical negative histogram bins while preserving diagnostics."""
+    clamped: list[StripFlux] = []
+    findings: list[dict[str, object]] = []
+    component_names = ("flux_pol1", "flux_pol2", "flux_brem")
+    for strip in strips:
+        values = (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
+        for component, value in zip(component_names, values):
+            if value < 0.0:
+                findings.append(
+                    {
+                        "run_number": strip.run_number,
+                        "xstrip": strip.xstrip,
+                        "component": component,
+                        "value": value,
+                        "action": "clamped_to_zero",
+                    }
+                )
+        clamped.append(
+            StripFlux(
+                strip.run_number,
+                strip.xstrip,
+                max(strip.flux_pol1, 0.0),
+                max(strip.flux_pol2, 0.0),
+                max(strip.flux_brem, 0.0),
+            )
+        )
+    return clamped, findings
+
+
 def parse_custom_binnings(values: Sequence[str]) -> tuple[EnergyBinning, ...]:
     result = []
     seen = {AJAKA_CROSS_SECTION.name, AJAKA_SIGMA.name}
@@ -709,6 +741,7 @@ def build_qa_payload(
     h80_qa,
     flux_qa,
     errors,
+    warnings,
 ) -> dict[str, object]:
     manifest_runs = {record.run_number for record in manifest}
     h80_runs = {record.run_number for record in lookup}
@@ -738,7 +771,9 @@ def build_qa_payload(
                 "mad_warnings",
                 "missing_h80_runs",
                 "monotonic_inversions",
+                "negative_flux_bins",
                 "nonzero_unmapped_strips",
+                "nonpositive_selected_exposures",
                 "out_of_range",
             }
         },
@@ -751,9 +786,14 @@ def build_qa_payload(
         "monotonic_inversions": flux_qa["monotonic_inversions"],
         "mad_warnings": flux_qa["mad_warnings"],
         "low_stat_warnings": flux_qa["low_stat_warnings"],
+        "negative_flux_bins": flux_qa["negative_flux_bins"],
+        "nonpositive_selected_exposures": flux_qa[
+            "nonpositive_selected_exposures"
+        ],
         "underflow_overflow": flux_qa["underflow_overflow"],
         "out_of_range": flux_qa["out_of_range"],
         "run_flux_bin_count": len(run_flux),
+        "warnings": list(dict.fromkeys(warnings)),
         "errors": unique_errors,
         "valid": not unique_errors,
     }
@@ -832,6 +872,7 @@ def run(args: argparse.Namespace) -> int:
         sorted(manifest_runs),
         progress=progress,
     )
+    strips, negative_flux_bins = clamp_negative_flux(strips)
     progress.log(f"flux scan complete: {len(strips)} run/strip rows")
     flux_by_run = defaultdict(list)
     for row in strips:
@@ -842,6 +883,7 @@ def run(args: argparse.Namespace) -> int:
     }
 
     errors = []
+    warnings = []
     extra_h80 = list(h80_qa["extra_runs"])
     missing_h80 = sorted(manifest_runs - sample_runs)
     if extra_h80:
@@ -851,7 +893,13 @@ def run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
     if missing_h80:
-        errors.append(f"manifest runs absent from h80: {missing_h80}")
+        warnings.append(f"manifest runs absent from h80: {missing_h80}")
+    if negative_flux_bins:
+        count = len(negative_flux_bins)
+        noun = "bin" if count == 1 else "bins"
+        warnings.append(
+            f"{count} negative flux histogram {noun} clamped to zero"
+        )
     if flux_qa["extra_runs"]:
         for run_number in flux_qa["extra_runs"]:
             print(
@@ -872,7 +920,7 @@ def run(args: argparse.Namespace) -> int:
     progress.log("running lookup and flux QA")
     empty_strips = []
     nonzero_unmapped = []
-    for run_number in sorted(manifest_runs):
+    for run_number in sorted(manifest_runs & sample_runs):
         mapped = {row.xstrip for row in lookup_by_run[run_number]}
         for xstrip in range(1, 129):
             if xstrip in mapped:
@@ -994,18 +1042,25 @@ def run(args: argparse.Namespace) -> int:
     try:
         strip_exposures = join_strip_exposures(
             [row for row in lookup if row.run_number in manifest_by_run],
-            strips,
+            [row for row in strips if row.run_number in sample_runs],
             manifest_by_run,
         )
     except StripEnergyFluxError as exc:
         errors.append(str(exc))
         strip_exposures = ()
+    nonpositive_selected_exposures = []
     for row in strip_exposures:
         if row.status != "valid":
-            errors.append(
-                f"run {row.run_number} strip {row.xstrip}: "
-                "selected polarization exposure must be positive"
+            nonpositive_selected_exposures.append(
+                {"run_number": row.run_number, "xstrip": row.xstrip}
             )
+    if nonpositive_selected_exposures:
+        count = len(nonpositive_selected_exposures)
+        noun = "exposure" if count == 1 else "exposures"
+        warnings.append(
+            f"{count} run/strip {noun} with non-positive POL1/POL2 "
+            "excluded from extraction"
+        )
 
     flux_qa.update(
         {
@@ -1019,6 +1074,8 @@ def run(args: argparse.Namespace) -> int:
             "monotonic_inversions": inversions,
             "mad_warnings": mad_warnings,
             "low_stat_warnings": low_stat_warnings,
+            "negative_flux_bins": negative_flux_bins,
+            "nonpositive_selected_exposures": nonpositive_selected_exposures,
             "out_of_range": out_of_range,
         }
     )
@@ -1031,7 +1088,12 @@ def run(args: argparse.Namespace) -> int:
         h80_qa,
         flux_qa,
         errors,
+        warnings,
     )
+    if qa["warnings"]:
+        total_warnings = len(qa["warnings"])
+        for index, warning in enumerate(qa["warnings"], start=1):
+            progress.log(f"QA WARNING [{index}/{total_warnings}]: {warning}")
     if qa["errors"]:
         visible_errors = qa["errors"][:20]
         total_errors = len(qa["errors"])

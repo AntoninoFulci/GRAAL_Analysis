@@ -75,7 +75,11 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
     exposures = {
         (811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)
     }
-    monkeypatch.setattr(beam_asymmetry, "load_exposures", lambda _path: exposures)
+    monkeypatch.setattr(
+        beam_asymmetry,
+        "load_exposures",
+        lambda _path, **_kwargs: exposures,
+    )
     monkeypatch.setattr(
         beam_asymmetry,
         "read_reconstructed",
@@ -160,7 +164,7 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
     monkeypatch.setattr(
         beam_asymmetry,
         "load_exposures",
-        lambda _path: {
+        lambda _path, **_kwargs: {
             (811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)
         },
     )

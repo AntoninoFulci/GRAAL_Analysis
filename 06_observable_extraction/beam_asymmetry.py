@@ -638,14 +638,17 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("nominal extraction requires 12 phi bins and 10 mass bins")
     if (args.sideband is None) != (args.signal_mc is None):
         raise ValueError("--sideband and --signal-mc must be supplied together")
-    exposures = load_exposures(args.calibration_dir / "flux_by_run_strip.csv")
+    exposures = load_exposures(
+        args.calibration_dir / "flux_by_run_strip.csv",
+        skip_invalid=True,
+    )
     sample = SAMPLES[args.nominal_sample]
     all_nominal_events = read_reconstructed(
         _sample_path(args, args.nominal_sample),
         sample.tree,
         vector_mode=sample.vector_mode,
     )
-    events = select_sigma_events(all_nominal_events, exposures)
+    events = select_sigma_events(all_nominal_events, exposures, drop_missing=True)
     nominal = _extract_sample(
         sample_name=args.nominal_sample,
         events=events,
@@ -661,6 +664,7 @@ def run(args: argparse.Namespace) -> int:
         broad_events = select_sigma_events(
             read_reconstructed(args.sideband, SIDEBAND_TREE, vector_mode="raw"),
             exposures,
+            drop_missing=True,
         )
         signal_mc = read_reconstructed(
             args.signal_mc,
@@ -694,6 +698,7 @@ def run(args: argparse.Namespace) -> int:
         comparison_events = select_sigma_events(
             read_reconstructed(path, contract.tree, vector_mode=contract.vector_mode),
             exposures,
+            drop_missing=True,
         )
         comparison = _extract_sample(
             sample_name=sample_name,
@@ -805,7 +810,9 @@ def run(args: argparse.Namespace) -> int:
             background_fractions,
             signal_leakage=background_leakage,
         )
-    brem_events = select_brem_control(all_nominal_events, exposures)
+    brem_events = select_brem_control(
+        all_nominal_events, exposures, drop_missing=True
+    )
     brem_phi = {}
     if len(brem_events):
         brem_projections = project_all_pairs(

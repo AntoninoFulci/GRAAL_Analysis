@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import sys
 from typing import Callable
 
 from graal_common.calibration.strip_energy_flux import (
@@ -33,6 +34,7 @@ def load_exposures(
     target: str = "P",
     beam_type: str = "UV",
     energy_range: tuple[float, float] = (1.1, 1.5),
+    skip_invalid: bool = False,
 ) -> dict[tuple[int, int], FluxExposure]:
     path = Path(path)
     if not path.is_file():
@@ -42,6 +44,7 @@ def load_exposures(
         raise ValueError("energy_range must be increasing")
 
     exposures: dict[tuple[int, int], FluxExposure] = {}
+    skipped_invalid = 0
     with path.open(newline="") as stream:
         reader = csv.DictReader(stream)
         if tuple(reader.fieldnames or ()) != STRIP_EXPOSURE_FIELDS:
@@ -70,6 +73,9 @@ def load_exposures(
             if not low <= energy_gev <= high:
                 continue
             if row["status"] != "valid":
+                if skip_invalid:
+                    skipped_invalid += 1
+                    continue
                 raise ValueError(
                     f"{path}:{line_number}: selected exposure is invalid"
                 )
@@ -90,6 +96,12 @@ def load_exposures(
                 )
             except ValueError as exc:
                 raise ValueError(f"{path}:{line_number}: {exc}") from exc
+    if skipped_invalid:
+        noun = "exposure" if skipped_invalid == 1 else "exposures"
+        print(
+            f"warning: skipped {skipped_invalid} invalid selected flux {noun}",
+            file=sys.stderr,
+        )
     if not exposures:
         raise ValueError("no selected proton/UV exposures in energy range")
     return exposures
