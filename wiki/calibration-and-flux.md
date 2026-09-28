@@ -60,12 +60,15 @@ marks resulting lookup provenance as `sampled`; this bounds memory independently
 of billions of source events. Runs present only in h80 are warned about and
 ignored. Manifest runs absent from h80 remain fatal.
 
-If a run has no h80 events for one or more tagger strips, missing energies are
-completed from same-run calibration: linear interpolation between neighboring
-observed strips and two-point extrapolation only beyond observed edges. These
-rows have `event_count=0` and provenance `interpolated` or `extrapolated`.
-Observed and completed rows therefore remain distinguishable while nonzero
-final flux is retained instead of being discarded for lack of an event sample.
+If a run has no h80 events for one or more tagger strips and at least two strips
+were observed, missing energies are completed from same-run calibration: linear
+interpolation between neighboring observed strips and two-point extrapolation
+only beyond observed edges. These rows have `event_count=0` and provenance
+`interpolated` or `extrapolated`. A run with exactly one observed strip retains
+only that calibrated row; QA rejects it only if a different, unmapped strip has
+nonzero flux. Observed and completed rows therefore remain distinguishable
+while nonzero final flux is retained instead of being discarded for lack of an
+event sample.
 
 Monotonic inversions, low statistics, large MAD, completed strips, unmapped
 strips, and manifest/run mismatches are retained in QA. Up to the first 20 QA

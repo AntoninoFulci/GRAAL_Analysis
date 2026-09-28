@@ -379,6 +379,49 @@ def test_cli_interpolates_missing_lookup_with_nonzero_flux(tmp_path):
     assert filled["provenance"] == "extrapolated"
 
 
+def test_cli_accepts_single_observed_strip_when_all_other_flux_is_zero(tmp_path):
+    entries = {
+        7: [(7, 24, 1.20)],
+        8: [
+            (8, strip, 1.00 + (strip - 1) * 0.5 / 127)
+            for strip in range(1, 129)
+        ],
+    }
+    flux_by_run = {
+        7: {
+            "POL1": {24: 10.0},
+            "POL2": {24: 8.0},
+            "BREM": {24: 1.0},
+        },
+        8: {
+            "POL1": {strip: 10.0 for strip in range(1, 129)},
+            "POL2": {strip: 8.0 for strip in range(1, 129)},
+            "BREM": {strip: 1.0 for strip in range(1, 129)},
+        },
+    }
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path,
+        entries_by_run=entries,
+        flux_by_run=flux_by_run,
+    )
+
+    result = run_cli(pre, flux, manifest_path, output)
+
+    assert result.returncode == 0, result.stderr
+    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
+    assert qa["valid"] is True
+    assert qa["nonzero_unmapped_strips"] == []
+    assert qa["h80"]["observed_strip_count"] == 129
+    assert qa["h80"]["completed_strip_count"] == 129
+    with (output / "strip_energy_lookup.csv").open(newline="") as stream:
+        run_seven_rows = [
+            row for row in csv.DictReader(stream) if row["run_number"] == "7"
+        ]
+    assert [(row["xstrip"], row["provenance"]) for row in run_seven_rows] == [
+        ("24", "sampled")
+    ]
+
+
 def test_cli_negative_flux_content_is_fatal_without_net_fields(tmp_path):
     flux_by_run = {
         run: {

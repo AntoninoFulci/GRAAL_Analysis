@@ -328,7 +328,7 @@ def complete_strip_energy_lookup(
     first_strip: int = 1,
     last_strip: int = 128,
 ) -> tuple[tuple[StripEnergyRecord, ...], tuple[dict[str, object], ...]]:
-    """Complete missing run/strip energies using neighboring calibration points."""
+    """Complete missing energies when neighboring calibration points exist."""
     if first_strip < 1 or last_strip < first_strip:
         raise StripEnergyFluxError("invalid strip completion range")
     requested_runs = tuple(sorted(set(int(run) for run in run_numbers)))
@@ -365,6 +365,9 @@ def complete_strip_energy_lookup(
     filled: list[dict[str, object]] = []
     for run_number in requested_runs:
         observed = by_run[run_number]
+        if len(observed) == 1:
+            completed.extend(observed.values())
+            continue
         if len(observed) < 2:
             raise StripEnergyFluxError(
                 f"run {run_number}: at least two observed strips are required "
