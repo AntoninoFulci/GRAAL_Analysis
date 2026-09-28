@@ -475,6 +475,11 @@ def target_closure(
     return tuple(ordered)
 
 
+def stage_graph_for_profile(config: PipelineConfig):
+    del config
+    return STAGES
+
+
 def capability(final_state: str, observable: str) -> ObservableCapability:
     if final_state not in FINAL_STATES:
         raise CapabilityError(f"unknown final state: {final_state}")

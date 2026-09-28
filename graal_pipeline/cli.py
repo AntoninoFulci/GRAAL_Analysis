@@ -3,12 +3,19 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from dataclasses import replace
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
 from typing import TextIO
 
-from .config import ConfigError, configuration_snapshot, load_config
+from .config import (
+    ConfigError,
+    configuration_snapshot,
+    load_config,
+    materialize_profile_run,
+    validate_profile_inputs,
+)
 from .model import ArtifactState, PipelinePlan
 from .planner import PlanningError, PlanningPolicies, plan_target
 from .registry import (
@@ -263,6 +270,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = load_config(args.config, profile=args.profile)
         if args.verify:
             config = replace(config, checkpoint=replace(config.checkpoint, verification=args.verify))
+        profile_run_id = None
+        if config.profile_settings.requires_real_fixture:
+            validate_profile_inputs(config)
+        if config.profile_settings.isolated_results:
+            profile_run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            config = materialize_profile_run(config, profile_run_id)
+        if args.command == "validate":
+            print(f"CLAIM: {config.profile_settings.claim}")
         state_root = Path(args.state_dir).expanduser().resolve() if args.state_dir else config.paths.results_dir / ".pipeline"
         target, final_state, observable = _target_from_args(args, state_root)
         enabled_optional = frozenset({"grid_search"}) if config.runtime.use_grid_search else frozenset()
@@ -319,6 +334,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             validator=validate_invocation,
             keep_failed_work=args.keep_failed_work,
             configuration=snapshot,
+            run_id=profile_run_id,
         )
         return summary.exit_code
     except (CapabilityError, ConfigError, PlanningError) as exc:

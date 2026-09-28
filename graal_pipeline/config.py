@@ -6,11 +6,15 @@ import importlib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 
 class ConfigError(ValueError):
     """Raised when pipeline configuration is missing or unsafe."""
+
+
+class ProfileInputError(ConfigError):
+    """Raised when a validation profile lacks its required real inputs."""
 
 
 @dataclass(frozen=True)
@@ -56,12 +60,20 @@ class CheckpointConfig:
 
 
 @dataclass(frozen=True)
+class ProfileSettings:
+    claim: str
+    isolated_results: bool
+    requires_real_fixture: bool
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     repository_root: Path
     profile: str
     paths: PathsConfig
     checkpoint: CheckpointConfig
     runtime: RuntimeConfig
+    profile_settings: ProfileSettings
 
 
 _DEFAULTS: dict[str, dict[str, Any]] = {
@@ -100,6 +112,11 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "bootstrap_replicas": 500,
         "bootstrap_seed": 1208,
         "estimator": "both",
+    },
+    "profile_settings": {
+        "claim": "physics production",
+        "isolated_results": False,
+        "requires_real_fixture": False,
     },
 }
 
@@ -175,6 +192,7 @@ def load_config(
     paths = effective["paths"]
     checkpoint = effective["checkpoint"]
     runtime = effective["runtime"]
+    profile_settings = effective["profile_settings"]
     verification = str(checkpoint["verification"])
     if verification not in {"fast", "full"}:
         raise ConfigError(f"invalid verification mode: {verification}")
@@ -218,6 +236,11 @@ def load_config(
             bootstrap_seed=int(runtime["bootstrap_seed"]),
             estimator=str(runtime["estimator"]),
         ),
+        profile_settings=ProfileSettings(
+            claim=str(profile_settings["claim"]),
+            isolated_results=bool(profile_settings["isolated_results"]),
+            requires_real_fixture=bool(profile_settings["requires_real_fixture"]),
+        ),
     )
 
 
@@ -232,3 +255,43 @@ def configuration_snapshot(config: PipelineConfig) -> dict[str, Any]:
         return value
 
     return normalize(asdict(config))
+
+
+def validate_profile_inputs(config: PipelineConfig) -> None:
+    if not config.profile_settings.requires_real_fixture:
+        return
+    raw_dir = config.paths.raw_dir
+    fixtures = sorted(raw_dir.rglob("*.root")) if raw_dir.is_dir() else []
+    if not fixtures:
+        try:
+            relative = raw_dir.relative_to(config.repository_root)
+        except ValueError:
+            relative = raw_dir
+        raise ProfileInputError(
+            f"profile {config.profile!r} requires reduced real ROOT fixtures under "
+            f"{relative}. Create that directory and copy one or more representative "
+            "detector runs from the farm dataset; synthetic physics input is not accepted."
+        )
+
+
+def materialize_profile_run(config: PipelineConfig, run_id: str) -> PipelineConfig:
+    if not config.profile_settings.isolated_results:
+        return config
+    token = Path(run_id)
+    if token.name != run_id or run_id in {"", ".", ".."}:
+        raise ConfigError(f"invalid run ID for isolated profile: {run_id!r}")
+    run_root = (config.paths.results_dir / run_id).resolve()
+    base = config.paths.results_dir.resolve()
+    if not run_root.is_relative_to(base):
+        raise ConfigError(f"profile run root escapes validation results: {run_root}")
+    paths = replace(
+        config.paths,
+        results_dir=run_root,
+        preanalysis_dir=run_root / "data/pre_analyzed/pre_analisi",
+        selected_dir=run_root / "data/selected",
+        mc_data_dir=run_root / "mc",
+        model_dir=run_root / "model/stage1",
+        features_file=run_root / "training/features_stage1.npz",
+        beam_spectrum_file=run_root / "training/beam_spectrum.npz",
+    )
+    return replace(config, paths=paths)

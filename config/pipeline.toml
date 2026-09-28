@@ -36,8 +36,33 @@ estimator = "both"
 
 [profiles.production]
 
+[profiles.smoke.paths]
+raw_dir = "test_data/raw"
+results_dir = "results/validation/smoke"
+
 [profiles.smoke.checkpoint]
 verification = "full"
 
+[profiles.smoke.runtime]
+mc_events = 10000
+bootstrap_replicas = 10
+
+[profiles.smoke.profile_settings]
+claim = "integration only"
+isolated_results = true
+requires_real_fixture = true
+
+[profiles.farm.paths]
+results_dir = "results/validation/farm"
+
 [profiles.farm.checkpoint]
 verification = "full"
+
+[profiles.farm.runtime]
+mc_events = 1000000
+bootstrap_replicas = 500
+
+[profiles.farm.profile_settings]
+claim = "full farm validation"
+isolated_results = true
+requires_real_fixture = false
