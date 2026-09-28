@@ -1,9 +1,9 @@
 # 06 — Beam-asymmetry extraction
 
-This standalone stage extracts beam asymmetry `Sigma` for
-`gamma p -> p eta pi0`. Nominal result uses raw four-vectors after BDT gate.
-Stage remains outside `run_pipeline.sh` until farm dry-run validation; existing
-`06_plots` remains available during comparison period.
+This stage extracts beam asymmetry `Sigma` for `gamma p -> p eta pi0`.
+The production workflow is integrated in `graal-pipeline`; the direct module
+commands below remain useful for development and focused diagnostics. The
+nominal result uses raw four-vectors after the BDT gate.
 
 ## Physics convention and binning
 
@@ -34,20 +34,20 @@ on farm and need not exist on workstation.
 python -m reconstruction.reconstruct_eta_pi0_chi2 \
   --input-dir data/03_selected \
   --no-fit \
-  --output-file results/reco/reco_eta_pi0_chi2_raw.root
+  --output-file results/eta_pi0/reconstruction/reco_eta_pi0_chi2_raw.root
 
 python -m reconstruction.reconstruct_eta_pi0_bdt \
   --input-dir data/03_selected \
   --no-fit \
-  --output-file results/reco/reco_eta_pi0_bdt_raw.root
+  --output-file results/eta_pi0/reconstruction/reco_eta_pi0_bdt_raw.root
 
 python -m reconstruction.reconstruct_eta_pi0_bdt \
   --input-dir data/03_selected \
-  --output-file results/reco/reco_eta_pi0_bdt_fit.root
+  --output-file results/eta_pi0/reconstruction/reco_eta_pi0_bdt_fit.root
 
 python -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
   --input-dir data/03_selected \
-  --output-file results/reco/reco_eta_pi0_bdt_sideband.root
+  --output-file results/eta_pi0/reconstruction/reco_eta_pi0_bdt_sideband.root
 ```
 
 Run broad sideband reconstruction over signal MC too; output must contain tree
@@ -56,11 +56,11 @@ Run broad sideband reconstruction over signal MC too; output must contain tree
 ```bash
 python -m reconstruction.prepare_signal_mc_selected \
   --input-file 03_mc_simulation/data/eta_pi0_mc.root \
-  --output-dir data/signal_mc_selected
+  --output-dir results/eta_pi0/reconstruction/signal_mc_selected
 
 python -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
-  --input-dir data/signal_mc_selected \
-  --output-file results/reco/reco_eta_pi0_signal_mc.root
+  --input-dir results/eta_pi0/reconstruction/signal_mc_selected \
+  --output-file results/eta_pi0/reconstruction/reco_eta_pi0_signal_mc.root
 ```
 
 Adapter creates detector-like `h85`: four daughter photons, one proton, empty
@@ -79,7 +79,7 @@ python scripts/build_strip_energy_flux.py \
   --preanalysis-dir data/02_pre_analyzed/pre_analisi \
   --manifest config/run_manifest.csv \
   --flux data/00_external/flux.root \
-  --output-dir results/strip_energy_flux
+  --output-dir results/shared/strip_energy_flux
 ```
 
 Extraction consumes schema-v2 `flux_by_run_strip.csv`. POL1/POL2/BREM contents
@@ -92,22 +92,22 @@ First raw+BDT replica, without background inputs:
 
 ```bash
 python -m observable_extraction.beam_asymmetry \
-  --raw-bdt results/reco/reco_eta_pi0_bdt_raw.root \
-  --calibration-dir results/strip_energy_flux \
-  --output-dir results/beam_asymmetry
+  --raw-bdt results/eta_pi0/reconstruction/reco_eta_pi0_bdt_raw.root \
+  --calibration-dir results/shared/strip_energy_flux \
+  --output-dir results/eta_pi0/observables/beam_asymmetry/first_pass
 ```
 
 Full available comparison and sideband correction:
 
 ```bash
 python -m observable_extraction.beam_asymmetry \
-  --raw results/reco/reco_eta_pi0_chi2_raw.root \
-  --raw-bdt results/reco/reco_eta_pi0_bdt_raw.root \
-  --raw-bdt-fit results/reco/reco_eta_pi0_bdt_fit.root \
-  --sideband results/reco/reco_eta_pi0_bdt_sideband.root \
-  --signal-mc results/reco/reco_eta_pi0_signal_mc.root \
-  --calibration-dir results/strip_energy_flux \
-  --output-dir results/beam_asymmetry \
+  --raw results/eta_pi0/reconstruction/reco_eta_pi0_chi2_raw.root \
+  --raw-bdt results/eta_pi0/reconstruction/reco_eta_pi0_bdt_raw.root \
+  --raw-bdt-fit results/eta_pi0/reconstruction/reco_eta_pi0_bdt_fit.root \
+  --sideband results/eta_pi0/reconstruction/reco_eta_pi0_bdt_sideband.root \
+  --signal-mc results/eta_pi0/reconstruction/reco_eta_pi0_signal_mc.root \
+  --calibration-dir results/shared/strip_energy_flux \
+  --output-dir results/eta_pi0/observables/beam_asymmetry \
   --estimator both \
   --bootstrap-replicas 500 \
   --bootstrap-seed 1208
@@ -151,53 +151,44 @@ Public output contains ROOT and PDF only:
 Original theory model is intentionally absent until separate audit of original
 equations, parameters, and references succeeds.
 
-## Overnight runner
+## Esecuzione integrata e validazione farm
 
-Full workflow from flux calibration through corrected extraction can run
-unattended:
-
-```bash
-nohup bash scripts/run_beam_asymmetry_overnight.sh \
-  >> results/beam_asymmetry_overnight.out 2>&1 &
-```
-
-Runner continues after failed commands, writes one timestamped log per step,
-skips only downstream steps whose newly produced inputs are unavailable, and
-prints final `OK`, `FAILED`, or `SKIPPED` summary. Final exit code is non-zero
-when any command fails. Calibration failure does not stop reconstruction, but
-both extraction steps are skipped to prevent reuse of stale calibration. A
-PID-owned directory lock rejects simultaneous launches with exit code 73; a
-stale lock is reported but never deleted automatically.
-
-Before reconstruction, runner rebuilds selected h85 files from pre-analysis
-using multithreaded event selector. Set `RUN_EVENT_SELECTION=0` only to reuse a
-selected dataset already known to contain `RunNumber`, `Polarization`, and
-`Xstrip`. Signal ηπ⁰ MC is reused when present; if absent, runner invokes
-existing ROOT generator before detector-like adapter. `SIGNAL_MC_EVENTS`
-controls generated sample size and defaults to 1,000,000.
-
-Farm paths can be overridden without editing script:
+L'estrazione completa viene pianificata ed eseguita con:
 
 ```bash
-SELECTED_DIR=/data/graal/selected \
-SIGNAL_MC_INPUT=03_mc_simulation/data/eta_pi0_mc.root \
-SIGNAL_MC_SELECTED_DIR=data/signal_mc_selected \
-PREANALYSIS_DIR=/farm/path/pre_analisi \
-FLUX_FILE=/farm/path/flux.root \
-PYTHON_BIN=/farm/path/venv/bin/python \
-FLUX_PROGRESS_EVERY_EVENTS=1000000 \
-RUN_EVENT_SELECTION=1 \
-SIGNAL_MC_EVENTS=1000000 \
-BOOTSTRAP_REPLICAS=500 \
-nohup bash scripts/run_beam_asymmetry_overnight.sh \
-  >> results/beam_asymmetry_overnight.out 2>&1 &
+graal-pipeline extract beam-asymmetry --final-state eta_pi0
 ```
 
-Default selected-data path is `/data/graal/selected`. Adapter output is rebuilt
-atomically before signal-MC sideband reconstruction. `FLUX_THREADS` defaults to
-all online CPU cores and is also used by adapter; `FLUX_SAMPLES_PER_RUN_STRIP`
-defaults to 256.
+L'orchestratore controlla selezione, modello, calibrazione, ricostruzioni dati,
+MC segnale e prodotti finali. Riutilizza gli artifact `FRESH`, richiede una
+decisione per quelli vecchi o senza checkpoint, e ricostruisce quelli mancanti
+o invalidi. Un fallimento blocca soltanto i discendenti; i rami indipendenti
+continuano. Ogni output viene validato in staging prima della pubblicazione
+atomica.
 
-Use append redirection (`>>`), not truncating redirection (`>`): shell opens
-master log before script can inspect lock, so `>` could still create sparse/NUL
-regions while an older process retains open file descriptor.
+Per un job farm riproducibile:
+
+```bash
+nohup graal-pipeline validate full \
+  --final-state eta_pi0 \
+  --profile farm \
+  --non-interactive \
+  --old-policy rebuild \
+  --stale-policy rebuild \
+  --untracked-policy rebuild \
+  >> results/beam_asymmetry_farm.out 2>&1 &
+```
+
+I path della farm vanno impostati in un file TOML esplicito passato con
+`--config`. I default restano relativi alla repository; in particolare i dati
+selezionati sono in `data/03_selected`, non in `/data/...`.
+
+Il profilo `farm` scrive risultati isolati in
+`results/validation/farm/<run-id>/`, usa verifica completa e produce un report
+con stati `PASSED`, `FAILED`, `BLOCKED`, `REUSED` e `SKIPPED`. La guida
+[Orchestratore della pipeline](pipeline-orchestrator) documenta checkpoint,
+policy, lock, log ed exit code.
+
+Il precedente runner shell è mantenuto soltanto fino al completamento dello
+smoke test su fixture ROOT reali ridotte. Non va usato come base per nuove
+automazioni.

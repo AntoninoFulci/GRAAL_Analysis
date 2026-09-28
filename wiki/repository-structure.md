@@ -12,11 +12,12 @@
 | `05_reconstruction/` | ROOT-free reconstruction core, runtime adapters, channel entry points, validation |
 | `06_plots/` | Plot entry points, reusable kinematics/data adapters, versioned reference artifact |
 | `06_observable_extraction/` | Beam-asymmetry estimators, background correction, covariance, ROOT/PDF products |
-| `config/` | Versioned run manifest |
+| `config/` | Versioned run manifest and pipeline TOML configuration |
+| `graal_pipeline/` | Checkpoint-aware orchestration, planning, validation and execution |
 | `scripts/` | Repository setup, manifest, strip-energy/flux, and wiki synchronization commands |
 | `tests/` | Cross-package packaging, layout, pipeline, calibration, and Stage-1 contract tests |
 | `wiki/` | Source of GitHub Wiki pages |
-| `run_pipeline.sh` | Eight-stage pipeline orchestrator |
+| `run_pipeline.sh` | Legacy runner retained temporarily behind the real-smoke migration gate |
 | `pyproject.toml` | Package mapping, Python floor, pytest discovery |
 
 Runtime contents under `data/`, plus `results/`, `test_data/`, and

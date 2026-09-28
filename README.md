@@ -36,15 +36,21 @@ imports. It never replaces an existing data path or mismatched link.
 ## Run
 
 ```bash
-./run_pipeline.sh --help
-./run_pipeline.sh
-./run_pipeline.sh --raw-dir /farm/raw/graal_data \
-  --pre-dir /farm/pre/pre_analisi --selected-dir data/03_selected
+graal-pipeline --help
+graal-pipeline
+graal-pipeline plan extract beam-asymmetry --final-state eta_pi0
+graal-pipeline extract beam-asymmetry --final-state eta_pi0
 ```
 
-`run_pipeline.sh` orchestrates eight stages: detector pre-analysis, event
-selection, Monte Carlo generation, feature construction, hyperparameter
-search, BDT training, reconstruction, and plotting.
+`python -m graal_pipeline` is equivalent to the installed console command.
+The orchestrator inspects existing artifacts, validates checkpoints, and runs
+only the stages required by the requested result. Paths and farm overrides are
+configured in `config/pipeline.toml`; relative paths are resolved from the
+repository root.
+
+See the [pipeline orchestrator guide](wiki/pipeline-orchestrator.md) for the
+wizard, non-interactive policies, validation profiles, logs, and migration
+status.
 
 ## Test
 

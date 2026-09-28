@@ -1,98 +1,67 @@
-# Pipeline and entry points
+# Pipeline ed entry point
 
-`run_pipeline.sh` is the primary application entry point. It runs a batch
-analysis from detector ROOT files through reconstructed events and plots.
+L'entry point principale è l'orchestratore Python checkpoint-aware:
 
 ```bash
-./run_pipeline.sh [options]
-./run_pipeline.sh --help
+graal-pipeline
+python -m graal_pipeline
 ```
 
-Before any stage, it verifies that `graal_common`, `event_selector`,
-`mc_simulation`, `bdt_training`, `reconstruction`, and `plots` are importable.
-Run `python -m pip install -e .` when this preflight fails.
+Senza argomenti apre il wizard in italiano. La CLI non interattiva consente di
+ispezionare gli artifact, costruire un piano riproducibile, eseguire
+l'estrazione e validare la stessa pipeline con profili isolati.
 
-## Stage flow
+La guida completa è [Orchestratore della pipeline](pipeline-orchestrator).
 
-| Stage | Command or implementation | Input | Output |
-|---:|---|---|---|
-| 1 | ROOT `AnalyzeAll` in `PreAnalysis.C` | `data/01_raw/graal_data/` | `data/02_pre_analyzed/pre_analisi/pre_*.root`, tree `h80` |
-| 2 | `python -m event_selector.select_events` | pre-analysis ROOT files | `data/03_selected/*.root`, tree `h85` |
-| 3 | ROOT channel generators | registry-defined macros | `03_mc_simulation/data/*_mc.root`, tree `mc` |
-| 4 | `bdt_training.beam_spectrum` and `build_background_features` | selected data and MC | beam and feature NPZ files |
-| 5 | `bdt_training.grid_search_stage1` | Stage-1 feature NPZ | search CSV and best hyperparameters |
-| 6 | `bdt_training.train_bdt_stage1` | features and optional hyperparameters | Stage-1 runtime bundle and reports |
-| 7 | two reconstruction entry points | selected data and optional BDT bundle | χ² and BDT ROOT trees |
-| 8 | `plots.dalitz` and optional `plots.kinfit_resolution` | reconstructed data and signal MC | PDFs and `istogrammi.root` |
+## Flusso principale
 
-Runtime detector inputs live under `data/`; rebuilt analysis products live
-under `results/`. Both are ignored by Git.
-
-## Options
-
-| Option | Default | Effect |
-|---|---:|---|
-| `--test-data` | off | Remap detector data and results to `test_data/`; MC and model stay unchanged |
-| `--raw-dir DIR` | `data/01_raw/graal_data` | Raw run-directory root; may be a farm symlink |
-| `--pre-dir DIR` | `data/02_pre_analyzed/pre_analisi` | Pre-analysis ROOT input/output directory; may be a farm symlink |
-| `--selected-dir DIR` | `data/03_selected` | Selected ROOT output and downstream input directory |
-| `--nevents N` | `1000000` | Events generated per MC channel |
-| `--input-tree NAME` | `auto` | Use named preselection tree, or auto-detect `h85` then `h80` |
-| `--signal-channel NAME` | `eta_pi0` | Signal class for feature building and training |
-| `--signal-prior F` | `0.5` | Training-weight share assigned to signal |
-| `--partner NAME` | `proton` | Reconstruction partner: `proton`, `neutron`, or `deuteron` |
-| `--grid-search-niter N` | `30` | Randomized grid-search iterations |
-| `--skip-preanalysis` | off | Skip stage 1 |
-| `--force-preanalysis` | off | Re-run stage 1 even when pre-analysis output exists |
-| `--skip-selection` | off | Skip stage 2 |
-| `--skip-mc` | off | Skip MC generation regardless of missing channels |
-| `--force-mc` | off | Regenerate MC even when all channels exist |
-| `--skip-features` | off | Skip stage 4 |
-| `--skip-grid-search` | off | Skip stage 5 |
-| `--skip-train` | off | Skip stages 5 and 6 |
-| `--skip-reco` | off | Skip stage 7 |
-| `--skip-plots` | off | Skip stage 8 |
-
-Environment variables:
-
-| Variable | Default | Purpose |
+| Area | Stadi | Output principale |
 |---|---|---|
-| `PYTHON` | `python` | Interpreter used for Python stages |
-| `ROOT_EXEC` | `root` | ROOT executable used for macros |
+| Preparazione dati | preanalisi, selezione eventi | tree `h80` e `h85` |
+| Preparazione modello | generazione MC, spettro, feature, grid search, training | NPZ e bundle Stage-1 |
+| Calibrazione | energia degli strip e flusso per run | bundle CSV/JSON validato |
+| Ricostruzione dati | χ², BDT raw, BDT con fit, sideband | ROOT sotto `results/<final-state>/reconstruction/` |
+| Ricostruzione MC segnale | generazione, adapter h85, sideband | ROOT di controllo del segnale |
+| Osservabile | prima passata e asimmetria completa | ROOT e PDF sotto `results/<final-state>/observables/` |
 
-## Reuse and failure behavior
+Il planner parte dal target finale e risale il grafo. Un artifact `FRESH` viene
+riutilizzato; uno `MISSING` viene prodotto; un artifact `INVALID`, `STALE`,
+`OLD` o `UNTRACKED` segue le regole documentate nella guida. Non occorre
+scegliere manualmente lo stadio da cui iniziare.
 
-- Stage 1 reuses existing `pre_*.root` files unless
-  `--force-preanalysis` is set.
-- `mc_simulation.mc_status` returns 0 when all registry channels exist, 1 when
-  at least one is absent, and 2 on internal failure. Only exit 1 can trigger
-  ordinary regeneration. Stale files warn but remain usable.
-- Stage 4 always remeasures beam spectrum from selected detector data. Missing
-  selected data is fatal because channel weights require measured beam flux.
-- Stage 5 requires feature NPZ. Stage 6 uses `best_hyperparams.json` only when
-  present.
-- Stage 7 writes both standard χ² and BDT-gated ηπ⁰ reconstruction outputs.
-- Stage 8 requires both reconstruction files for comparison. It skips plotting
-  when either is absent. Fit-resolution plots additionally require signal MC.
+## Esempi
 
-## Test-data mode
+Controllare lo stato senza modificare file:
 
-| Purpose | Normal path | `--test-data` path |
-|---|---|---|
-| Raw detector input | `data/01_raw/graal_data` | `test_data/raw` |
-| Pre-analysis | `data/02_pre_analyzed/pre_analisi` | `test_data/pre_analyzed` |
-| Selected events | `data/03_selected` | `test_data/selected` |
-| Reconstruction output | `results/reco` | `test_data/results/reco` |
-| Plot output | `results/plots` | `test_data/results/plots` |
+```bash
+graal-pipeline status --final-state eta_pi0
+```
 
-MC remains in `03_mc_simulation/data`; Stage-1 artifacts remain in
-`04_bdt_training/artifacts/stage1`. Test-data mode exercises file integration,
-not an independent training universe. Explicit `--raw-dir`, `--pre-dir`, or
-`--selected-dir` values override the corresponding test-data mapping.
+Preparare un piano esplicito per un job batch:
 
-## Focused entry points
+```bash
+graal-pipeline plan extract beam-asymmetry \
+  --final-state eta_pi0 \
+  --non-interactive \
+  --old-policy reuse \
+  --stale-policy rebuild \
+  --untracked-policy rebuild
+```
 
-Each Python stage can run independently after editable installation:
+Eseguire la produzione:
+
+```bash
+graal-pipeline extract beam-asymmetry \
+  --final-state eta_pi0 \
+  --non-interactive --yes \
+  --old-policy reuse \
+  --stale-policy rebuild \
+  --untracked-policy rebuild
+```
+
+## Entry point dei singoli componenti
+
+I moduli sottostanti restano utilizzabili per sviluppo e diagnosi mirate:
 
 ```bash
 python -m mc_simulation.mc_status --data-dir 03_mc_simulation/data
@@ -103,10 +72,16 @@ python -m bdt_training.train_bdt_stage1 --help
 python -m reconstruction.reconstruct_eta_pi0_chi2 --help
 python -m reconstruction.reconstruct_eta_pi0_bdt --help
 python -m reconstruction.reconstruct_2pi0 --help
-python -m plots.dalitz --help
+python -m observable_extraction.beam_asymmetry --help
 ```
 
-Calibration commands are documented in [Calibration and flux](calibration-and-flux).
-Beam-asymmetry extraction is documented in
-[06 — Beam asymmetry](06-observable-extraction). It remains outside
-`run_pipeline.sh` until farm dry-run validation.
+Un'esecuzione diretta non crea i checkpoint dell'orchestratore. Per produzione
+e validazione integrata è quindi preferibile `graal-pipeline`.
+
+## Migrazione
+
+I precedenti runner shell restano temporaneamente nella repository perché il
+gate di rimozione richiede uno smoke test completo su fixture ROOT reali
+ridotte. Il fixture `test_data/raw/**/*.root` non è attualmente disponibile.
+Per nuovi job e nuova documentazione operativa va utilizzata l'interfaccia
+Python; i dettagli del gate sono riportati nella guida dell'orchestratore.

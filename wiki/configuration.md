@@ -1,20 +1,24 @@
 # Configuration
 
-Configuration is distributed by responsibility. No central settings file
-overrides every stage.
+Configuration is distributed by responsibility. The orchestrator owns the
+cross-stage execution settings, while each physics package retains its own
+algorithm-specific contracts.
 
 ## Pipeline configuration
 
-`run_pipeline.sh` owns stage paths, stage ordering, reuse policy, and public
-pipeline flags. `PYTHON` and `ROOT_EXEC` select executables without changing
-source.
+`config/pipeline.toml` owns stage paths, profile overrides, checkpoint
+policies, executable selection and the runtime controls shared across stages.
+The precedence order is command-line override, selected profile, general TOML
+value, then code default.
 
 Detector paths default to `data/01_raw/graal_data`,
-`data/02_pre_analyzed/pre_analisi`, and `data/03_selected`. Override them with
-`--raw-dir`, `--pre-dir`, and `--selected-dir`; absolute farm paths and
-directory symlinks are supported.
+`data/02_pre_analyzed/pre_analisi`, and `data/03_selected`. Relative paths are
+resolved from the repository root, never from the caller's current directory.
+Use an alternate TOML file for absolute farm paths. Relative paths that escape
+the repository through `..` or symlinks are rejected.
 
-See [Pipeline and entry points](pipeline) for complete defaults.
+See [Pipeline orchestrator](pipeline-orchestrator) for complete defaults,
+profiles and policies.
 
 ## Run manifest
 

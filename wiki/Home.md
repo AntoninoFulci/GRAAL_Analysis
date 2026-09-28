@@ -14,7 +14,9 @@ This makes the BDT gate the intended difference between their output samples.
 
 ## Pipeline
 
-`run_pipeline.sh` is the main entry point.
+`graal-pipeline` is the main entry point. The equivalent module command is
+`python -m graal_pipeline`. It inspects artifact state and executes only the
+dependencies required by the selected target.
 
 | Stage | Responsibility | Primary output |
 |---:|---|---|
@@ -25,13 +27,14 @@ This makes the BDT gate the intended difference between their output samples.
 | 5 | Hyperparameter search | `best_hyperparams.json` |
 | 6 | Stage-1 BDT training | Model, threshold, metrics, provenance |
 | 7 | χ² and BDT-gated reconstruction | Reconstructed ROOT trees |
-| 8 | Physics plots | PDF and ROOT plot artifacts |
+| 8 | Calibration and observable extraction | Beam-asymmetry ROOT and PDF products |
 
 ## Documentation map
 
 - [Architecture](architecture)
 - [Repository structure](repository-structure)
 - [Pipeline and entry points](pipeline)
+- [Pipeline orchestrator](pipeline-orchestrator)
 - [Data and storage](data-and-storage)
 - [Configuration](configuration)
 - [Development setup](development)

@@ -49,22 +49,31 @@ the scientific dependency stack.
 ## Run locally
 
 ```bash
-./run_pipeline.sh --help
-./run_pipeline.sh --test-data
+graal-pipeline --help
+graal-pipeline
+graal-pipeline status --final-state eta_pi0
 ```
 
-For a focused iteration, use stage skip flags or run a module directly. The
-pipeline preflight accepts a custom interpreter:
+For a focused iteration, prepare a dry-run plan or run a module directly:
 
 ```bash
-PYTHON=.venv/bin/python ./run_pipeline.sh --help
+graal-pipeline plan extract beam-asymmetry \
+  --final-state eta_pi0 \
+  --non-interactive \
+  --old-policy reuse \
+  --stale-policy rebuild \
+  --untracked-policy rebuild
 ```
 
-ROOT executable can be overridden similarly:
+Interpreter, ROOT executable, paths, event counts, threads, and validation
+policies are configured in `config/pipeline.toml` or in an alternate file:
 
 ```bash
-ROOT_EXEC=/path/to/root ./run_pipeline.sh --help
+graal-pipeline --config config/pipeline-farm.toml status \
+  --final-state eta_pi0
 ```
+
+See [Pipeline orchestrator](pipeline-orchestrator) for the complete interface.
 
 ## Tests
 

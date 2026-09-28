@@ -4,6 +4,7 @@
 - [Architecture](architecture)
 - [Repository structure](repository-structure)
 - [Pipeline and entry points](pipeline)
+  - [Pipeline orchestrator](pipeline-orchestrator)
 - [Data and storage](data-and-storage)
 - [Configuration](configuration)
 - [Development setup](development)

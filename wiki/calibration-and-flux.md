@@ -20,7 +20,7 @@ python scripts/build_strip_energy_flux.py \
   --preanalysis-dir data/02_pre_analyzed/pre_analisi \
   --manifest config/run_manifest.csv \
   --flux data/00_external/flux.root \
-  --output-dir results/strip_energy_flux
+  --output-dir results/shared/strip_energy_flux
 ```
 
 Optional controls:
@@ -40,9 +40,8 @@ Messages cover manifest loading, each h80 file, periodic event counts, each
 flux run, QA/integration phases, and artifact writes.
 
 The h80 scan uses ROOT RDataFrame with implicit multithreading. Override worker
-count with `--threads N`, or set `FLUX_THREADS=N` for
-`scripts/run_beam_asymmetry_overnight.sh`. Its default also uses all online CPU
-cores.
+count with `--threads N`. Integrated pipeline runs take the thread count from
+`runtime.threads` in `config/pipeline.toml`.
 
 Built-in `ajaka_cross_section` and `ajaka_sigma` binnings are always produced.
 
