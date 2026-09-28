@@ -223,14 +223,14 @@ def _checkpoint_stage(
     validation: ValidationResult,
     *,
     run_id: str,
+    repository_root: Path,
     configuration: Mapping[str, Any],
     provenance: str = "produced",
     provenance_confident: bool = True,
 ) -> None:
     inputs = {str(path): fingerprint_path(path) for path in invocation.inputs}
     outputs = {str(path): fingerprint_path(path) for path in invocation.outputs}
-    repository = Path.cwd()
-    code = responsible_code_fingerprint(invocation.responsible_paths, repository)
+    code = responsible_code_fingerprint(invocation.responsible_paths, repository_root)
     checkpoint = make_checkpoint(
         stage=invocation.stage_key,
         completed_at=datetime.now(timezone.utc),
@@ -262,6 +262,7 @@ def run_plan(
     invocations: Mapping[str, StageInvocation],
     *,
     state_directory: str | Path,
+    repository_root: str | Path,
     executor: Executor = _default_executor,
     validator: Validator,
     on_failure: FailureHandler | None = None,
@@ -286,6 +287,7 @@ def run_plan(
     aborted = False
     handler = on_failure or (lambda *_: "continue")
     effective_configuration = configuration or {}
+    effective_repository_root = Path(repository_root).resolve()
     try:
         for item in plan.items:
             invocation = invocations[item.stage_key]
@@ -305,6 +307,7 @@ def run_plan(
                         invocation,
                         validation,
                         run_id=selected_run_id,
+                        repository_root=effective_repository_root,
                         configuration=effective_configuration,
                         provenance="adopted_legacy_output",
                         provenance_confident=False,
@@ -358,6 +361,7 @@ def run_plan(
                                     invocation,
                                     validation,
                                     run_id=selected_run_id,
+                                    repository_root=effective_repository_root,
                                     configuration=effective_configuration,
                                 )
                                 result = StageRunResult(item.stage_key, "PASSED", 0, log_path)

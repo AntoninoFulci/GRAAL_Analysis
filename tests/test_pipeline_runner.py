@@ -19,7 +19,13 @@ def _plan(*items):
     return PipelinePlan("test-target", tuple(items), final_state="eta_pi0")
 
 
-def _invocation(stage_key: str, output: Path, *, kind: str = "file"):
+def _invocation(
+    stage_key: str,
+    output: Path,
+    *,
+    kind: str = "file",
+    responsible_paths: tuple[str, ...] = (),
+):
     from graal_pipeline.model import CheckpointScope, StageInvocation
 
     return StageInvocation(
@@ -32,7 +38,7 @@ def _invocation(stage_key: str, output: Path, *, kind: str = "file"):
         output_kind=kind,
         scope=CheckpointScope.FINAL_STATE,
         validator="test",
-        responsible_paths=(),
+        responsible_paths=responsible_paths,
     )
 
 
@@ -86,6 +92,7 @@ def test_failed_stage_blocks_dependents_but_independent_branch_continues(tmp_pat
         plan,
         invocations,
         state_directory=tmp_path / "state",
+        repository_root=tmp_path,
         executor=executor,
         validator=_validator,
         on_failure=lambda *_: "continue",
@@ -114,6 +121,7 @@ def test_retry_and_abort_choices_are_honored(tmp_path):
         plan,
         {"signal_mc_generation": invocation},
         state_directory=tmp_path / "retry-state",
+        repository_root=tmp_path,
         executor=executor,
         validator=_validator,
         on_failure=lambda *_: "retry",
@@ -134,6 +142,7 @@ def test_retry_and_abort_choices_are_honored(tmp_path):
             "signal_mc_generation": _invocation("signal_mc_generation", tmp_path / "abort-mc.root"),
         },
         state_directory=tmp_path / "abort-state",
+        repository_root=tmp_path,
         executor=FakeExecutor(failures=("preanalysis",)),
         validator=_validator,
         on_failure=lambda *_: "abort",
@@ -169,6 +178,7 @@ def test_run_persists_plan_logs_summary_and_latest(tmp_path):
         _plan(_item(stage, PlanAction.RUN)),
         {stage: _invocation(stage, tmp_path / "mc.root")},
         state_directory=state,
+        repository_root=tmp_path,
         run_id="recorded-run",
         executor=FakeExecutor(),
         validator=_validator,
@@ -193,6 +203,7 @@ def test_failed_validation_preserves_old_file_and_cleans_staging(tmp_path):
         _plan(_item("signal_mc_generation", PlanAction.REBUILD)),
         {"signal_mc_generation": _invocation("signal_mc_generation", output)},
         state_directory=state,
+        repository_root=tmp_path,
         executor=FakeExecutor(),
         validator=lambda *_: ValidationResult(False, "test", ("bad staged output",)),
     )
@@ -221,6 +232,7 @@ def test_directory_publication_is_atomic_and_checkpoint_is_written_last(tmp_path
             _plan(_item(stage, PlanAction.REBUILD)),
             {stage: _invocation(stage, output, kind="directory")},
             state_directory=state,
+            repository_root=tmp_path,
             run_id="crash-run",
             executor=FakeExecutor(),
             validator=_validator,
@@ -252,6 +264,7 @@ def test_successful_publication_writes_checkpoint_and_releases_lock(tmp_path):
         _plan(_item("signal_mc_generation", PlanAction.RUN)),
         {"signal_mc_generation": _invocation("signal_mc_generation", output)},
         state_directory=state,
+        repository_root=tmp_path,
         run_id="successful-run",
         executor=FakeExecutor(),
         validator=_validator,
@@ -261,3 +274,41 @@ def test_successful_publication_writes_checkpoint_and_releases_lock(tmp_path):
     assert output.read_text() == "new signal_mc_generation\n"
     assert list((state / "checkpoints").rglob("signal_mc_generation.json"))
     assert not (state / "run.lock").exists()
+
+
+def test_checkpoint_code_fingerprint_uses_repository_root_not_caller_cwd(
+    tmp_path, monkeypatch
+):
+    from graal_pipeline.model import PlanAction
+    from graal_pipeline.runner import run_plan
+
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "responsible.py").write_text("VERSION = 1\n")
+    caller = tmp_path / "caller"
+    caller.mkdir()
+    monkeypatch.chdir(caller)
+
+    state = tmp_path / "state"
+    stage = "signal_mc_generation"
+    run_plan(
+        _plan(_item(stage, PlanAction.RUN)),
+        {
+            stage: _invocation(
+                stage,
+                tmp_path / "mc.root",
+                responsible_paths=("responsible.py",),
+            )
+        },
+        state_directory=state,
+        repository_root=repository,
+        run_id="outside-cwd",
+        executor=FakeExecutor(),
+        validator=_validator,
+    )
+
+    checkpoint_path = state / "checkpoints/eta_pi0/signal_mc_generation.json"
+    checkpoint = json.loads(checkpoint_path.read_text())
+    assert checkpoint["code"]["files"] == {
+        "responsible.py": "e0cb9debdb563025b7c11817ec16198da076090d46dbee8ccc4c3d58a3734ab9"
+    }

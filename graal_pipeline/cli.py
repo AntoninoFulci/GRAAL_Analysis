@@ -331,6 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             plan,
             invocations,
             state_directory=state_root,
+            repository_root=config.repository_root,
             validator=validate_invocation,
             keep_failed_work=args.keep_failed_work,
             configuration=snapshot,
