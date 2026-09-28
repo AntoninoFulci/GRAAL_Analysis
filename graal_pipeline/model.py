@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+from pathlib import Path
 
 
 class CheckpointScope(str, Enum):
@@ -62,6 +63,18 @@ class StageSpec:
     scope: CheckpointScope = CheckpointScope.SHARED
     final_states: frozenset[str] = frozenset()
     observables: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class StageInvocation:
+    stage_key: str
+    commands: tuple[tuple[str, ...], ...]
+    working_directory: Path
+    inputs: tuple[Path, ...]
+    outputs: tuple[Path, ...]
+    scope: CheckpointScope
+    validator: str
+    responsible_paths: tuple[str, ...]
 
 
 @dataclass(frozen=True)

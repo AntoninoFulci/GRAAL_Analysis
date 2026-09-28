@@ -5,6 +5,10 @@ selected_dir = "data/03_selected"
 external_flux = "data/00_external/flux.root"
 run_manifest = "config/run_manifest.csv"
 results_dir = "results"
+mc_data_dir = "03_mc_simulation/data"
+model_dir = "04_bdt_training/artifacts/stage1"
+features_file = "04_bdt_training/data/features_stage1.npz"
+beam_spectrum_file = "04_bdt_training/data/beam_spectrum.npz"
 
 [checkpoint]
 max_age_days = 30
@@ -12,6 +16,23 @@ verification = "fast"
 old_policy = "ask"
 stale_policy = "ask"
 untracked_policy = "ask"
+
+[runtime]
+python_executable = "python"
+root_executable = "root"
+input_tree = "auto"
+signal_channel = "eta_pi0"
+signal_prior = 0.5
+partner = "proton"
+mc_events = 1000000
+grid_search_iterations = 30
+use_grid_search = true
+threads = 1
+flux_progress_every_events = 1000000
+flux_samples_per_run_strip = 256
+bootstrap_replicas = 500
+bootstrap_seed = 1208
+estimator = "both"
 
 [profiles.production]
 

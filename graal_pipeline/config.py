@@ -20,6 +20,29 @@ class PathsConfig:
     external_flux: Path
     run_manifest: Path
     results_dir: Path
+    mc_data_dir: Path
+    model_dir: Path
+    features_file: Path
+    beam_spectrum_file: Path
+
+
+@dataclass(frozen=True)
+class RuntimeConfig:
+    python_executable: str
+    root_executable: str
+    input_tree: str
+    signal_channel: str
+    signal_prior: float
+    partner: str
+    mc_events: int
+    grid_search_iterations: int
+    use_grid_search: bool
+    threads: int
+    flux_progress_every_events: int
+    flux_samples_per_run_strip: int
+    bootstrap_replicas: int
+    bootstrap_seed: int
+    estimator: str
 
 
 @dataclass(frozen=True)
@@ -37,6 +60,7 @@ class PipelineConfig:
     profile: str
     paths: PathsConfig
     checkpoint: CheckpointConfig
+    runtime: RuntimeConfig
 
 
 _DEFAULTS: dict[str, dict[str, Any]] = {
@@ -47,6 +71,10 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "external_flux": "data/00_external/flux.root",
         "run_manifest": "config/run_manifest.csv",
         "results_dir": "results",
+        "mc_data_dir": "03_mc_simulation/data",
+        "model_dir": "04_bdt_training/artifacts/stage1",
+        "features_file": "04_bdt_training/data/features_stage1.npz",
+        "beam_spectrum_file": "04_bdt_training/data/beam_spectrum.npz",
     },
     "checkpoint": {
         "max_age_days": 30,
@@ -54,6 +82,23 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "old_policy": "ask",
         "stale_policy": "ask",
         "untracked_policy": "ask",
+    },
+    "runtime": {
+        "python_executable": "python",
+        "root_executable": "root",
+        "input_tree": "auto",
+        "signal_channel": "eta_pi0",
+        "signal_prior": 0.5,
+        "partner": "proton",
+        "mc_events": 1000000,
+        "grid_search_iterations": 30,
+        "use_grid_search": True,
+        "threads": 1,
+        "flux_progress_every_events": 1000000,
+        "flux_samples_per_run_strip": 256,
+        "bootstrap_replicas": 500,
+        "bootstrap_seed": 1208,
+        "estimator": "both",
     },
 }
 
@@ -128,6 +173,7 @@ def load_config(
 
     paths = effective["paths"]
     checkpoint = effective["checkpoint"]
+    runtime = effective["runtime"]
     verification = str(checkpoint["verification"])
     if verification not in {"fast", "full"}:
         raise ConfigError(f"invalid verification mode: {verification}")
@@ -142,6 +188,10 @@ def load_config(
             external_flux=resolve_within_root(root, paths["external_flux"]),
             run_manifest=resolve_within_root(root, paths["run_manifest"]),
             results_dir=resolve_within_root(root, paths["results_dir"]),
+            mc_data_dir=resolve_within_root(root, paths["mc_data_dir"]),
+            model_dir=resolve_within_root(root, paths["model_dir"]),
+            features_file=resolve_within_root(root, paths["features_file"]),
+            beam_spectrum_file=resolve_within_root(root, paths["beam_spectrum_file"]),
         ),
         checkpoint=CheckpointConfig(
             max_age_days=checkpoint["max_age_days"],
@@ -149,5 +199,22 @@ def load_config(
             old_policy=str(checkpoint["old_policy"]),
             stale_policy=str(checkpoint["stale_policy"]),
             untracked_policy=str(checkpoint["untracked_policy"]),
+        ),
+        runtime=RuntimeConfig(
+            python_executable=str(runtime["python_executable"]),
+            root_executable=str(runtime["root_executable"]),
+            input_tree=str(runtime["input_tree"]),
+            signal_channel=str(runtime["signal_channel"]),
+            signal_prior=float(runtime["signal_prior"]),
+            partner=str(runtime["partner"]),
+            mc_events=int(runtime["mc_events"]),
+            grid_search_iterations=int(runtime["grid_search_iterations"]),
+            use_grid_search=bool(runtime["use_grid_search"]),
+            threads=int(runtime["threads"]),
+            flux_progress_every_events=int(runtime["flux_progress_every_events"]),
+            flux_samples_per_run_strip=int(runtime["flux_samples_per_run_strip"]),
+            bootstrap_replicas=int(runtime["bootstrap_replicas"]),
+            bootstrap_seed=int(runtime["bootstrap_seed"]),
+            estimator=str(runtime["estimator"]),
         ),
     )
