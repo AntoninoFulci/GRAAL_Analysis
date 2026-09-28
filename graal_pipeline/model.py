@@ -12,6 +12,30 @@ class CheckpointScope(str, Enum):
     OBSERVABLE = "observable"
 
 
+class ArtifactState(str, Enum):
+    FRESH = "FRESH"
+    OLD = "OLD"
+    UNTRACKED = "UNTRACKED"
+    STALE = "STALE"
+    MISSING = "MISSING"
+    INVALID = "INVALID"
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    valid: bool
+    validator: str
+    reasons: tuple[str, ...] = ()
+    level: str = "fast"
+
+
+@dataclass(frozen=True)
+class ArtifactStatus:
+    state: ArtifactState
+    reasons: tuple[str, ...] = ()
+    age_days: float | None = None
+
+
 @dataclass(frozen=True)
 class ArtifactSpec:
     key: str

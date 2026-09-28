@@ -3,12 +3,23 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
+from datetime import datetime, timezone
 from typing import Any
+
+from .model import (
+    ArtifactState,
+    ArtifactStatus,
+    CheckpointScope,
+    ValidationResult,
+)
 
 
 Fingerprint = dict[str, Any]
+CHECKPOINT_SCHEMA_VERSION = 1
 
 
 def canonical_json(value: Any) -> str:
@@ -200,3 +211,185 @@ def responsible_code_fingerprint(
         "dirty": dirty,
         "files": _responsible_file_hashes(resolved_paths, root) if dirty else {},
     }
+
+
+def make_checkpoint(
+    *,
+    stage: str,
+    completed_at: datetime,
+    inputs: Mapping[str, Any],
+    outputs: Mapping[str, Any],
+    configuration: Mapping[str, Any],
+    code: Mapping[str, Any],
+    run_id: str,
+    final_state: str | None = None,
+    observable: str | None = None,
+    profile: str = "production",
+    provenance: str = "produced",
+    provenance_confident: bool = True,
+    command: Iterable[str] = (),
+    working_directory: str | None = None,
+    validator: str | None = None,
+    verification: str = "fast",
+) -> Fingerprint:
+    timestamp = completed_at.astimezone(timezone.utc).isoformat()
+    return {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "stage": stage,
+        "final_state": final_state,
+        "observable": observable,
+        "profile": profile,
+        "completed_at": timestamp,
+        "run_id": run_id,
+        "inputs": dict(inputs),
+        "outputs": dict(outputs),
+        "configuration": dict(configuration),
+        "code": dict(code),
+        "provenance": provenance,
+        "provenance_confident": provenance_confident,
+        "command": list(command),
+        "working_directory": working_directory,
+        "validator": validator,
+        "verification": verification,
+    }
+
+
+def adopt_artifact_checkpoint(
+    checkpoint: Mapping[str, Any], *, provenance_confident: bool
+) -> Fingerprint:
+    adopted = json.loads(canonical_json(checkpoint))
+    adopted["provenance"] = "adopted_legacy_output"
+    adopted["provenance_confident"] = provenance_confident
+    return adopted
+
+
+def classify_artifact(
+    *,
+    exists: bool,
+    validation: ValidationResult,
+    checkpoint: Mapping[str, Any] | None,
+    current_inputs: Mapping[str, Any],
+    current_outputs: Mapping[str, Any],
+    current_configuration: Mapping[str, Any],
+    current_code: Mapping[str, Any],
+    max_age_days: int | None,
+    now: datetime | None = None,
+) -> ArtifactStatus:
+    if not exists:
+        return ArtifactStatus(
+            ArtifactState.MISSING, ("required output is missing",)
+        )
+    if not validation.valid:
+        return ArtifactStatus(
+            ArtifactState.INVALID,
+            validation.reasons or ("artifact validation failed",),
+        )
+    if checkpoint is None:
+        return ArtifactStatus(
+            ArtifactState.UNTRACKED,
+            ("valid output has no compatible checkpoint",),
+        )
+    schema = checkpoint.get("schema_version")
+    if schema != CHECKPOINT_SCHEMA_VERSION:
+        return ArtifactStatus(
+            ArtifactState.STALE,
+            (
+                f"checkpoint schema {schema} is unsupported "
+                f"(expected {CHECKPOINT_SCHEMA_VERSION})",
+            ),
+        )
+    if (
+        checkpoint.get("provenance") == "adopted_legacy_output"
+        and not checkpoint.get("provenance_confident", False)
+    ):
+        return ArtifactStatus(
+            ArtifactState.STALE,
+            ("legacy configuration provenance is uncertain",),
+        )
+
+    expected = {
+        "inputs": checkpoint.get("inputs", {}),
+        "outputs": checkpoint.get("outputs", {}),
+        "configuration": checkpoint.get("configuration", {}),
+        "code": checkpoint.get("code", {}),
+    }
+    current = {
+        "inputs": dict(current_inputs),
+        "outputs": dict(current_outputs),
+        "configuration": dict(current_configuration),
+        "code": dict(current_code),
+    }
+    reasons = fingerprint_mismatch_reasons(expected, current)
+    if reasons:
+        return ArtifactStatus(ArtifactState.STALE, reasons)
+
+    completed_at = datetime.fromisoformat(str(checkpoint["completed_at"]))
+    reference = now or datetime.now(timezone.utc)
+    if completed_at.tzinfo is None:
+        completed_at = completed_at.replace(tzinfo=timezone.utc)
+    age_days = (reference.astimezone(timezone.utc) - completed_at).total_seconds() / 86400
+    if max_age_days is not None and age_days > max_age_days:
+        return ArtifactStatus(
+            ArtifactState.OLD,
+            (
+                f"checkpoint is {age_days:.1f} days old "
+                f"(limit {max_age_days} days)",
+            ),
+            age_days=age_days,
+        )
+    return ArtifactStatus(ArtifactState.FRESH, age_days=age_days)
+
+
+class CheckpointStore:
+    def __init__(self, state_directory: str | Path) -> None:
+        self.state_directory = Path(state_directory)
+
+    def path_for(
+        self,
+        stage: str,
+        scope: CheckpointScope,
+        *,
+        final_state: str | None = None,
+        observable: str | None = None,
+    ) -> Path:
+        base = self.state_directory / "checkpoints"
+        if scope is CheckpointScope.SHARED:
+            return base / "shared" / f"{stage}.json"
+        if final_state is None:
+            raise ValueError(f"final_state is required for {scope.value} checkpoint")
+        if scope is CheckpointScope.FINAL_STATE:
+            return base / final_state / f"{stage}.json"
+        if observable is None:
+            raise ValueError("observable is required for observable checkpoint")
+        return base / final_state / observable / f"{stage}.json"
+
+    def read(self, path: str | Path) -> Fingerprint | None:
+        candidate = Path(path)
+        if not candidate.exists():
+            return None
+        with candidate.open(encoding="utf-8") as stream:
+            return json.load(stream)
+
+    def write(self, path: str | Path, checkpoint: Mapping[str, Any]) -> None:
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary_name: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=destination.parent,
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as stream:
+                temporary_name = stream.name
+                json.dump(checkpoint, stream, sort_keys=True, indent=2)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_name, destination)
+            temporary_name = None
+        finally:
+            if temporary_name is not None:
+                Path(temporary_name).unlink(missing_ok=True)
