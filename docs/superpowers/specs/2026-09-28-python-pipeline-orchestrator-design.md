@@ -50,24 +50,30 @@ graal_pipeline/
 ├── __init__.py
 ├── __main__.py
 ├── cli.py
+├── config.py
 ├── model.py
 ├── registry.py
 ├── planner.py
 ├── state.py
+├── validators.py
 └── runner.py
 ```
 
 Responsibilities are deliberately narrow:
 
 - `cli.py` owns `argparse`, the interactive wizard, and presentation.
+- `config.py` owns TOML loading, profile/CLI precedence, and safe path
+  resolution.
 - `model.py` owns immutable stage, artifact, status, plan, and run-result data
   types.
 - `registry.py` owns final-state, observable, and stage descriptions, including
   descriptions used by both the wizard and CLI help.
 - `planner.py` traverses dependencies, obtains artifact state from `state.py`,
   applies user policies, and emits an executable plan.
-- `state.py` owns validators, fingerprints, checkpoints, legacy adoption, and
-  run-state persistence.
+- `state.py` owns fingerprints, checkpoints, legacy adoption, and run-state
+  persistence.
+- `validators.py` owns artifact contract validation and delegates physics
+  schemas to their responsible packages.
 - `runner.py` owns subprocess execution, logs, locks, retry behavior, staging,
   output validation, and publication.
 - `__main__.py` delegates to `cli.main`.
