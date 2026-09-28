@@ -387,6 +387,32 @@ def build_stage_invocation(
         working_directory=working_directory,
         inputs=inputs,
         outputs=outputs,
+        output_argument=(
+            config.paths.model_dir
+            if stage_key in {"grid_search", "bdt_training"}
+            else config.paths.mc_data_dir
+            if stage_key in {"mc_generation", "signal_mc_generation"}
+            else paths["signal_mc_selected_dir"]
+            if stage_key == "signal_mc_adapter"
+            else outputs[0]
+        ),
+        output_kind=(
+            "directory"
+            if stage_key
+            in {
+                "preanalysis",
+                "event_selection",
+                "mc_generation",
+                "grid_search",
+                "bdt_training",
+                "flux_calibration",
+                "signal_mc_generation",
+                "signal_mc_adapter",
+                "beam_asymmetry_first_pass",
+                "beam_asymmetry_full",
+            }
+            else "file"
+        ),
         scope=stage.scope,
         validator=stage.validator or "unknown",
         responsible_paths=stage.responsible_paths,

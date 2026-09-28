@@ -101,6 +101,8 @@ class StageInvocation:
     working_directory: Path
     inputs: tuple[Path, ...]
     outputs: tuple[Path, ...]
+    output_argument: Path
+    output_kind: str
     scope: CheckpointScope
     validator: str
     responsible_paths: tuple[str, ...]
