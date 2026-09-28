@@ -18,7 +18,6 @@ stale_policy = "ask"
 untracked_policy = "ask"
 
 [runtime]
-python_executable = "python"
 root_executable = "root"
 input_tree = "auto"
 signal_channel = "eta_pi0"

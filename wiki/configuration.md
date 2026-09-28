@@ -11,6 +11,14 @@ policies, executable selection and the runtime controls shared across stages.
 The precedence order is command-line override, selected profile, general TOML
 value, then code default.
 
+When `python_executable` is not set explicitly, every Python stage uses the
+same interpreter that started the orchestrator. Therefore
+`.venv/bin/python -m graal_pipeline` also runs selection, calibration,
+training, and reconstruction inside `.venv`; it does not fall back to a
+different `python` found through `PATH`. An alternate TOML file may still set
+`runtime.python_executable` when a deliberately different interpreter is
+required.
+
 Detector paths default to `data/01_raw/graal_data`,
 `data/02_pre_analyzed/pre_analisi`, and `data/03_selected`. Relative paths are
 resolved from the repository root, never from the caller's current directory.

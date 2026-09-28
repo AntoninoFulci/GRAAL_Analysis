@@ -324,6 +324,13 @@ Le sezioni principali sono:
   bootstrap, seed ed estimatore;
 - `[profiles.<nome>]`: override specifici del profilo.
 
+Se `runtime.python_executable` non è specificato, tutti gli stadi Python
+utilizzano lo stesso interprete con cui è stato avviato l'orchestratore. Per
+esempio, `.venv/bin/python -m graal_pipeline` mantiene selezione, calibrazione,
+training e ricostruzione nello stesso ambiente virtuale, senza risolvere un
+diverso `python` tramite `PATH`. Un file TOML alternativo può ancora indicare
+un interprete esplicito quando necessario.
+
 Tutti i path relativi vengono risolti rispetto alla root della repository,
 indipendentemente dalla directory corrente. I path assoluti sono ammessi per
 configurazioni esplicite sulla farm. `raw_dir`, `preanalysis_dir` ed

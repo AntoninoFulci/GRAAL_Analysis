@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import importlib
 import os
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -98,7 +99,7 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "untracked_policy": "ask",
     },
     "runtime": {
-        "python_executable": "python",
+        "python_executable": sys.executable,
         "root_executable": "root",
         "input_tree": "auto",
         "signal_channel": "eta_pi0",

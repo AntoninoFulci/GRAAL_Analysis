@@ -1,8 +1,35 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
+
+
+def test_python_stages_inherit_orchestrator_interpreter_by_default():
+    from graal_pipeline.config import load_config
+    from graal_pipeline.registry import build_stage_invocation
+
+    config = load_config()
+    selection = build_stage_invocation("event_selection", config)
+
+    assert selection.commands[0][0] == sys.executable
+
+
+def test_python_stage_interpreter_can_be_overridden_explicitly(tmp_path):
+    from graal_pipeline.config import load_config
+    from graal_pipeline.registry import build_stage_invocation
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    config_path = root / "pipeline.toml"
+    config_path.write_text(
+        '[runtime]\npython_executable = "/opt/graal/python"\n'
+    )
+    config = load_config(config_path, repo_root=root)
+    selection = build_stage_invocation("event_selection", config)
+
+    assert selection.commands[0][0] == "/opt/graal/python"
 
 
 def test_every_stage_declares_command_outputs_validator_scope_and_code():

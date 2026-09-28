@@ -73,6 +73,11 @@ graal-pipeline --config config/pipeline-farm.toml status \
   --final-state eta_pi0
 ```
 
+Unless an alternate TOML explicitly sets `runtime.python_executable`, Python
+stages inherit the exact interpreter used to launch the orchestrator. Running
+`.venv/bin/python -m graal_pipeline` is therefore sufficient even when the
+shell's unqualified `python` points to the system installation.
+
 See [Pipeline orchestrator](pipeline-orchestrator) for the complete interface.
 
 ## Tests
