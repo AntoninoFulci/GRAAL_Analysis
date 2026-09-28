@@ -9,6 +9,7 @@ from typing import Any, Iterable
 import numpy as np
 
 from .model import ValidationResult
+from .model import StageInvocation
 
 
 def _result(name: str, reasons: Iterable[str] = (), *, level: str = "fast") -> ValidationResult:
@@ -399,3 +400,93 @@ def validate_beam_asymmetry_directory(
             (f"missing or empty PDF products: {', '.join(missing_pdfs)}",),
         )
     return _result("beam_asymmetry")
+
+
+def _validate_existing_outputs(
+    invocation: StageInvocation, validator: str
+) -> ValidationResult:
+    missing = [str(path) for path in invocation.outputs if not path.exists()]
+    return _result(
+        validator,
+        tuple(f"missing expected output: {path}" for path in missing),
+    )
+
+
+def validate_invocation(
+    stage_key: str, invocation: StageInvocation
+) -> ValidationResult:
+    if stage_key == "preanalysis":
+        return validate_preanalysis_directory(invocation.output_argument)
+    if stage_key == "event_selection":
+        return validate_selected_directory(invocation.output_argument)
+    if stage_key in {"mc_generation", "signal_mc_generation"}:
+        reasons: list[str] = []
+        for output in invocation.outputs:
+            checked = validate_mc_file(output)
+            reasons.extend(checked.reasons)
+        return _result("monte_carlo", reasons)
+    if stage_key == "beam_spectrum":
+        try:
+            from bdt_training.beam_spectrum import BeamSpectrum
+
+            spectrum = BeamSpectrum.load(invocation.outputs[0])
+            if spectrum.edges.ndim != 1 or spectrum.density.ndim != 1:
+                raise ValueError("beam spectrum arrays must be one-dimensional")
+            if len(spectrum.edges) != len(spectrum.density) + 1:
+                raise ValueError("beam spectrum edges/density shape mismatch")
+            if not np.isfinite(spectrum.edges).all() or not np.isfinite(spectrum.density).all():
+                raise ValueError("beam spectrum contains non-finite values")
+        except Exception as exc:
+            return _result("beam_spectrum", (f"invalid beam spectrum: {exc}",))
+        return _result("beam_spectrum")
+    if stage_key == "feature_build":
+        return validate_feature_dataset(
+            invocation.outputs[0], "eta_pi0", "eta_pi0"
+        )
+    if stage_key == "grid_search":
+        return _validate_existing_outputs(invocation, "grid_search")
+    if stage_key == "bdt_training":
+        return validate_model_bundle(invocation.output_argument, "eta_pi0", "eta_pi0")
+    if stage_key == "flux_calibration":
+        return validate_calibration_directory(invocation.output_argument)
+    if stage_key == "signal_mc_adapter":
+        return validate_selected_directory(
+            invocation.output_argument,
+            expected_files=(invocation.outputs[0].name,),
+        )
+    if stage_key == "reco_chi2_raw":
+        return validate_reconstruction_file(
+            invocation.outputs[0], "reco_eta_pi0_chi2"
+        )
+    if stage_key == "reco_bdt_raw":
+        return validate_reconstruction_file(
+            invocation.outputs[0], "reco_eta_pi0_bdt", require_bdt=True
+        )
+    if stage_key == "reco_bdt_fit":
+        return validate_reconstruction_file(
+            invocation.outputs[0],
+            "reco_eta_pi0_bdt",
+            require_bdt=True,
+            require_fit=True,
+        )
+    if stage_key in {"reco_data_sideband", "reco_signal_mc_sideband"}:
+        return validate_reconstruction_file(
+            invocation.outputs[0],
+            "reco_eta_pi0_bdt_sideband",
+            require_bdt=True,
+        )
+    if stage_key in {"beam_asymmetry_first_pass", "beam_asymmetry_full"}:
+        from observable_extraction.beam_asymmetry import ENERGY_EDGES_GEV
+
+        return validate_beam_asymmetry_directory(
+            invocation.output_argument,
+            expected_energy_edges=ENERGY_EDGES_GEV,
+        )
+    if stage_key == "reco_2pi0":
+        return validate_root_tree(
+            invocation.outputs[0],
+            "reco_2pi0",
+            ("RunNumber", "Polarization", "Xstrip"),
+            validator="reconstruction",
+        )
+    return _validate_existing_outputs(invocation, invocation.validator)

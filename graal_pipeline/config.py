@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from dataclasses import asdict
 
 
 class ConfigError(ValueError):
@@ -218,3 +219,16 @@ def load_config(
             estimator=str(runtime["estimator"]),
         ),
     )
+
+
+def configuration_snapshot(config: PipelineConfig) -> dict[str, Any]:
+    def normalize(value: Any) -> Any:
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, dict):
+            return {str(key): normalize(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [normalize(item) for item in value]
+        return value
+
+    return normalize(asdict(config))

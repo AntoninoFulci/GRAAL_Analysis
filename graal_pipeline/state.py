@@ -15,6 +15,7 @@ from .model import (
     ArtifactStatus,
     CheckpointScope,
     ValidationResult,
+    StageInvocation,
 )
 
 
@@ -393,3 +394,55 @@ class CheckpointStore:
         finally:
             if temporary_name is not None:
                 Path(temporary_name).unlink(missing_ok=True)
+
+
+def inspect_invocation_status(
+    invocation: StageInvocation,
+    *,
+    checkpoint_store: CheckpointStore,
+    configuration: Mapping[str, Any],
+    repository_root: str | Path,
+    final_state: str,
+    observable: str | None,
+    max_age_days: int | None,
+    verification: str = "fast",
+    validator: Callable[[str, StageInvocation], ValidationResult],
+    now: datetime | None = None,
+) -> ArtifactStatus:
+    exists = bool(invocation.outputs) and all(path.exists() for path in invocation.outputs)
+    if not exists:
+        return ArtifactStatus(
+            ArtifactState.MISSING, ("required output is missing",)
+        )
+    validation = validator(invocation.stage_key, invocation)
+    if not validation.valid:
+        return ArtifactStatus(ArtifactState.INVALID, validation.reasons)
+    inputs = {
+        str(path): fingerprint_path(path, mode=verification)
+        for path in invocation.inputs
+    }
+    outputs = {
+        str(path): fingerprint_path(path, mode=verification)
+        for path in invocation.outputs
+    }
+    code = responsible_code_fingerprint(
+        invocation.responsible_paths,
+        repository_root,
+    )
+    checkpoint_path = checkpoint_store.path_for(
+        invocation.stage_key,
+        invocation.scope,
+        final_state=final_state,
+        observable=observable or "beam_asymmetry",
+    )
+    return classify_artifact(
+        exists=True,
+        validation=validation,
+        checkpoint=checkpoint_store.read(checkpoint_path),
+        current_inputs=inputs,
+        current_outputs=outputs,
+        current_configuration=configuration,
+        current_code=code,
+        max_age_days=max_age_days,
+        now=now,
+    )
