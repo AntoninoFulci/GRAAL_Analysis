@@ -14,8 +14,10 @@ value, then code default.
 Detector paths default to `data/01_raw/graal_data`,
 `data/02_pre_analyzed/pre_analisi`, and `data/03_selected`. Relative paths are
 resolved from the repository root, never from the caller's current directory.
-Use an alternate TOML file for absolute farm paths. Relative paths that escape
-the repository through `..` or symlinks are rejected.
+Use an alternate TOML file for absolute farm paths. Managed farm inputs
+(`raw_dir`, `preanalysis_dir`, and `external_flux`) may be symlinks to external
+storage. Relative output and state paths that escape through `..` or symlinks
+are rejected.
 
 See [Pipeline orchestrator](pipeline-orchestrator) for complete defaults,
 profiles and policies.

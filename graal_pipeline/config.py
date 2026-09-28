@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import importlib
+import os
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -154,12 +155,22 @@ def _nested_overrides(values: Mapping[str, Any]) -> dict[str, Any]:
     return nested
 
 
-def resolve_within_root(root: Path, value: str | Path) -> Path:
+def resolve_within_root(
+    root: Path,
+    value: str | Path,
+    *,
+    allow_external_symlink: bool = False,
+) -> Path:
     root = root.resolve()
     candidate = Path(value).expanduser()
     if candidate.is_absolute():
         return candidate.resolve()
-    resolved = (root / candidate).resolve()
+    lexical = Path(os.path.abspath(root / candidate))
+    if not lexical.is_relative_to(root):
+        raise ConfigError(f"relative path escapes repository root: {value}")
+    if allow_external_symlink:
+        return lexical
+    resolved = lexical.resolve()
     if not resolved.is_relative_to(root):
         raise ConfigError(f"relative path escapes repository root: {value}")
     return resolved
@@ -203,10 +214,16 @@ def load_config(
         repository_root=root,
         profile=profile,
         paths=PathsConfig(
-            raw_dir=resolve_within_root(root, paths["raw_dir"]),
-            preanalysis_dir=resolve_within_root(root, paths["preanalysis_dir"]),
+            raw_dir=resolve_within_root(
+                root, paths["raw_dir"], allow_external_symlink=True
+            ),
+            preanalysis_dir=resolve_within_root(
+                root, paths["preanalysis_dir"], allow_external_symlink=True
+            ),
             selected_dir=resolve_within_root(root, paths["selected_dir"]),
-            external_flux=resolve_within_root(root, paths["external_flux"]),
+            external_flux=resolve_within_root(
+                root, paths["external_flux"], allow_external_symlink=True
+            ),
             run_manifest=resolve_within_root(root, paths["run_manifest"]),
             results_dir=resolve_within_root(root, paths["results_dir"]),
             mc_data_dir=resolve_within_root(root, paths["mc_data_dir"]),

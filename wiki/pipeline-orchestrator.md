@@ -326,8 +326,10 @@ Le sezioni principali sono:
 
 Tutti i path relativi vengono risolti rispetto alla root della repository,
 indipendentemente dalla directory corrente. I path assoluti sono ammessi per
-configurazioni esplicite sulla farm. Un path relativo che esce dalla root
-tramite `..` o link simbolici viene rifiutato prima di qualsiasi mutazione.
+configurazioni esplicite sulla farm. `raw_dir`, `preanalysis_dir` ed
+`external_flux` possono essere link simbolici verso input esterni configurati
+dal setup farm. Gli output, lo stato e gli altri path relativi non possono
+uscire dalla root tramite `..` o link simbolici.
 
 I default principali sono:
 

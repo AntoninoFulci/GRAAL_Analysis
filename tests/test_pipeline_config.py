@@ -105,6 +105,34 @@ def test_symlinked_relative_path_cannot_escape_repository(tmp_path):
         load_config(config_path, repo_root=root)
 
 
+def test_declared_farm_input_symlinks_may_target_external_storage(tmp_path):
+    from graal_pipeline.config import load_config
+
+    root = tmp_path / "repo"
+    farm = tmp_path / "farm"
+    raw_target = farm / "graal_data"
+    preanalysis_target = farm / "pre_analisi"
+    flux_target = farm / "flux.root"
+    raw_target.mkdir(parents=True)
+    preanalysis_target.mkdir(parents=True)
+    flux_target.write_bytes(b"flux")
+    raw_link = root / "data/01_raw/graal_data"
+    preanalysis_link = root / "data/02_pre_analyzed/pre_analisi"
+    flux_link = root / "data/00_external/flux.root"
+    for link in (raw_link, preanalysis_link, flux_link):
+        link.parent.mkdir(parents=True, exist_ok=True)
+    raw_link.symlink_to(raw_target, target_is_directory=True)
+    preanalysis_link.symlink_to(preanalysis_target, target_is_directory=True)
+    flux_link.symlink_to(flux_target)
+    config_path = _write_config(root / "pipeline.toml", "")
+
+    config = load_config(config_path, repo_root=root)
+
+    assert config.paths.raw_dir == raw_link
+    assert config.paths.preanalysis_dir == preanalysis_link
+    assert config.paths.external_flux == flux_link
+
+
 def test_absolute_farm_path_is_allowed(tmp_path):
     from graal_pipeline.config import load_config
 
