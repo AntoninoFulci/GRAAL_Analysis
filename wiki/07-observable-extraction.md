@@ -50,7 +50,7 @@ Equivalent ordered workflow:
 
 ### Calibrated exposures
 
-`results/strip_energy_flux/flux_by_run_strip.csv` is loaded with an exact
+`flux_by_run_strip.csv` in `results/strip_energy_flux/` is loaded with an exact
 schema check and schema version `2`. Defaults select target `P`, beam type
 `UV`, and energy range 1.1–1.5 GeV. Mappings are:
 
@@ -212,7 +212,7 @@ bootstrap with fewer than two runs.
 | Responsibility | Source | Principal tests |
 |---|---|---|
 | CLI orchestration | `07_observable_extraction/beam_asymmetry.py` | `test_beam_asymmetry_cli.py` |
-| exposure adapter | `calibration/flux_v2.py` | `test_calibration_io.py` |
-| ROOT event adapter | `io/reconstructed_events.py` | `test_reconstructed_events.py` |
-| grid and projections | `core/binning.py`, `core/kinematics.py` | `test_binning.py`, `test_kinematics.py` |
-| ROOT publication | `io/root_output.py` | `test_root_output.py` |
+| exposure adapter | `07_observable_extraction/calibration/flux_v2.py` | `test_calibration_io.py` |
+| ROOT event adapter | `07_observable_extraction/io/reconstructed_events.py` | `test_reconstructed_events.py` |
+| grid and projections | `07_observable_extraction/core/binning.py`, `07_observable_extraction/core/kinematics.py` | `test_binning.py`, `test_kinematics.py` |
+| ROOT publication | `07_observable_extraction/io/root_output.py` | `test_root_output.py` |

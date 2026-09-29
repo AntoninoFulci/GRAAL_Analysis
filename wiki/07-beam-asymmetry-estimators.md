@@ -180,7 +180,7 @@ an optional systematic shift; neither estimator silently replaces the other.
 
 | Responsibility | Source | Tests |
 |---|---|---|
-| exposure and result contracts | `core/models.py` | `test_models.py` |
-| normalized ratio and harmonic fits | `core/ratio_fit.py` | `test_ratio_fit.py` |
-| event-level likelihood and profiles | `core/conditional_likelihood.py` | `test_conditional_likelihood.py` |
-| fixed grid | `core/binning.py` | `test_binning.py` |
+| exposure and result contracts | `07_observable_extraction/core/models.py` | `test_models.py` |
+| normalized ratio and harmonic fits | `07_observable_extraction/core/ratio_fit.py` | `test_ratio_fit.py` |
+| event-level likelihood and profiles | `07_observable_extraction/core/conditional_likelihood.py` | `test_conditional_likelihood.py` |
+| fixed grid | `07_observable_extraction/core/binning.py` | `test_binning.py` |

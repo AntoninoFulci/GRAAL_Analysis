@@ -29,7 +29,7 @@ The shared pairing implementation is `00_common/physics/pairing.py`; training
 features and reconstruction therefore use the same masses, partitions, and
 chi-square expression.
 
-`runtime/reco_core.py` owns ROOT chain construction, pre-pairing topology
+`05_reconstruction/runtime/reco_core.py` owns ROOT chain construction, pre-pairing topology
 guards, optional batch gating, conversion to/from arrays, output branches,
 rejection counters, and final write. Input tree `auto` resolves a known
 preselection tree—normally `h85`, with older `h80` supported.
@@ -116,10 +116,11 @@ directory publication. Missing input directories/files, unreadable first
 files, or unresolved trees fail loudly. Rejected events are counted by reason;
 the function returns the number written.
 
-Implementation map: `core/event_logic.py` owns decisions,
-`core/reco_physics.py` owns supported final states and partner masses,
-`core/kinematic_fit.py` owns fitting, `runtime/reco_core.py` owns ROOT I/O, and
-`runtime/cli_options.py` owns shared CLI translation.
+Implementation map: `05_reconstruction/core/event_logic.py` owns decisions,
+`05_reconstruction/core/reco_physics.py` owns supported final states and partner masses,
+`05_reconstruction/core/kinematic_fit.py` owns fitting,
+`05_reconstruction/runtime/reco_core.py` owns ROOT I/O, and
+`05_reconstruction/runtime/cli_options.py` owns shared CLI translation.
 
 See [chi-square pairing](05-chi-square-pairing), [Stage-1 gate](05-stage1-gate),
 and [kinematic fit](05-kinematic-fit).

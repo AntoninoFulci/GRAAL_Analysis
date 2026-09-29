@@ -173,7 +173,7 @@ left uncorrected rather than guessed. The ROOT diagnostic
 
 | Responsibility | Source | Tests |
 |---|---|---|
-| regions, templates, mixture, correction | `core/background.py` | `test_background.py` |
+| regions, templates, mixture, correction | `07_observable_extraction/core/background.py` | `test_background.py` |
 | pull definitions and energy-bin orchestration | `beam_asymmetry.py` | `test_beam_asymmetry_cli.py` |
 | broad sideband producer | `05_reconstruction/reconstruct_eta_pi0_bdt_sideband.py` | Stage 05 sideband tests |
 | selected signal-MC adapter | `05_reconstruction/prepare_signal_mc_selected.py` | `05_reconstruction/tests/test_prepare_signal_mc_selected.py` |

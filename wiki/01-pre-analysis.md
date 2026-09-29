@@ -163,7 +163,7 @@ it is not a physics selection on individual tracks.
 | `PreAnalysis(input, output)` | Single input-expression wrapper |
 | `AnalyzeAll` | Folder discovery, one-time cut-map construction, and per-folder output naming |
 | `01_pre_analysis/CutManager.h` | Run-to-folder mapping, cut loading, lookup, validation, and explicit exceptions |
-| `01_pre_analysis/cuts/*.cpp` | Versioned `TCutG` polygon definitions |
+| `01_pre_analysis/cuts/` with `*.cpp` files | Versioned `TCutG` polygon definitions |
 
 Primary verification lives in `tests/test_stage1_contracts.py` and the source
 contracts exercised by downstream event-selection tests. Run the focused wiki

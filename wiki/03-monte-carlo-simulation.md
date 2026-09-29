@@ -162,7 +162,7 @@ timestamp does not make old events scientifically current.
 
 | Path | Responsibility |
 |---|---|
-| `03_mc_simulation/generators/generate_*_dataset.C` | Per-channel production and decay topology |
+| `03_mc_simulation/generators/` with `generate_*_dataset.C` files | Per-channel production and decay topology |
 | `03_mc_simulation/generators/smearing.h` | Shared smearing and phase-space unweighting |
 | `00_common/physics/channels.py` | Channel registry, filename property, masses, hypotheses, and weighting metadata |
 | `03_mc_simulation/mc_status.py` | Completeness, age reporting, and exit semantics |

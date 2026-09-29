@@ -34,7 +34,8 @@ that best-quartet resolution has been implemented. If the restricted sample
 is empty or loses a fitted bin, the CLI warns, omits this component, and still
 writes `photon_multiplicity.pdf` with the available counts.
 
-`core/systematics.py` also declares a broader `REQUIRED_SYSTEMATICS` analysis
+`07_observable_extraction/core/systematics.py` also declares a broader
+`REQUIRED_SYSTEMATICS` analysis
 catalog (`flux_balance`, `bdt_threshold`, `sideband_definition`,
 `fit_fallback`, `mass_phi_binning`, `run_period_stability`, and others). That
 catalog is a requirements checklist, not proof that every named covariance is
@@ -191,9 +192,9 @@ conventions, and passes a digitized Figure 4 regression.
 
 | Responsibility | Source | Tests |
 |---|---|---|
-| components, bootstrap, label randomization | `core/systematics.py` | `test_systematics.py` |
+| components, bootstrap, label randomization | `07_observable_extraction/core/systematics.py` | `test_systematics.py` |
 | component selection and covariance assembly | `beam_asymmetry.py` | `test_beam_asymmetry_cli.py`, `test_photon_multiplicity.py` |
-| ROOT schema and atomic writer | `io/root_output.py` | `test_root_output.py` |
-| Figure 4 | `plotting/figure4.py` | `test_figure4.py` |
-| diagnostic PDFs | `plotting/diagnostics.py` | plotting and CLI tests |
+| ROOT schema and atomic writer | `07_observable_extraction/io/root_output.py` | `test_root_output.py` |
+| Figure 4 | `07_observable_extraction/plotting/figure4.py` | `test_figure4.py` |
+| diagnostic PDFs | `07_observable_extraction/plotting/diagnostics.py` | plotting and CLI tests |
 | theory limitation | `theory/README.md` | documentation/analysis review |

@@ -8,7 +8,7 @@ hypotheses before reading the reconstruction dataset.
 
 The default directory is
 `04_bdt_training/artifacts/stage1/`, resolved relative to the repository by
-`runtime/stage1_gate.py`. Load order is:
+`05_reconstruction/runtime/stage1_gate.py`. Load order is:
 
 1. require `bdt_stage1.json`;
 2. require `stage1_threshold.txt`;
