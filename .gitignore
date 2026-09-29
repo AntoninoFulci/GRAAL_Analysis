@@ -34,3 +34,5 @@ tmp/
 graphify-out/
 .work/
 /build/
+
+/test_data/
