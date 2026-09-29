@@ -189,6 +189,36 @@ REQUIRED_SECTIONS = {
         "## Two-Pion Path",
         "## Boundaries",
     ),
+    "06-calibration.md": (
+        "## Run Manifest",
+        "## Strip-Energy Calibration",
+        "## Flux Products",
+        "## QA and Failure Policy",
+    ),
+    "07-observable-extraction.md": (
+        "## Inputs and Preconditions",
+        "## Extraction Workflow",
+        "## Public Products",
+        "## First-Pass and Full Modes",
+    ),
+    "07-beam-asymmetry-estimators.md": (
+        "## Exposure Strata",
+        "## Normalized-Ratio Fit",
+        "## Conditional Likelihood",
+        "## Physical Domain",
+    ),
+    "07-background-correction.md": (
+        "## Mass Regions",
+        "## Sideband Template",
+        "## Background Fraction",
+        "## Corrected Asymmetry",
+    ),
+    "07-systematics-and-outputs.md": (
+        "## Systematic Components",
+        "## Bootstrap by Run",
+        "## Covariance Combination",
+        "## ROOT and Figure Outputs",
+    ),
 }
 
 
