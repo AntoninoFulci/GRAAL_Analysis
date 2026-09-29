@@ -111,6 +111,30 @@ REQUIRED_SECTIONS = {
         "## Polarization Transfer",
         "## Figure 7 Reproduction",
     ),
+    "01-pre-analysis.md": (
+        "## Purpose",
+        "## Input and Output Trees",
+        "## Processing Lifecycle",
+        "## Implementation Map",
+    ),
+    "01-detector-cuts.md": (
+        "## Cut Manager",
+        "## Cut Families",
+        "## Run-Period Variants",
+        "## Extension Rules",
+    ),
+    "02-event-selection.md": (
+        "## Selection Contract",
+        "## Required Branches",
+        "## Atomic Output",
+        "## Failure Behavior",
+    ),
+    "03-monte-carlo-simulation.md": (
+        "## Generator Set",
+        "## ROOT Output Contract",
+        "## Channel Status",
+        "## Regeneration Boundaries",
+    ),
 }
 
 
