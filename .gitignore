@@ -13,11 +13,7 @@ __pycache__/
 .vscode/
 *cache*
 
-docs/
 .superpowers/
-.vscode/
-
-
 test_data/
 
 /data/

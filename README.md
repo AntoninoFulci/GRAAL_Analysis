@@ -37,33 +37,22 @@ imports. It never replaces an existing data path or mismatched link.
 
 ## Run
 
+Each numbered directory owns one analysis step. Run stage entry points directly;
+use `--help` for required inputs and output options.
+
 ```bash
-graal-pipeline --help
-graal-pipeline
-graal-pipeline prepare --final-state eta_pi0
-graal-pipeline reconstruct --final-state eta_pi0
-graal-pipeline plan extract beam-asymmetry --final-state eta_pi0
-graal-pipeline extract beam-asymmetry --final-state eta_pi0
+python 06_calibration/build_run_manifest.py --help
+python 06_calibration/build_strip_energy_flux.py --help
+python 07_observable_extraction/beam_asymmetry.py --help
+python plots/dalitz.py --help
 ```
 
-`python -m graal_pipeline` is equivalent to the installed console command.
-Without activating the virtual environment, invoke
-`.venv/bin/python -m graal_pipeline` directly; this form does not depend on
-`PATH`.
-The orchestrator inspects existing artifacts, validates checkpoints, and runs
-only the stages required by the requested result. Paths and farm overrides are
-configured in `config/pipeline.toml`; relative paths are resolved from the
-repository root.
-
-See the [pipeline orchestrator guide](wiki/pipeline-orchestrator.md) for the
-wizard, non-interactive policies, validation profiles, logs, and migration
-status.
+Calibration is step 06. Observable extraction follows as step 07. Plotting is
+an unnumbered consumer of completed analysis outputs and writes generated files
+under ignored `results/` paths.
 
 ## Test
 
 ```bash
 pytest -q
 ```
-
-Architecture, data formats, configuration, component guides, and operational
-details live in the [project wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki).

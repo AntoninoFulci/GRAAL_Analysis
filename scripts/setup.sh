@@ -166,7 +166,7 @@ if [[ ${MODE} == "farm" ]]; then
 fi
 
 "${VENV_PYTHON}" -c \
-    'import ROOT, graal_common, event_selector, mc_simulation, bdt_training, reconstruction, plots'
+    'import ROOT, graal_common, event_selector, mc_simulation, bdt_training, reconstruction, calibration, observable_extraction, plots'
 
 if [[ ! -f ${REPO_ROOT}/data/00_external/flux.root ]]; then
     echo "WARNING: data/00_external/flux.root is not present"
@@ -174,4 +174,4 @@ fi
 
 echo "Setup complete (${MODE})."
 echo "Activate environment: source ${VENV_DIR}/bin/activate"
-echo "Run without activation: ${VENV_PYTHON} -m graal_pipeline --help"
+echo "Calibration help: ${VENV_PYTHON} ${REPO_ROOT}/06_calibration/build_strip_energy_flux.py --help"

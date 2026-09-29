@@ -92,7 +92,11 @@ def test_local_setup_builds_environment_and_empty_data_layout(tmp_path):
     assert "-m pip install -r" in commands
     assert "-m pip install -e" in commands
     assert f"source {repo}/.venv/bin/activate" in result.stdout
-    assert f"{repo}/.venv/bin/python -m graal_pipeline --help" in result.stdout
+    assert (
+        f"{repo}/.venv/bin/python "
+        f"{repo}/06_calibration/build_strip_energy_flux.py --help"
+        in result.stdout
+    )
 
 
 def test_farm_setup_creates_idempotent_data_links(tmp_path):

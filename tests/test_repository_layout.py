@@ -1,7 +1,7 @@
 def test_responsibility_packages_are_importable():
     from graal_common.physics import channels
     from graal_common.io import trees
-    from graal_common.calibration import run_manifest
+    from calibration import run_manifest
     from graal_common.stage1 import features
     from bdt_training.dataset import stage1_dataset
     from bdt_training.training import stage1_training

@@ -14,12 +14,7 @@ description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
 # interpreter sets the floor — not our preference. The code itself needs nothing
 # newer: modern annotations are all behind `from __future__ import annotations`.
 requires-python = ">=3.10"
-dependencies = [
-    "tomli>=2; python_version < '3.11'",
-]
-
-[project.scripts]
-graal-pipeline = "graal_pipeline.cli:main"
+dependencies = []
 
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.
@@ -29,11 +24,9 @@ graal-pipeline = "graal_pipeline.cli:main"
 # it because the BDT-gated entry point consumes the trained model.
 [tool.setuptools]
 packages = [
-    "graal_pipeline",
     "graal_common",
     "graal_common.physics",
     "graal_common.io",
-    "graal_common.calibration",
     "graal_common.stage1",
     "graal_common.tests",
     "event_selector",
@@ -47,6 +40,8 @@ packages = [
     "reconstruction.core",
     "reconstruction.runtime",
     "reconstruction.tests",
+    "calibration",
+    "calibration.tests",
     "observable_extraction",
     "observable_extraction.calibration",
     "observable_extraction.core",
@@ -66,11 +61,12 @@ event_selector = "02_event_selector"
 mc_simulation  = "03_mc_simulation"
 bdt_training   = "04_bdt_training"
 reconstruction = "05_reconstruction"
-observable_extraction = "06_observable_extraction"
-plots          = "06_plots"
+calibration    = "06_calibration"
+observable_extraction = "07_observable_extraction"
+plots          = "plots"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_observable_extraction/tests", "06_plots/tests"]
+testpaths = ["tests", "00_common/tests", "03_mc_simulation/tests", "04_bdt_training/tests", "05_reconstruction/tests", "06_calibration/tests", "07_observable_extraction/tests", "plots/tests"]
 # The tests/ dirs would all collide on the package name "tests" under the
 # default import mode, because their numbered parents cannot prefix them.
 addopts = "--import-mode=importlib"
