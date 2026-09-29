@@ -51,6 +51,44 @@ EXPECTED_PAGES = {
 LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
 PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|FIXME)\b")
 
+REQUIRED_SECTIONS = {
+    "Home.md": (
+        "## Choose Your Path",
+        "## Pipeline at a Glance",
+        "## Documentation Map",
+    ),
+    "getting-started.md": (
+        "## Requirements",
+        "## Local Setup",
+        "## Farm Setup",
+        "## Verify the Installation",
+    ),
+    "architecture.md": (
+        "## System Context",
+        "## End-to-End Flow",
+        "## Package Boundaries",
+        "## External Boundaries",
+    ),
+    "workflow.md": (
+        "## Execution Model",
+        "## Main Data Flow",
+        "## Training Branch",
+        "## Calibration Branch",
+        "## Reuse and Failure Boundaries",
+    ),
+    "repository-structure.md": (
+        "## Top-Level Layout",
+        "## Package Name Mapping",
+        "## Generated and External Data",
+    ),
+    "architecture-decisions.md": (
+        "## Shared Contracts",
+        "## ROOT-Free Cores",
+        "## Explicit Artifacts",
+        "## Fail-Loud Boundaries",
+    ),
+}
+
 
 def _pages() -> dict[str, str]:
     return {
@@ -105,3 +143,12 @@ def test_mermaid_blocks_are_closed():
             re.findall(r"```mermaid\n.*?\n```", text, flags=re.DOTALL)
         )
         assert closed == starts, source
+
+
+@pytest.mark.parametrize("source,headings", sorted(REQUIRED_SECTIONS.items()))
+def test_pages_contain_required_sections(
+    source: str, headings: tuple[str, ...]
+):
+    text = (WIKI / source).read_text(encoding="utf-8")
+    for heading in headings:
+        assert heading in text, f"{source}: missing {heading}"
