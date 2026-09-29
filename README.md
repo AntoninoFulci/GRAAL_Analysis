@@ -5,6 +5,12 @@ Analysis pipeline for GRAAL photoproduction data, focused on
 by χ² with the same reconstruction preceded by a Stage-1 BDT background gate,
 then applies a 6C kinematic fit.
 
+## Documentation
+
+See the [GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)
+for the architecture, scientific workflow, stage guides, data contracts,
+commands, testing strategy, troubleshooting, and known limitations.
+
 ## Requirements
 
 - Python 3.10 or newer, using the interpreter compatible with PyROOT
