@@ -87,6 +87,30 @@ REQUIRED_SECTIONS = {
         "## Explicit Artifacts",
         "## Fail-Loud Boundaries",
     ),
+    "scientific-foundations.md": (
+        "## Reaction and Final State",
+        "## Analysis Hypotheses",
+        "## Reconstruction Comparison",
+        "## Measured Observable",
+    ),
+    "physics-channels.md": (
+        "## Channel Registry",
+        "## Signal and Background Roles",
+        "## Thresholds and Cross Sections",
+        "## Adding a Channel",
+    ),
+    "photon-pairing.md": (
+        "## Pairing Space",
+        "## Heavy and Light Mesons",
+        "## Chi-Square Definition",
+        "## Shared Contract",
+    ),
+    "compton-beam-and-polarization.md": (
+        "## GRAAL Beam",
+        "## Compton Edge",
+        "## Polarization Transfer",
+        "## Figure 7 Reproduction",
+    ),
 }
 
 
