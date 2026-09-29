@@ -1,8 +1,120 @@
 # Commands and Configuration
 
-Each stage exposes its own command-line entry point and validates the inputs it
-owns. Configuration is distributed across explicit CLI options, shared
-registries, the run manifest, model provenance, and setup parameters.
+The repository has no central pipeline runner. Each stage exposes its own
+entry point, validates its boundary, and publishes a file consumed by a later
+stage. Always run `--help` against the current checkout before a production
+job; this page is a map, not a substitute for the parser.
 
-This page consolidates verified commands and defaults without introducing a
-second configuration layer.
+## Command Matrix
+
+| Area | Command or entry point | Main result |
+|---|---|---|
+| setup | `./scripts/setup.sh --mode local` | `.venv`, editable install, local data layout |
+| pre-analysis | ROOT `AnalyzeAll(base_in, base_out, cuts_dir)` | `pre_analisi_<period>.root`, tree `h80` |
+| selection | `python 02_event_selector/select_events.py` | selected ROOT files, tree `h85` |
+| MC generation | `root -l -b -q '03_mc_simulation/generators/generate_eta_pi0_dataset.C(1000000)'` | `eta_pi0_mc.root`, tree `mc` |
+| MC inventory | `python -m mc_simulation.mc_status` | completeness/age report and exit status |
+| beam spectrum | `python -m bdt_training.beam_spectrum ...` | `beam_spectrum.npz` |
+| feature dataset | `python -m bdt_training.build_background_features ...` | `features_stage1.npz` |
+| search | `python -m bdt_training.grid_search_stage1 ...` | CSV audit and best hyperparameters |
+| training | `python -m bdt_training.train_bdt_stage1 ...` | Stage-1 runtime bundle and reports |
+| chi-square reconstruction | `python -m reconstruction.reconstruct_eta_pi0_chi2 ...` | reference ROOT tree |
+| BDT reconstruction | `python -m reconstruction.reconstruct_eta_pi0_bdt ...` | gated ROOT tree |
+| sideband reconstruction | `python -m reconstruction.reconstruct_eta_pi0_bdt_sideband ...` | broad sideband ROOT tree |
+| calibration manifest | `python 06_calibration/build_run_manifest.py --help` | run manifest CSV |
+| strip/flux calibration | `python 06_calibration/build_strip_energy_flux.py ...` | exposure CSV/QA/ROOT set |
+| observable extraction | `python 07_observable_extraction/beam_asymmetry.py ...` | asymmetry ROOT/PDF set |
+| plots | `python -m plots.dalitz ...` | reconstruction comparison PDFs/ROOT |
+| full verification | `pytest -q` | all configured tests |
+
+Representative training sequence:
+
+```bash
+python -m bdt_training.beam_spectrum \
+  --selected-dir data/03_selected \
+  --output 04_bdt_training/data/beam_spectrum.npz
+
+python -m bdt_training.build_background_features \
+  --mc-dir 03_mc_simulation/data \
+  --signal-channel eta_pi0 \
+  --beam-spectrum 04_bdt_training/data/beam_spectrum.npz \
+  --signal-prior 0.5 \
+  --loss-seed 42 \
+  --output features_stage1.npz
+
+python -m bdt_training.grid_search_stage1 \
+  --features features_stage1.npz \
+  --out-dir 04_bdt_training/artifacts/stage1 \
+  --n-iter 30 --seed 42
+
+python -m bdt_training.train_bdt_stage1 \
+  --features features_stage1.npz \
+  --hyperparams 04_bdt_training/artifacts/stage1/best_hyperparams.json \
+  --out-dir 04_bdt_training/artifacts/stage1 \
+  --seed 42
+```
+
+## Setup Options
+
+```text
+./scripts/setup.sh --mode local [--python PATH]
+./scripts/setup.sh --mode farm --raw-target DIR --pre-target DIR [--python PATH]
+```
+
+| Option | Contract |
+|---|---|
+| `--mode local` | create environment and empty local `data/` directories |
+| `--mode farm` | additionally create checked symlinks to existing raw and pre-analysis directories |
+| `--python PATH` | select Python interpreter; default `python3`; must be >=3.10 and import ROOT |
+| `--raw-target DIR` | farm directory containing acquisition-period folders |
+| `--pre-target DIR` | farm directory containing pre-analysis ROOT files |
+
+Farm targets must already exist. Setup accepts an existing symlink only when
+it resolves to the requested target. It refuses broken links, different
+targets, and ordinary files/directories at those link paths. It never replaces
+data silently.
+
+The script creates `.venv` with `--system-site-packages`, upgrades pip,
+installs `04_bdt_training/requirements.txt`, performs `pip install -e`, creates
+the four local data directories, and imports ROOT plus every project package.
+Missing `data/00_external/flux.root` is a warning, not a setup failure.
+
+## Stage Options
+
+| Stage | Important options/defaults |
+|---|---|
+| selection | input `data/02_pre_analyzed/pre_analisi`, output `data/03_selected`, positive worker count |
+| MC status | default data directory `03_mc_simulation/data`; optional `--data-dir` |
+| beam spectrum | 150 bins over 0.5–2.0 GeV by default |
+| feature build | default loss seed `42`; required beam spectrum; `0 < signal-prior < 1` |
+| search | 30 deterministic sampled configurations by default; `--full-grid` runs all 1,296 |
+| training | seed `42`, CPU device, `--nthread -1`; optional direct hyperparameters |
+| reconstruction | input/output/tree, chi-square ceiling, recoil partner, missing-mass window; eta-pi0 paths also expose `--no-fit` and `--fit-cl` |
+| calibration | thresholds, progress interval, ROOT threads, retained samples, repeatable custom binning |
+| observables | nominal sample `raw_bdt`, estimator `both`, fixed 12 phi/10 mass bins, bootstrap off by default |
+| Dalitz plots | required `--chi2` and `--bdt`; output defaults to `results/plots` |
+| fit resolution | default signal MC, BDT result, output directory, and `--n 20000` |
+
+Exact calibration and observable options are tabulated in
+[Calibration](06-calibration) and
+[Observable Extraction](07-observable-extraction).
+
+## Configuration Sources
+
+Configuration has explicit owners:
+
+| Source | Owns |
+|---|---|
+| CLI arguments | run-specific paths, resource counts, thresholds, seeds, selected modes |
+| `00_common/physics/channels.py` | channel registry, masses, hypotheses, roles, generator filenames, cross sections |
+| `00_common/physics/pairing.py` | shared pairing enumeration and chi-square convention |
+| `config/run_manifest.csv` | run period, target, beam type, group, source provenance |
+| Stage-1 provenance JSON | model hypothesis, feature order, training identity and detector-model status |
+| `pyproject.toml` | package mapping, Python floor, pytest discovery/import mode |
+| `04_bdt_training/requirements.txt` | Python runtime/test dependencies outside PyROOT |
+| Stage source constants | fixed published grids, physics windows, and defaults documented beside their owner |
+
+Do not create an untracked “master config” that duplicates these values. A
+change belongs in the layer that enforces the invariant, with tests and
+regenerated artifacts where required. Command logs should capture overrides,
+input paths, seeds, source revision, and environment for reproducibility.

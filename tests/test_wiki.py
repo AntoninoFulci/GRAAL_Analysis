@@ -50,6 +50,7 @@ EXPECTED_PAGES = {
 
 LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
 PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|FIXME)\b")
+STALE_REFERENCES = ("graal_pipeline", "06_observable_extraction", "06_plots")
 
 REQUIRED_SECTIONS = {
     "Home.md": (
@@ -219,6 +220,48 @@ REQUIRED_SECTIONS = {
         "## Covariance Combination",
         "## ROOT and Figure Outputs",
     ),
+    "plotting-and-diagnostics.md": (
+        "## Plot Entry Points",
+        "## Reconstruction Data Adapter",
+        "## Outputs",
+        "## Interpretation Boundaries",
+    ),
+    "data-and-artifacts.md": (
+        "## Artifact Lineage",
+        "## ROOT Trees",
+        "## Training and Calibration Formats",
+        "## Ownership and Persistence",
+    ),
+    "commands-and-configuration.md": (
+        "## Command Matrix",
+        "## Setup Options",
+        "## Stage Options",
+        "## Configuration Sources",
+    ),
+    "development.md": (
+        "## Environment",
+        "## Editable Installation",
+        "## Package Imports",
+        "## Change Workflow",
+    ),
+    "testing.md": (
+        "## Test Layout",
+        "## Focused Tests",
+        "## ROOT-Dependent Tests",
+        "## Full Verification",
+    ),
+    "troubleshooting.md": (
+        "## Setup Failures",
+        "## Missing or Invalid Data",
+        "## Model Compatibility",
+        "## Calibration and Fit Failures",
+    ),
+    "known-limitations.md": (
+        "## Execution Model",
+        "## Environment Dependencies",
+        "## Data Availability",
+        "## Scope Boundaries",
+    ),
 }
 
 
@@ -275,6 +318,12 @@ def test_mermaid_blocks_are_closed():
             re.findall(r"```mermaid\n.*?\n```", text, flags=re.DOTALL)
         )
         assert closed == starts, source
+
+
+def test_wiki_does_not_document_removed_architecture():
+    for source, text in _pages().items():
+        for stale in STALE_REFERENCES:
+            assert stale not in text, f"{source}: stale reference {stale}"
 
 
 @pytest.mark.parametrize("source,headings", sorted(REQUIRED_SECTIONS.items()))
