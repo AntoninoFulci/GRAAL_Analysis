@@ -12,7 +12,7 @@ job; this page is a map, not a substitute for the parser.
 | setup | `./scripts/setup.sh --mode local` | `.venv`, editable install, local data layout |
 | pre-analysis | ROOT `AnalyzeAll(base_in, base_out, cuts_dir)` | `pre_analisi_<period>.root`, tree `h80` |
 | selection | `python` with `02_event_selector/select_events.py` | selected ROOT files, tree `h85` |
-| MC generation | `root -l -b -q '03_mc_simulation/generators/generate_eta_pi0_dataset.C(1000000)'` | `eta_pi0_mc.root`, tree `mc` |
+| MC generation | `cd 03_mc_simulation/data` then `root -l -b -q '../generators/generate_eta_pi0_dataset.C(1000000)'` | `03_mc_simulation/data/eta_pi0_mc.root`, tree `mc` |
 | MC inventory | `python -m mc_simulation.mc_status` | completeness/age report and exit status |
 | beam spectrum | `python -m bdt_training.beam_spectrum ...` | `beam_spectrum.npz` |
 | feature dataset | `python -m bdt_training.build_background_features ...` | `features_stage1.npz` |

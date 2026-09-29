@@ -22,12 +22,19 @@ The repository currently has one macro per registered channel:
 | `eta_pi0_via_3pi0` | `generate_eta_pi0_via_3pi0_dataset.C` | `eta_pi0_via_3pi0_mc.root` | 8 |
 
 Macros live in `03_mc_simulation/generators/`. Each function defaults to one
-million events and accepts a replacement event count. For example:
+million events and accepts a replacement event count. Generator output names
+are relative to the current working directory, so run them from the data
+directory expected by downstream consumers:
 
 ```bash
-root -l -b -q '03_mc_simulation/generators/generate_eta_pi0_dataset.C(1000000)'
-root -l -b -q '03_mc_simulation/generators/generate_pi0pi0_dataset.C(250000)'
+cd 03_mc_simulation/data
+root -l -b -q '../generators/generate_eta_pi0_dataset.C(1000000)'
+root -l -b -q '../generators/generate_pi0pi0_dataset.C(250000)'
+cd ../..
 ```
+
+ROOT resolves the local `smearing.h` include beside each generator macro; the
+working-directory change controls only where the generated ROOT files land.
 
 Each generator computes its reaction threshold from production masses and
 draws beam energy uniformly from that threshold to `1.75 GeV`. This generated

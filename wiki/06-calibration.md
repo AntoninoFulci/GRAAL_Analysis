@@ -74,14 +74,16 @@ For every observed `(run_number, xstrip)` the lookup records:
 
 | Field | Definition |
 |---|---|
-| `event_count` | number of retained beam-energy samples |
-| `energy_median_gev` | median sampled beam energy |
-| `energy_mad_gev` | median absolute deviation around the median |
-| `energy_min_gev`, `energy_max_gev` | observed sample range |
-| `provenance` | `observed`, `interpolated`, or `extrapolated` |
+| `event_count` | number of all accepted events in the run/strip stratum |
+| `energy_median_gev` | median of the retained beam-energy sample |
+| `energy_mad_gev` | median absolute deviation of the retained sample around its median |
+| `energy_min_gev`, `energy_max_gev` | range of the retained sample |
+| `provenance` | `sampled`, `interpolated`, or `extrapolated` |
 
-The scan retains at most `--samples-per-run-strip` samples per stratum
-(default `256`) to bound memory while preserving robust median/MAD estimates.
+The scan counts every accepted event but retains at most
+`--samples-per-run-strip` beam-energy values per stratum (default `256`) to
+bound memory. Median, MAD, minimum, and maximum therefore describe that capped
+sample; `event_count` describes the full accepted stratum.
 
 ### Missing strips
 

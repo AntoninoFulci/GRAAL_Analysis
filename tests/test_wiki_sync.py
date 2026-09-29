@@ -46,7 +46,7 @@ def test_sync_rejects_empty_wiki_source_before_remote_changes(tmp_path: Path):
 
 def test_sync_publishes_exact_page_set_to_empty_local_remote(tmp_path: Path):
     remote = tmp_path / "wiki.git"
-    _git("init", "--bare", str(remote), cwd=tmp_path)
+    _git("-c", "init.defaultBranch=main", "init", "--bare", str(remote), cwd=tmp_path)
     env = os.environ.copy()
     env.update(
         WIKI_REMOTE=str(remote),
@@ -59,6 +59,36 @@ def test_sync_publishes_exact_page_set_to_empty_local_remote(tmp_path: Path):
         ["bash", str(SCRIPT)], cwd=ROOT, env=env, check=True,
         text=True, capture_output=True,
     )
+
+    stale_checkout = tmp_path / "stale-checkout"
+    _git(
+        "clone", "--branch", "master", str(remote), str(stale_checkout),
+        cwd=tmp_path,
+    )
+    (stale_checkout / "Stale.md").write_text("obsolete\n")
+    _git("add", "Stale.md", cwd=stale_checkout)
+    _git(
+        "-c", "user.name=Wiki Test", "-c", "user.email=wiki@example.invalid",
+        "commit", "-m", "add stale page", cwd=stale_checkout,
+    )
+    _git("push", "origin", "master", cwd=stale_checkout)
+
+    subprocess.run(
+        ["bash", str(SCRIPT)], cwd=ROOT, env=env, check=True,
+        text=True, capture_output=True,
+    )
+    head_after_update = _git(
+        "rev-parse", "refs/heads/master", cwd=remote
+    ).stdout.strip()
+    no_op = subprocess.run(
+        ["bash", str(SCRIPT)], cwd=ROOT, env=env, check=True,
+        text=True, capture_output=True,
+    )
+    assert "Wiki already up to date." in no_op.stdout
+    assert _git("rev-parse", "refs/heads/master", cwd=remote).stdout.strip() == (
+        head_after_update
+    )
+
     checkout = tmp_path / "checkout"
     _git("clone", "--branch", "master", str(remote), str(checkout), cwd=tmp_path)
     expected = {path.name for path in (ROOT / "wiki").glob("*.md")}

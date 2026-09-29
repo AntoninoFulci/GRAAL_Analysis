@@ -161,13 +161,39 @@ left uncorrected rather than guessed. The ROOT diagnostic
 
 - `--sideband` and `--signal-mc` must be supplied together.
 - Broad data use tree `reco_eta_pi0_bdt_sideband` and raw four-vectors.
-- Signal MC must expose the same tree/branch contract expected by the adapter.
+- Signal MC passed to `--signal-mc` must also expose tree
+  `reco_eta_pi0_bdt_sideband` and the same raw branch contract. The detector-like
+  `h85` output from `prepare_signal_mc_selected.py` is not accepted directly.
 - Templates must have matching shapes, finite non-negative contents, and
   positive integrals.
 - The fraction must be in `[0,1]`; correction requires `f < 1`.
 - Negative uncertainties and invalid sideband window widths are rejected.
 - Sparse energy bins are omitted from correction, not filled by neighboring
   fractions.
+
+Prepare the signal template input in two stages:
+
+```bash
+python -m reconstruction.prepare_signal_mc_selected \
+  --input-file 03_mc_simulation/data/eta_pi0_mc.root \
+  --output-dir data/signal_mc_selected
+python -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
+  --input-dir data/signal_mc_selected \
+  --input-tree h85 \
+  --output-file results/reco/reco_eta_pi0_bdt_sideband_signal_mc.root
+```
+
+The adapter creates `data/signal_mc_selected/eta_pi0_mc_selected.root` with
+tree `h85`; the second command applies the Stage-1 gate and broad sideband
+reconstruction. Use its distinct reconstructed output as `--signal-mc`, for
+example together with data as follows:
+
+```bash
+python 07_observable_extraction/beam_asymmetry.py \
+  --sideband results/reco/reco_eta_pi0_bdt_sideband.root \
+  --signal-mc results/reco/reco_eta_pi0_bdt_sideband_signal_mc.root \
+  --calibration-dir path/to/legacy_calibration
+```
 
 ## Source and Test Map
 

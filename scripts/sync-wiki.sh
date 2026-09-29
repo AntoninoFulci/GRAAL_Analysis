@@ -30,7 +30,11 @@ else
   git remote add origin "$WIKI_REMOTE"
 fi
 
-git branch -M master
+if git show-ref --verify --quiet refs/remotes/origin/master; then
+  git checkout -q -B master origin/master
+else
+  git branch -M master
+fi
 
 # Replace all pages so deletions in wiki/ propagate and stale remote pages are
 # pruned. WIKI_PAGES was validated before any remote interaction.

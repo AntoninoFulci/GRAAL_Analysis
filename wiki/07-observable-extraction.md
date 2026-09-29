@@ -116,10 +116,54 @@ The nominal sample is always required. Other sample files are comparison
 inputs: if absent, the workflow warns and continues. If present, they are
 processed with the same exposure map, grid, and selected estimator mode.
 
+Stage 05 default output names do not match these Stage 07 input defaults.
+Create the three files explicitly; raw comparisons disable the kinematic fit,
+while the fitted BDT comparison leaves the fit enabled and uses its default
+confidence-level threshold:
+
+```bash
+python -m reconstruction.reconstruct_eta_pi0_chi2 \
+  --input-dir data/03_selected \
+  --output-file results/reco/reco_eta_pi0_chi2_raw.root \
+  --no-fit
+python -m reconstruction.reconstruct_eta_pi0_bdt \
+  --input-dir data/03_selected \
+  --output-file results/reco/reco_eta_pi0_bdt_raw.root \
+  --no-fit
+python -m reconstruction.reconstruct_eta_pi0_bdt \
+  --input-dir data/03_selected \
+  --output-file results/reco/reco_eta_pi0_bdt_fit.root \
+  --fit-cl 0.01
+```
+
+Omitting `--no-fit` in the third command enables the fit. The default nominal
+sample remains `raw_bdt`; the fitted file is a comparison input read through
+its `eta_fit`, `pi0_fit`, and `proton_fit` branches.
+
 Sideband correction is enabled only when `--sideband` and `--signal-mc` are
 supplied together. Supplying only one is fatal. See
 [Background Correction](07-background-correction) for the three-dimensional
 template model and correction equation.
+
+Generated signal MC needs two transformations before it can be passed to
+`--signal-mc`: adapt tree `mc` to detector-like tree `h85`, then run the broad
+sideband reconstruction to create tree `reco_eta_pi0_bdt_sideband`:
+
+```bash
+python -m reconstruction.prepare_signal_mc_selected \
+  --input-file 03_mc_simulation/data/eta_pi0_mc.root \
+  --output-dir data/signal_mc_selected
+python -m reconstruction.reconstruct_eta_pi0_bdt_sideband \
+  --input-dir data/signal_mc_selected \
+  --input-tree h85 \
+  --output-file results/reco/reco_eta_pi0_bdt_sideband_signal_mc.root
+```
+
+The first command publishes
+`data/signal_mc_selected/eta_pi0_mc_selected.root`; that file is an
+intermediate reconstruction input, not a valid direct value for
+`--signal-mc`. Supply
+`results/reco/reco_eta_pi0_bdt_sideband_signal_mc.root` instead.
 
 If no point in any pair/energy/mass bin can be fitted, the workflow fails with
 `no beam-asymmetry bins could be fitted`. Individual sparse ratio bins are
@@ -183,7 +227,8 @@ explicitly uncorrected for background.
 
 ### Full analysis
 
-Supply the broad sideband ROOT file and selected signal-MC file together,
+Supply the broad sideband ROOT file and reconstructed sideband signal-MC file
+together,
 provide any available comparison samples, and request a reviewed positive
 bootstrap replica count. The same nominal extraction is then augmented by:
 
