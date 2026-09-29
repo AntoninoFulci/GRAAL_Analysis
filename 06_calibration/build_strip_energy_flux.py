@@ -386,7 +386,7 @@ CalibrationResult BuildCalibrationCells(
             if (polarization < 0 || polarization > 2)
                 throw std::runtime_error("Polarization must be 0, 1, or 2");
             if (!std::isfinite(xstrip) || xstrip < 1.0 || xstrip >= 129.0)
-                throw std::runtime_error("Xstrip must be finite and in [1, 129)");
+                return;
             if (!std::isfinite(energy) || energy <= 0.0)
                 throw std::runtime_error("beam energy must be finite and positive");
             const int strip = static_cast<int>(xstrip);

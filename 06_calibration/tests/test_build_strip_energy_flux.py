@@ -1045,6 +1045,42 @@ def test_rdataframe_lookup_samples_once_and_reports_strip_conversion_qa(tmp_path
     }
 
 
+def test_calibration_cells_skip_events_with_invalid_xstrip(tmp_path):
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    write_h80(
+        pre / "mixed.root",
+        [
+            (7, 1, 1.0, 1.1),
+            (7, 1, 0.0, 1.2),
+            (7, 1, 129.0, 1.3),
+            (7, 1, float("nan"), 1.4),
+            (7, 1, float("inf"), 1.5),
+            (7, 1, 128.0, 1.6),
+        ],
+    )
+
+    cells, energy_bins = cli.read_calibration_cells(
+        pre, run_numbers=[7], threads=16
+    )
+
+    assert [
+        (
+            cell.run_number,
+            cell.polarization,
+            cell.xstrip,
+            cell.event_count,
+            cell.xstrip_mean,
+            cell.energy_mean_gev,
+        )
+        for cell in cells
+    ] == [
+        (7, 1, 1, 1, pytest.approx(1.0), pytest.approx(1.1)),
+        (7, 1, 128, 1, pytest.approx(128.0), pytest.approx(1.6)),
+    ]
+    assert sum(item.event_count for item in energy_bins) == 2
+
+
 def test_rdataframe_lookup_is_identical_with_one_and_multiple_threads(tmp_path):
     pre = tmp_path / "pre"
     pre.mkdir()

@@ -159,6 +159,36 @@ REQUIRED_SECTIONS = {
         "## Runtime Bundle",
         "## Provenance Validation",
     ),
+    "05-reconstruction.md": (
+        "## Shared Reconstruction Core",
+        "## Supported Entry Points",
+        "## Event Flow",
+        "## Output Trees",
+    ),
+    "05-chi-square-pairing.md": (
+        "## Standard Path",
+        "## Pairing Selection",
+        "## Event Guards",
+        "## Output Contract",
+    ),
+    "05-stage1-gate.md": (
+        "## Runtime Bundle",
+        "## Score and Threshold",
+        "## Hypothesis Compatibility",
+        "## Batch Evaluation",
+    ),
+    "05-kinematic-fit.md": (
+        "## Six Constraints",
+        "## Fit Inputs",
+        "## Convergence and Diagnostics",
+        "## Fitted Outputs",
+    ),
+    "05-sidebands-and-two-pion.md": (
+        "## Sideband Reconstruction",
+        "## Signal-MC Adapter",
+        "## Two-Pion Path",
+        "## Boundaries",
+    ),
 }
 
 
