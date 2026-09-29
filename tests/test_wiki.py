@@ -135,6 +135,30 @@ REQUIRED_SECTIONS = {
         "## Channel Status",
         "## Regeneration Boundaries",
     ),
+    "04-bdt-training.md": (
+        "## Training Pipeline",
+        "## Entry Points",
+        "## Data Flow",
+        "## Verification",
+    ),
+    "04-dataset-and-features.md": (
+        "## Four-Photon Event Contract",
+        "## Feature Schema",
+        "## Dataset Schema",
+        "## Metadata and Reproducibility",
+    ),
+    "04-weighting-and-photon-loss.md": (
+        "## Acceptance Model",
+        "## Beam Reweighting",
+        "## Channel Yields",
+        "## Signal Prior",
+    ),
+    "04-training-artifacts.md": (
+        "## Hyperparameter Search",
+        "## Model Training",
+        "## Runtime Bundle",
+        "## Provenance Validation",
+    ),
 }
 
 
