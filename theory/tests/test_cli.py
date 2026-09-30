@@ -39,3 +39,31 @@ def test_predict_cli_rejects_duplicate_energies(tmp_path):
     assert result.returncode != 0
     assert "duplicate" in result.stderr.lower()
     assert not (tmp_path / "run").exists()
+
+
+def test_validate_cli_reports_scientific_failure_with_artifacts(tmp_path):
+    run = tmp_path / "run"
+    predicted = _run_cli(
+        "predict", "--energy", "1.2", "--energy", "1.202", "--sobol-power", "8",
+        "--output", str(run),
+    )
+    assert predicted.returncode == 0, predicted.stderr
+    validated = _run_cli("validate", "--bundle", str(run))
+    assert validated.returncode == 2, validated.stderr
+    comparison = json.loads((run / "validation" / "comparison.json").read_text())
+    assert comparison["status"] == "failed"
+    assert set(comparison) >= {"figure14_tree", "factor_two_1202", "phase_space", "convergence"}
+    assert (run / "validation" / "invariant_masses.pdf").is_file()
+    assert (run / "validation" / "total_cross_section.pdf").is_file()
+    manifest = json.loads((run / "manifest.json").read_text())
+    assert manifest["validation_state"] == "failed"
+
+
+def test_validate_cli_requires_both_reference_energies(tmp_path):
+    run = tmp_path / "run"
+    predicted = _run_cli("predict", "--energy", "1.2", "--sobol-power", "8", "--output", str(run))
+    assert predicted.returncode == 0, predicted.stderr
+    validated = _run_cli("validate", "--bundle", str(run))
+    assert validated.returncode == 1
+    assert "1.202" in validated.stderr
+    assert json.loads((run / "manifest.json").read_text())["validation_state"] == "pending"

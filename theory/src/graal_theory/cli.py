@@ -13,6 +13,7 @@ from .observables import HistogramSpec, predict_energy
 from .phase_space import SobolConfig
 from .run_output import RunBundle, write_run_bundle
 from .sources import load_source_registry
+from .validation import validate_bundle
 
 
 _REFERENCES = Path(__file__).resolve().parents[2] / "references"
@@ -82,11 +83,17 @@ def main(argv: list[str] | None = None) -> int:
     predict.add_argument("--sobol-power", type=int, default=15)
     predict.add_argument("--output", type=Path, required=True)
     predict.add_argument("--replace", action="store_true")
+    validate = commands.add_parser("validate", help="compare a prediction bundle with published theory")
+    validate.add_argument("--bundle", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "predict":
             return _predict(args)
-    except (ValueError, OSError, InvalidOperation) as exc:
+        if args.command == "validate":
+            result = validate_bundle(args.bundle, _REFERENCES)
+            print(f"scientific validation: {result['status']}; bundle {args.bundle}")
+            return 0 if result["status"] == "validated" else 2
+    except (ValueError, OSError, InvalidOperation, KeyError, TypeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 1

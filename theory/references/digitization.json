@@ -1,0 +1,44 @@
+{
+  "source_key": "doering_2006_prc",
+  "extraction_date": "2026-09-30",
+  "operator": "Codex, manual pixel sampling of Poppler 400 dpi render",
+  "method": "Read plotted curve centers at 10 MeV steps; retain visible zero endpoints. No scale adjustment or fit to calculated output.",
+  "figure14_eta_p_tree": {
+    "page_in_pdf": 12,
+    "printed_page": "045209-12",
+    "figure": 14,
+    "curve": "dotted: tree-level Delta-star(1700) -> eta Delta(1232), Figure 11 and Eq. 43",
+    "photon_energy_gev": 1.2,
+    "raster_dpi": 400,
+    "crop_origin_pixels": [360, 2700],
+    "axis_calibration": {
+      "mass_mev_at_x177": 1500,
+      "mass_mev_per_pixel": 0.12788,
+      "density_zero_y_pixel": 735,
+      "pixels_per_microbarn_per_gev": 11.75,
+      "plotted_mass_range_gev": [1.486, 1.635],
+      "plotted_density_range_microbarn_per_gev": [0, 60]
+    },
+    "relative_uncertainty": 0.05,
+    "absolute_uncertainty_microbarn_per_gev": 0.5,
+    "uncertainty_note": "Dotted stroke spacing, crossings with other lines, and near-axis points dominate; 0.5 microbarn/GeV is a conservative fixed reading floor."
+  },
+  "figure19_total_1202": {
+    "page_in_pdf": 15,
+    "printed_page": "045209-15",
+    "figure": 19,
+    "curve": "solid: full coherent model",
+    "raster_dpi": 400,
+    "crop_origin_pixels": [300, 300],
+    "axis_calibration": {
+      "energy_mev_at_x434": 1200,
+      "pixels_per_mev": 1.623,
+      "cross_section_zero_y_pixel": 791,
+      "pixels_per_microbarn": 92.2
+    },
+    "sample_pixel": [437, 579],
+    "relative_uncertainty": 0.0,
+    "absolute_uncertainty_microbarn": 0.10,
+    "uncertainty_note": "Solid line at 1202 MeV is about 2.30 microbarn; nearby dashed and dashed-dotted curves are excluded."
+  }
+}
