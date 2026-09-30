@@ -1,0 +1,20 @@
+{
+  "doering_2006_prc": {
+    "doi": "10.1103/PhysRevC.73.045209",
+    "citation": "M. Döring, E. Oset, D. Strottman, Physical Review C 73, 045209 (2006)"
+  },
+  "doering_2006_plb": {
+    "doi": "10.1016/j.physletb.2006.06.022",
+    "citation": "M. Döring, E. Oset, D. Strottman, Physics Letters B 639, 59-67 (2006)"
+  },
+  "nacher_2001": {
+    "doi": "10.1016/S0375-9474(01)01110-1",
+    "arxiv": "nucl-th/0012065",
+    "citation": "J. C. Nacher et al., Nuclear Physics A 695, 295-327 (2001)"
+  },
+  "sarkar_2005": {
+    "doi": "10.1016/j.nuclphysa.2005.01.006",
+    "arxiv": "nucl-th/0407025",
+    "citation": "S. Sarkar, E. Oset, M. J. Vicente Vacas, Nuclear Physics A 750, 294-323 (2005)"
+  }
+}
