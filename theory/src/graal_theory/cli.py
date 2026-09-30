@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from decimal import Decimal, InvalidOperation
+from importlib import resources
 from pathlib import Path
 import sys
 
@@ -16,7 +17,11 @@ from .sources import load_source_registry
 from .validation import validate_bundle
 
 
-_REFERENCES = Path(__file__).resolve().parents[2] / "references"
+_SOURCE_REFERENCES = Path(__file__).resolve().parents[2] / "references"
+_REFERENCES = (
+    _SOURCE_REFERENCES if _SOURCE_REFERENCES.is_dir()
+    else resources.files("graal_theory.references")
+)
 
 
 def _energies(args: argparse.Namespace) -> list[float]:

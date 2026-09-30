@@ -25,6 +25,12 @@ def test_central_parameter_file_is_closed_and_source_complete():
     validate_parameter_sources(parameters)
 
 
+def test_eta_delta_coupling_identifies_sarkar_table_10_pole():
+    parameter = load_central_parameters(PARAMETER_FILE, SOURCE_FILE)["g_eta_delta"]
+    assert parameter.source.citation_key == "sarkar_2005"
+    assert "1827-i108" in parameter.source.locator
+
+
 def test_missing_electromagnetic_coupling_is_named(tmp_path):
     raw = json.loads(PARAMETER_FILE.read_text())
     del raw["g1_prime"]

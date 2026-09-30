@@ -38,6 +38,16 @@ def test_sobol_phase_space_matches_quadrature():
     assert sample.weights_gev2.mean() == pytest.approx(expected, rel=5e-3)
 
 
+def test_massless_phase_space_matches_closed_form_and_preserves_first_event():
+    sample = sample_three_body(1.0, (0.0, 0.0, 0.0), SobolConfig(power=12))
+    expected = 1.0 / (256.0 * np.pi**3)
+    assert np.all(np.isfinite(sample.momenta))
+    assert np.all(np.isfinite(sample.weights_gev2))
+    validate_final_state(sample.initial, sample.momenta, sample.masses, atol=1e-12)
+    assert float(np.mean(sample.weights_gev2)) == pytest.approx(expected, rel=0.005)
+    assert phase_space_volume_quad(1.0, (0.0, 0.0, 0.0)) == pytest.approx(expected, rel=1e-10)
+
+
 def test_nested_sobol_sample_starts_with_low_resolution_points():
     low = sample_three_body(2.0, MASSES, SobolConfig(power=8))
     high = sample_three_body(2.0, MASSES, SobolConfig(power=9))

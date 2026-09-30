@@ -9,7 +9,7 @@
   "delta1700_nominal_width": {"value": 0.300, "unit": "GeV", "source_key": "nacher_2001", "locator": "p. 16, PDG average Breit-Wigner width around 300 MeV; nominal input for Npi partial width only"},
   "rho_mass": {"value": 0.77526, "unit": "GeV", "source_key": "pdg_2024", "locator": "Meson Summary Tables, rho(770) entry, neutral Breit-Wigner mass 775.26 MeV"},
   "f_delta_n_pi": {"value": 2.13, "unit": "1", "source_key": "nacher_2001", "locator": "Appendix A1 Eq. (33), f-star Delta pi N coupling; Appendix A3, f-star = 2.13"},
-  "g_eta_delta": {"value": {"real": 1.7, "imag": -1.4}, "unit": "1", "source_key": "sarkar_2005", "locator": "Table 10, S=0 I=3/2, Delta eta coupling of pole at 1687-i178 MeV; also Doring PRC p. 10 after Eq. (37)"},
+  "g_eta_delta": {"value": {"real": 1.7, "imag": -1.4}, "unit": "1", "source_key": "sarkar_2005", "locator": "Table 10, S=0 I=3/2, Delta eta coupling of pole at 1827-i108 MeV; also Doring PRC p. 10 after Eq. (37)"},
   "g1_prime": {"value": -0.260, "unit": "m_N^-1", "source_key": "nacher_2001", "locator": "Appendix A3, photon-point Delta-star coupling g1-prime = -0.260 m_N^-1"},
   "g2_prime": {"value": 0.270, "unit": "m_N^-2", "source_key": "nacher_2001", "locator": "Appendix A3, photon-point Delta-star coupling g2-prime = 0.270 m_N^-2"},
   "n_pi_branching_fraction": {"value": 0.15, "unit": "1", "source_key": "pdg_2024", "locator": "Baryon Summary Tables, Delta(1700) Npi branching range 10-20%; explicit midpoint 15%"},

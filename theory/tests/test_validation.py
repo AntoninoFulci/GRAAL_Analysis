@@ -4,6 +4,7 @@ import pytest
 from graal_theory.observables import Histogram
 from graal_theory.validation import (
     ReferenceCurve,
+    _check_observable_integrity,
     compare_curve,
     compare_factor_two,
     validate_figure14_tree,
@@ -38,3 +39,20 @@ def test_zero_reference_points_are_reported_but_not_compared():
     result = compare_curve(np.array([100.0, 2.0]), reference)
     assert result.passed
     assert result.compared_points == 1
+
+
+def test_bundle_integrity_rejects_nonfinite_or_inconsistent_total():
+    arrays = {
+        "partial_cross_section_microbarn": np.array([2.0]),
+        "phase_space_volume_gev2": np.array([1e-6]),
+    }
+    for name in ("eta_p", "pi0_p", "eta_pi0"):
+        arrays[f"{name}_edges_0"] = np.array([1.0, 2.0])
+        arrays[f"{name}_density_0"] = np.array([2.0])
+    _check_observable_integrity(arrays, np.array([1.2]))
+    arrays["partial_cross_section_microbarn"] = np.array([np.nan])
+    with pytest.raises(ValueError, match="cross section"):
+        _check_observable_integrity(arrays, np.array([1.2]))
+    arrays["partial_cross_section_microbarn"] = np.array([1.0])
+    with pytest.raises(ValueError, match="integral"):
+        _check_observable_integrity(arrays, np.array([1.2]))

@@ -14,6 +14,7 @@ from numpy.typing import NDArray
 
 from .observables import Histogram
 from .kinematics import s_from_lab_photon_energy
+from .models.eta_pi0_p import REQUIRED_TREE_PARAMETER_NAMES
 from .phase_space import phase_space_volume_quad
 
 
@@ -186,8 +187,52 @@ def _bundle_histogram(arrays: dict[str, NDArray], name: str, index: int) -> Hist
     return Histogram(edges, density)
 
 
+def _check_observable_integrity(arrays: dict[str, NDArray], energies: NDArray[np.float64]) -> None:
+    totals = np.asarray(arrays["partial_cross_section_microbarn"], dtype=np.float64)
+    volumes = np.asarray(arrays["phase_space_volume_gev2"], dtype=np.float64)
+    if totals.shape != energies.shape or np.any(~np.isfinite(totals)) or np.any(totals < 0):
+        raise ValueError("bundle cross section must be finite, nonnegative, and match energy grid")
+    if volumes.shape != energies.shape or np.any(~np.isfinite(volumes)) or np.any(volumes < 0):
+        raise ValueError("bundle phase-space volume must be finite, nonnegative, and match energy grid")
+    for index, total in enumerate(totals):
+        for name in ("eta_p", "pi0_p", "eta_pi0"):
+            histogram = _bundle_histogram(arrays, name, index)
+            widths = np.diff(histogram.edges)
+            if np.any(widths < 0) or np.any(histogram.values < 0):
+                raise ValueError(f"{name} histogram contains negative widths or densities")
+            integral = float(np.sum(histogram.values * widths))
+            if not np.isclose(integral, total, rtol=1e-8, atol=1e-10):
+                raise ValueError(f"{name} histogram integral disagrees with total cross section")
+
+
+def _check_bundle_provenance(manifest: dict) -> None:
+    parameters = manifest.get("parameters")
+    sources = manifest.get("sources")
+    if not isinstance(parameters, dict) or set(parameters) != REQUIRED_TREE_PARAMETER_NAMES:
+        raise ValueError("bundle has incomplete parameter provenance")
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError("bundle has no source registry")
+    for name, entry in parameters.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"parameter {name} has malformed provenance")
+        source_key = entry.get("source_key")
+        source = sources.get(source_key)
+        if not isinstance(source, dict):
+            raise ValueError(f"parameter {name} references unknown source")
+        identifier = source.get("doi") or source.get("arxiv")
+        if not isinstance(identifier, str) or not identifier.strip() or identifier != entry.get("persistent_id"):
+            raise ValueError(f"parameter {name} has invalid persistent identifier")
+        if not isinstance(source.get("citation"), str) or not source["citation"].strip():
+            raise ValueError(f"parameter {name} has no source citation")
+        locator = entry.get("locator")
+        if not isinstance(locator, str) or not locator.strip() or "://" in locator:
+            raise ValueError(f"parameter {name} has missing or invalid source locator")
+        if not isinstance(entry.get("unit"), str) or not entry["unit"].strip():
+            raise ValueError(f"parameter {name} has no unit")
+
+
 def _plot_validation(
-    directory: Path, arrays: dict[str, NDArray], index_1200: int, index_1202: int,
+    directory: Path, arrays: dict[str, NDArray], index_1200: int,
     reference: ReferenceCurve, full: float,
 ) -> None:
     import matplotlib
@@ -221,7 +266,7 @@ def _plot_validation(
         axis.set_xlabel(r"$E_\gamma$ (GeV)")
         axis.set_ylabel(r"$\sigma$ ($\mu$b)")
         axis.legend()
-        axis.set_title("Partial tree vs. full coherent model — not same observable")
+        axis.set_title("Partial tree vs. full coherent model — different scope")
         fig.tight_layout()
         fig.savefig(directory / "total_cross_section.pdf")
     finally:
@@ -235,6 +280,7 @@ def validate_bundle(bundle_path: Path, reference_dir: Path) -> dict:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("scope") != "partial:delta1700_eta_delta_tree_eq43" or manifest.get("schema_version") != 1:
         raise ValueError("bundle is not a supported Eq. 43 partial prediction")
+    _check_bundle_provenance(manifest)
     with np.load(bundle_path / "results.npz", allow_pickle=False) as stored:
         arrays = {name: stored[name] for name in stored.files}
     energies = np.asarray(arrays["photon_energy_gev"], dtype=np.float64)
@@ -254,10 +300,9 @@ def validate_bundle(bundle_path: Path, reference_dir: Path) -> dict:
     reference = load_figure14_reference(reference_dir, metadata)
     full = load_figure19_reference(reference_dir)
     curve = validate_figure14_tree(_bundle_histogram(arrays, "eta_p", index_1200), reference)
+    _check_observable_integrity(arrays, energies)
     cross_sections = np.asarray(arrays["partial_cross_section_microbarn"], dtype=np.float64)
     volumes = np.asarray(arrays["phase_space_volume_gev2"], dtype=np.float64)
-    if cross_sections.shape != energies.shape or volumes.shape != energies.shape:
-        raise ValueError("bundle observables have mismatched shapes")
     factor = compare_factor_two(
         float(cross_sections[index_1202]), full,
         digitization_absolute_uncertainty=metadata["figure19_total_1202"]["absolute_uncertainty_microbarn"],
@@ -267,13 +312,16 @@ def validate_bundle(bundle_path: Path, reference_dir: Path) -> dict:
     m_proton = masses[-1]
     phase_entries = []
     for energy, measured in zip(energies, volumes):
+        if not np.isfinite(measured):
+            raise ValueError("bundle contains nonfinite phase-space volume")
         sqrt_s = float(np.sqrt(s_from_lab_photon_energy(float(energy), m_proton)))
-        expected = phase_space_volume_quad(sqrt_s, masses)
-        relative_difference = abs(float(measured) - expected) / expected
+        expected = phase_space_volume_quad(sqrt_s, masses) if sqrt_s > sum(masses) else 0.0
+        relative_difference = abs(float(measured) - expected) / expected if expected else (0.0 if measured == 0 else None)
+        passed = bool(relative_difference is not None and relative_difference <= 0.005)
         phase_entries.append({
             "photon_energy_gev": float(energy), "sobol_volume_gev2": float(measured),
             "quadrature_volume_gev2": expected, "relative_difference": relative_difference,
-            "relative_tolerance": 0.005, "passed": bool(relative_difference <= 0.005),
+            "relative_tolerance": 0.005, "passed": passed,
         })
     convergence = json.loads((bundle_path / "convergence.json").read_text(encoding="utf-8"))
     if not isinstance(convergence, list) or len(convergence) != len(energies):
@@ -293,7 +341,7 @@ def validate_bundle(bundle_path: Path, reference_dir: Path) -> dict:
     destination.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".validation-", dir=bundle_path) as temporary:
         staged = Path(temporary)
-        _plot_validation(staged, arrays, index_1200, index_1202, reference, full)
+        _plot_validation(staged, arrays, index_1200, reference, full)
         _write_json(staged / "comparison.json", report)
         for filename in ("invariant_masses.pdf", "total_cross_section.pdf", "comparison.json"):
             os.replace(staged / filename, destination / filename)

@@ -73,9 +73,11 @@ def sample_three_body(
     s12_range = s12_max - s12_min
     s12 = s12_min + s12_range * points[:, 0]
     mass12 = np.sqrt(s12)
+    zero_mass_pair = mass12 == 0.0
+    safe_mass12 = np.where(zero_mass_pair, 1.0, mass12)
 
     p3 = np.sqrt(kallen(sqrt_s**2, s12, m3**2, atol=1e-12)) / (2.0 * sqrt_s)
-    p1_star = np.sqrt(kallen(s12, m1**2, m2**2, atol=1e-12)) / (2.0 * mass12)
+    p1_star = np.sqrt(kallen(s12, m1**2, m2**2, atol=1e-12)) / (2.0 * safe_mass12)
     dir3 = _unit_directions(2.0 * points[:, 1] - 1.0, 2.0 * np.pi * points[:, 2])
     dir1 = _unit_directions(2.0 * points[:, 3] - 1.0, 2.0 * np.pi * points[:, 4])
     p3vec = p3[:, None] * dir3
@@ -83,18 +85,26 @@ def sample_three_body(
 
     e3 = np.sqrt(m3**2 + p3**2)
     e12 = (sqrt_s**2 + s12 - m3**2) / (2.0 * sqrt_s)
-    e1_star = (s12 + m1**2 - m2**2) / (2.0 * mass12)
-    e2_star = (s12 + m2**2 - m1**2) / (2.0 * mass12)
+    e1_star = (s12 + m1**2 - m2**2) / (2.0 * safe_mass12)
+    e2_star = (s12 + m2**2 - m1**2) / (2.0 * safe_mass12)
     pair_velocity = -p3vec / e12[:, None]
+    pair_velocity[zero_mass_pair] = 0.0  # lightlike pair has no rest frame
     p1 = boost(np.column_stack((e1_star, p1vec)), -pair_velocity)
     p2 = boost(np.column_stack((e2_star, -p1vec)), -pair_velocity)
+    if np.any(zero_mass_pair):
+        # At s12=0 the two massless daughters are collinear. Equal splitting
+        # selects a finite representative for this measure-zero Sobol endpoint.
+        pair_four = np.column_stack((e12, -p3vec))
+        p1[zero_mass_pair] = pair_four[zero_mass_pair] / 2.0
+        p2[zero_mass_pair] = pair_four[zero_mass_pair] / 2.0
     p3_four = np.column_stack((e3, p3vec))
     final = np.stack((p1, p2, p3_four), axis=1)
     initial = np.broadcast_to(
         np.array([sqrt_s, 0.0, 0.0, 0.0], dtype=np.float64),
         (len(points), 4),
     ).copy()
-    weights = s12_range * p3 * p1_star / (32.0 * np.pi**3 * sqrt_s * mass12)
+    ratio = np.divide(p1_star, mass12, out=np.full_like(mass12, 0.5), where=~zero_mass_pair)
+    weights = s12_range * p3 * ratio / (32.0 * np.pi**3 * sqrt_s)
     validate_final_state(initial, final, masses, atol=1e-12)
     return ThreeBodySample(initial, final, weights, masses, s12, config)
 

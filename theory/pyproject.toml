@@ -14,8 +14,15 @@ test = ["pytest>=7.4"]
 [project.scripts]
 graal-theory = "graal_theory.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["graal_theory", "graal_theory.amplitudes", "graal_theory.models", "graal_theory.references"]
+
+[tool.setuptools.package-dir]
+graal_theory = "src/graal_theory"
+"graal_theory.references" = "references"
+
+[tool.setuptools.package-data]
+"graal_theory.references" = ["*.json", "*.csv", "*.md"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
