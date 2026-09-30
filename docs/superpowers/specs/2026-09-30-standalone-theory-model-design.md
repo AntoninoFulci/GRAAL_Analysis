@@ -10,9 +10,13 @@ description of
 \]
 
 from Döring, Oset, and Strottman. The first scientific milestone is to
-reproduce the published total cross section and invariant-mass distributions
-using the central parameter values of the dominant
-\(\Delta^*(1700)\rightarrow\eta\Delta(1232)\rightarrow\eta\pi^0p\) mechanism.
+reproduce the individually published invariant-mass contributions of the
+dominant
+\(\Delta^*(1700)\rightarrow\eta\Delta(1232)\rightarrow\eta\pi^0p\) mechanism
+and calculate its partial total cross section using central parameter values.
+The full coherent total cross section is a later milestone because the source
+paper states that the tree-level dominant term alone is smaller by a factor of
+two at \(E_\gamma=1202\) MeV.
 
 This work establishes a trustworthy numerical foundation for a later
 calculation of the beam asymmetry \(\Sigma\) and eventual comparison with the
@@ -51,7 +55,8 @@ No missing value may be inferred or tuned silently.
 - deterministic quasi-Monte Carlo integration using Sobol sequences;
 - central parameter values with explicit units and source locations;
 - the dominant \(\Delta^*(1700)\) production and decay chain;
-- total cross section as a function of laboratory photon energy;
+- partial total cross section from the implemented dominant mechanism as a
+  function of laboratory photon energy;
 - \(M_{\eta p}\), \(M_{\pi^0p}\), and \(M_{\eta\pi^0}\) distributions;
 - numerical convergence reports;
 - comparisons with the relevant predictions in the first source paper;
@@ -64,6 +69,8 @@ No missing value may be inferred or tuned silently.
   \(N^*(1535)\), and \(N^*(1520)\) terms;
 - uncertainty propagation and theoretical bands;
 - fitting or tuning to GRAAL data;
+- claiming reproduction of the full coherent total-cross-section curve in
+  Figure 19;
 - support for a second physical channel;
 - changes to `07_observable_extraction/`;
 - renaming pipeline stages;
@@ -155,10 +162,14 @@ contract.
 
 ### Observables and validation
 
-`observables.py` integrates weighted amplitudes into total cross sections and
-the three invariant-mass spectra. `validation.py` compares generated results
-with analytic checks and versioned targets digitized from the source paper. It
-records both the numerical comparison and the acceptance decision.
+`observables.py` integrates weighted amplitudes into partial total cross
+sections and the three invariant-mass spectra. `validation.py` compares
+generated results with analytic checks and versioned targets digitized from
+the source paper. The initial regression target is the individually shown
+dominant contribution in Figure 14, together with the paper's stated
+factor-of-two relation between the tree-only and full cross section at
+\(E_\gamma=1202\) MeV. It records both the numerical comparison and the
+acceptance decision.
 
 ### Command line
 
@@ -212,9 +223,12 @@ checks pass:
   \(2^{N+1}\) samples;
 - populated invariant-mass bins change by less than 3% under the same
   refinement, apart from explicitly reported low-statistics edge bins;
-- predicted normalization and shape agree with digitized central curves from
-  the source paper within approximately 20%, matching the precision claimed
-  for the calculation;
+- predicted normalization and shape for the individually published dominant
+  contribution in Figure 14 agree with its digitized central curve within
+  approximately 20%, matching the precision claimed for the calculation;
+- the tree-only partial cross section at \(E_\gamma=1202\) MeV is compatible,
+  within the same tolerance and digitization uncertainty, with the paper's
+  statement that it is one half of the full coherent result;
 - no parameter is adjusted against experimental data to obtain that agreement.
 
 Digitization uncertainty and binning differences must be recorded in the
@@ -287,7 +301,8 @@ After standalone validation, the next scientific work may add the remaining
 mechanisms from the source papers one at a time. Each addition must identify
 its source equations, add focused tests, and demonstrate its effect on an
 intermediate published observable before it becomes part of a combined
-amplitude.
+amplitude. Reproduction of the full coherent total-cross-section curve in
+Figure 19 becomes an acceptance criterion only after those terms are present.
 
 Beam asymmetry \(\Sigma\) begins only after unpolarized cross sections and
 mass spectra pass. A second channel, when selected, will be used to identify
