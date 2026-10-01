@@ -3,18 +3,21 @@
 The workflow begins with detector ROOT files and branches into event
 preparation, Monte Carlo and classifier training, calibration,
 reconstruction, observable extraction, and plotting. Stages are run through
-their own entry points and communicate through validated files.
+their own entry points and communicate through validated files. The sequential
+`scripts/run_pipeline.py` launcher coordinates the supported UV/VIS campaign
+from pre-analysis onward.
 
 ## Execution Model
 
-There is no central scheduler. A user or farm job invokes each stage command,
-chooses paths, inspects failure status, and advances only after required
-artifacts exist. Numbered directories communicate the intended order; they do
-not create hidden checkpoints or automatically infer dependencies.
+There is one central version-one runner, `scripts/run_pipeline.py`, but no DAG,
+scheduler, queue integration, freshness database, or resume. It validates
+inputs, runs each supported stage sequentially, records commands, and stops on
+the first nonzero exit. Numbered directories still own stage behavior and file
+contracts.
 
-This explicit model makes every scientific boundary inspectable. It also means
-production automation must call the same supported entry points and preserve
-their validation behavior rather than bypassing it.
+The launcher supports `test_data` and `production`, both beginning with
+`pre_analisi_*.root` files containing `h80`. Raw `h70` pre-analysis remains a
+separate operation. Manual stage invocation remains supported for diagnostics.
 
 ## Main Data Flow
 
@@ -57,7 +60,7 @@ flowchart LR
 | Grid search | `best_hyperparams.json` | Final training |
 | Final training | Model, threshold, provenance | Stage-1 runtime gate |
 | Reconstruction | Reconstructed and sideband ROOT trees | Observable extraction, plots |
-| Calibration | Exposure CSV/JSON/ROOT products | Observable extraction |
+| Calibration | Calibrated ROOT flux plus QA/table products | Observable extraction |
 | Observable extraction | Result ROOT and PDF products | Scientific review and publication |
 
 ## Training Branch
@@ -73,6 +76,9 @@ once registered Monte Carlo and a measured beam spectrum exist. It performs:
 6. final fit and threshold selection;
 7. publication of model, threshold, and provenance as one runtime contract.
 
+The full launcher skips a new hyperparameter search, reuses the checked-in
+`best_hyperparams.json`, and trains independent fresh UV and VIS bundles.
+
 Only the BDT-gated reconstruction path consumes that bundle. Standard
 chi-square reconstruction remains a model-independent comparison.
 
@@ -86,8 +92,9 @@ Calibration can proceed after pre-analysis and does not require selected
 - external per-run tagger-flux histograms.
 
 It derives strip energies, aggregates flux into configured energy bins, writes
-exposure tables and calibrated ROOT objects, and records QA. Observable
-extraction consumes these products together with reconstructed events.
+exposure tables and calibrated ROOT objects, and records QA. The launcher
+passes shared `common/flux_calibrated.root` plus checked-in run manifest to
+both profile-local Stage-07 extractors.
 
 ## Reuse and Failure Boundaries
 

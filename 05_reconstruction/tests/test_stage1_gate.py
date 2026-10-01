@@ -130,8 +130,13 @@ def test_the_model_is_scored_on_the_features_it_was_trained_on():
 def test_load_raises_when_the_model_is_missing(tmp_path):
     # A missing model must not silently disable the gate: that would turn the
     # BDT run into a chi2 run and make the comparison between them a lie.
-    with pytest.raises(FileNotFoundError, match="bdt_stage1.json"):
+    with pytest.raises(FileNotFoundError) as caught:
         Stage1Gate.load(tmp_path)
+
+    message = str(caught.value)
+    assert "bdt_stage1.json" in message
+    assert "scripts/run_pipeline.py" in message
+    assert "run_pipeline.sh" not in message
 
 
 def test_load_raises_when_the_threshold_is_missing(tmp_path):

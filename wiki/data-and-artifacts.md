@@ -98,6 +98,27 @@ The run/strip table's schema version, exact field order, status, positive
 polarized flux, and non-negative BREM flux are checked on load. See
 [Calibration](06-calibration) for field-level details and failure policy.
 
+### Full-campaign layout
+
+`python scripts/run_pipeline.py --mode test_data` writes
+`results/test_data/`; production writes `results/production/`. Both use this
+ownership boundary:
+
+```text
+results/<mode>/
+|-- common/flux_calibrated.root
+|-- uv/{selected,mc,bdt,reco,beam_asymmetry}/
+|-- vis/{selected,mc,bdt,reco,beam_asymmetry}/
+|-- combined/
+`-- pipeline_commands.log
+```
+
+Only final Stage-07 point products are composed under `combined/`. Selected
+events, MC, BDT bundles, reconstructions, and asymmetry ROOT files stay
+profile-local. Ajaka digitization is tracked at
+`07_observable_extraction/references/ajaka2008_figure4_digitized.csv`, not a
+generated or ignored local fixture.
+
 ## Ownership and Persistence
 
 | Location | Ownership | Git behavior |
@@ -105,6 +126,7 @@ polarized flux, and non-negative BREM flux are checked on load. See
 | source, tests, config, wiki | repository contracts | tracked |
 | `04_bdt_training/artifacts/stage1/` | released runtime model and reports | currently tracked |
 | `data/00_external/flux.root` | small external calibration input | explicitly allowed by `.gitignore` |
+| `07_observable_extraction/references/ajaka2008_figure4_digitized.csv` | published comparison data | tracked |
 | other `data/` content | raw, selected, or farm-linked experimental data | ignored |
 | `results/` | generated reconstruction, calibration, plots, observables | ignored |
 | `03_mc_simulation/data/*.root` and general `*.root`, `*.npz` | large generated artifacts | ignored unless explicitly unignored |
