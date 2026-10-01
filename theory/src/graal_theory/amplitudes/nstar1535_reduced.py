@@ -121,3 +121,33 @@ def wt_kernel(w_gev: float, parameters: ReducedTParameters) -> NDArray[np.float6
     return (-C_COEFFICIENTS * (2*w - baryon[:, None] - baryon[None, :])
             * norm[:, None] * norm[None, :]
             / (4*f[:, None]*f[None, :]))
+
+
+def loop_functions(w_gev: float, parameters: ReducedTParameters) -> NDArray[np.complex128]:
+    """P65 Eq. (6) physical-sheet meson-baryon loops, in GeV."""
+    w = _validated_energy(w_gev, parameters)
+    s = w*w
+    meson = np.asarray(parameters.meson_masses_gev)
+    baryon = np.asarray(parameters.baryon_masses_gev)
+    subtraction = np.asarray(parameters.subtraction_constants)
+    delta = baryon*baryon - meson*meson
+    q = np.sqrt(((s-(baryon+meson)**2)*(s-(baryon-meson)**2)).astype(complex))/(2*w)
+    logs = (np.log(s-delta+2*w*q) + np.log(s+delta+2*w*q)
+            - np.log(-s+delta+2*w*q) - np.log(-s-delta+2*w*q))
+    return (2*baryon/(4*np.pi)**2 *
+            (subtraction + np.log(meson*meson/parameters.mu_gev**2)
+             + (delta+s)/(2*s)*np.log(baryon*baryon/(meson*meson))
+             + q/w*logs)).astype(np.complex128)
+
+
+def reduced_tmatrix(w_gev: float, parameters: ReducedTParameters) -> NDArray[np.complex128]:
+    """Solve (I - VG)T = V for the reduced on-shell strong amplitude."""
+    v = wt_kernel(w_gev, parameters)
+    g = loop_functions(w_gev, parameters)
+    try:
+        t = np.linalg.solve(np.eye(6, dtype=complex)-v*g[None, :], v)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError("reduced T linear solve is singular") from exc
+    if not np.all(np.isfinite(t)):
+        raise ValueError("reduced T is nonfinite")
+    return np.asarray(t, dtype=np.complex128)

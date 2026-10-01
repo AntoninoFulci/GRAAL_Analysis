@@ -9,10 +9,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from graal_theory.amplitudes import nstar1535_reduced
 from graal_theory.amplitudes.nstar1535_reduced import (
     CHANNELS,
     C_COEFFICIENTS,
     load_reduced_parameters,
+    loop_functions,
+    reduced_tmatrix,
     wt_kernel,
 )
 
@@ -86,3 +89,70 @@ def test_reduced_inputs_reject_nonfinite_unknown_source_and_missing_key(tmp_path
     changed.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ValueError, match="names"):
         load_reduced_parameters(changed, SOURCES)
+
+
+def test_loop_imaginary_part_eq7_and_closed_channels():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    w = 1.50
+    g = loop_functions(w, p)
+    for i in range(6):
+        m, baryon = p.meson_masses_gev[i], p.baryon_masses_gev[i]
+        if w > m + baryon:
+            q = np.sqrt((w*w-(m+baryon)**2)*(w*w-(m-baryon)**2))/(2*w)
+            assert g[i].imag == pytest.approx(-baryon*q/(4*np.pi*w), abs=1e-11)
+        else:
+            assert abs(g[i].imag) < 1e-11
+
+
+def test_loop_finite_across_thresholds():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    thresholds = sorted(set(np.add(p.meson_masses_gev, p.baryon_masses_gev)))
+    for threshold in thresholds[1:]:
+        if threshold < 1.70:
+            for w in (threshold-1e-6, threshold, threshold+1e-6):
+                assert np.all(np.isfinite(loop_functions(w, p)))
+
+
+def test_t_symmetry_coupled_transition_and_unitarity():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    w = 1.55
+    t = reduced_tmatrix(w, p)
+    assert t.shape == (6, 6)
+    np.testing.assert_allclose(t, t.T, rtol=1e-10, atol=1e-10)
+    assert abs(t[0, 2]) > 1e-8
+    rho = np.zeros(6)
+    for i, (m, baryon) in enumerate(zip(p.meson_masses_gev, p.baryon_masses_gev)):
+        if w > m + baryon:
+            q = np.sqrt((w*w-(m+baryon)**2)*(w*w-(m-baryon)**2))/(2*w)
+            rho[i] = baryon*q/(4*np.pi*w)
+    np.testing.assert_allclose((t-t.conj().T)/(2j),
+                               -t @ np.diag(rho) @ t.conj().T,
+                               rtol=2e-9, atol=2e-9)
+
+
+def test_t_satisfies_both_linear_equations():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    w = 1.55
+    v, g, t = wt_kernel(w, p), loop_functions(w, p), reduced_tmatrix(w, p)
+    np.testing.assert_allclose((np.eye(6)-v*g[None, :]) @ t, v,
+                               rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(t @ (np.eye(6)-g[:, None]*v), v,
+                               rtol=1e-11, atol=1e-11)
+
+
+@pytest.mark.parametrize("w", [0.5, 1.701, float("nan"), float("inf"), True])
+def test_invalid_real_axis_energy_is_rejected(w):
+    p = load_reduced_parameters(PARAM, SOURCES)
+    with pytest.raises(ValueError, match="W"):
+        reduced_tmatrix(w, p)
+
+
+def test_singular_matrix_is_reported(monkeypatch):
+    p = load_reduced_parameters(PARAM, SOURCES)
+
+    def fail(*args, **kwargs):
+        raise np.linalg.LinAlgError("singular")
+
+    monkeypatch.setattr(nstar1535_reduced.np.linalg, "solve", fail)
+    with pytest.raises(ValueError, match="singular"):
+        reduced_tmatrix(1.55, p)
