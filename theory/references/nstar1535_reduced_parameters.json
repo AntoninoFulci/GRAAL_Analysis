@@ -1,0 +1,20 @@
+{
+  "pi0_mass": {"value": 0.1349768, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 meson summary, pi0"},
+  "charged_pion_mass": {"value": 0.13957039, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 meson summary, pi+/-"},
+  "eta_mass": {"value": 0.547862, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 meson summary, eta"},
+  "charged_kaon_mass": {"value": 0.493677, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 meson summary, K+/-"},
+  "neutral_kaon_mass": {"value": 0.497611, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 meson summary, K0"},
+  "proton_mass": {"value": 0.93827208816, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 baryon summary, proton"},
+  "neutron_mass": {"value": 0.93956542052, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 baryon summary, neutron"},
+  "sigma0_mass": {"value": 1.192642, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 baryon summary, Sigma0"},
+  "sigma_plus_mass": {"value": 1.18937, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 baryon summary, Sigma+"},
+  "lambda_mass": {"value": 1.115683, "unit": "GeV", "source_key": "pdg_2024", "locator": "PDG 2024 baryon summary, Lambda"},
+  "f_pi": {"value": 0.093, "unit": "GeV", "source_key": "inoue_2002", "locator": "p. 035204-2 after Eq. (5)"},
+  "f_k_over_f_pi": {"value": 1.22, "unit": "1", "source_key": "inoue_2002", "locator": "p. 035204-2 after Eq. (5)"},
+  "f_eta_over_f_pi": {"value": 1.3, "unit": "1", "source_key": "inoue_2002", "locator": "p. 035204-2 after Eq. (5)"},
+  "mu": {"value": 1.2, "unit": "GeV", "source_key": "inoue_2002", "locator": "Eq. (9)"},
+  "a_piN": {"value": 2.0, "unit": "1", "source_key": "inoue_2002", "locator": "Eq. (9)"},
+  "a_etaN": {"value": 0.2, "unit": "1", "source_key": "inoue_2002", "locator": "Eq. (9)"},
+  "a_KLambda": {"value": 1.6, "unit": "1", "source_key": "inoue_2002", "locator": "Eq. (9)"},
+  "a_KSigma": {"value": -2.8, "unit": "1", "source_key": "inoue_2002", "locator": "Eq. (9)"}
+}
