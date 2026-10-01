@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from graal_common.physics.beam_profiles import get_beam_profile
 from graal_common.physics.channels import CHANNELS, HYPOTHESES
 from graal_common.stage1.features import N_FEATURES_S1
 
@@ -20,6 +21,9 @@ class Stage1DatasetMetadata:
     hypothesis: str
     signal_prior: float | None = None
     beam_reweighted: bool | None = None
+    beam_profile: str | None = None
+    energy_min_gev: float | None = None
+    energy_max_gev: float | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,42 @@ def _validate_dataset(dataset: Stage1Dataset) -> None:
         raise ValueError(f"unknown signal channel {metadata.signal_channel!r}")
     if metadata.hypothesis not in HYPOTHESES:
         raise ValueError(f"unknown hypothesis {metadata.hypothesis!r}")
+    try:
+        labels = np.unique(y)
+    except TypeError as exc:
+        raise ValueError("labels must be exactly 0 and 1") from exc
+    if not np.isin(labels, (0, 1)).all():
+        raise ValueError("labels must be exactly 0 and 1")
+    if not np.array_equal(labels, np.array([0, 1])):
+        raise ValueError("dataset must contain both signal and background labels")
+    _validate_profile_metadata(metadata)
+
+
+def _validate_profile_metadata(metadata: Stage1DatasetMetadata) -> None:
+    values = (
+        metadata.beam_profile,
+        metadata.energy_min_gev,
+        metadata.energy_max_gev,
+    )
+    if all(value is None for value in values):
+        return
+    if any(value is None for value in values):
+        raise ValueError(
+            "profile energy metadata must be complete or entirely absent"
+        )
+    profile = get_beam_profile(metadata.beam_profile)
+    bounds = np.asarray(
+        [metadata.energy_min_gev, metadata.energy_max_gev], dtype=np.float64
+    )
+    if not np.isfinite(bounds).all():
+        raise ValueError("profile energy bounds must be finite")
+    if bounds[1] <= bounds[0]:
+        raise ValueError("profile energy bounds must be increasing")
+    if not np.allclose(bounds, profile.energy_range_gev, atol=1e-12, rtol=0):
+        raise ValueError(
+            f"profile energy bounds {tuple(bounds)} do not match "
+            f"{profile.name!r} range {profile.energy_range_gev}"
+        )
 
 
 def _scalar(stored, key: str):
@@ -111,6 +151,21 @@ def load_stage1_dataset(path: str | Path) -> Stage1Dataset:
                 if "beam_reweighted" in stored
                 else None
             ),
+            beam_profile=(
+                str(_scalar(stored, "beam_profile"))
+                if "beam_profile" in stored
+                else None
+            ),
+            energy_min_gev=(
+                float(_scalar(stored, "energy_min_gev"))
+                if "energy_min_gev" in stored
+                else None
+            ),
+            energy_max_gev=(
+                float(_scalar(stored, "energy_max_gev"))
+                if "energy_max_gev" in stored
+                else None
+            ),
         )
         dataset = Stage1Dataset(
             X=np.array(stored["X"], copy=True),
@@ -123,21 +178,27 @@ def load_stage1_dataset(path: str | Path) -> Stage1Dataset:
 
 
 def save_stage1_dataset(path: str | Path, dataset: Stage1Dataset) -> None:
-    """Write a Stage-1 dataset using the established eight-key NPZ schema."""
+    """Write a Stage-1 dataset, adding profile keys only when available."""
     _validate_dataset(dataset)
     metadata = dataset.metadata
     if metadata.signal_prior is None:
         raise ValueError("signal_prior is required when saving a Stage-1 dataset")
     if metadata.beam_reweighted is None:
         raise ValueError("beam_reweighted is required when saving a Stage-1 dataset")
-    np.savez(
-        path,
-        X=dataset.X,
-        y=dataset.y,
-        w=dataset.w,
-        feature_names=np.array(metadata.feature_names),
-        signal_channel=np.array(metadata.signal_channel),
-        hypothesis=np.array(metadata.hypothesis),
-        signal_prior=np.array(metadata.signal_prior),
-        beam_reweighted=np.array(metadata.beam_reweighted),
-    )
+    values = {
+        "X": dataset.X,
+        "y": dataset.y,
+        "w": dataset.w,
+        "feature_names": np.array(metadata.feature_names),
+        "signal_channel": np.array(metadata.signal_channel),
+        "hypothesis": np.array(metadata.hypothesis),
+        "signal_prior": np.array(metadata.signal_prior),
+        "beam_reweighted": np.array(metadata.beam_reweighted),
+    }
+    if metadata.beam_profile is not None:
+        values.update(
+            beam_profile=np.array(metadata.beam_profile),
+            energy_min_gev=np.array(metadata.energy_min_gev),
+            energy_max_gev=np.array(metadata.energy_max_gev),
+        )
+    np.savez(path, **values)

@@ -112,6 +112,9 @@ def train(
         tagger_resolution_sigma_gev=TAGGER_SIGMA_GEV,
         detector_covariance_status="legacy-uncalibrated",
         feature_names=result.feature_metadata.feature_names,
+        beam_profile=dataset.metadata.beam_profile,
+        energy_min_gev=dataset.metadata.energy_min_gev,
+        energy_max_gev=dataset.metadata.energy_max_gev,
     )
     artifacts.provenance.write_text(provenance.to_json())
 

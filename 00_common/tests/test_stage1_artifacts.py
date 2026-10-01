@@ -1,5 +1,6 @@
 """Contract tests for the stage-1 runtime artifact bundle."""
 
+from dataclasses import replace
 import subprocess
 import sys
 
@@ -73,7 +74,41 @@ def test_provenance_parser_round_trips_all_values():
     assert provenance.tagger_resolution_sigma_gev == 0.006794574402304153
     assert provenance.detector_covariance_status == "legacy-uncalibrated"
     assert provenance.feature_names == ("mass", "energy")
+    assert provenance.beam_profile is None
+    assert provenance.energy_min_gev is None
+    assert provenance.energy_max_gev is None
     assert provenance.to_json() == PROVENANCE_JSON
+
+
+def test_vis_provenance_round_trips_optional_profile_metadata():
+    legacy = Stage1Provenance.from_json(PROVENANCE_JSON)
+    vis = replace(
+        legacy,
+        beam_profile="vis",
+        energy_min_gev=0.9313,
+        energy_max_gev=1.10,
+    )
+
+    assert Stage1Provenance.from_json(vis.to_json()) == vis
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"beam_profile": "green", "energy_min_gev": 0.9,
+          "energy_max_gev": 1.1}, "unknown beam profile"),
+        ({"beam_profile": "vis"}, "profile energy metadata must be complete"),
+        ({"beam_profile": "vis", "energy_min_gev": float("nan"),
+          "energy_max_gev": 1.1}, "energy_min_gev must be finite"),
+        ({"beam_profile": "vis", "energy_min_gev": 1.1,
+          "energy_max_gev": 0.9313}, "energy bounds must be increasing"),
+    ],
+)
+def test_provenance_rejects_invalid_profile_metadata(changes, message):
+    provenance = replace(Stage1Provenance.from_json(PROVENANCE_JSON), **changes)
+
+    with pytest.raises(ValueError, match=message):
+        provenance.to_json()
 
 
 @pytest.mark.parametrize(

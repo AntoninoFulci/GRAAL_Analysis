@@ -76,6 +76,7 @@ from graal_common.physics.channels import (
     get_channel,
     resolve_hypothesis,
 )
+from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 from graal_common.stage1.features import (
     FEATURE_NAMES_S1,
     N_FEATURES_S1,
@@ -118,6 +119,7 @@ def main() -> None:
                              "channel weights are cross-sections integrated over "
                              "the measured beam flux, and there is no flux "
                              "without it")
+    parser.add_argument("--profile", choices=BEAM_PROFILES, default=None)
     parser.add_argument("--signal-prior", type=float, default=0.5,
                         help="fraction of the total training weight given to the "
                              "signal class (default 0.5, balanced). A CHOICE, not "
@@ -150,6 +152,16 @@ def main() -> None:
     backgrounds = [get_channel(name) for name in background_names]
 
     beam_target = BeamSpectrum.load(args.beam_spectrum)
+    profile = get_beam_profile(args.profile) if args.profile else None
+    if profile is not None:
+        observed = (float(beam_target.edges[0]), float(beam_target.edges[-1]))
+        if not np.allclose(
+            observed, profile.energy_range_gev, atol=1e-12, rtol=0
+        ):
+            raise ValueError(
+                f"beam spectrum range {observed} does not match profile "
+                f"{profile.name!r} range {profile.energy_range_gev}"
+            )
     print(f"beam       : reweighting onto {args.beam_spectrum}")
 
     print(f"signal     : {signal.name}")
@@ -258,6 +270,13 @@ def main() -> None:
                 hypothesis=hypothesis.name,
                 signal_prior=args.signal_prior,
                 beam_reweighted=beam_target is not None,
+                beam_profile=profile.name if profile is not None else None,
+                energy_min_gev=(
+                    profile.energy_range_gev[0] if profile is not None else None
+                ),
+                energy_max_gev=(
+                    profile.energy_range_gev[1] if profile is not None else None
+                ),
             ),
         ),
     )

@@ -8,13 +8,15 @@ import math
 from pathlib import Path
 from typing import Any, Mapping
 
+from graal_common.physics.beam_profiles import get_beam_profile
+
 
 MODEL_FILE = "bdt_stage1.json"
 THRESHOLD_FILE = "stage1_threshold.txt"
 PROVENANCE_FILE = "stage1_provenance.json"
 METRICS_FILE = "stage1_metrics.txt"
 
-_PROVENANCE_KEYS = (
+_REQUIRED_PROVENANCE_KEYS = (
     "signal_channel",
     "hypothesis",
     "signal_prior",
@@ -24,6 +26,11 @@ _PROVENANCE_KEYS = (
     "tagger_resolution_sigma_gev",
     "detector_covariance_status",
     "feature_names",
+)
+_OPTIONAL_PROVENANCE_KEYS = (
+    "beam_profile",
+    "energy_min_gev",
+    "energy_max_gev",
 )
 
 
@@ -56,6 +63,9 @@ class Stage1Provenance:
     tagger_resolution_sigma_gev: float
     detector_covariance_status: str
     feature_names: tuple[str, ...]
+    beam_profile: str | None = None
+    energy_min_gev: float | None = None
+    energy_max_gev: float | None = None
 
     @classmethod
     def from_json(cls, text: str) -> "Stage1Provenance":
@@ -66,14 +76,20 @@ class Stage1Provenance:
 
     @classmethod
     def _from_mapping(cls, value: Mapping[str, Any]) -> "Stage1Provenance":
-        expected = set(_PROVENANCE_KEYS)
+        required = set(_REQUIRED_PROVENANCE_KEYS)
+        optional = set(_OPTIONAL_PROVENANCE_KEYS)
         actual = set(value)
-        missing = expected - actual
-        unexpected = actual - expected
+        missing = required - actual
+        unexpected = actual - required - optional
         if missing:
             raise ValueError(f"missing keys: {', '.join(sorted(missing))}")
         if unexpected:
             raise ValueError(f"unexpected keys: {', '.join(sorted(unexpected))}")
+        present_optional = actual & optional
+        if present_optional and present_optional != optional:
+            raise ValueError(
+                "profile energy metadata must be complete or entirely absent"
+            )
 
         signal_channel = _string(value["signal_channel"], "signal_channel")
         hypothesis = _string(value["hypothesis"], "hypothesis")
@@ -99,6 +115,26 @@ class Stage1Provenance:
         ):
             raise ValueError("feature_names must be an array of strings")
 
+        beam_profile = None
+        energy_min_gev = None
+        energy_max_gev = None
+        if present_optional:
+            beam_profile = _string(value["beam_profile"], "beam_profile")
+            energy_min_gev = _number(value["energy_min_gev"], "energy_min_gev")
+            energy_max_gev = _number(value["energy_max_gev"], "energy_max_gev")
+            if energy_max_gev <= energy_min_gev:
+                raise ValueError("profile energy bounds must be increasing")
+            profile = get_beam_profile(beam_profile)
+            expected_bounds = profile.energy_range_gev
+            if (
+                abs(energy_min_gev - expected_bounds[0]) > 1e-12
+                or abs(energy_max_gev - expected_bounds[1]) > 1e-12
+            ):
+                raise ValueError(
+                    f"profile energy bounds {(energy_min_gev, energy_max_gev)} "
+                    f"do not match {profile.name!r} range {expected_bounds}"
+                )
+
         return cls(
             signal_channel=signal_channel,
             hypothesis=hypothesis,
@@ -109,36 +145,57 @@ class Stage1Provenance:
             tagger_resolution_sigma_gev=tagger_resolution_sigma_gev,
             detector_covariance_status=detector_covariance_status,
             feature_names=tuple(feature_names),
+            beam_profile=beam_profile,
+            energy_min_gev=energy_min_gev,
+            energy_max_gev=energy_max_gev,
         )
 
     def to_json(self) -> str:
-        validated = self._from_mapping(
-            {
-                "signal_channel": self.signal_channel,
-                "hypothesis": self.hypothesis,
-                "signal_prior": self.signal_prior,
-                "beam_reweighted": self.beam_reweighted,
-                "phase_space_sampling": self.phase_space_sampling,
-                "tagger_resolution_fwhm_gev": self.tagger_resolution_fwhm_gev,
-                "tagger_resolution_sigma_gev": self.tagger_resolution_sigma_gev,
-                "detector_covariance_status": self.detector_covariance_status,
-                "feature_names": self.feature_names,
-            }
+        values = {
+            "signal_channel": self.signal_channel,
+            "hypothesis": self.hypothesis,
+            "signal_prior": self.signal_prior,
+            "beam_reweighted": self.beam_reweighted,
+            "phase_space_sampling": self.phase_space_sampling,
+            "tagger_resolution_fwhm_gev": self.tagger_resolution_fwhm_gev,
+            "tagger_resolution_sigma_gev": self.tagger_resolution_sigma_gev,
+            "detector_covariance_status": self.detector_covariance_status,
+            "feature_names": self.feature_names,
+        }
+        profile_values = (
+            self.beam_profile,
+            self.energy_min_gev,
+            self.energy_max_gev,
         )
-        return json.dumps(
-            {
-                "signal_channel": validated.signal_channel,
-                "hypothesis": validated.hypothesis,
-                "signal_prior": validated.signal_prior,
-                "beam_reweighted": validated.beam_reweighted,
-                "phase_space_sampling": validated.phase_space_sampling,
-                "tagger_resolution_fwhm_gev": validated.tagger_resolution_fwhm_gev,
-                "tagger_resolution_sigma_gev": validated.tagger_resolution_sigma_gev,
-                "detector_covariance_status": validated.detector_covariance_status,
-                "feature_names": list(validated.feature_names),
-            },
-            indent=2,
-        ) + "\n"
+        if any(value is not None for value in profile_values):
+            if any(value is None for value in profile_values):
+                raise ValueError(
+                    "profile energy metadata must be complete or entirely absent"
+                )
+            values.update(
+                beam_profile=self.beam_profile,
+                energy_min_gev=self.energy_min_gev,
+                energy_max_gev=self.energy_max_gev,
+            )
+        validated = self._from_mapping(values)
+        output = {
+            "signal_channel": validated.signal_channel,
+            "hypothesis": validated.hypothesis,
+            "signal_prior": validated.signal_prior,
+            "beam_reweighted": validated.beam_reweighted,
+            "phase_space_sampling": validated.phase_space_sampling,
+            "tagger_resolution_fwhm_gev": validated.tagger_resolution_fwhm_gev,
+            "tagger_resolution_sigma_gev": validated.tagger_resolution_sigma_gev,
+            "detector_covariance_status": validated.detector_covariance_status,
+            "feature_names": list(validated.feature_names),
+        }
+        if validated.beam_profile is not None:
+            output.update(
+                beam_profile=validated.beam_profile,
+                energy_min_gev=validated.energy_min_gev,
+                energy_max_gev=validated.energy_max_gev,
+            )
+        return json.dumps(output, indent=2) + "\n"
 
 
 def _string(value: Any, name: str) -> str:

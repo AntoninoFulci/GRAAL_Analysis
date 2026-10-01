@@ -1,13 +1,40 @@
 """Tests for build_background_features module."""
+import sys
+
 import numpy as np
 import pytest
 from graal_common.physics.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from bdt_training import build_background_features
+from bdt_training.beam_spectrum import from_energies
 from bdt_training.build_background_features import (
     FEATURE_NAMES_S1,
     compute_stage1_features,
     feature_names,
     shuffle_photons,
 )
+
+
+def test_vis_profile_rejects_mismatched_spectrum_before_loading_channels(
+    tmp_path, monkeypatch
+):
+    spectrum_path = tmp_path / "wide_spectrum.npz"
+    from_energies(np.array([0.8, 1.0, 1.2])).save(spectrum_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_background_features",
+            "--beam-spectrum",
+            str(spectrum_path),
+            "--profile",
+            "vis",
+            "--mc-dir",
+            str(tmp_path / "missing_mc"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="does not match profile 'vis'"):
+        build_background_features.main()
 
 
 def _make_photons(rng, N, M=4):

@@ -23,6 +23,7 @@ DATASET_KEYS = {
     "signal_prior",
     "beam_reweighted",
 }
+PROFILE_KEYS = {"beam_profile", "energy_min_gev", "energy_max_gev"}
 
 
 def _arrays(n: int = 20) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -82,6 +83,53 @@ def test_loader_accepts_old_format_without_optional_metadata(tmp_path):
 
     assert dataset.metadata.signal_prior is None
     assert dataset.metadata.beam_reweighted is None
+    assert dataset.metadata.beam_profile is None
+    assert dataset.metadata.energy_min_gev is None
+    assert dataset.metadata.energy_max_gev is None
+
+
+def test_vis_profile_metadata_survives_dataset_round_trip(tmp_path):
+    expected = _dataset()
+    metadata = replace(
+        expected.metadata,
+        beam_profile="vis",
+        energy_min_gev=0.9313,
+        energy_max_gev=1.10,
+    )
+    expected = replace(expected, metadata=metadata)
+    path = tmp_path / "vis_features_stage1.npz"
+
+    stage1_dataset.save_stage1_dataset(path, expected)
+
+    assert stage1_dataset.load_stage1_dataset(path).metadata == metadata
+    with np.load(path) as stored:
+        assert set(stored.files) == DATASET_KEYS | PROFILE_KEYS
+
+
+def test_saver_rejects_partial_profile_metadata(tmp_path):
+    dataset = _dataset()
+    metadata = replace(
+        dataset.metadata,
+        beam_profile="vis",
+        energy_min_gev=0.9313,
+    )
+
+    with pytest.raises(ValueError, match="profile energy metadata must be complete"):
+        stage1_dataset.save_stage1_dataset(
+            tmp_path / "partial.npz",
+            replace(dataset, metadata=metadata),
+        )
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [np.ones(20, dtype=np.int8), np.tile([0, 2], 10)],
+)
+def test_saver_rejects_missing_or_nonbinary_training_class(tmp_path, labels):
+    dataset = replace(_dataset(), y=labels)
+
+    with pytest.raises(ValueError, match="both signal and background|exactly 0 and 1"):
+        stage1_dataset.save_stage1_dataset(tmp_path / "one_class.npz", dataset)
 
 
 @pytest.mark.parametrize("missing", ["signal_channel", "hypothesis"])
@@ -183,6 +231,31 @@ def test_trainer_accepts_old_format_valid_fixture(tmp_path, monkeypatch):
     provenance = json.loads((output / "stage1_provenance.json").read_text())
     assert provenance["signal_prior"] is None
     assert provenance["beam_reweighted"] is None
+
+
+def test_trainer_stamps_vis_profile_into_provenance(tmp_path, monkeypatch):
+    dataset = _dataset()
+    dataset = replace(
+        dataset,
+        metadata=replace(
+            dataset.metadata,
+            beam_profile="vis",
+            energy_min_gev=0.9313,
+            energy_max_gev=1.10,
+        ),
+    )
+    features = tmp_path / "vis_features_stage1.npz"
+    stage1_dataset.save_stage1_dataset(features, dataset)
+    monkeypatch.setattr(trainer.xgb, "XGBClassifier", _FakeClassifier)
+    monkeypatch.setattr(trainer, "_HAVE_MPL", False)
+
+    output = tmp_path / "model"
+    trainer.train(str(features), str(output), n_estimators=1, verbose=False)
+
+    provenance = json.loads((output / "stage1_provenance.json").read_text())
+    assert provenance["beam_profile"] == "vis"
+    assert provenance["energy_min_gev"] == pytest.approx(0.9313)
+    assert provenance["energy_max_gev"] == pytest.approx(1.10)
 
 
 def test_grid_search_accepts_old_format_valid_fixture(tmp_path, monkeypatch):
