@@ -1,0 +1,8 @@
+{
+  "sigma_minus_mass": {
+    "value": 1.197449,
+    "unit": "GeV",
+    "source_key": "pdg_2024",
+    "locator": "PDG 2024 baryon summary, Sigma- mass"
+  }
+}
