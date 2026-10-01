@@ -14,7 +14,6 @@ __pycache__/
 *cache*
 
 .superpowers/
-test_data/
 
 /data/
 
@@ -35,4 +34,8 @@ graphify-out/
 .work/
 /build/
 
-/test_data/
+!/test_data/
+/test_data/*
+!/test_data/beam_asymmetry/
+/test_data/beam_asymmetry/*
+!/test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv

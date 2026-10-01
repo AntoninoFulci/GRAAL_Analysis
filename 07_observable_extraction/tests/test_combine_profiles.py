@@ -1,4 +1,5 @@
 from dataclasses import replace
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -10,19 +11,31 @@ from observable_extraction.io.root_output import RootOutputPayload, write_root_o
 from observable_extraction.tests.test_figure4 import _points
 
 
-def test_combined_cli_defaults_use_test_data_layout():
+def test_combined_cli_defaults_use_production_layout():
     args = combine_profiles.build_parser().parse_args([])
 
     assert args.uv_root == Path(
-        "test_data/beam_asymmetry/beam_asymmetry.root"
+        "results/production/uv/beam_asymmetry/beam_asymmetry.root"
     )
     assert args.vis_root == Path(
-        "test_data/vis/beam_asymmetry/beam_asymmetry.root"
+        "results/production/vis/beam_asymmetry/beam_asymmetry.root"
     )
-    assert args.published_csv == Path(
-        "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    assert args.published_csv == combine_profiles.AJAKA_REFERENCE
+    assert args.output_dir == Path("results/production/combined")
+
+
+def test_ajaka_reference_is_versioned_and_compatibility_copy_matches():
+    canonical = combine_profiles.AJAKA_REFERENCE
+    compatibility = (
+        Path(__file__).parents[2]
+        / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
     )
-    assert args.output_dir == Path("test_data/beam_asymmetry/uv_vis")
+    expected = "aab73cc23c54f137eb46f37949911af83f266c50ef5e7f4ae6d33a9b68bedfa7"
+
+    assert canonical.is_file()
+    assert compatibility.is_file()
+    assert hashlib.sha256(canonical.read_bytes()).hexdigest() == expected
+    assert hashlib.sha256(compatibility.read_bytes()).hexdigest() == expected
 
 
 def test_combined_cli_writes_exact_four_outputs(tmp_path, monkeypatch):

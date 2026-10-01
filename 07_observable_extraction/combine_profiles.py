@@ -23,30 +23,35 @@ from observable_extraction.plotting.figure4 import (
     write_profile_figure4_pdf,
 )
 
+AJAKA_REFERENCE = (
+    Path(__file__).resolve().parent
+    / "references"
+    / "ajaka2008_figure4_digitized.csv"
+)
+PRODUCTION_ROOT = Path("results/production")
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--uv-root",
         type=Path,
-        default=Path("test_data/beam_asymmetry/beam_asymmetry.root"),
+        default=PRODUCTION_ROOT / "uv/beam_asymmetry/beam_asymmetry.root",
     )
     parser.add_argument(
         "--vis-root",
         type=Path,
-        default=Path("test_data/vis/beam_asymmetry/beam_asymmetry.root"),
+        default=PRODUCTION_ROOT / "vis/beam_asymmetry/beam_asymmetry.root",
     )
     parser.add_argument(
         "--published-csv",
         type=Path,
-        default=Path(
-            "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
-        ),
+        default=AJAKA_REFERENCE,
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("test_data/beam_asymmetry/uv_vis"),
+        default=PRODUCTION_ROOT / "combined",
     )
     return parser
 
