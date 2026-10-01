@@ -47,6 +47,7 @@ def test_cli_defaults_follow_numbered_data_layout(monkeypatch):
 
     assert args.input_dir == "data/02_pre_analyzed/pre_analisi"
     assert args.output_dir == "data/03_selected"
+    assert args.pattern == "pre_*.root"
     assert args.threads >= 1
 
 
@@ -129,3 +130,35 @@ def test_failed_selection_preserves_previous_output_dataset(tmp_path, monkeypatc
 
     assert sorted(path.name for path in output_dir.iterdir()) == [sentinel.name]
     assert sentinel.read_text() == "previous complete dataset"
+
+
+def test_run_processes_only_requested_preanalysis_pattern(tmp_path, monkeypatch):
+    input_dir = tmp_path / "pre"
+    input_dir.mkdir()
+    (input_dir / "pre_analisi_1998_uv.root").touch()
+    (input_dir / "pre_analisi_1999_vis.root").touch()
+    seen = []
+
+    def select_file(source: Path, target: Path) -> None:
+        seen.append((source.name, target.name))
+        target.touch()
+
+    monkeypatch.setattr(select_events, "_select_file", select_file)
+
+    select_events.run(
+        input_dir,
+        tmp_path / "selected",
+        threads=1,
+        pattern="pre_analisi_1999_vis.root",
+    )
+
+    assert seen == [("pre_analisi_1999_vis.root", "analisi_1999_vis.root")]
+
+
+def test_run_rejects_pattern_with_directory_component(tmp_path):
+    with pytest.raises(ValueError, match="basename glob"):
+        select_events.run(
+            tmp_path,
+            tmp_path / "out",
+            pattern="other/pre_*.root",
+        )

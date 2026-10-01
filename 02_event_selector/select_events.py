@@ -31,6 +31,11 @@ def parse_args():
     p.add_argument("--output-dir", default="data/03_selected",
                    help="folder for the preselected files")
     p.add_argument(
+        "--pattern",
+        default="pre_*.root",
+        help="basename glob for pre-analysis ROOT files",
+    )
+    p.add_argument(
         "--threads",
         type=int,
         default=os.cpu_count() or 1,
@@ -100,11 +105,19 @@ def _select_file(input_path: Path, output_path: Path) -> None:
     print(f"  Selected events: {n_selected}")
 
 
-def run(input_dir: Path, output_dir: Path, *, threads: int = 1) -> None:
+def run(
+    input_dir: Path,
+    output_dir: Path,
+    *,
+    threads: int = 1,
+    pattern: str = "pre_*.root",
+) -> None:
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     if threads < 1:
         raise ValueError("threads must be at least 1")
+    if Path(pattern).name != pattern:
+        raise ValueError("pattern must be a basename glob without directories")
     if ROOT.IsImplicitMTEnabled():
         ROOT.DisableImplicitMT()
     if threads > 1:
@@ -113,8 +126,10 @@ def run(input_dir: Path, output_dir: Path, *, threads: int = 1) -> None:
 
     root_files = sorted(
         path
-        for path in input_dir.iterdir()
-        if path.is_file() and path.suffix == ".root" and path.name.startswith("pre_")
+        for path in input_dir.glob(pattern)
+        if path.is_file()
+        and path.suffix == ".root"
+        and path.name.startswith("pre_")
     )
 
     print(f"Found {len(root_files)} ROOT files")
@@ -127,7 +142,7 @@ def run(input_dir: Path, output_dir: Path, *, threads: int = 1) -> None:
         else:
             found_desc = "the directory is empty"
         raise RuntimeError(
-            f"no files matching 'pre_*.root' in {str(input_dir)!r}; {found_desc}. "
+            f"no files matching {pattern!r} in {str(input_dir)!r}; {found_desc}. "
             "Refusing to let the reconstruction run against stale files already in "
             f"{str(output_dir)!r}."
         )
@@ -142,7 +157,12 @@ def run(input_dir: Path, output_dir: Path, *, threads: int = 1) -> None:
 
 def main():
     args = parse_args()
-    run(Path(args.input_dir), Path(args.output_dir), threads=args.threads)
+    run(
+        Path(args.input_dir),
+        Path(args.output_dir),
+        threads=args.threads,
+        pattern=args.pattern,
+    )
 
 
 if __name__ == "__main__":
