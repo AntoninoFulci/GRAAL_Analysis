@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -229,3 +230,127 @@ def test_root_macro_argument_preserves_spaces_and_rejects_metacharacters(tmp_pat
         run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path('bad"name.root'))
     with pytest.raises(run_pipeline.PipelineError, match="ROOT macro path"):
         run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path("bad\nname.root"))
+
+
+def test_executor_stops_after_failure_and_logs_exit(tmp_path):
+    config = run_pipeline.mode_config("test_data", tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / "out")
+    run_pipeline.prepare_output_dirs(paths)
+    stages = (
+        run_pipeline.Stage("one", ("tool", "one")),
+        run_pipeline.Stage("two", ("tool", "two")),
+        run_pipeline.Stage("three", ("tool", "three")),
+    )
+    calls = []
+
+    def runner(argv, *, cwd, check, shell):
+        calls.append((tuple(argv), cwd, check, shell))
+        code = 7 if argv[-1] == "two" else 0
+        return subprocess.CompletedProcess(argv, code)
+
+    ticks = iter((10.0, 12.5, 20.0, 24.0))
+    with pytest.raises(run_pipeline.PipelineError, match="two.*exit 7"):
+        run_pipeline.execute_plan(
+            stages,
+            paths,
+            runner=runner,
+            monotonic=lambda: next(ticks),
+        )
+
+    assert [call[0][-1] for call in calls] == ["one", "two"]
+    assert all(call[1] == paths.repo_root for call in calls)
+    assert all(call[2:] == (False, False) for call in calls)
+    log = paths.command_log.read_text()
+    assert "one" in log and "exit=0" in log and "duration=2.500s" in log
+    assert "two" in log and "exit=7" in log and "duration=4.000s" in log
+    assert "three" not in log
+
+
+def test_executor_shell_quotes_display_only(tmp_path, capsys):
+    config = run_pipeline.mode_config("test_data", tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / "out")
+    run_pipeline.prepare_output_dirs(paths)
+    stage = run_pipeline.Stage("spaced", ("tool", "path with spaces"))
+    seen = []
+
+    def runner(argv, **kwargs):
+        seen.append((tuple(argv), kwargs))
+        return subprocess.CompletedProcess(argv, 0)
+
+    run_pipeline.execute_plan(
+        (stage,), paths, runner=runner, monotonic=iter((0.0, 1.0)).__next__
+    )
+
+    assert seen[0][0] == ("tool", "path with spaces")
+    assert "'path with spaces'" in capsys.readouterr().out
+
+
+def test_parser_accepts_only_two_modes():
+    parser = run_pipeline.build_parser()
+    assert parser.parse_args(["--mode", "test_data"]).mode == "test_data"
+    assert parser.parse_args(["--mode", "production"]).mode == "production"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--mode", "farm"])
+
+
+def test_run_calls_preflight_prepare_plan_and_execute_in_order(tmp_path, monkeypatch):
+    events = []
+    result = run_pipeline.PreflightResult("root")
+    monkeypatch.setattr(
+        run_pipeline,
+        "preflight",
+        lambda config, paths: events.append(("preflight", config.name)) or result,
+    )
+    monkeypatch.setattr(
+        run_pipeline,
+        "prepare_output_dirs",
+        lambda paths: events.append(("prepare", paths.output_root)),
+    )
+    monkeypatch.setattr(
+        run_pipeline,
+        "build_pipeline_plan",
+        lambda config, paths, preflight_result: (
+            events.append(("plan", preflight_result.root_executable))
+            or (run_pipeline.Stage("only", ("true",)),)
+        ),
+    )
+    monkeypatch.setattr(
+        run_pipeline,
+        "execute_plan",
+        lambda stages, paths: events.append(("execute", stages[0].name)),
+    )
+
+    code = run_pipeline.run(
+        run_pipeline.build_parser().parse_args(
+            ["--mode", "test_data", "--output-dir", str(tmp_path / "chosen")]
+        ),
+        repo_root=tmp_path,
+    )
+
+    assert code == 0
+    assert events == [
+        ("preflight", "test_data"),
+        ("prepare", tmp_path / "chosen"),
+        ("plan", "root"),
+        ("execute", "only"),
+    ]
+
+
+def test_main_reports_pipeline_error_without_traceback(monkeypatch, capsys):
+    monkeypatch.setattr(
+        run_pipeline,
+        "run",
+        lambda _args: (_ for _ in ()).throw(run_pipeline.PipelineError("broken")),
+    )
+    assert run_pipeline.main(["--mode", "test_data"]) == 1
+    assert capsys.readouterr().err.strip() == "ERROR: broken"
+
+
+def test_main_reports_keyboard_interrupt(monkeypatch, capsys):
+    monkeypatch.setattr(
+        run_pipeline,
+        "run",
+        lambda _args: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
+    assert run_pipeline.main(["--mode", "test_data"]) == 130
+    assert capsys.readouterr().err.strip() == "ERROR: pipeline interrupted"

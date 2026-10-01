@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import os
-from collections.abc import Callable
+import shlex
+import subprocess
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
@@ -496,3 +500,76 @@ def prepare_output_dirs(paths: PipelinePaths) -> None:
         paths.profile_root("vis") / "mc",
     ):
         path.mkdir(parents=True, exist_ok=True)
+
+
+def _log_stage(path: Path, stage: Stage, exit_code: int, duration: float) -> None:
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            f"{stage.name}\texit={exit_code}\tduration={duration:.3f}s\t"
+            f"command={shlex.join(stage.argv)}\n"
+        )
+
+
+def execute_plan(
+    stages: Sequence[Stage],
+    paths: PipelinePaths,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> None:
+    for index, stage in enumerate(stages, start=1):
+        print(f"\n[{index}/{len(stages)}] {stage.name}")
+        print(f"$ {shlex.join(stage.argv)}")
+        started = monotonic()
+        result = runner(
+            stage.argv,
+            cwd=paths.repo_root,
+            check=False,
+            shell=False,
+        )
+        duration = monotonic() - started
+        _log_stage(paths.command_log, stage, result.returncode, duration)
+        print(f"[{stage.name}] exit={result.returncode} duration={duration:.1f}s")
+        if result.returncode != 0:
+            raise PipelineError(
+                f"stage {stage.name} failed with exit {result.returncode}"
+            )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode", required=True, choices=("test_data", "production")
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="empty or absent campaign output root",
+    )
+    return parser
+
+
+def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
+    config = mode_config(args.mode, repo_root)
+    paths = build_paths(config, args.output_dir)
+    checked = preflight(config, paths)
+    prepare_output_dirs(paths)
+    stages = build_pipeline_plan(config, paths, checked)
+    execute_plan(stages, paths)
+    print(f"\nPipeline complete: {paths.output_root}")
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    try:
+        return run(build_parser().parse_args(argv))
+    except KeyboardInterrupt:
+        print("ERROR: pipeline interrupted", file=sys.stderr)
+        return 130
+    except PipelineError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
