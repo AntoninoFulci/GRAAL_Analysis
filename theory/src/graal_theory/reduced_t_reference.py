@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,6 +57,10 @@ def load_fig1_reduced(
             or metadata.get("source_page") != 3
             or metadata.get("printed_page") != "045209-3"
             or metadata.get("curve") != _CURVE
+            or not isinstance(metadata.get("reference_csv_sha256"), str)
+            or len(metadata["reference_csv_sha256"]) != 64
+            or any(digit not in "0123456789abcdef"
+                   for digit in metadata["reference_csv_sha256"])
             or not isinstance(metadata.get("axis_calibration"), dict)
             or not metadata["axis_calibration"]
             or any(not isinstance(metadata.get(key), str) or not metadata[key].strip()
@@ -64,11 +69,11 @@ def load_fig1_reduced(
     digest = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
     if metadata.get("source_pdf_sha256") != digest:
         raise ValueError("PDF digest differs from reviewed PRC 73 source")
-    with csv_path.open(newline="", encoding="utf-8") as stream:
-        reader = csv.DictReader(stream)
-        if tuple(reader.fieldnames or ()) != _FIG1_COLUMNS:
-            raise ValueError("invalid Figure 1 CSV columns")
-        rows = list(reader)
+    csv_bytes = csv_path.read_bytes()
+    reader = csv.DictReader(io.StringIO(csv_bytes.decode("utf-8"), newline=""))
+    if tuple(reader.fieldnames or ()) != _FIG1_COLUMNS:
+        raise ValueError("invalid Figure 1 CSV columns")
+    rows = list(reader)
     if len(rows) != len(_FIG1_GRID):
         raise ValueError("Figure 1 needs eight predeclared energies")
     points = []
@@ -81,6 +86,8 @@ def load_fig1_reduced(
                 or point.reading_error < 0.02):
             raise ValueError("invalid Figure 1 point")
         points.append(point)
+    if hashlib.sha256(csv_bytes).hexdigest() != metadata["reference_csv_sha256"]:
+        raise ValueError("CSV digest differs from reviewed PRC 73 Figure 1 trace")
     return tuple(points)
 
 

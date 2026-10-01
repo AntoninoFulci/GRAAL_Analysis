@@ -35,14 +35,22 @@ class ReducedTParameters:
     mu_gev: float
 
     def __post_init__(self) -> None:
+        real_types = (int, float, np.integer, np.floating)
+
+        def finite_real(value: object) -> bool:
+            return (isinstance(value, real_types)
+                    and not isinstance(value, (bool, np.bool_))
+                    and bool(np.isfinite(value)))
+
         for name in ("meson_masses_gev", "baryon_masses_gev",
                      "decay_constants_gev", "subtraction_constants"):
             values = getattr(self, name)
-            if len(values) != 6 or not np.all(np.isfinite(values)):
-                raise ValueError(f"{name} requires six finite values")
+            if (not isinstance(values, tuple) or len(values) != 6
+                    or not all(finite_real(value) for value in values)):
+                raise ValueError(f"{name} requires six finite real values in a tuple")
             if name != "subtraction_constants" and any(value <= 0 for value in values):
                 raise ValueError(f"{name} requires positive values")
-        if not np.isfinite(self.mu_gev) or self.mu_gev <= 0:
+        if not finite_real(self.mu_gev) or self.mu_gev <= 0:
             raise ValueError("mu_gev must be finite and positive")
 
 
@@ -144,8 +152,13 @@ def reduced_tmatrix(w_gev: float, parameters: ReducedTParameters) -> NDArray[np.
     """Solve (I - VG)T = V for the reduced on-shell strong amplitude."""
     v = wt_kernel(w_gev, parameters)
     g = loop_functions(w_gev, parameters)
+    system = np.eye(6, dtype=complex)-v*g[None, :]
     try:
-        t = np.linalg.solve(np.eye(6, dtype=complex)-v*g[None, :], v)
+        condition = np.linalg.cond(system)
+        # Above 1e12, double-precision roundoff can be amplified to ~1e-4.
+        if not np.isfinite(condition) or condition > 1e12:
+            raise ValueError("reduced T linear system is ill-conditioned")
+        t = np.linalg.solve(system, v)
     except np.linalg.LinAlgError as exc:
         raise ValueError("reduced T linear solve is singular") from exc
     if not np.all(np.isfinite(t)):

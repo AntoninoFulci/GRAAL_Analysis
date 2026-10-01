@@ -88,6 +88,19 @@ def test_fig1_reference_rejects_changed_grid_and_nonfinite_value(tmp_path):
             load_fig1_reduced(path, FIG1_META, P73_PDF)
 
 
+def test_fig1_reference_rejects_same_grid_value_substitution(tmp_path):
+    with FIG1_CSV.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    rows[3]["imag_s11"] = "0.425"  # Plausible experimental dot, not dashed stroke.
+    changed = tmp_path / "wrong-trace.csv"
+    with changed.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    with pytest.raises(ValueError, match="CSV digest"):
+        load_fig1_reduced(changed, FIG1_META, P73_PDF)
+
+
 def test_fig1_reference_rejects_missing_metadata(tmp_path):
     metadata = json.loads(FIG1_META.read_text(encoding="utf-8"))
     del metadata["axis_calibration"]

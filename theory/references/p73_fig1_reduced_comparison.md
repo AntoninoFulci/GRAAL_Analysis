@@ -21,7 +21,7 @@ The reference values in [p73_fig1_reduced.csv](p73_fig1_reduced.csv) were
 fixed before model values were inspected. They come from P73 PDF page 3,
 printed 045209-3, Fig. 1 dashed vector strokes. Poppler SVG path styles
 separate dashed strokes from solid strokes and experimental dots; a
-400-dpi PNG was checked visually. Both axis calibrations, PDF checksum,
+400-dpi PNG was checked visually. Both axis calibrations, PDF/CSV checksums,
 and reading method are in [p73_fig1_reduced.json](p73_fig1_reduced.json).
 Each component has conservative absolute reading bound `+/-0.020`.
 

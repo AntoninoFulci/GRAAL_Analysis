@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -156,3 +157,42 @@ def test_singular_matrix_is_reported(monkeypatch):
     monkeypatch.setattr(nstar1535_reduced.np.linalg, "solve", fail)
     with pytest.raises(ValueError, match="singular"):
         reduced_tmatrix(1.55, p)
+
+
+@pytest.mark.parametrize("field,replacement", [
+    ("subtraction_constants", (2.0, 2.0, 0.2, -2.8+1j, 1.6, -2.8)),
+    ("meson_masses_gev", (0.1349768+0j, 0.13957039, 0.547862,
+                           0.493677, 0.493677, 0.497611)),
+    ("mu_gev", True),
+    ("meson_masses_gev", [0.1349768, 0.13957039, 0.547862,
+                          0.493677, 0.493677, 0.497611]),
+])
+def test_direct_parameters_reject_nonreal_or_mutable_inputs(field, replacement):
+    p = load_reduced_parameters(PARAM, SOURCES)
+    with pytest.raises(ValueError, match=field):
+        replace(p, **{field: replacement})
+
+
+def test_nearly_singular_reduced_t_is_reported():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    subtraction = (*p.subtraction_constants[:4], 416.75627803738945,
+                   p.subtraction_constants[5])
+    p = replace(p, subtraction_constants=subtraction)
+    w = min(np.add(p.meson_masses_gev, p.baryon_masses_gev))
+    with pytest.raises(ValueError, match="ill-conditioned"):
+        reduced_tmatrix(w, p)
+
+
+def test_each_channel_loop_branch_across_its_threshold():
+    p = load_reduced_parameters(PARAM, SOURCES)
+    lightest = min(np.add(p.meson_masses_gev, p.baryon_masses_gev))
+    for i, (meson, baryon) in enumerate(zip(p.meson_masses_gev,
+                                             p.baryon_masses_gev)):
+        threshold = meson + baryon
+        if threshold - 1e-6 >= lightest:
+            assert abs(loop_functions(threshold - 1e-6, p)[i].imag) < 1e-11
+        assert abs(loop_functions(threshold, p)[i].imag) < 1e-9
+        w = threshold + 1e-6
+        q = np.sqrt((w*w-threshold**2)*(w*w-(baryon-meson)**2))/(2*w)
+        assert loop_functions(w, p)[i].imag == pytest.approx(
+            -baryon*q/(4*np.pi*w), abs=1e-11)
