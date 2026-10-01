@@ -8,6 +8,13 @@ Analysis interval is exact: `0.9313 <= E_gamma <= 1.10 GeV`. A calibrated run
 is accepted only when `POL1`, `POL2`, and `BREM` are all present. Missing any
 one component skips whole run.
 
+Manual extraction assumes two existing inputs not produced by VIS-only steps:
+
+- shared calibration at `results/campaign/common/flux_calibrated.root`, created
+  by Stage 06 or copied from a completed launcher campaign;
+- UV asymmetry at `test_data/beam_asymmetry/beam_asymmetry.root`, created by
+  the corresponding UV workflow.
+
 ## 1. Prepare directories and select VIS data
 
 ```bash
@@ -126,10 +133,10 @@ at least 20 selected `POL1 + POL2` events.
 
 ```bash
 python -m observable_extraction.combine_profiles \
-  --uv-root results/campaign/uv/beam_asymmetry/beam_asymmetry.root \
-  --vis-root results/campaign/vis/beam_asymmetry/beam_asymmetry.root \
+  --uv-root test_data/beam_asymmetry/beam_asymmetry.root \
+  --vis-root test_data/vis/beam_asymmetry/beam_asymmetry.root \
   --published-csv 07_observable_extraction/references/ajaka2008_figure4_digitized.csv \
-  --output-dir results/campaign/combined
+  --output-dir test_data/beam_asymmetry/uv_vis
 ```
 
 Checkpoint: inspect all four PDFs:

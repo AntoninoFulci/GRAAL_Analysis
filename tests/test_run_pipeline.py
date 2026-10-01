@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess
 
 import pytest
@@ -230,6 +231,8 @@ def test_root_macro_argument_preserves_spaces_and_rejects_metacharacters(tmp_pat
         run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path('bad"name.root'))
     with pytest.raises(run_pipeline.PipelineError, match="ROOT macro path"):
         run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path("bad\nname.root"))
+    with pytest.raises(run_pipeline.PipelineError, match="ROOT macro path"):
+        run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path(r"bad\name.root"))
 
 
 def test_executor_stops_after_failure_and_logs_exit(tmp_path):
@@ -264,6 +267,17 @@ def test_executor_stops_after_failure_and_logs_exit(tmp_path):
     assert "one" in log and "exit=0" in log and "duration=2.500s" in log
     assert "two" in log and "exit=7" in log and "duration=4.000s" in log
     assert "three" not in log
+
+
+def test_prepare_output_dirs_exclusively_claims_campaign(tmp_path):
+    config = run_pipeline.mode_config("test_data", tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / "out")
+
+    run_pipeline.prepare_output_dirs(paths)
+
+    with pytest.raises(run_pipeline.PipelineError, match="already claimed"):
+        run_pipeline.prepare_output_dirs(paths)
+    assert paths.command_log.is_file()
 
 
 def test_executor_shell_quotes_display_only(tmp_path, capsys):
@@ -374,3 +388,26 @@ def test_pipeline_documentation_names_current_launcher_and_handoff():
     assert "adapter pending" not in corpus.lower()
     assert "still expects a legacy exposure CSV" not in corpus
     assert "run_pipeline.sh" not in corpus
+
+
+def test_vis_runbook_combines_its_stage7_output():
+    text = (
+        Path(__file__).parents[1] / "docs/runbooks/vis-local-analysis.md"
+    ).read_text(encoding="utf-8")
+    extraction = re.search(
+        r"python 07_observable_extraction/beam_asymmetry\.py \\\n(.*?)\n```",
+        text,
+        flags=re.DOTALL,
+    )
+    combination = re.search(
+        r"python -m observable_extraction\.combine_profiles \\\n(.*?)\n```",
+        text,
+        flags=re.DOTALL,
+    )
+    assert extraction is not None
+    assert combination is not None
+    output_dir = re.search(r"--output-dir\s+(\S+)", extraction.group(1))
+    vis_root = re.search(r"--vis-root\s+(\S+)", combination.group(1))
+    assert output_dir is not None
+    assert vis_root is not None
+    assert Path(vis_root.group(1)) == Path(output_dir.group(1)) / "beam_asymmetry.root"

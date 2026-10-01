@@ -245,7 +245,7 @@ def root_macro_call(
 ) -> str:
     for value in (macro, output):
         text = str(value)
-        if '"' in text or "\n" in text or "\r" in text:
+        if '"' in text or "\\" in text or "\n" in text or "\r" in text:
             raise PipelineError(f"unsafe ROOT macro path: {text!r}")
     return (
         f'{macro}({events},{energy_min_gev:g},{energy_max_gev:g},'
@@ -494,6 +494,25 @@ def build_pipeline_plan(
 
 
 def prepare_output_dirs(paths: PipelinePaths) -> None:
+    paths.output_root.mkdir(parents=True, exist_ok=True)
+    try:
+        paths.command_log.touch(exist_ok=False)
+    except FileExistsError as exc:
+        raise PipelineError(
+            f"output root already claimed by another pipeline: {paths.output_root}"
+        ) from exc
+    except OSError as exc:
+        raise PipelineError(
+            f"cannot claim output root {paths.output_root}: {exc}"
+        ) from exc
+    unexpected = tuple(
+        path for path in paths.output_root.iterdir() if path != paths.command_log
+    )
+    if unexpected:
+        paths.command_log.unlink()
+        raise PipelineError(
+            f"output root changed after preflight: {paths.output_root}"
+        )
     for path in (
         paths.output_root / "common",
         paths.profile_root("uv") / "mc",
