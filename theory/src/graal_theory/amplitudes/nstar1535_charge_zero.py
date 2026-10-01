@@ -49,15 +49,22 @@ def load_charge_zero_parameters(
             or not entry["locator"].strip()):
         raise ValueError("sigma_minus_mass has invalid unit or source fields")
     value = entry["value"]
-    if (not isinstance(value, (int, float)) or isinstance(value, bool)
-            or not np.isfinite(value) or value <= 0):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError("sigma_minus_mass requires a finite positive real value")
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(
+            "sigma_minus_mass requires a finite positive real value"
+        ) from exc
+    if not np.isfinite(value) or value <= 0:
         raise ValueError("sigma_minus_mass requires a finite positive real value")
     source = load_source_registry(source_path)["pdg_2024"]
     ref = SourceRef(entry["source_key"], source.get("doi") or source.get("arxiv"),
                     entry["locator"])
-    sigma_minus = float(PhysicalParameter(
+    sigma_minus = PhysicalParameter(
         "sigma_minus_mass", value, entry["unit"], ref,
-    ).value)
+    ).value
     return ReducedTParameters(
         meson_masses_gev=(p.meson_masses_gev[3], p.meson_masses_gev[5],
                           p.meson_masses_gev[5], p.meson_masses_gev[1],

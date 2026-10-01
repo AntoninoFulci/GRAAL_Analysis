@@ -77,6 +77,24 @@ def test_sigma_minus_source_record_rejects_bad_fields(tmp_path, field, value):
         load_charge_zero_parameters(PARAM, SOURCES, changed)
 
 
+def test_sigma_minus_mass_huge_json_integer_is_normalized_to_value_error(tmp_path):
+    raw = json.loads(EXTRA.read_text(encoding="utf-8"))
+    raw["sigma_minus_mass"]["value"] = 10**400
+    changed = tmp_path / "huge.json"
+    changed.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="sigma_minus_mass"):
+        load_charge_zero_parameters(PARAM, SOURCES, changed)
+
+
+def test_sigma_minus_mass_large_finite_integer_loads_without_wt_evaluation(tmp_path):
+    raw = json.loads(EXTRA.read_text(encoding="utf-8"))
+    raw["sigma_minus_mass"]["value"] = 10**30
+    changed = tmp_path / "large.json"
+    changed.write_text(json.dumps(raw), encoding="utf-8")
+    p = load_charge_zero_parameters(PARAM, SOURCES, changed)
+    assert p.baryon_masses_gev[0] == float(10**30)
+
+
 @pytest.mark.parametrize("shape", [
     "missing_outer", "extra_outer", "missing_inner", "extra_inner",
 ])
