@@ -141,3 +141,91 @@ def test_preflight_accepts_complete_minimal_inputs(tmp_path):
     )
     assert result == run_pipeline.PreflightResult("/opt/root/bin/root")
     assert not paths.output_root.exists()
+
+
+def _plan(tmp_path: Path, mode: str = "test_data"):
+    config = run_pipeline.mode_config(mode, tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / "out with spaces")
+    result = run_pipeline.PreflightResult("/opt/root/bin/root")
+    stages = run_pipeline.build_pipeline_plan(
+        config, paths, result, python_executable="/venv/bin/python"
+    )
+    return config, paths, stages
+
+
+def _stage(stages, name: str):
+    return next(item for item in stages if item.name == name)
+
+
+def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
+    _config, paths, stages = _plan(tmp_path)
+
+    assert len(stages) == 33
+    assert stages[0].name == "common:calibrate_flux"
+    assert stages[-1].name == "combined:plots"
+    assert sum(stage.name == "common:calibrate_flux" for stage in stages) == 1
+    assert sum(stage.name.endswith(":extract") for stage in stages) == 2
+    calibration = stages[0].argv
+    assert "--output" not in calibration
+    assert calibration[-2:] == ("--output-dir", str(paths.output_root / "common"))
+    assert _stage(stages, "uv:extract").argv[-2:] == (
+        "--bootstrap-replicas",
+        "0",
+    )
+    assert str(paths.calibrated_flux) in _stage(stages, "uv:extract").argv
+    assert str(paths.calibrated_flux) in _stage(stages, "vis:extract").argv
+    assert stages.index(_stage(stages, "uv:extract")) < stages.index(
+        _stage(stages, "vis:select")
+    )
+
+
+def test_plan_uses_exact_profile_patterns_channels_and_energy_ranges(tmp_path):
+    config, _paths, stages = _plan(tmp_path)
+
+    uv_select = _stage(stages, "uv:select")
+    vis_select = _stage(stages, "vis:select")
+    assert uv_select.argv[-2:] == ("--pattern", "pre_analisi_*uv*.root")
+    assert vis_select.argv[-2:] == ("--pattern", "pre_analisi_*vis*.root")
+
+    uv_generators = [s for s in stages if s.name.startswith("uv:generate:")]
+    vis_generators = [s for s in stages if s.name.startswith("vis:generate:")]
+    assert [s.name.removeprefix("uv:generate:") for s in uv_generators] == list(
+        run_pipeline.UV_CHANNELS
+    )
+    assert [s.name.removeprefix("vis:generate:") for s in vis_generators] == list(
+        run_pipeline.VIS_CHANNELS
+    )
+    assert len(uv_generators) == 9
+    assert len(vis_generators) == 6
+    assert f"({config.mc_events},1.1,1.5," in uv_generators[0].argv[-1]
+    assert f"({config.mc_events},0.9313,1.1," in vis_generators[0].argv[-1]
+
+
+def test_plan_trains_and_reconstructs_with_profile_local_artifacts(tmp_path):
+    _config, paths, stages = _plan(tmp_path)
+
+    for profile in ("uv", "vis"):
+        root = paths.profile_root(profile)
+        train = _stage(stages, f"{profile}:train")
+        bdt = _stage(stages, f"{profile}:reconstruct_bdt")
+        extract = _stage(stages, f"{profile}:extract")
+        model_dir = root / "bdt/artifacts/stage1"
+        reco = root / "reco/reco_eta_pi0_bdt.root"
+        assert str(model_dir) in train.argv
+        assert str(model_dir) in bdt.argv
+        assert ("--profile", profile) == bdt.argv[-2:]
+        assert extract.argv.count(str(reco)) == 2
+        assert str(root / "reco/reco_eta_pi0_chi2.root") in extract.argv
+
+
+def test_root_macro_argument_preserves_spaces_and_rejects_metacharacters(tmp_path):
+    macro = tmp_path / "generator folder/generate_eta_pi0_dataset.C"
+    output = tmp_path / "output folder/eta_pi0_mc.root"
+    call = run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, output)
+    assert str(macro) in call
+    assert f'"{output}"' in call
+
+    with pytest.raises(run_pipeline.PipelineError, match="ROOT macro path"):
+        run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path('bad"name.root'))
+    with pytest.raises(run_pipeline.PipelineError, match="ROOT macro path"):
+        run_pipeline.root_macro_call(macro, 100, 1.1, 1.5, Path("bad\nname.root"))
