@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from graal_common.physics.channels import ETA_PI0_HYP, TWO_PI0_HYP
+from graal_common.physics.beam_profiles import UV_PROFILE, VIS_PROFILE
 from graal_common.stage1.artifacts import (
     MODEL_FILE as SHARED_MODEL_FILE,
     PROVENANCE_FILE as SHARED_PROVENANCE_FILE,
@@ -175,3 +176,28 @@ def test_check_hypothesis_refuses_a_model_trained_on_another_final_state():
     )
     with pytest.raises(ValueError, match="trained on the '2pi0' hypothesis"):
         gate.check_hypothesis(ETA_PI0_HYP)
+
+
+def test_legacy_model_is_rejected_for_vis():
+    gate = Stage1Gate(FakeModel(0.9), 0.5, beam_profile=None)
+
+    with pytest.raises(ValueError, match="legacy.*VIS"):
+        gate.check_profile(VIS_PROFILE)
+
+
+def test_legacy_model_remains_accepted_for_uv():
+    gate = Stage1Gate(FakeModel(0.9), 0.5, beam_profile=None)
+
+    gate.check_profile(UV_PROFILE)
+
+
+def test_profiled_model_requires_exact_energy_bounds():
+    gate = Stage1Gate(
+        FakeModel(0.9),
+        0.5,
+        beam_profile="vis",
+        energy_range_gev=(0.95, 1.10),
+    )
+
+    with pytest.raises(ValueError, match="energy range"):
+        gate.check_profile(VIS_PROFILE)

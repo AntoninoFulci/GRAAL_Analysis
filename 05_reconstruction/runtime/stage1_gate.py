@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
+from graal_common.physics.beam_profiles import BeamProfile
 from graal_common.physics.channels import ETA_PI0_HYP, HYPOTHESES, Hypothesis
 from graal_common.stage1.artifacts import (
     MODEL_FILE,
@@ -44,11 +45,15 @@ class Stage1Gate:
         threshold: float,
         hypothesis: Hypothesis = ETA_PI0_HYP,
         signal_channel: str = "eta_pi0",
+        beam_profile: str | None = None,
+        energy_range_gev: tuple[float, float] | None = None,
     ):
         self.model = model
         self.threshold = float(threshold)
         self.hypothesis = hypothesis
         self.signal_channel = signal_channel
+        self.beam_profile = beam_profile
+        self.energy_range_gev = energy_range_gev
 
     @classmethod
     def load(cls, model_dir: Path = DEFAULT_MODEL_DIR) -> "Stage1Gate":
@@ -86,7 +91,20 @@ class Stage1Gate:
             f"[stage1] loaded {artifacts.model}, threshold={threshold:.4f}, "
             f"signal={signal_channel}, hypothesis={hypothesis.name}"
         )
-        return cls(model, threshold, hypothesis, signal_channel)
+        energy_range_gev = None
+        if provenance.energy_min_gev is not None:
+            energy_range_gev = (
+                provenance.energy_min_gev,
+                provenance.energy_max_gev,
+            )
+        return cls(
+            model,
+            threshold,
+            hypothesis,
+            signal_channel,
+            provenance.beam_profile,
+            energy_range_gev,
+        )
 
     def check_hypothesis(self, expected: Hypothesis) -> None:
         """Refuse to gate a reconstruction the model was not trained for.
@@ -103,6 +121,25 @@ class Stage1Gate:
                 f"reconstruction is asking it about {expected.name!r}. Train a "
                 f"model for that channel first: build_background_features "
                 f"--signal-channel <ch> --hypothesis {expected.name}"
+            )
+
+    def check_profile(self, expected: BeamProfile) -> None:
+        """Refuse a model trained for another beam profile or energy range."""
+        if self.beam_profile is None:
+            if expected.name == "uv":
+                return
+            raise ValueError(
+                "legacy Stage-1 model has no profile metadata and cannot gate VIS"
+            )
+        if self.beam_profile != expected.name:
+            raise ValueError(
+                f"Stage-1 model profile {self.beam_profile!r} does not match "
+                f"requested profile {expected.name!r}"
+            )
+        if self.energy_range_gev != expected.energy_range_gev:
+            raise ValueError(
+                f"Stage-1 model energy range {self.energy_range_gev} does not match "
+                f"requested range {expected.energy_range_gev}"
             )
 
     def scores_many(

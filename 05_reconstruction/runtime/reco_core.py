@@ -96,6 +96,7 @@ class RecoConfig:
     fit_cl: float = 0.01
     fit_cov: FitCovariance = field(default_factory=FitCovariance)
     fit_reaction: FitReactionModel = PROTON_TARGET_REACTION
+    energy_range_gev: tuple[float, float] | None = None
 
 
 def _as_array(v) -> np.ndarray:
@@ -143,6 +144,12 @@ def run_reconstruction(
     gate: Gate | None = None,
 ) -> int:
     """Reconstruct one channel. Returns the number of events written."""
+    if cfg.energy_range_gev is not None:
+        low, high = cfg.energy_range_gev
+        if not np.isfinite((low, high)).all() or high <= low:
+            raise ValueError(
+                "reconstruction energy range must be finite and increasing"
+            )
     chain = _build_chain(Path(cfg.input_dir), cfg.input_tree)
     n_entries = chain.GetEntries()
     print(f"Total events in chain: {n_entries}")
@@ -224,6 +231,7 @@ def run_reconstruction(
     n_impossible = 0
     n_missing_cut = 0
     n_fit_cut = 0
+    n_outside_energy = 0
     print("Starting event loop...")
 
     def _reconstruct_and_fill(
@@ -327,6 +335,13 @@ def run_reconstruction(
         if iev % 100000 == 0:
             print(f"Event {iev}/{n_entries}")
 
+        if cfg.energy_range_gev is not None:
+            low, high = cfg.energy_range_gev
+            energy = float(chain.beam.E())
+            if energy < low or energy > high:
+                n_outside_energy += 1
+                continue
+
         # Pairing uses the first four reconstructed photons.
         if chain.gammas.size() < 4:
             continue
@@ -372,6 +387,7 @@ def run_reconstruction(
     print("====================================")
     print(f"Created file  : {cfg.output_file}")
     print(f"Tree          : {cfg.output_tree}")
+    print(f"Skipped (outside beam profile): {n_outside_energy}")
     print(f"Skipped (not exactly 1 proton): {n_no_proton}")
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")

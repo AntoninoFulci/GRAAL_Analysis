@@ -11,6 +11,7 @@ Run:
 import argparse
 from pathlib import Path
 
+from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 from reconstruction.runtime.cli_options import (
     add_common_reconstruction_arguments,
     reco_config_from_args,
@@ -31,18 +32,24 @@ def main():
     )
     p.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR,
                    help="folder with bdt_stage1.json and stage1_threshold.txt")
+    p.add_argument("--profile", choices=BEAM_PROFILES, default=None)
     args = p.parse_args()
 
     gate = Stage1Gate.load(args.model_dir)
     # The model must have been trained to find what this script reconstructs.
     # It would score a model trained on any other final state just as happily.
     gate.check_hypothesis(ETA_PI0.hypothesis)
+    profile = get_beam_profile(args.profile) if args.profile else None
+    if profile is not None:
+        gate.check_profile(profile)
 
     cfg = reco_config_from_args(
         args,
         output_tree="reco_eta_pi0_bdt",
         fit_options_exposed=True,
     )
+    if profile is not None:
+        cfg.energy_range_gev = profile.energy_range_gev
     run_reconstruction(cfg, ETA_PI0, gate=gate)
 
 

@@ -138,3 +138,37 @@ def test_bdt_hypothesis_mismatch_stops_before_reconstruction(monkeypatch):
             bdt_cli.main()
 
     assert events == ["load", "check"]
+
+
+def test_bdt_profile_mismatch_stops_before_reconstruction(monkeypatch):
+    with _import_with_root_stub(
+        "reconstruction.reconstruct_eta_pi0_bdt"
+    ) as (bdt_cli,):
+        events = []
+
+        class _RejectingGate:
+            def check_hypothesis(self, _hypothesis):
+                events.append("hypothesis")
+
+            def check_profile(self, _profile):
+                events.append("profile")
+                raise ValueError("profile mismatch")
+
+        monkeypatch.setattr(
+            bdt_cli.Stage1Gate,
+            "load",
+            classmethod(lambda _cls, _path: _RejectingGate()),
+        )
+        monkeypatch.setattr(
+            bdt_cli,
+            "run_reconstruction",
+            lambda *_args, **_kwargs: events.append("reconstruct"),
+        )
+        monkeypatch.setattr(
+            sys, "argv", ["reconstruct_eta_pi0_bdt", "--profile", "vis"]
+        )
+
+        with pytest.raises(ValueError, match="profile mismatch"):
+            bdt_cli.main()
+
+    assert events == ["hypothesis", "profile"]

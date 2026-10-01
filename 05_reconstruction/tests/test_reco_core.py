@@ -103,6 +103,17 @@ class _Gate:
         return np.array([self.score])
 
 
+class _RecordingGate:
+    threshold = 0.5
+
+    def __init__(self):
+        self.scored_beam_energies = []
+
+    def scores_many(self, photons, protons, beams):
+        self.scored_beam_energies.extend(beams[:, 3].tolist())
+        return np.full(len(beams), 0.9)
+
+
 def _input_event():
     return {
         "photons": np.array(
@@ -276,3 +287,48 @@ def test_reject_all_gate_writes_nothing_without_pairing_or_fit(
 
     assert reco_core.run_reconstruction(config, rp.ETA_PI0, gate=_Gate(False)) == 0
     assert trees[-1].entries == []
+
+
+def test_energy_profile_filters_before_gate_and_keeps_exact_boundaries(
+    root_adapter, monkeypatch
+):
+    config, trees = root_adapter
+    config.energy_range_gev = (0.9313, 1.10)
+    events = []
+    for energy in (0.9312, 0.9313, 1.10, 1.1001):
+        event = dict(_input_event())
+        event["beam"] = np.array([0.0, 0.0, energy, energy])
+        events.append(event)
+    monkeypatch.setattr(
+        reco_core,
+        "_build_chain",
+        lambda _input_dir, _input_tree: _Chain(events),
+    )
+
+    def keep(event, *_args, **_kwargs):
+        photons = event.photons[:4]
+        return ReconstructedEvent(
+            pairing=Pairing(heavy=(0, 1), light=(2, 3)),
+            photons=photons,
+            proton=event.proton,
+            neutron=event.neutron,
+            beam=event.beam,
+            heavy=photons[0] + photons[1],
+            light=photons[2] + photons[3],
+            missing=np.zeros(4),
+            heavy_mass=0.5,
+            light_mass=0.1,
+            chi2=1.0,
+            run_number=event.run_number,
+            polarization=event.polarization,
+            strip=event.strip,
+        )
+
+    monkeypatch.setattr(reco_core, "reconstruct_event", keep)
+    gate = _RecordingGate()
+
+    assert reco_core.run_reconstruction(config, rp.ETA_PI0, gate=gate) == 2
+    assert gate.scored_beam_energies == pytest.approx([0.9313, 1.10])
+    assert [entry["beam"][3] for entry in trees[-1].entries] == pytest.approx(
+        [0.9313, 1.10]
+    )

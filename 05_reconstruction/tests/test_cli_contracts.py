@@ -35,7 +35,7 @@ COMMON_OPTIONS = {
         ),
         (
             "reconstruction.reconstruct_eta_pi0_bdt",
-            {"--no-fit", "--fit-cl", "--model-dir"},
+            {"--no-fit", "--fit-cl", "--model-dir", "--profile"},
             set(),
         ),
         (
@@ -94,9 +94,13 @@ def test_eta_pi0_chi2_defaults_build_expected_configuration(monkeypatch):
 class _Gate:
     def __init__(self):
         self.checked = None
+        self.checked_profile = None
 
     def check_hypothesis(self, hypothesis):
         self.checked = hypothesis
+
+    def check_profile(self, profile):
+        self.checked_profile = profile
 
 
 def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeypatch):
@@ -135,8 +139,37 @@ def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeyp
     assert cfg.do_fit is True
     assert cfg.fit_cl == 0.01
     assert gate.checked is rp.ETA_PI0.hypothesis
+    assert gate.checked_profile is None
+    assert cfg.energy_range_gev is None
     assert observed["channel"] is rp.ETA_PI0
     assert observed["gate"] is gate
+
+
+def test_eta_pi0_bdt_vis_profile_checks_gate_and_sets_exact_energy_range(
+    monkeypatch,
+):
+    observed = {}
+    gate = _Gate()
+    monkeypatch.setattr(
+        reconstruct_eta_pi0_bdt.Stage1Gate,
+        "load",
+        classmethod(lambda _cls, _path: gate),
+    )
+    monkeypatch.setattr(
+        reconstruct_eta_pi0_bdt,
+        "run_reconstruction",
+        lambda cfg, channel, gate=None: observed.update(
+            cfg=cfg, channel=channel, gate=gate
+        ),
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["reconstruct_eta_pi0_bdt", "--profile", "vis"]
+    )
+
+    reconstruct_eta_pi0_bdt.main()
+
+    assert gate.checked_profile.name == "vis"
+    assert observed["cfg"].energy_range_gev == (0.9313, 1.10)
 
 
 def test_eta_pi0_bdt_sideband_defaults_build_broad_control_configuration(
