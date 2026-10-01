@@ -6,11 +6,16 @@ import csv
 import hashlib
 import io
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
+from graal_theory.amplitudes.nstar1535_charge_zero import (
+    CHANNEL_INDEX_ZERO,
+    charge_zero_tmatrix,
+)
 from graal_theory.amplitudes.nstar1535_reduced import ReducedTParameters, reduced_tmatrix
 
 
@@ -33,6 +38,31 @@ def isospin_half_s11_eta(w_gev: float, parameters: ReducedTParameters) -> comple
     return complex(-np.sqrt(rho[2]) *
                    (u[0]*np.sqrt(rho[0])*t[0, 2] +
                     u[1]*np.sqrt(rho[1])*t[1, 2]))
+
+
+def isospin_half_s11_eta_charge_zero(
+    w_gev: float, parameters: ReducedTParameters,
+) -> complex:
+    """P65 Eq. (10) in Table I order, with positive relative eta n phase."""
+    t = charge_zero_tmatrix(w_gev, parameters)
+    pion_indices = (CHANNEL_INDEX_ZERO["pi_minus_p"],
+                    CHANNEL_INDEX_ZERO["pi0_n"])
+    eta_index = CHANNEL_INDEX_ZERO["eta_n"]
+    rho = {}
+    for i in (*pion_indices, eta_index):
+        meson = parameters.meson_masses_gev[i]
+        baryon = parameters.baryon_masses_gev[i]
+        if w_gev <= meson + baryon:
+            raise ValueError("S11 eta projection requires open pi N and eta n channels")
+        q = np.sqrt((w_gev*w_gev-(meson+baryon)**2) *
+                    (w_gev*w_gev-(baryon-meson)**2))/(2*w_gev)
+        rho[i] = baryon*q/(4*np.pi*w_gev)
+    # P65 |pi+> = -|1,+1> and Condon-Shortley lowering give
+    # (-sqrt(2/3), +1/sqrt(3)) in (pi- p, pi0 n) order.
+    pion = (-np.sqrt(2/3), 1/np.sqrt(3))
+    return complex(-np.sqrt(rho[eta_index]) * sum(
+        coefficient*np.sqrt(rho[i])*t[i, eta_index]
+        for coefficient, i in zip(pion, pion_indices)))
 
 
 @dataclass(frozen=True)
@@ -95,9 +125,25 @@ def compare_fig1_reduced(
     parameters: ReducedTParameters, points: tuple[Fig1Point, ...],
 ) -> list[dict[str, float]]:
     """Return signed model-minus-publication residuals; never refit inputs."""
+    return _compare_fig1_projection(parameters, points, isospin_half_s11_eta)
+
+
+def compare_fig1_charge_zero(
+    parameters: ReducedTParameters, points: tuple[Fig1Point, ...],
+) -> list[dict[str, float]]:
+    """Return signed charge-zero residuals against the frozen P73 dashed trace."""
+    return _compare_fig1_projection(
+        parameters, points, isospin_half_s11_eta_charge_zero)
+
+
+def _compare_fig1_projection(
+    parameters: ReducedTParameters,
+    points: tuple[Fig1Point, ...],
+    projector: Callable[[float, ReducedTParameters], complex],
+) -> list[dict[str, float]]:
     result = []
     for point in points:
-        predicted = isospin_half_s11_eta(point.energy_gev, parameters)
+        predicted = projector(point.energy_gev, parameters)
         result.append({
             "energy_gev": point.energy_gev,
             "predicted_real": predicted.real,

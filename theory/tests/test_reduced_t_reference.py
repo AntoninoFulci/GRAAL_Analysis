@@ -9,14 +9,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from graal_theory.amplitudes.nstar1535_charge_zero import (
+    C_COEFFICIENTS_ZERO,
+    charge_zero_tmatrix,
+    load_charge_zero_parameters,
+)
 from graal_theory.amplitudes.nstar1535_reduced import (
     C_COEFFICIENTS,
     load_reduced_parameters,
     reduced_tmatrix,
 )
 from graal_theory.reduced_t_reference import (
+    compare_fig1_charge_zero,
     compare_fig1_reduced,
     isospin_half_s11_eta,
+    isospin_half_s11_eta_charge_zero,
     load_fig1_reduced,
 )
 
@@ -54,6 +61,33 @@ def test_projection_requires_open_channels():
     p = load_reduced_parameters(PARAM, SOURCES)
     with pytest.raises(ValueError, match="open"):
         isospin_half_s11_eta(1.48, p)
+
+
+def test_charge_zero_projection_uses_p65_table_order_and_cg():
+    p = load_charge_zero_parameters(
+        PARAM, SOURCES, REFERENCES / "nstar1535_charge_zero_extra.json")
+    pion = np.array([-np.sqrt(2/3), 1/np.sqrt(3)])
+    np.testing.assert_allclose(
+        C_COEFFICIENTS_ZERO[np.ix_((3, 4), (3, 4))] @ pion,
+        2*pion, atol=1e-14)
+    w = 1.54
+    rho = {}
+    for i in (3, 4, 5):
+        m, baryon = p.meson_masses_gev[i], p.baryon_masses_gev[i]
+        q = np.sqrt((w*w-(m+baryon)**2)*(w*w-(m-baryon)**2))/(2*w)
+        rho[i] = baryon*q/(4*np.pi*w)
+    t = charge_zero_tmatrix(w, p)
+    expected = -np.sqrt(rho[5]) * (
+        pion[0]*np.sqrt(rho[3])*t[3, 5] +
+        pion[1]*np.sqrt(rho[4])*t[4, 5])
+    assert isospin_half_s11_eta_charge_zero(w, p) == pytest.approx(expected)
+
+
+def test_charge_zero_projection_requires_open_eta_n():
+    p = load_charge_zero_parameters(
+        PARAM, SOURCES, REFERENCES / "nstar1535_charge_zero_extra.json")
+    with pytest.raises(ValueError, match="open"):
+        isospin_half_s11_eta_charge_zero(1.48, p)
 
 
 def test_fig1_reference_rejects_changed_pdf(tmp_path):
@@ -120,3 +154,30 @@ def test_comparison_keeps_observed_values_and_signed_residuals():
         assert row["reference_imag"] == point.imag_s11
         assert row["residual_real"] == pytest.approx(row["predicted_real"] - point.real_s11)
         assert row["residual_imag"] == pytest.approx(row["predicted_imag"] - point.imag_s11)
+
+
+def test_charge_zero_comparison_preserves_frozen_reference_and_signed_residuals():
+    p = load_charge_zero_parameters(
+        PARAM, SOURCES, REFERENCES / "nstar1535_charge_zero_extra.json")
+    points = load_fig1_reduced(FIG1_CSV, FIG1_META, P73_PDF)
+    expected_reference = (
+        (1.50, +0.206, 0.214), (1.52, +0.174, 0.390),
+        (1.54, -0.034, 0.454), (1.56, -0.178, 0.308),
+        (1.58, -0.174, 0.166), (1.60, -0.134, 0.089),
+        (1.62, -0.103, 0.045), (1.64, -0.084, 0.014),
+    )
+    rows = compare_fig1_charge_zero(p, points)
+    assert len(rows) == len(expected_reference)
+    for row, (energy, real, imag) in zip(rows, expected_reference):
+        assert row["energy_gev"] == energy
+        assert row["reference_real"] == real
+        assert row["reference_imag"] == imag
+        assert row["reading_error"] == 0.020
+        predicted = isospin_half_s11_eta_charge_zero(energy, p)
+        assert row["predicted_real"] == pytest.approx(predicted.real)
+        assert row["predicted_imag"] == pytest.approx(predicted.imag)
+        assert row["residual_real"] == pytest.approx(predicted.real - real)
+        assert row["residual_imag"] == pytest.approx(predicted.imag - imag)
+        for component, reference in (("real", real), ("imag", imag)):
+            exceeds = abs(row[f"residual_{component}"]) > row["reading_error"]
+            assert exceeds == (abs(getattr(predicted, component) - reference) > 0.020)
