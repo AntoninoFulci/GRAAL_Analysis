@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
 from pathlib import Path
 
@@ -9,6 +10,14 @@ import ROOT
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
 from observable_extraction.io.root_output import OutputPoint
+
+
+@dataclass(frozen=True)
+class RootOutputContract:
+    """Profile identity and energy binning stored in one ROOT output."""
+
+    profile: str | None
+    energy_edges_gev: tuple[float, ...]
 
 
 def _id_maps(text: str, path: Path) -> dict[str, dict[int, str]]:
@@ -47,6 +56,45 @@ def _mapped(
 def _optional_finite(value: float) -> float | None:
     value = float(value)
     return value if math.isfinite(value) else None
+
+
+def read_output_contract(path: Path) -> RootOutputContract:
+    """Read profile metadata and energy edges needed for safe composition."""
+    path = Path(path)
+    source = ROOT.TFile.Open(str(path), "READ")
+    if not source or source.IsZombie():
+        raise RuntimeError(f"cannot open beam-asymmetry ROOT file: {path}")
+    try:
+        vector = source.Get("binning/energy_edges")
+        if not vector or not hasattr(vector, "GetNrows"):
+            raise RuntimeError(f"{path}: missing binning/energy_edges")
+        edges = tuple(float(vector[index]) for index in range(vector.GetNrows()))
+        if (
+            len(edges) < 2
+            or not all(math.isfinite(edge) for edge in edges)
+            or any(high <= low for low, high in zip(edges[:-1], edges[1:]))
+        ):
+            raise RuntimeError(f"{path}: invalid binning/energy_edges")
+
+        provenance = source.Get("provenance")
+        profile = None
+        if provenance:
+            if not provenance.InheritsFrom("TNamed"):
+                raise RuntimeError(f"{path}: malformed provenance")
+            profile_values = [
+                line.partition("=")[2].strip()
+                for line in provenance.GetTitle().splitlines()
+                if line.startswith("profile=")
+            ]
+            if len(profile_values) > 1 or (
+                profile_values and not profile_values[0]
+            ):
+                raise RuntimeError(f"{path}: malformed profile provenance")
+            if profile_values:
+                profile = profile_values[0]
+        return RootOutputContract(profile=profile, energy_edges_gev=edges)
+    finally:
+        source.Close()
 
 
 def read_output_points(path: Path) -> tuple[OutputPoint, ...]:

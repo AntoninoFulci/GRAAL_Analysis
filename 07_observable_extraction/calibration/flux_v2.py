@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Iterable
+import math
 from pathlib import Path
 import re
 import sys
@@ -180,6 +181,7 @@ def _load_root_exposures(
 
         incomplete: list[tuple[int, tuple[str, ...]]] = []
         exposures: dict[tuple[int, int], FluxExposure] = {}
+        skipped_nonfinite = 0
         skipped_nonpositive = 0
         skipped_polarization_domain = 0
         low, high = energy_range
@@ -217,6 +219,12 @@ def _load_root_exposures(
                 flux_vertical = float(vertical.GetBinContent(xstrip))
                 flux_horizontal = float(horizontal.GetBinContent(xstrip))
                 flux_brem = float(brem.GetBinContent(xstrip))
+                if not all(
+                    math.isfinite(value)
+                    for value in (flux_vertical, flux_horizontal, flux_brem)
+                ):
+                    skipped_nonfinite += 1
+                    continue
                 if flux_vertical <= 0.0 or flux_horizontal <= 0.0 or flux_brem < 0.0:
                     skipped_nonpositive += 1
                     continue
@@ -262,6 +270,12 @@ def _load_root_exposures(
                 f"POL1/POL2/BREM triplet; first: {examples}",
                 file=sys.stderr,
             )
+    if skipped_nonfinite:
+        print(
+            f"warning: skipped {skipped_nonfinite} run/strip exposures with "
+            "non-finite flux",
+            file=sys.stderr,
+        )
     if skipped_nonpositive:
         print(
             f"warning: skipped {skipped_nonpositive} run/strip exposures with "

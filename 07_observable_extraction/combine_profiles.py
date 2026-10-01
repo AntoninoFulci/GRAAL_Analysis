@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 from typing import Sequence
 
-from observable_extraction.io.root_input import read_output_points
+from graal_common.physics.beam_profiles import get_beam_profile
+from observable_extraction.io.root_input import (
+    read_output_contract,
+    read_output_points,
+)
 from observable_extraction.plotting.diagnostics import (
     write_profile_estimator_comparison_pdf,
     write_profile_fit_diagnostics_pdf,
@@ -46,6 +51,59 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validate_profile_root(profile_name: str, path: Path, points) -> None:
+    label = profile_name.upper()
+    profile = get_beam_profile(profile_name)
+    contract = read_output_contract(path)
+    if contract.profile is None:
+        if profile_name != "uv":
+            raise RuntimeError(f"{label} ROOT has no profile metadata: {path}")
+    elif contract.profile != profile_name:
+        raise RuntimeError(
+            f"{label} ROOT profile is {contract.profile!r}, expected "
+            f"{profile_name!r}: {path}"
+        )
+
+    expected_edges = profile.energy_edges_gev
+    if len(contract.energy_edges_gev) != len(expected_edges) or any(
+        not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1e-12)
+        for actual, expected in zip(contract.energy_edges_gev, expected_edges)
+    ):
+        raise RuntimeError(
+            f"{label} ROOT energy edges {contract.energy_edges_gev!r} do not "
+            f"match expected {expected_edges!r}: {path}"
+        )
+
+    for output in points:
+        point = output.point
+        energy_bin = point.energy_bin
+        if not 0 <= energy_bin < len(expected_edges) - 1:
+            raise RuntimeError(
+                f"{label} ROOT point has invalid energy bin {energy_bin}: {path}"
+            )
+        expected_low = expected_edges[energy_bin]
+        expected_high = expected_edges[energy_bin + 1]
+        if not (
+            math.isclose(
+                point.energy_low_gev,
+                expected_low,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            and math.isclose(
+                point.energy_high_gev,
+                expected_high,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            raise RuntimeError(
+                f"{label} ROOT point energy interval "
+                f"[{point.energy_low_gev}, {point.energy_high_gev}] does not "
+                f"match bin {energy_bin}: {path}"
+            )
+
+
 def run(args: argparse.Namespace) -> int:
     uv_points = read_output_points(args.uv_root)
     if not uv_points:
@@ -53,6 +111,8 @@ def run(args: argparse.Namespace) -> int:
     vis_points = read_output_points(args.vis_root)
     if not vis_points:
         raise RuntimeError(f"VIS ROOT file has no points: {args.vis_root}")
+    _validate_profile_root("uv", args.uv_root, uv_points)
+    _validate_profile_root("vis", args.vis_root, vis_points)
 
     points_by_profile = {"uv": uv_points, "vis": vis_points}
     ratio_by_profile = {

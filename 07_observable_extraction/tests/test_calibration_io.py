@@ -1,5 +1,6 @@
 import csv
 from array import array
+import math
 
 import pytest
 import ROOT
@@ -105,9 +106,12 @@ def test_load_exposures_can_skip_invalid_selected_rows_with_warning(
     assert "warning: skipped 1 invalid selected flux exposure" in capsys.readouterr().err
 
 
-def _write_flux_root(path, suffixes_by_run, *, axis_offsets=None):
+def _write_flux_root(
+    path, suffixes_by_run, *, axis_offsets=None, bin_values=None
+):
     output = ROOT.TFile(str(path), "RECREATE")
     axis_offsets = axis_offsets or {}
+    bin_values = bin_values or {}
     try:
         for run_number, suffixes in suffixes_by_run.items():
             for suffix in suffixes:
@@ -120,7 +124,12 @@ def _write_flux_root(path, suffixes_by_run, *, axis_offsets=None):
                     f"run{run_number}_{suffix}", "", 128, edges
                 )
                 for bin_number in range(1, 129):
-                    histogram.SetBinContent(bin_number, 10.0)
+                    histogram.SetBinContent(
+                        bin_number,
+                        bin_values.get(
+                            (run_number, suffix, bin_number), 10.0
+                        ),
+                    )
                 histogram.Write()
     finally:
         output.Close()
@@ -210,6 +219,34 @@ def test_root_loader_skips_strata_outside_compton_polarization_domain(
         for item in exposures.values()
     )
     assert "outside polarization domain" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("state", ["POL1", "POL2", "BREM"])
+@pytest.mark.parametrize("invalid_value", [math.nan, math.inf])
+def test_root_loader_skips_nonfinite_flux_stratum_without_aborting_valid_ones(
+    tmp_path, capsys, state, invalid_value
+):
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(
+        root_path,
+        {811: ("POL1", "POL2", "BREM")},
+        bin_values={(811, state, 30): invalid_value},
+    )
+
+    exposures = load_exposures(
+        root_path,
+        manifest_path=manifest,
+        polarization_model=lambda energy: 0.5,
+    )
+
+    assert exposures
+    assert (811, 30) not in exposures
+    assert "non-finite flux" in capsys.readouterr().err
 
 
 def test_root_loader_limits_exposure_to_runs_present_in_event_sample(tmp_path):
