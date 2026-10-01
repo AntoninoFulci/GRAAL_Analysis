@@ -54,13 +54,17 @@ from observable_extraction.io.root_output import (
     RootOutputPayload,
     write_root_output,
 )
-from observable_extraction.plotting.figure4 import write_figure4_pdf
+from observable_extraction.plotting.figure4 import (
+    profile_energy_rows,
+    write_profile_figure4_pdf,
+)
 from observable_extraction.plotting.diagnostics import (
-    write_fit_diagnostics_pdf,
     write_background_control_pdf,
     write_false_asymmetry_controls_pdf,
     write_photon_multiplicity_pdf,
     write_point_comparison_pdf,
+    write_profile_estimator_comparison_pdf,
+    write_profile_fit_diagnostics_pdf,
     write_systematic_summary_pdf,
 )
 
@@ -817,9 +821,12 @@ def run(args: argparse.Namespace) -> int:
         bootstrap_covariance=bootstrap_covariance,
     )
     write_root_output(args.output_dir / "beam_asymmetry.root", payload)
-    write_figure4_pdf(
+    active_rows = profile_energy_rows(profile.name)
+    points_by_profile = {profile.name: output_points}
+    write_profile_figure4_pdf(
         args.output_dir / "figure4_experimental.pdf",
-        output_points,
+        points_by_profile,
+        active_rows,
         sample=args.nominal_sample,
         estimator=figure_estimator,
     )
@@ -828,14 +835,23 @@ def run(args: argparse.Namespace) -> int:
         [item for item in output_points if item.estimator == figure_estimator],
         group_by="sample",
     )
-    write_point_comparison_pdf(
+    write_profile_estimator_comparison_pdf(
         args.output_dir / "comparison_estimators.pdf",
-        [item for item in output_points if item.sample == args.nominal_sample],
-        group_by="estimator",
+        points_by_profile,
+        active_rows,
+        sample=args.nominal_sample,
     )
-    write_fit_diagnostics_pdf(
+    write_profile_fit_diagnostics_pdf(
         args.output_dir / "fit_diagnostics.pdf",
-        [item for item in output_points if item.sample == args.nominal_sample],
+        {
+            profile.name: tuple(
+                item
+                for item in output_points
+                if item.sample == args.nominal_sample and item.estimator == "ratio"
+            )
+        },
+        active_rows,
+        sample=args.nominal_sample,
     )
     write_systematic_summary_pdf(
         args.output_dir / "systematic_summary.pdf",

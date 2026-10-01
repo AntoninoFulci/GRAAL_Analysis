@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from observable_extraction.io.root_output import OutputPoint
+from observable_extraction.plotting.figure4 import EnergyRow, profile_energy_rows
 
 
 PAIR_ORDER = ("p_pi0", "p_eta", "eta_pi0")
@@ -29,6 +30,171 @@ def _save(path: Path, figure) -> None:
     plt.close(figure)
 
 
+def _mass_center(point: OutputPoint) -> float:
+    return 0.5 * (point.point.mass_low_gev + point.point.mass_high_gev)
+
+
+def build_profile_estimator_comparison(
+    points_by_profile: Mapping[str, Sequence[OutputPoint]],
+    rows: Sequence[EnergyRow],
+    *,
+    sample: str = "raw_bdt",
+):
+    if not rows:
+        raise ValueError("at least one energy row is required")
+    figure, axes = plt.subplots(
+        len(rows),
+        3,
+        figsize=(11.0, 2.8 * len(rows) + 0.8),
+        sharey=True,
+        constrained_layout=True,
+        squeeze=False,
+    )
+    for row_index, row in enumerate(rows):
+        profile_points = points_by_profile.get(row.profile, ())
+        for column, pair in enumerate(PAIR_ORDER):
+            axis = axes[row_index, column]
+            for estimator, marker in (("ratio", "o"), ("likelihood", "s")):
+                selected = sorted(
+                    (
+                        item
+                        for item in profile_points
+                        if item.sample == sample
+                        and item.estimator == estimator
+                        and item.point.pair == pair
+                        and item.point.energy_bin == row.energy_bin
+                    ),
+                    key=lambda item: item.point.mass_bin,
+                )
+                if not selected:
+                    continue
+                axis.errorbar(
+                    [_mass_center(item) for item in selected],
+                    [item.point.sigma for item in selected],
+                    yerr=np.array(
+                        [
+                            [item.point.stat_low for item in selected],
+                            [item.point.stat_high for item in selected],
+                        ]
+                    ),
+                    marker=marker,
+                    linestyle="none",
+                    capsize=2,
+                    label=estimator,
+                )
+            axis.axhline(0.0, color="0.65", linewidth=0.8)
+            axis.set_ylim(-1.0, 1.0)
+            axis.grid(alpha=0.2)
+            if row_index == 0:
+                axis.set_title(PAIR_LABELS[pair])
+            if column == 0:
+                axis.set_ylabel(
+                    rf"$\Sigma$\n{row.low_gev:.4g}--{row.high_gev:.4g} GeV"
+                )
+            if row_index == len(rows) - 1:
+                axis.set_xlabel(r"$M$ [GeV]")
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        figure.legend(handles, labels, loc="outside upper center", ncol=2)
+    return figure, axes
+
+
+def build_profile_fit_diagnostics(
+    points_by_profile: Mapping[str, Sequence[OutputPoint]],
+    rows: Sequence[EnergyRow],
+    *,
+    sample: str = "raw_bdt",
+):
+    if not rows:
+        raise ValueError("at least one energy row is required")
+    figure, axes = plt.subplots(
+        len(rows),
+        3,
+        figsize=(11.0, 2.8 * len(rows) + 0.8),
+        constrained_layout=True,
+        squeeze=False,
+    )
+    for row_index, row in enumerate(rows):
+        profile_points = points_by_profile.get(row.profile, ())
+        for column, pair in enumerate(PAIR_ORDER):
+            axis = axes[row_index, column]
+            selected = sorted(
+                (
+                    item
+                    for item in profile_points
+                    if item.sample == sample
+                    and item.estimator == "ratio"
+                    and item.point.pair == pair
+                    and item.point.energy_bin == row.energy_bin
+                    and item.point.diagnostics.ndf > 0
+                ),
+                key=lambda item: item.point.mass_bin,
+            )
+            if selected:
+                x = [_mass_center(item) for item in selected]
+                axis.plot(
+                    x,
+                    [item.point.diagnostics.p_value for item in selected],
+                    marker="o",
+                    linestyle="none",
+                    color="tab:blue",
+                    label="p-value",
+                )
+                reduced_axis = axis.twinx()
+                reduced_axis.plot(
+                    x,
+                    [
+                        item.point.diagnostics.chi2 / item.point.diagnostics.ndf
+                        for item in selected
+                    ],
+                    marker="s",
+                    linestyle="none",
+                    color="tab:orange",
+                    label=r"$\chi^2/\mathrm{ndf}$",
+                )
+                reduced_axis.set_ylabel(r"$\chi^2/\mathrm{ndf}$")
+            else:
+                axis.text(0.5, 0.5, "No fit", ha="center", va="center")
+            axis.axhline(0.01, color="tab:red", linestyle="--", linewidth=0.8)
+            axis.set_ylim(0.0, 1.0)
+            axis.grid(alpha=0.2)
+            if row_index == 0:
+                axis.set_title(PAIR_LABELS[pair])
+            if column == 0:
+                axis.set_ylabel(
+                    f"fit p-value\n{row.low_gev:.4g}--{row.high_gev:.4g} GeV"
+                )
+            if row_index == len(rows) - 1:
+                axis.set_xlabel(r"$M$ [GeV]")
+    return figure, axes
+
+
+def write_profile_estimator_comparison_pdf(
+    path: Path,
+    points_by_profile: Mapping[str, Sequence[OutputPoint]],
+    rows: Sequence[EnergyRow],
+    *,
+    sample: str = "raw_bdt",
+) -> None:
+    figure, _ = build_profile_estimator_comparison(
+        points_by_profile, rows, sample=sample
+    )
+    _save(path, figure)
+
+
+def write_profile_fit_diagnostics_pdf(
+    path: Path,
+    points_by_profile: Mapping[str, Sequence[OutputPoint]],
+    rows: Sequence[EnergyRow],
+    *,
+    sample: str = "raw_bdt",
+) -> None:
+    figure, _ = build_profile_fit_diagnostics(
+        points_by_profile, rows, sample=sample
+    )
+    _save(path, figure)
+
+
 def write_point_comparison_pdf(
     path: Path,
     points: Sequence[OutputPoint],
@@ -38,6 +204,13 @@ def write_point_comparison_pdf(
     """Compare samples or estimators without changing fitted values."""
     if group_by not in {"sample", "estimator"}:
         raise ValueError("group_by must be 'sample' or 'estimator'")
+    if group_by == "estimator":
+        write_profile_estimator_comparison_pdf(
+            path,
+            {"uv": points},
+            profile_energy_rows("uv"),
+        )
+        return
     groups = sorted({getattr(item, group_by) for item in points})
     figure, axes = plt.subplots(1, 3, figsize=(12.5, 3.8), sharey=True)
     for axis, pair in zip(axes, PAIR_ORDER):
@@ -83,36 +256,12 @@ def write_fit_diagnostics_pdf(
     path: Path,
     points: Sequence[OutputPoint],
 ) -> None:
-    """Write compact convergence, fit-quality, and fallback diagnostics."""
-    figure, axes = plt.subplots(1, 2, figsize=(10.5, 4.0))
-    for pair in PAIR_ORDER:
-        selected = [item for item in points if item.point.pair == pair]
-        if not selected:
-            continue
-        index = np.arange(len(selected))
-        p_values = [item.point.diagnostics.p_value for item in selected]
-        reduced = [
-            item.point.diagnostics.chi2 / item.point.diagnostics.ndf
-            if item.point.diagnostics.ndf > 0
-            else np.nan
-            for item in selected
-        ]
-        axes[0].plot(index, p_values, marker=".", linestyle="none", label=PAIR_LABELS[pair])
-        axes[1].plot(index, reduced, marker=".", linestyle="none", label=PAIR_LABELS[pair])
-    axes[0].axhline(0.01, color="tab:red", linestyle="--", linewidth=0.8)
-    axes[0].set_ylabel("fit p-value")
-    axes[0].set_ylim(0.0, 1.0)
-    axes[1].set_ylabel(r"$\chi^2/\mathrm{ndf}$")
-    for axis in axes:
-        axis.set_xlabel("fitted-bin index")
-        axis.grid(alpha=0.2)
-        axis.legend()
-    fallback = sum(item.point.diagnostics.used_fallback for item in points)
-    failed = sum(not item.point.diagnostics.converged for item in points)
-    figure.suptitle(
-        f"Fit diagnostics: {fallback} fallback fits, {failed} non-converged fits"
+    """Write UV physical-grid fit diagnostics for compatibility callers."""
+    write_profile_fit_diagnostics_pdf(
+        path,
+        {"uv": points},
+        profile_energy_rows("uv"),
     )
-    _save(path, figure)
 
 
 def write_systematic_summary_pdf(
