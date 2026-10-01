@@ -8,7 +8,11 @@ from typing import Mapping
 import numpy as np
 from scipy.optimize import brentq, minimize_scalar
 
-from observable_extraction.core.binning import ENERGY_EDGES_GEV, pair_mass_edges
+from observable_extraction.core.binning import (
+    ENERGY_EDGES_GEV,
+    pair_mass_edges,
+    validate_edges,
+)
 from observable_extraction.core.models import (
     FitDiagnostics,
     FluxExposure,
@@ -208,6 +212,8 @@ def extract_likelihood_grid(
     run_number: np.ndarray,
     xstrip: np.ndarray,
     exposures: Mapping[tuple[int, int], FluxExposure],
+    energy_edges: np.ndarray = ENERGY_EDGES_GEV,
+    min_events: int = 20,
 ) -> tuple[LikelihoodBinResult, ...]:
     mass_gev = np.asarray(mass_gev, dtype=np.float64)
     phi_rad = np.asarray(phi_rad, dtype=np.float64)
@@ -218,15 +224,18 @@ def extract_likelihood_grid(
     arrays = (phi_rad, beam_energy_gev, polarization, run_number, xstrip)
     if any(array.shape != mass_gev.shape for array in arrays):
         raise ValueError("event arrays must have matching shapes")
+    energy_edges = validate_edges(energy_edges)
+    if not isinstance(min_events, int) or min_events < 0:
+        raise ValueError("min_events must be a non-negative integer")
 
     mass_edges = pair_mass_edges(pair)
     results = []
     for energy_bin, (energy_low, energy_high) in enumerate(
-        zip(ENERGY_EDGES_GEV[:-1], ENERGY_EDGES_GEV[1:])
+        zip(energy_edges[:-1], energy_edges[1:])
     ):
         energy_mask = (beam_energy_gev >= energy_low) & (
             (beam_energy_gev < energy_high)
-            | ((energy_bin == len(ENERGY_EDGES_GEV) - 2) & (beam_energy_gev <= energy_high))
+            | ((energy_bin == len(energy_edges) - 2) & (beam_energy_gev <= energy_high))
         )
         for mass_bin, (mass_low, mass_high) in enumerate(
             zip(mass_edges[:-1], mass_edges[1:])
@@ -236,7 +245,7 @@ def extract_likelihood_grid(
                 | ((mass_bin == len(mass_edges) - 2) & (mass_gev <= mass_high))
             )
             selected = energy_mask & mass_mask & np.isin(polarization, (1, 2))
-            if np.count_nonzero(selected) < 4:
+            if np.count_nonzero(selected) < min_events:
                 continue
             if not np.any(polarization[selected] == 1) or not np.any(
                 polarization[selected] == 2

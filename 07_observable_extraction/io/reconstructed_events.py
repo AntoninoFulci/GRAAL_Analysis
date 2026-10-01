@@ -126,12 +126,16 @@ def _select_by_polarization(
     exposures: Mapping[tuple[int, int], FluxExposure],
     accepted_polarizations: tuple[int, ...],
     *,
+    energy_range: tuple[float, float],
     drop_missing: bool = False,
 ) -> EventArrays:
+    low, high = energy_range
+    if not np.isfinite((low, high)).all() or high <= low:
+        raise ValueError("energy range must be finite and increasing")
     base = (
         np.isin(events.polarization, accepted_polarizations)
-        & (events.beam_energy_gev >= 1.1)
-        & (events.beam_energy_gev <= 1.5)
+        & (events.beam_energy_gev >= low)
+        & (events.beam_energy_gev <= high)
     )
     missing = sorted(
         {
@@ -165,10 +169,15 @@ def select_sigma_events(
     events: EventArrays,
     exposures: Mapping[tuple[int, int], FluxExposure],
     *,
+    energy_range: tuple[float, float] = (1.1, 1.5),
     drop_missing: bool = False,
 ) -> EventArrays:
     return _select_by_polarization(
-        events, exposures, (1, 2), drop_missing=drop_missing
+        events,
+        exposures,
+        (1, 2),
+        energy_range=energy_range,
+        drop_missing=drop_missing,
     )
 
 
@@ -176,8 +185,13 @@ def select_brem_control(
     events: EventArrays,
     exposures: Mapping[tuple[int, int], FluxExposure],
     *,
+    energy_range: tuple[float, float] = (1.1, 1.5),
     drop_missing: bool = False,
 ) -> EventArrays:
     return _select_by_polarization(
-        events, exposures, (0,), drop_missing=drop_missing
+        events,
+        exposures,
+        (0,),
+        energy_range=energy_range,
+        drop_missing=drop_missing,
     )

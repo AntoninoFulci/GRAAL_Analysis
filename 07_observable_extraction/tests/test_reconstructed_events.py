@@ -6,6 +6,7 @@ import ROOT
 
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import (
+    EventArrays,
     read_reconstructed,
     select_brem_control,
     select_sigma_events,
@@ -113,3 +114,34 @@ def test_select_sigma_events_can_drop_missing_exposures_with_warning(
         "warning: dropped 1 event across 1 run/strip without valid flux exposure"
         in capsys.readouterr().err
     )
+
+
+def test_vis_energy_range_keeps_exact_boundaries_after_exposure_filtering():
+    energies = np.array([0.9312, 0.9313, 1.10, 1.1001])
+    count = len(energies)
+    vectors = np.zeros((count, 4), dtype=np.float64)
+    events = EventArrays(
+        run_number=np.full(count, 811),
+        xstrip=np.full(count, 17),
+        polarization=np.array([1, 1, 2, 2]),
+        beam_energy_gev=energies,
+        eta=vectors,
+        pi0=vectors,
+        proton=vectors,
+        missing_mass_gev=np.zeros(count),
+        eta_mass_gev=np.zeros(count),
+        pi0_mass_gev=np.zeros(count),
+        bdt_score=np.zeros(count),
+        n_photons_input=np.full(count, 4),
+    )
+    exposures = {
+        (811, 17): FluxExposure(811, 17, 1.0, 1.0, 1.0, 1.0, 0.6, 0.6)
+    }
+
+    selected = select_sigma_events(
+        events,
+        exposures,
+        energy_range=(0.9313, 1.10),
+    )
+
+    assert selected.beam_energy_gev.tolist() == pytest.approx([0.9313, 1.10])

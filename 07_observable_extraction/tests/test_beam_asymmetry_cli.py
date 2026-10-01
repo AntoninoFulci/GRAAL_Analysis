@@ -4,8 +4,9 @@ import numpy as np
 import ROOT
 import pytest
 
+from graal_common.physics.beam_profiles import VIS_PROFILE
 from observable_extraction import beam_asymmetry
-from observable_extraction.core.binning import PHI_EDGES_RAD
+from observable_extraction.core.binning import ENERGY_EDGES_GEV, PHI_EDGES_RAD
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import EventArrays
 from observable_extraction.io.root_output import OutputPoint
@@ -19,13 +20,16 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
 
     assert args.nominal_sample == "raw_bdt"
     assert args.estimator == "both"
+    assert args.profile == "uv"
+    assert args.flux_file == Path("data/00_external/flux_calibrated.root")
+    assert args.run_manifest == Path("config/run_manifest.csv")
     assert args.phi_bins == 12
     assert args.mass_bins == 10
     assert not hasattr(args, "csv_output")
     assert not hasattr(args, "json_output")
 
 
-def _synthetic_events(sigma=0.30):
+def _synthetic_events(sigma=0.30, beam_energy_gev=1.15):
     centers = 0.5 * (PHI_EDGES_RAD[:-1] + PHI_EDGES_RAD[1:])
     flux_v, flux_h = 1.2, 0.9
     pol_v, pol_h = 0.6, 0.55
@@ -56,7 +60,7 @@ def _synthetic_events(sigma=0.30):
         run_number=np.full(len(phi), 811),
         xstrip=np.full(len(phi), 17),
         polarization=polarization,
-        beam_energy_gev=np.full(len(phi), 1.15),
+        beam_energy_gev=np.full(len(phi), beam_energy_gev),
         eta=eta,
         pi0=pi0,
         proton=proton,
@@ -71,14 +75,25 @@ def _synthetic_events(sigma=0.30):
 def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
     tmp_path, monkeypatch
 ):
-    events = _synthetic_events()
+    events = _synthetic_events(beam_energy_gev=1.0)
     exposures = {
-        (811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)
+        (811, 17): FluxExposure(811, 17, 1.0, 1.2, 0.9, 0.2, 0.6, 0.55)
     }
+
+    def load_nominal_run_exposures(_path, **kwargs):
+        assert set(kwargs["run_numbers"]) == {811}
+        assert kwargs["target"] == "P"
+        assert kwargs["beam_type"] == "VIS"
+        assert kwargs["energy_range"] == (0.9313, 1.10)
+        assert kwargs["polarization_model"](1.0) == pytest.approx(
+            VIS_PROFILE.polarization(1.0)
+        )
+        return exposures
+
     monkeypatch.setattr(
         beam_asymmetry,
         "load_exposures",
-        lambda _path, **_kwargs: exposures,
+        load_nominal_run_exposures,
     )
     monkeypatch.setattr(
         beam_asymmetry,
@@ -90,7 +105,9 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
     exit_code = beam_asymmetry.main(
         [
             "--raw-bdt", str(tmp_path / "nominal.root"),
-            "--calibration-dir", str(tmp_path / "calibration"),
+            "--flux-file", str(tmp_path / "flux_calibrated.root"),
+            "--run-manifest", str(tmp_path / "run_manifest.csv"),
+            "--profile", "vis",
             "--output-dir", str(output),
         ]
     )
@@ -115,6 +132,13 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
         covariance = source.Get("covariance/systematic/polarization_scale_3pct")
         assert covariance
         assert covariance.GetBinContent(1, 1) > 0.0
+        energy_edges = source.Get("binning/energy_edges")
+        stored_edges = [
+            float(energy_edges[index])
+            for index in range(energy_edges.GetNrows())
+        ]
+        assert stored_edges == pytest.approx([0.9313, 1.10])
+        assert "profile=vis" in source.Get("provenance").GetTitle()
     finally:
         source.Close()
 
@@ -179,7 +203,8 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
             [
                 "--raw-bdt", str(tmp_path / "nominal.root"),
                 "--sideband", str(tmp_path / "sideband.root"),
-                "--calibration-dir", str(tmp_path / "calibration"),
+                "--flux-file", str(tmp_path / "flux_calibrated.root"),
+                "--run-manifest", str(tmp_path / "run_manifest.csv"),
                 "--output-dir", str(tmp_path / "output"),
             ]
         )
@@ -229,6 +254,7 @@ def test_three_dimensional_sideband_fit_produces_signal_region_fraction():
     estimates, leakage = beam_asymmetry._estimate_background_fractions(
         broad,
         signal_mc,
+        ENERGY_EDGES_GEV,
     )
 
     assert leakage == 0.0

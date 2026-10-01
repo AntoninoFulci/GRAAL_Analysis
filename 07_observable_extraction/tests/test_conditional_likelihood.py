@@ -101,7 +101,7 @@ def test_invalid_polarization_state_is_rejected():
 
 def test_likelihood_grid_preserves_profile_errors_and_bin_identity():
     phi, polarization, run, strip = _toy(0.3, events_per_stratum=3_000, seed=12)
-    mass = np.full(len(phi), 1.10)
+    mass = np.full(len(phi), 1.02)
     energy = np.full(len(phi), 1.15)
 
     (result,) = extract_likelihood_grid(
@@ -120,3 +120,53 @@ def test_likelihood_grid_preserves_profile_errors_and_bin_identity():
     assert result.point.sigma == pytest.approx(0.3, abs=0.04)
     assert result.point.stat_low > 0.0
     assert result.point.stat_high > 0.0
+
+
+def _twenty_vis_events():
+    centers = np.linspace(0.2, 2.8, 5)
+    phi = np.repeat(centers, 4)
+    polarization = np.tile([1, 1, 2, 2], 5)
+    return phi, polarization
+
+
+@pytest.mark.parametrize(("count", "expected"), [(19, 0), (20, 1)])
+def test_likelihood_grid_requires_twenty_selected_events(count, expected):
+    phi, polarization = _twenty_vis_events()
+    exposure = {
+        (811, 17): FluxExposure(811, 17, 1.0, 100.0, 100.0, 20.0, 0.6, 0.6)
+    }
+
+    results = extract_likelihood_grid(
+        pair="p_pi0",
+        mass_gev=np.full(count, 1.02),
+        phi_rad=phi[:count],
+        beam_energy_gev=np.full(count, 1.0),
+        polarization=polarization[:count],
+        run_number=np.full(count, 811),
+        xstrip=np.full(count, 17),
+        exposures=exposure,
+        energy_edges=np.array([0.9313, 1.10]),
+    )
+
+    assert len(results) == expected
+
+
+def test_likelihood_grid_skips_twenty_events_with_only_one_polarization():
+    phi, _ = _twenty_vis_events()
+    exposure = {
+        (811, 17): FluxExposure(811, 17, 1.0, 100.0, 100.0, 20.0, 0.6, 0.6)
+    }
+
+    results = extract_likelihood_grid(
+        pair="p_pi0",
+        mass_gev=np.full(20, 1.02),
+        phi_rad=phi,
+        beam_energy_gev=np.full(20, 1.0),
+        polarization=np.ones(20, dtype=int),
+        run_number=np.full(20, 811),
+        xstrip=np.full(20, 17),
+        exposures=exposure,
+        energy_edges=np.array([0.9313, 1.10]),
+    )
+
+    assert results == ()

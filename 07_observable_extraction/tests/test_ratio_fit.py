@@ -149,3 +149,48 @@ def test_grid_uses_all_exposure_strata_not_only_strata_with_events():
     assert result.polarization_vertical == pytest.approx(pol_v)
     assert result.polarization_horizontal == pytest.approx(pol_h)
     assert result.point.sigma == pytest.approx(0.25, abs=0.01)
+
+
+def _twenty_vis_events():
+    phi = np.repeat(PHI_CENTERS[:5], 4)
+    polarization = np.tile([1, 1, 2, 2], 5)
+    return phi, polarization
+
+
+@pytest.mark.parametrize(("count", "expected"), [(19, 0), (20, 1)])
+def test_ratio_grid_requires_twenty_selected_events(count, expected):
+    phi, polarization = _twenty_vis_events()
+    exposures = {
+        (811, 17): FluxExposure(811, 17, 1.0, 100.0, 100.0, 20.0, 0.6, 0.6)
+    }
+
+    results = extract_ratio_grid(
+        pair="p_pi0",
+        mass_gev=np.full(count, 1.02),
+        phi_rad=phi[:count],
+        beam_energy_gev=np.full(count, 1.0),
+        polarization=polarization[:count],
+        exposures=exposures,
+        energy_edges=np.array([0.9313, 1.10]),
+    )
+
+    assert len(results) == expected
+
+
+def test_ratio_grid_skips_twenty_events_with_only_one_polarization():
+    phi, _ = _twenty_vis_events()
+    exposures = {
+        (811, 17): FluxExposure(811, 17, 1.0, 100.0, 100.0, 20.0, 0.6, 0.6)
+    }
+
+    results = extract_ratio_grid(
+        pair="p_pi0",
+        mass_gev=np.full(20, 1.02),
+        phi_rad=phi,
+        beam_energy_gev=np.full(20, 1.0),
+        polarization=np.ones(20, dtype=int),
+        exposures=exposures,
+        energy_edges=np.array([0.9313, 1.10]),
+    )
+
+    assert results == ()

@@ -14,6 +14,7 @@ from observable_extraction.core.binning import (
     PHI_EDGES_RAD,
     energy_bin_index,
     pair_mass_edges,
+    validate_edges,
 )
 from observable_extraction.core.models import (
     FitDiagnostics,
@@ -200,6 +201,8 @@ def extract_ratio_grid(
     beam_energy_gev: np.ndarray,
     polarization: np.ndarray,
     exposures: Mapping[tuple[int, int], FluxExposure],
+    energy_edges: np.ndarray = ENERGY_EDGES_GEV,
+    min_events: int = 20,
 ) -> tuple[RatioBinResult, ...]:
     mass_gev = np.asarray(mass_gev, dtype=np.float64)
     phi_rad = np.asarray(phi_rad, dtype=np.float64)
@@ -210,20 +213,23 @@ def extract_ratio_grid(
         raise ValueError("event arrays must have matching shapes")
     if np.any(~np.isfinite(mass_gev)) or np.any(~np.isfinite(phi_rad)):
         raise ValueError("mass and phi arrays must be finite")
+    energy_edges = validate_edges(energy_edges)
+    if not isinstance(min_events, int) or min_events < 0:
+        raise ValueError("min_events must be a non-negative integer")
 
     mass_edges = pair_mass_edges(pair)
     results = []
     for energy_bin, (energy_low, energy_high) in enumerate(
-        zip(ENERGY_EDGES_GEV[:-1], ENERGY_EDGES_GEV[1:])
+        zip(energy_edges[:-1], energy_edges[1:])
     ):
         selected_exposures = [
             exposure
             for exposure in exposures.values()
-            if energy_bin_index(exposure.energy_gev) == energy_bin
+            if energy_bin_index(exposure.energy_gev, energy_edges) == energy_bin
         ]
         energy_mask = (beam_energy_gev >= energy_low) & (
             (beam_energy_gev < energy_high)
-            | ((energy_bin == len(ENERGY_EDGES_GEV) - 2) & (beam_energy_gev <= energy_high))
+            | ((energy_bin == len(energy_edges) - 2) & (beam_energy_gev <= energy_high))
         )
         if not np.any(energy_mask):
             continue
@@ -253,8 +259,12 @@ def extract_ratio_grid(
                 (mass_gev < mass_high)
                 | ((mass_bin == len(mass_edges) - 2) & (mass_gev <= mass_high))
             )
-            selected = energy_mask & mass_mask
-            if not np.any(selected):
+            selected = energy_mask & mass_mask & np.isin(polarization, (1, 2))
+            if np.count_nonzero(selected) < min_events:
+                continue
+            if not np.any(polarization[selected] == 1) or not np.any(
+                polarization[selected] == 2
+            ):
                 continue
             counts_v, _ = np.histogram(
                 phi_rad[selected & (polarization == 1)], bins=PHI_EDGES_RAD
