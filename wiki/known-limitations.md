@@ -6,14 +6,15 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 
 ## Execution Model
 
-- There is no central scheduler, DAG executor, freshness database, or automatic
-  resume. Operators run stage entry points in order and decide when an existing
-  artifact is still valid.
+- `scripts/run_pipeline.py` provides one sequential pre-analysis-to-plots
+  runner. There is no scheduler, DAG executor, freshness database, stage
+  restart, or automatic resume; output roots must be absent or empty.
 - Stage ordering is communicated by directories and file contracts, not
   enforced globally. A consumer validates its local inputs but cannot prove
   every upstream command used the intended source revision.
 - Resource management is per command. ROOT thread counts, training threads,
-  seeds, bootstrap replicas, and farm scheduling are not coordinated centrally.
+  seeds, and farm scheduling are not coordinated centrally. Launcher v1 fixes
+  bootstrap replicas at zero and does not perform sideband correction.
 - Some publishers are atomic at directory or file level; reconstruction and
   plotting generally write directly. Interruption can leave incomplete direct
   outputs that must be validated before reuse.

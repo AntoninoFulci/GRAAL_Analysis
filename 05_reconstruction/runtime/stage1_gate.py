@@ -62,8 +62,9 @@ class Stage1Gate:
         if not artifacts.model.exists():
             raise FileNotFoundError(
                 f"stage-1 model not found: {artifacts.model}. "
-                "Train it with run_pipeline.sh, or use reconstruct_eta_pi0_chi2.py "
-                "for the analysis without the BDT gate."
+                "Run scripts/run_pipeline.py to train profile-specific models, "
+                "or use reconstruct_eta_pi0_chi2.py for analysis without the "
+                "BDT gate."
             )
         if not artifacts.threshold.exists():
             raise FileNotFoundError(

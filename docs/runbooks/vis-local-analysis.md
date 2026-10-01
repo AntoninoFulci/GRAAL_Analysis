@@ -1,8 +1,8 @@
 # Local VIS analysis runbook
 
-Run every command from repository root. All generated products stay below
-`test_data/vis/`; combined figures stay below
-`test_data/beam_asymmetry/uv_vis/`.
+Run every command from repository root. For routine full campaigns use
+`python scripts/run_pipeline.py --mode test_data`; commands below remain a
+manual VIS diagnostic workflow.
 
 Analysis interval is exact: `0.9313 <= E_gamma <= 1.10 GeV`. A calibrated run
 is accepted only when `POL1`, `POL2`, and `BREM` are all present. Missing any
@@ -110,7 +110,7 @@ written counts. Inspect output tree and assert all stored beam energies satisfy
 python 07_observable_extraction/beam_asymmetry.py \
   --raw-bdt test_data/vis/reco/reco_eta_pi0_bdt.root \
   --profile vis \
-  --flux-file data/00_external/flux_calibrated.root \
+  --flux-file results/campaign/common/flux_calibrated.root \
   --run-manifest config/run_manifest.csv \
   --output-dir test_data/vis/beam_asymmetry \
   --estimator both \
@@ -126,10 +126,10 @@ at least 20 selected `POL1 + POL2` events.
 
 ```bash
 python -m observable_extraction.combine_profiles \
-  --uv-root test_data/beam_asymmetry/beam_asymmetry.root \
-  --vis-root test_data/vis/beam_asymmetry/beam_asymmetry.root \
-  --published-csv test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv \
-  --output-dir test_data/beam_asymmetry/uv_vis
+  --uv-root results/campaign/uv/beam_asymmetry/beam_asymmetry.root \
+  --vis-root results/campaign/vis/beam_asymmetry/beam_asymmetry.root \
+  --published-csv 07_observable_extraction/references/ajaka2008_figure4_digitized.csv \
+  --output-dir results/campaign/combined
 ```
 
 Checkpoint: inspect all four PDFs:

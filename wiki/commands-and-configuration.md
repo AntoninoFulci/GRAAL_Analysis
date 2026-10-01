@@ -1,15 +1,16 @@
 # Commands and Configuration
 
-The repository has no central pipeline runner. Each stage exposes its own
-entry point, validates its boundary, and publishes a file consumed by a later
-stage. Always run `--help` against the current checkout before a production
-job; this page is a map, not a substitute for the parser.
+The repository has one sequential full runner, `scripts/run_pipeline.py`, plus
+the individual stage entry points. Each stage still validates its own boundary
+and publishes explicit files. Run `--help` against the current checkout before
+a production job; this page is a map, not a substitute for the parser.
 
 ## Command Matrix
 
 | Area | Command or entry point | Main result |
 |---|---|---|
 | setup | `./scripts/setup.sh --mode local` | `.venv`, editable install, local data layout |
+| full UV/VIS pipeline | `python scripts/run_pipeline.py --mode {test_data,production}` | shared calibration, isolated profile products, combined figures |
 | pre-analysis | ROOT `AnalyzeAll(base_in, base_out, cuts_dir)` | `pre_analisi_<period>.root`, tree `h80` |
 | selection | `python` with `02_event_selector/select_events.py` | selected ROOT files, tree `h85` |
 | MC generation | `cd 03_mc_simulation/data` then `root -l -b -q '../generators/generate_eta_pi0_dataset.C(1000000)'` | `03_mc_simulation/data/eta_pi0_mc.root`, tree `mc` |
@@ -54,6 +55,20 @@ python -m bdt_training.train_bdt_stage1 \
   --seed 42
 ```
 
+## Launcher Options
+
+```text
+python scripts/run_pipeline.py --mode test_data [--output-dir PATH]
+python scripts/run_pipeline.py --mode production [--output-dir PATH]
+```
+
+Both modes start from pre-analysis `h80` files. `test_data` generates 100000
+attempted events per required channel and defaults to `results/test_data/`;
+`production` generates 1000000 and defaults to `results/production/`.
+`--output-dir` must name an absent or empty root. Launcher calibrates once,
+retrains UV and VIS independently with checked-in hyperparameters, disables
+bootstrap and sideband correction, and combines only final Stage-07 points.
+
 ## Setup Options
 
 ```text
@@ -83,6 +98,7 @@ Missing `data/00_external/flux.root` is a warning, not a setup failure.
 
 | Stage | Important options/defaults |
 |---|---|
+| full launcher | required `--mode`; optional absent/empty `--output-dir`; no resume |
 | selection | input `data/02_pre_analyzed/pre_analisi`, output `data/03_selected`, positive worker count |
 | MC status | default data directory `03_mc_simulation/data`; optional `--data-dir` |
 | beam spectrum | 150 bins over 0.5–2.0 GeV by default |

@@ -1,7 +1,7 @@
 # 07 — Observable Extraction
 
 Stage 07 is the publication boundary for the beam asymmetry of
-`gamma p -> eta pi0 p`. It joins reconstructed events to schema-v2 calibrated
+`gamma p -> eta pi0 p`. It joins reconstructed events to calibrated ROOT
 exposures, projects all three two-body subsystems, estimates `Sigma`, applies
 optional background corrections, builds covariance matrices, and writes ROOT
 and PDF products. It does not modify Stage 05 reconstruction files.
@@ -9,10 +9,10 @@ and PDF products. It does not modify Stage 05 reconstruction files.
 ```mermaid
 flowchart TB
     E["Reconstructed ROOT tree<br/>raw or fitted four-vectors"]
-    X["flux_by_run_strip.csv<br/>schema v2"]
+    X["flux_calibrated.root<br/>+ run_manifest.csv"]
     A["Adapters and validation"]
-    B["Select E_gamma 1.1..1.5 GeV<br/>POL1/POL2 strata"]
-    K["Project p-pi0, p-eta, eta-pi0<br/>4 energy x 10 mass x 12 phi bins"]
+    B["Select profile energy range<br/>POL1/POL2 strata"]
+    K["Project p-pi0, p-eta, eta-pi0<br/>profile energy x 10 mass x 12 phi bins"]
     R["Normalized-ratio estimator"]
     L["Conditional-likelihood estimator"]
     C["Optional 3D sideband correction"]
@@ -33,9 +33,9 @@ flowchart TB
 
 Equivalent ordered workflow:
 
-1. Load calibrated run/strip exposures for proton UV data.
+1. Load calibrated run/strip exposures for requested UV or VIS profile.
 2. Read the selected reconstructed ROOT sample into detached NumPy arrays.
-3. Keep polarization states `1` and `2` in 1.1–1.5 GeV and join every event
+3. Keep polarization states `1` and `2` in profile energy range and join every event
    to its `(run_number, xstrip)` exposure.
 4. Project `p-pi0`, `p-eta`, and `eta-pi0` masses and azimuths.
 5. Run the requested ratio, likelihood, or both estimators in the fixed grid.
@@ -50,19 +50,21 @@ Equivalent ordered workflow:
 
 ### Calibrated exposures
 
-`flux_by_run_strip.csv` in `results/strip_energy_flux/` is loaded with an exact
-schema check and schema version `2`. Defaults select target `P`, beam type
-`UV`, and energy range 1.1–1.5 GeV. Mappings are:
+The full launcher passes `results/<mode>/common/flux_calibrated.root` and
+`config/run_manifest.csv`. ROOT keys identify run and state; manifest metadata
+selects target `P` and requested beam type. UV uses 1.10–1.50 GeV and VIS uses
+0.9313–1.10 GeV. Legacy schema-v2 CSV input remains supported by loader.
+Mappings are:
 
 - `POL1` -> vertical exposure;
 - `POL2` -> horizontal exposure;
 - `BREM` -> independent unpolarized control exposure;
 - UV polarization -> Compton transfer calculated from strip energy.
 
-The loader requires positive selected `POL1` and `POL2` flux, non-negative
-`BREM`, unique `(run_number, xstrip)` keys, finite values, and polarization in
-`[0,1]`. The orchestration layer uses `skip_invalid=True`, prints how many
-invalid exposure rows it skipped, and fails if no selected exposure remains.
+The ROOT loader requires every selected run to have exactly one `POL1`, `POL2`,
+and `BREM` histogram. Incomplete runs are skipped atomically. Exposures require
+positive selected polarized flux, non-negative `BREM`, unique
+`(run_number, xstrip)` keys, finite values, and polarization in `[0,1]`.
 
 ### Reconstructed events
 
@@ -77,7 +79,7 @@ the sideband coordinate. ROOT objects are copied into NumPy arrays before the
 input file is closed.
 
 Polarization states `1` and `2` form the Sigma sample; state `0` forms the
-`BREM` false-asymmetry control. Events outside 1.1–1.5 GeV are excluded.
+`BREM` false-asymmetry control. Events outside profile range are excluded.
 Missing exposure is normally an error in the adapter. The main CLI sets
 `drop_missing=True`, emits a warning with event and stratum counts, and drops
 those events so the omission is explicit.
@@ -86,7 +88,7 @@ those events so the omission is explicit.
 
 | Axis | Binning |
 |---|---|
-| photon energy | `[1.10, 1.20, 1.30, 1.40, 1.50]` GeV |
+| photon energy | UV: `[1.10, 1.20, 1.30, 1.40, 1.50]`; VIS: `[0.9313, 1.10]` GeV |
 | azimuth | 12 uniform bins on `[0, 2 pi]` |
 | subsystem | `p_pi0`, `p_eta`, `eta_pi0` |
 | invariant mass | 10 bins from pair threshold to `Wmax(1.5 GeV) - spectator mass` |
@@ -140,6 +142,10 @@ Omitting `--no-fit` in the third command enables the fit. The default nominal
 sample remains `raw_bdt`; the fitted file is a comparison input read through
 its `eta_fit`, `pi0_fit`, and `proton_fit` branches.
 
+`scripts/run_pipeline.py` instead supplies explicit profile-local files. Each
+BDT reconstruction stores raw and fitted vectors, so launcher v1 passes that
+same ROOT file as both `--raw-bdt` and `--raw-bdt-fit`.
+
 Sideband correction is enabled only when `--sideband` and `--signal-mc` are
 supplied together. Supplying only one is fatal. See
 [Background Correction](07-background-correction) for the three-dimensional
@@ -175,7 +181,9 @@ least four events and both polarized states.
 ```bash
 python 07_observable_extraction/beam_asymmetry.py \
   --raw-bdt results/reco/reco_eta_pi0_bdt_raw.root \
-  --calibration-dir results/strip_energy_flux \
+  --profile uv \
+  --flux-file results/production/common/flux_calibrated.root \
+  --run-manifest config/run_manifest.csv \
   --output-dir results/beam_asymmetry
 ```
 
@@ -189,7 +197,9 @@ Important defaults:
 | `--mass-bins` | `10` |
 | `--bootstrap-replicas` | `0` (disabled) |
 | `--bootstrap-seed` | `1208` |
-| `--calibration-dir` | `results/strip_energy_flux` |
+| `--profile` | `uv` |
+| `--flux-file` | `data/00_external/flux_calibrated.root` |
+| `--run-manifest` | `config/run_manifest.csv` |
 | `--output-dir` | `results/beam_asymmetry` |
 
 ## Public Products

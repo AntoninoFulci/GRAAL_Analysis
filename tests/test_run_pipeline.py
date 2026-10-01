@@ -354,3 +354,23 @@ def test_main_reports_keyboard_interrupt(monkeypatch, capsys):
     )
     assert run_pipeline.main(["--mode", "test_data"]) == 130
     assert capsys.readouterr().err.strip() == "ERROR: pipeline interrupted"
+
+
+def test_pipeline_documentation_names_current_launcher_and_handoff():
+    root = Path(__file__).parents[1]
+    required = (
+        root / "README.md",
+        root / "docs/runbooks/full-pipeline.md",
+        root / "wiki/workflow.md",
+        root / "wiki/commands-and-configuration.md",
+        root / "wiki/data-and-artifacts.md",
+        root / "wiki/known-limitations.md",
+        root / "wiki/07-observable-extraction.md",
+    )
+    for path in required:
+        text = path.read_text(encoding="utf-8")
+        assert "scripts/run_pipeline.py" in text, path
+    corpus = "\n".join(path.read_text(encoding="utf-8") for path in required)
+    assert "adapter pending" not in corpus.lower()
+    assert "still expects a legacy exposure CSV" not in corpus
+    assert "run_pipeline.sh" not in corpus

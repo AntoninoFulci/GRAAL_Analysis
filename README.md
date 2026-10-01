@@ -43,8 +43,23 @@ imports. It never replaces an existing data path or mismatched link.
 
 ## Run
 
-Each numbered directory owns one analysis step. Run stage entry points directly;
-use `--help` for required inputs and output options.
+The supported full launcher begins from pre-analysis `h80` ROOT files. Test
+mode uses the local UV/VIS fixtures; production uses every matching period:
+
+```bash
+python scripts/run_pipeline.py --mode test_data
+python scripts/run_pipeline.py --mode production
+```
+
+Calibration runs once. Selection, MC, beam spectrum, fresh BDT training,
+reconstruction, and asymmetry extraction remain separate for UV and VIS; only
+final Stage-07 points meet in combined plots. See the
+[full pipeline runbook](docs/runbooks/full-pipeline.md) for server setup,
+outputs, and failure behavior.
+
+Each numbered directory still owns one analysis step. For advanced or manual
+operation, run stage entry points directly and use `--help` for inputs and
+output options.
 
 ```bash
 python 06_calibration/build_run_manifest.py --help
