@@ -1,6 +1,10 @@
 import csv
 import hashlib
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -104,3 +108,33 @@ def test_extra_csv_field_fails(tmp_path):
     csv_path.write_text(contents.replace("-0.2,0.02\n", "-0.2,0.02,extra\n", 1), encoding="utf-8")
     with pytest.raises(ValueError, match="row"):
         load_published_theory_curves(csv_path, metadata_path, pdf_path)
+
+
+def test_reviewed_ajaka_figure4_theory_reference_loads():
+    root = Path(__file__).resolve().parents[1]
+    source = root.parent / "tmp/pdfs/PhysRevLett.100.052003.pdf"
+    metadata_path = root / "references/ajaka2008_figure4_theory.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["source_pdf_sha256"] == "7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb"
+    points = load_published_theory_curves(
+        root / "references/ajaka2008_figure4_theory.csv",
+        metadata_path,
+        source if source.is_file() else None,
+    )
+    assert len(points) >= 24
+    assert {(point.pair, point.energy_bin) for point in points} == EXPECTED_PANELS
+
+
+def test_review_plot_script_renders_reference():
+    root = Path(__file__).resolve().parents[1]
+    output = root / "outputs/figure4_reference_review.pdf"
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts/review_figure4_trace.py")],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert result.stdout.strip() == str(output)
+    assert output.read_bytes().startswith(b"%PDF-")

@@ -1,0 +1,49 @@
+{
+  "source_pdf": "tmp/pdfs/PhysRevLett.100.052003.pdf",
+  "source_pdf_sha256": "7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb",
+  "source_page": 5,
+  "figure": 4,
+  "curve_kind": "published_full_coherent_theory",
+  "trace_date": "2026-10-01",
+  "render_dpi": 600,
+  "vector_export": "pdftocairo 26.02.0 -f 5 -l 5 -svg",
+  "trace_method": "Read the visible theory strokes from the source PDF vector paths, separate from experimental circles; retain every second path vertex plus endpoints and local extrema. Affine-map PDF point coordinates to printed axes. No model output was used.",
+  "uncertainty_method": "reading_error=0.020 for each point, a conservative visual-reading bound: half of the 0.953-pt stroke corresponds to about 0.009 in Sigma; remaining allowance covers tick calibration, vector export, and marker overlap. This is not a statistical fit error.",
+  "coordinate_system": "Vector path coordinates in PDF points, origin at lower left; the SVG applies matrix(1,0,0,-1,0,792).",
+  "axis_calibration": {
+    "x_by_pair": {
+      "p_pi0": {"mass_min_gev": 1.0, "x_min_pt": 188.734375, "mass_max_gev": 1.4, "x_max_pt": 279.734375, "printed_ticks": {"1.1": 211.445312, "1.3": 257.023438}},
+      "p_eta": {"mass_min_gev": 1.4, "x_min_pt": 279.734375, "mass_max_gev": 1.8, "x_max_pt": 370.574219, "printed_ticks": {"1.5": 302.445312, "1.7": 347.863281}},
+      "eta_pi0": {"mass_min_gev": 0.6, "x_min_pt": 370.574219, "mass_max_gev": 1.0, "x_max_pt": 461.574219, "printed_ticks": {"0.7": 393.441406, "0.9": 438.863281}}
+    },
+    "y_by_energy_bin": {
+      "0": {"sigma_plus_0_4_y_pt": 739.273438, "sigma_zero_y_pt": 717.992188, "sigma_minus_0_4_y_pt": 696.554688},
+      "1": {"sigma_plus_0_4_y_pt": 675.113281, "sigma_zero_y_pt": 653.832031, "sigma_minus_0_4_y_pt": 632.394531},
+      "2": {"sigma_plus_0_4_y_pt": 610.953125, "sigma_zero_y_pt": 589.515625, "sigma_minus_0_4_y_pt": 568.234375},
+      "3": {"sigma_plus_0_4_y_pt": 546.792969, "sigma_zero_y_pt": 525.355469, "sigma_minus_0_4_y_pt": 503.914062}
+    },
+    "formula": "mass = mass_min + (x - x_min) * (mass_max - mass_min)/(x_max - x_min); Sigma = (y - sigma_zero_y)/((sigma_plus_0_4_y - sigma_minus_0_4_y)/0.8). Shared column and row anchors calibrate each of the twelve panels."
+  },
+  "vector_paths": {
+    "0:p_pi0": "SVG root child 380, subpath 2",
+    "0:p_eta": "SVG root child 389, subpath 1",
+    "0:eta_pi0": "SVG root child 401, subpath 2",
+    "1:p_pi0": "SVG root child 415, subpath 1",
+    "1:p_eta": "SVG root child 428, subpath 1",
+    "1:eta_pi0": "SVG root child 441, subpath 1",
+    "2:p_pi0": "SVG root child 461, subpath 1",
+    "2:p_eta": "SVG root child 474, subpath 1",
+    "2:eta_pi0": "SVG root child 491, subpath 1",
+    "3:p_pi0": "SVG root child 518, subpath 1",
+    "3:p_eta": "SVG root child 554, clipped child path",
+    "3:eta_pi0": "SVG root child 580, subpath 1"
+  },
+  "ambiguous_omissions": "None: the PDF vector paths preserve the theory stroke independently of overlaid experimental symbols. The CSV contains no experimental marker coordinates and no extrapolation beyond stroke endpoints.",
+  "review": {
+    "status": "completed",
+    "reviewer": "Codex visual review (not independent human review)",
+    "date": "2026-10-01",
+    "method": "Compared the 600-dpi source page and 4-by-3 unconnected-marker review PDF, panel by panel, using identical mass and Sigma axes.",
+    "result": "All twelve traced strokes match the published curve extents, signs, and extrema. In particular, the top p_eta panel crosses zero twice; lower-row p_eta and eta_pi0 curves retain their negative minima and rising right edges. No experimental circles or extrapolated segments were included."
+  }
+}
