@@ -1,8 +1,12 @@
 import csv
+from array import array
 
 import pytest
+import ROOT
 
+from calibration.run_manifest import RunRecord, write_manifest
 from calibration.strip_energy_flux import STRIP_EXPOSURE_FIELDS
+from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.calibration.flux_v2 import load_exposures
 
 
@@ -99,3 +103,195 @@ def test_load_exposures_can_skip_invalid_selected_rows_with_warning(
 
     assert set(exposures) == {(812, 18)}
     assert "warning: skipped 1 invalid selected flux exposure" in capsys.readouterr().err
+
+
+def _write_flux_root(path, suffixes_by_run, *, axis_offsets=None):
+    output = ROOT.TFile(str(path), "RECREATE")
+    axis_offsets = axis_offsets or {}
+    try:
+        for run_number, suffixes in suffixes_by_run.items():
+            for suffix in suffixes:
+                offset = axis_offsets.get(suffix, 0.0)
+                edges = array(
+                    "d",
+                    [1.0 + offset + 0.6 * index / 128 for index in range(129)],
+                )
+                histogram = ROOT.TH1D(
+                    f"run{run_number}_{suffix}", "", 128, edges
+                )
+                for bin_number in range(1, 129):
+                    histogram.SetBinContent(bin_number, 10.0)
+                histogram.Write()
+    finally:
+        output.Close()
+
+
+def test_root_loader_skips_entire_run_without_complete_flux_triplet(
+    tmp_path, capsys
+):
+    """Removing any one state must exclude that run from every exposure."""
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [
+            RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root"),
+            RunRecord(812, "uv", "P", "UV", "P_UV", "manual", "uv/run812.root"),
+        ],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(
+        root_path,
+        {
+            811: ("POL1", "POL2", "BREM"),
+            812: ("POL1", "POL2"),
+        },
+    )
+
+    exposures = load_exposures(
+        root_path,
+        manifest_path=manifest,
+        polarization_model=lambda energy: 0.5,
+    )
+
+    assert {run_number for run_number, _ in exposures} == {811}
+    warning = capsys.readouterr().err
+    assert "skipped run 812" in warning
+    assert "missing BREM" in warning
+
+
+def test_root_loader_uses_each_polarization_states_calibrated_energy(tmp_path):
+    """Collapsing POL1/POL2 onto one energy would bias their transfer values."""
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(
+        root_path,
+        {811: ("POL1", "POL2", "BREM")},
+        axis_offsets={"POL2": 0.02},
+    )
+
+    exposures = load_exposures(
+        root_path,
+        manifest_path=manifest,
+        polarization_model=lambda energy: energy / 2.0,
+    )
+
+    item = exposures[(811, 30)]
+    vertical_energy = 1.0 + (29.5 * 0.6 / 128)
+    horizontal_energy = vertical_energy + 0.02
+    assert item.energy_gev == pytest.approx(
+        0.5 * (vertical_energy + horizontal_energy)
+    )
+    assert item.polarization_vertical == pytest.approx(vertical_energy / 2.0)
+    assert item.polarization_horizontal == pytest.approx(horizontal_energy / 2.0)
+
+
+def test_root_loader_skips_strata_outside_compton_polarization_domain(
+    tmp_path, capsys
+):
+    """Extending a histogram above the UV edge must not abort valid strata."""
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(root_path, {811: ("POL1", "POL2", "BREM")})
+
+    exposures = load_exposures(root_path, manifest_path=manifest)
+
+    assert exposures
+    assert all(
+        0.0 <= item.polarization_vertical <= 1.0
+        and 0.0 <= item.polarization_horizontal <= 1.0
+        for item in exposures.values()
+    )
+    assert "outside polarization domain" in capsys.readouterr().err
+
+
+def test_root_loader_limits_exposure_to_runs_present_in_event_sample(tmp_path):
+    """Adding calibrated runs absent from data would bias flux normalization."""
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [
+            RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root"),
+            RunRecord(812, "uv", "P", "UV", "P_UV", "manual", "uv/run812.root"),
+        ],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(
+        root_path,
+        {
+            811: ("POL1", "POL2", "BREM"),
+            812: ("POL1", "POL2", "BREM"),
+        },
+    )
+
+    exposures = load_exposures(
+        root_path,
+        manifest_path=manifest,
+        polarization_model=lambda energy: 0.5,
+        run_numbers={811},
+    )
+
+    assert {run_number for run_number, _ in exposures} == {811}
+
+
+def test_root_loader_routes_vis_profile_and_skips_incomplete_run(
+    tmp_path, capsys
+):
+    manifest = tmp_path / "run_manifest.csv"
+    write_manifest(
+        [
+            RunRecord(
+                1999,
+                "vis",
+                "P",
+                "VIS",
+                "P_VIS",
+                "manual",
+                "vis/run1999.root",
+            ),
+            RunRecord(
+                2071,
+                "vis",
+                "P",
+                "VIS",
+                "P_VIS",
+                "manual",
+                "vis/run2071.root",
+            ),
+        ],
+        manifest,
+    )
+    root_path = tmp_path / "flux_calibrated.root"
+    _write_flux_root(
+        root_path,
+        {
+            1999: ("POL1", "POL2", "BREM"),
+            2071: ("POL1", "POL2"),
+        },
+    )
+    profile = get_beam_profile("vis")
+
+    exposures = load_exposures(
+        root_path,
+        manifest_path=manifest,
+        polarization_model=profile.polarization,
+        target=profile.target,
+        beam_type=profile.beam_type,
+        energy_range=profile.energy_range_gev,
+    )
+
+    assert {run_number for run_number, _ in exposures} == {1999}
+    assert all(
+        0.9313 <= exposure.energy_gev <= 1.10
+        for exposure in exposures.values()
+    )
+    warning = capsys.readouterr().err
+    assert "skipped run 2071" in warning
+    assert "missing BREM" in warning
