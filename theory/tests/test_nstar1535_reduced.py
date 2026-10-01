@@ -196,3 +196,34 @@ def test_each_channel_loop_branch_across_its_threshold():
         q = np.sqrt((w*w-threshold**2)*(w*w-(baryon-meson)**2))/(2*w)
         assert loop_functions(w, p)[i].imag == pytest.approx(
             -baryon*q/(4*np.pi*w), abs=1e-11)
+
+
+def test_charge_plus_one_grid_is_frozen():
+    from graal_theory.reduced_t_reference import isospin_half_s11_eta
+    p = load_reduced_parameters(PARAM, SOURCES)
+    energies = (1.50, 1.52, 1.54, 1.56, 1.58, 1.60, 1.62, 1.64)
+    expected = np.array([
+        [ 0.208470845706157, 0.240612778280716],
+        [ 0.137447699010282, 0.422724541038566],
+        [-0.0899104594703734, 0.432547480238677],
+        [-0.190358055793633, 0.266178397794420],
+        [-0.167720733393300, 0.141591721442651],
+        [-0.127123075987937, 0.0768778655603441],
+        [-0.0989879586984333, 0.0374499912385641],
+        [-0.0816296402031595, 0.00666205708376796],
+    ])
+    actual = np.array([[z.real, z.imag] for w in energies
+                       for z in (isospin_half_s11_eta(w, p),)])
+    np.testing.assert_allclose(actual, expected, rtol=2e-11, atol=2e-11)
+
+
+def test_public_charge_plus_one_calls_shared_core_exactly():
+    from graal_theory.amplitudes import _reduced_t_core as core
+    p = load_reduced_parameters(PARAM, SOURCES)
+    w = 1.55
+    for public, shared in (
+        (wt_kernel(w, p), core.wt_kernel(w, p, C_COEFFICIENTS)),
+        (loop_functions(w, p), core.loop_functions(w, p)),
+        (reduced_tmatrix(w, p), core.reduced_tmatrix(w, p, C_COEFFICIENTS)),
+    ):
+        np.testing.assert_allclose(public, shared, rtol=0, atol=0)
