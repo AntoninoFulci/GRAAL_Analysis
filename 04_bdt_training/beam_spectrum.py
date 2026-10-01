@@ -38,11 +38,32 @@ except ImportError as exc:
     raise ImportError("uproot required: pip install uproot") from exc
 
 from graal_common.io import trees
+from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 
 # Wide enough to hold every tagged photon in the data (0.64 to 1.72 measured)
 # with room on both sides, so nothing piles into an edge bin unseen.
 DEFAULT_RANGE = (0.5, 2.0)
 DEFAULT_BINS = 150
+TARGET_BIN_WIDTH_GEV = 0.010
+
+
+def default_bins_for_range(range_: tuple[float, float]) -> int:
+    low, high = range_
+    if not np.isfinite((low, high)).all() or high <= low:
+        raise ValueError("beam-spectrum range must be finite and increasing")
+    return int(np.ceil((high - low) / TARGET_BIN_WIDTH_GEV))
+
+
+def settings_for_profile(
+    profile_name: str | None,
+    bins: int | None,
+) -> tuple[tuple[float, float], int]:
+    if profile_name is None:
+        return DEFAULT_RANGE, DEFAULT_BINS if bins is None else bins
+    profile = get_beam_profile(profile_name)
+    return profile.energy_range_gev, (
+        default_bins_for_range(profile.energy_range_gev) if bins is None else bins
+    )
 
 
 @dataclass(frozen=True)
@@ -186,15 +207,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--tree", default=trees.AUTO,
                         help="tree inside them; 'auto' takes whichever known "
                              "preselection tree is there")
-    parser.add_argument("--bins", type=int, default=DEFAULT_BINS)
+    parser.add_argument("--bins", type=int, default=None)
+    parser.add_argument("--profile", choices=BEAM_PROFILES, default=None)
     parser.add_argument("--output", default="04_bdt_training/data/beam_spectrum.npz")
     return parser.parse_args(argv)
 
 
 def main() -> None:
     args = parse_args()
+    range_, bins = settings_for_profile(args.profile, args.bins)
 
-    spectrum = measure(args.selected_dir, args.tree, args.bins)
+    spectrum = measure(args.selected_dir, args.tree, bins, range_)
     spectrum.save(args.output)
     print(f"Saved beam spectrum → {args.output}")
 

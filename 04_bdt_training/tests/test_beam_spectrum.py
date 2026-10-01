@@ -15,6 +15,29 @@ def test_cli_defaults_to_numbered_selected_directory():
     args = beam_spectrum.parse_args([])
 
     assert args.selected_dir == "data/03_selected"
+    assert args.profile is None
+
+
+def test_cli_accepts_explicit_vis_profile():
+    args = beam_spectrum.parse_args(["--profile", "vis"])
+
+    assert args.profile == "vis"
+
+
+def test_vis_profile_uses_exact_range_and_seventeen_bins():
+    range_, bins = beam_spectrum.settings_for_profile("vis", bins=None)
+
+    assert range_ == (0.9313, 1.10)
+    assert bins == 17
+
+
+def test_profile_spectrum_drops_source_energies_outside_vis():
+    energies = np.array([0.90, 0.9313, 1.00, 1.10, 1.20])
+
+    spectrum = from_energies(energies, bins=17, range_=(0.9313, 1.10))
+
+    assert (spectrum.density * np.diff(spectrum.edges)).sum() == pytest.approx(1.0)
+    assert spectrum.edges[[0, -1]].tolist() == pytest.approx([0.9313, 1.10])
 
 
 def _flat(rng, n, lo, hi):
