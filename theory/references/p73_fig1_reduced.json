@@ -1,0 +1,14 @@
+{
+  "source_pdf_sha256": "19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb",
+  "source_page": 3,
+  "printed_page": "045209-3",
+  "figure": 1,
+  "curve": "dashed: reduced without t-channel vector exchange and pi pi N",
+  "trace_method": "Poppler pdftocairo SVG page 3: interpolated only dashed stroke paths (left stroke-dasharray 2.434 1.623, right 2.506 1.671), distinct from solid paths and dot symbols; visually cross-checked against 400-dpi pdftoppm PNG.",
+  "axis_calibration": {
+    "coordinates": "SVG PDF-point Cartesian coordinates after applying transform matrix(1,0,0,-1,0,792); x in MeV, y dimensionless",
+    "real_panel": {"x_1500": 136.601562, "x_1520": 157.609375, "y_zero": 672.808594, "y_plus_0_1": 693.535156},
+    "imag_panel": {"x_1500": 353.269531, "x_1520": 374.898438, "y_zero": 622.03125, "y_plus_0_1": 643.855469}
+  },
+  "uncertainty_method": "Conservative absolute +/-0.020 for each component and point, exceeding stroke width and SVG interpolation/rounding uncertainty; includes visible crossing and dot overlap checked in 400-dpi raster. Not a statistical uncertainty of published model."
+}
