@@ -5,15 +5,22 @@
 #include <TGenPhaseSpace.h>
 #include <TMath.h>
 #include "smearing.h"
+#include "beam_window.h"
 
-void generate_eta_2pi0_dataset(int Nevents = 1000000) {
+void generate_eta_2pi0_dataset(int Nevents = 1000000,
+                               double requested_min_gev = -1.0,
+                               double requested_max_gev = 1.75,
+                               const char *output_path = "eta_2pi0_mc.root") {
     const double mp   = 0.938272;
     const double meta = 0.547862;
     const double mpi0 = 0.134977;
     const double threshold = (pow(meta + 2*mpi0 + mp, 2) - pow(mp, 2)) / (2*mp);
+    const BeamWindow beam_window = ResolveBeamWindow(
+        threshold, requested_min_gev, requested_max_gev
+    );
 
     TRandom3 rng(0);
-    TFile *fout = new TFile("eta_2pi0_mc.root", "RECREATE");
+    TFile *fout = new TFile(output_path, "RECREATE");
     TTree *tree = new TTree("mc", "eta 2pi0 background MC");
 
     TLorentzVector beam, proton, g0, g1, g2, g3, g4, g5;
@@ -31,7 +38,7 @@ void generate_eta_2pi0_dataset(int Nevents = 1000000) {
         // flux its MC can populate, so a ceiling below the data's tail is no
         // longer cosmetic — it would understate every channel by the slice it
         // cannot reach.
-        double Ebeam = rng.Uniform(threshold, 1.75);
+        double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
         beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;

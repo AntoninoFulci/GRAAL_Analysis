@@ -5,6 +5,7 @@
 #include <TGenPhaseSpace.h>
 #include <TMath.h>
 #include "smearing.h"
+#include "beam_window.h"
 
 // gamma p -> p eta pi0 with eta -> 3pi0: 8 gamma.
 //
@@ -18,14 +19,22 @@
 // convention in the signal generator exists because there the eta really does
 // give exactly 2 photons. Here it gives 6, and which of them pair up is not
 // something the file should assert.
-void generate_eta_pi0_via_3pi0_dataset(int Nevents = 1000000) {
+void generate_eta_pi0_via_3pi0_dataset(
+    int Nevents = 1000000,
+    double requested_min_gev = -1.0,
+    double requested_max_gev = 1.75,
+    const char *output_path = "eta_pi0_via_3pi0_mc.root"
+) {
     const double mp   = 0.938272;
     const double meta = 0.547862;
     const double mpi0 = 0.134977;
     const double threshold = (pow(meta + mpi0 + mp, 2) - pow(mp, 2)) / (2*mp);
+    const BeamWindow beam_window = ResolveBeamWindow(
+        threshold, requested_min_gev, requested_max_gev
+    );
 
     TRandom3 rng(0);
-    TFile *fout = new TFile("eta_pi0_via_3pi0_mc.root", "RECREATE");
+    TFile *fout = new TFile(output_path, "RECREATE");
     TTree *tree = new TTree("mc", "gamma p -> p eta pi0, eta -> 3pi0 background MC");
 
     TLorentzVector beam, proton, g0, g1, g2, g3, g4, g5, g6, g7;
@@ -39,7 +48,7 @@ void generate_eta_pi0_via_3pi0_dataset(int Nevents = 1000000) {
     tree->Branch("n_true_gamma", &n_true_gamma, "n_true_gamma/I");
 
     for (int i = 0; i < Nevents; i++) {
-        double Ebeam = rng.Uniform(threshold, 1.75);
+        double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
         beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;

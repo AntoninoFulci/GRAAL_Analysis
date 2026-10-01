@@ -7,6 +7,16 @@ import pytest
 from mc_simulation import mc_status as ms
 
 
+VIS_CHANNELS = (
+    "eta_pi0",
+    "pi0pi0",
+    "3pi0",
+    "eta_via_3pi0",
+    "4pi0",
+    "eta_pi0_via_3pi0",
+)
+
+
 def _make_mc(data_dir, name, age_days=0.0):
     path = data_dir / f"{name}_mc.root"
     path.write_bytes(b"")
@@ -114,3 +124,29 @@ def test_cli_help_still_exits_zero_via_systemexit():
     with pytest.raises(SystemExit) as excinfo:
         ms.main(["--help"])
     assert excinfo.value.code == 0
+
+
+def test_vis_subset_does_not_require_above_threshold_channels(tmp_path):
+    for name in VIS_CHANNELS:
+        _make_mc(tmp_path, name)
+
+    statuses = ms.status(tmp_path, channels=VIS_CHANNELS)
+
+    assert [item.name for item in statuses] == list(VIS_CHANNELS)
+    assert ms.all_present(statuses)
+
+
+def test_vis_subset_fails_when_required_channel_is_missing(tmp_path):
+    for name in VIS_CHANNELS[:-1]:
+        _make_mc(tmp_path, name)
+
+    assert not ms.all_present(ms.status(tmp_path, channels=VIS_CHANNELS))
+
+
+def test_cli_checks_only_requested_channel_subset(tmp_path):
+    for name in VIS_CHANNELS:
+        _make_mc(tmp_path, name)
+
+    assert ms.main(
+        ["--data-dir", str(tmp_path), "--channels", *VIS_CHANNELS]
+    ) == 0

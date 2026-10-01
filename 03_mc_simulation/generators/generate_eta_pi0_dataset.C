@@ -6,6 +6,7 @@
 #include <cmath>
 #include <TMath.h>
 #include "smearing.h"
+#include "beam_window.h"
 
 // ================================================================
 // Monte Carlo generator for the gamma p -> p eta pi0 reaction,
@@ -19,16 +20,22 @@
 // Run:  root -l '03_mc_simulation/generators/generate_eta_pi0_dataset.C(1000000)'
 // ================================================================
 
-void generate_eta_pi0_dataset(int Nevents = 1000000) {
+void generate_eta_pi0_dataset(int Nevents = 1000000,
+                              double requested_min_gev = -1.0,
+                              double requested_max_gev = 1.75,
+                              const char *output_path = "eta_pi0_mc.root") {
 
     double mp   = 0.938272;
     double meta = 0.547862;
     double mpi0 = 0.134977;
     double threshold = (pow(meta + mpi0 + mp, 2) - pow(mp, 2)) / (2 * mp);
+    const BeamWindow beam_window = ResolveBeamWindow(
+        threshold, requested_min_gev, requested_max_gev
+    );
 
     TRandom3 rng(0);
 
-    TFile *fout = new TFile("eta_pi0_mc.root", "RECREATE");
+    TFile *fout = new TFile(output_path, "RECREATE");
     TTree *tree = new TTree("mc", "eta pi0 MC events (true + smeared)");
 
     TLorentzVector beam, target;
@@ -66,7 +73,7 @@ void generate_eta_pi0_dataset(int Nevents = 1000000) {
         // flux its MC can populate, so a ceiling below the data's tail is no
         // longer cosmetic — it would understate every channel by the slice it
         // cannot reach.
-        double Ebeam = rng.Uniform(threshold, 1.75); // photon beam energy (GeV)
+        double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
 
         beam.SetPxPyPzE(0, 0, Ebeam, Ebeam);  // true beam
         beam_true = beam;

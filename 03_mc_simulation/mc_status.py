@@ -46,14 +46,19 @@ class ChannelStatus:
     age_days: float | None
 
 
-def status(data_dir: Path, now: datetime | None = None) -> list[ChannelStatus]:
-    """One ChannelStatus per channel, in CHANNELS order."""
+def status(
+    data_dir: Path,
+    now: datetime | None = None,
+    channels: tuple[str, ...] | list[str] = CHANNELS,
+) -> list[ChannelStatus]:
+    """One ChannelStatus per requested channel, preserving caller order."""
     data_dir = Path(data_dir)
     now = now or datetime.now()
 
     out = []
-    for name in CHANNELS:
-        path = data_dir / get_channel(name).mc_filename
+    for name in channels:
+        channel = get_channel(name)
+        path = data_dir / channel.mc_filename
         if path.exists():
             mtime = datetime.fromtimestamp(path.stat().st_mtime)
             age = (now - mtime).total_seconds() / 86400.0
@@ -102,9 +107,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         p = argparse.ArgumentParser(description="Check the Monte Carlo files on disk")
         p.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
+        p.add_argument(
+            "--channels",
+            nargs="+",
+            choices=CHANNELS,
+            default=CHANNELS,
+            help="channel subset to require (default: all registry channels)",
+        )
         args = p.parse_args(argv)
 
-        statuses = status(args.data_dir)
+        statuses = status(args.data_dir, channels=args.channels)
         report(statuses)
 
         return 0 if all_present(statuses) else 1

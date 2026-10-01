@@ -146,3 +146,64 @@ def test_generated_tagged_beam_is_massless(tmp_path: Path):
     assert np.all(px == 0.0)
     assert np.all(py == 0.0)
     assert np.max(np.abs(energy**2 - pz**2)) < 1e-12
+
+
+@pytest.mark.skipif(shutil.which("root") is None, reason="ROOT is not installed")
+def test_eta_pi0_generator_honors_requested_vis_window_and_output_path(
+    tmp_path: Path,
+):
+    macro = Path(
+        "03_mc_simulation/generators/generate_eta_pi0_dataset.C"
+    ).resolve()
+    output = tmp_path / "requested_eta_pi0.root"
+
+    subprocess.run(
+        [
+            "root",
+            "-l",
+            "-b",
+            "-q",
+            f'{macro}(200,0.95,1.00,"{output}")',
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    with uproot.open(output)["mc"] as tree:
+        beam_true = tree["beam_true"].array(library="ak")
+    energy = np.asarray(beam_true["fE"])
+    assert len(energy) == 200
+    assert np.all(energy >= 0.95)
+    assert np.all(energy < 1.00)
+
+
+@pytest.mark.skipif(shutil.which("root") is None, reason="ROOT is not installed")
+@pytest.mark.parametrize("path", GENERATOR_FILES, ids=lambda path: path.stem)
+def test_every_generator_accepts_explicit_window_and_output_path(
+    path: Path,
+    tmp_path: Path,
+):
+    macro = path.resolve()
+    output = tmp_path / f"{path.stem}.root"
+
+    subprocess.run(
+        [
+            "root",
+            "-l",
+            "-b",
+            "-q",
+            f'{macro}(20,1.50,1.60,"{output}")',
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    with uproot.open(output)["mc"] as tree:
+        beam = tree["beam"].array(library="ak")
+    energy = np.asarray(beam["fE"])
+    assert len(energy) == 20
+    assert 1.51 < float(energy.mean()) < 1.59

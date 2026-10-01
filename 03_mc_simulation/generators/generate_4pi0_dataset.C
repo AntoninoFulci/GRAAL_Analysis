@@ -5,17 +5,24 @@
 #include <TGenPhaseSpace.h>
 #include <TMath.h>
 #include "smearing.h"
+#include "beam_window.h"
 
 // gamma p -> p 4pi0 -> 8 gamma. Must lose 4 of its 8 photons to reach the
 // 4-photon topology, so its acceptance is small — which is exactly why the
 // weighting has to keep the survival fraction rather than normalise it away.
-void generate_4pi0_dataset(int Nevents = 1000000) {
+void generate_4pi0_dataset(int Nevents = 1000000,
+                           double requested_min_gev = -1.0,
+                           double requested_max_gev = 1.75,
+                           const char *output_path = "4pi0_mc.root") {
     const double mp   = 0.938272;
     const double mpi0 = 0.134977;
     const double threshold = (pow(4*mpi0 + mp, 2) - pow(mp, 2)) / (2*mp);
+    const BeamWindow beam_window = ResolveBeamWindow(
+        threshold, requested_min_gev, requested_max_gev
+    );
 
     TRandom3 rng(0);
-    TFile *fout = new TFile("4pi0_mc.root", "RECREATE");
+    TFile *fout = new TFile(output_path, "RECREATE");
     TTree *tree = new TTree("mc", "4pi0 background MC");
 
     TLorentzVector beam, proton, g0, g1, g2, g3, g4, g5, g6, g7;
@@ -29,7 +36,7 @@ void generate_4pi0_dataset(int Nevents = 1000000) {
     tree->Branch("n_true_gamma", &n_true_gamma, "n_true_gamma/I");
 
     for (int i = 0; i < Nevents; i++) {
-        double Ebeam = rng.Uniform(threshold, 1.75);
+        double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
         beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
