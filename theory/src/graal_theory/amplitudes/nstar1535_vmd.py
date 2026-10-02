@@ -110,8 +110,8 @@ def switching_energies(
                     lo, hi, xtol=1e-12,
                 )
             roots[i, j] = roots[j, i] = root
-    roots.setflags(write=False)
-    return roots
+    # Immutable bytes prevent callers from re-enabling writes to cached data.
+    return np.frombuffer(roots.tobytes(), dtype=np.float64).reshape((6, 6))
 
 
 def corrected_coefficients(

@@ -177,6 +177,15 @@ def test_switches_are_read_only_and_cache_is_preserved(parameters, vector_masses
     assert changed is not roots
 
 
+def test_cached_switches_cannot_be_made_writeable(parameters, vector_masses):
+    roots = switching_energies(parameters, vector_masses)
+    original = roots.copy()
+    with pytest.raises(ValueError):
+        roots.setflags(write=True)
+    np.testing.assert_array_equal(
+        switching_energies(parameters, vector_masses), original)
+
+
 @pytest.mark.parametrize("threshold_gap", [0.0, 0.001])
 def test_missing_switch_is_rejected(parameters, vector_masses, threshold_gap):
     mesons = list(parameters.meson_masses_gev)
