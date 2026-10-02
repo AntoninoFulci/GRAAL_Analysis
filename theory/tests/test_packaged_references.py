@@ -7,5 +7,6 @@ def test_reference_files_are_package_resources():
         "figure14_eta_p_tree.csv", "figure19_total_1202.csv",
         "nstar1535_final_subtractions.json",
         "nstar1535_vmd_masses.json",
+        "eta_pi0_p_full_parameters.json",
     ):
         assert _REFERENCES.joinpath(filename).is_file()

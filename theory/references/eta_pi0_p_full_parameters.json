@@ -1,0 +1,21 @@
+{
+  "electric_charge": {"value": 0.3027, "unit": "1", "source_key": "nacher_2001", "locator": "PDF p. 30, Appendix A3 coupling-constant table, e = 0.3027"},
+  "axial_d": {"value": 0.75, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-3, Eq. (7) defines D; baseline reconstruction convention; value not printed, D = 0.75"},
+  "axial_f": {"value": 0.51, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-3, Eq. (7) defines F; baseline reconstruction convention; value not printed, F = 0.51"},
+  "b6d": {"value": 2.40, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-7, below Eq. (19), b6D = 2.40; Table III and Eq. (21)"},
+  "b6f": {"value": 1.82, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-7, below Eq. (19), b6F = 1.82; Table III and Eq. (21)"},
+  "first_loop_cutoff_gev": {"value": 1.4, "unit": "GeV", "source_key": "doering_2006_prc", "locator": "p. 045209-4, below Eq. (8), cutoff Lambda = 1400 MeV, retained for following sections; p. 045209-9, below Eq. (26)"},
+  "pion_form_factor_cutoff_gev": {"value": 1.25, "unit": "GeV", "source_key": "doering_2006_prc", "locator": "p. 045209-8, paragraph following Eq. (25), monopole F_pi with Lambda = 1.25 GeV"},
+  "nstar1520_mass_gev": {"value": 1.520, "unit": "GeV", "source_key": "nacher_2001", "locator": "PDF pp. 7-8, N*(1520) resonance in Eqs. (13)-(16); baseline reconstruction convention uses nominal resonance-label mass 1520 MeV"},
+  "nstar1520_npi_width_gev": {"value": 0.066, "unit": "GeV", "source_key": "nacher_2001", "locator": "PDF p. 8, below Eq. (15), pole N*pi partial width = 66 MeV"},
+  "f_tilde_nstar_delta_pi": {"value": -1.061, "unit": "1", "source_key": "nacher_2001", "locator": "PDF p. 7, Eq. (14), solution (b) selected on p. 8; Appendix A3, PDF p. 30"},
+  "g_tilde_nstar_delta_pi": {"value": 0.640, "unit": "1", "source_key": "nacher_2001", "locator": "PDF p. 7, Eq. (14), solution (b) selected on p. 8; Appendix A3, PDF p. 30"},
+  "g1_nstar": {"value": 0.782, "unit": "m_N^-1", "source_key": "nacher_2001", "locator": "PDF p. 30, Appendix A3 coupling-constant table, g1 = 0.782 m^-1 (nucleon mass)"},
+  "g2_nstar": {"value": -0.410, "unit": "m_N^-2", "source_key": "nacher_2001", "locator": "PDF p. 30, Appendix A3 coupling-constant table, g2 = -0.410 m^-2 (nucleon mass)"},
+  "g_rho_nstar": {"value": 5.09, "unit": "1", "source_key": "nacher_2001", "locator": "PDF p. 9, below Eq. (21), Eq. (16) refit with rho form factor yields g_rho = 5.09; Appendix A3, PDF p. 30"},
+  "sigma_star_mass_gev": {"value": 1.385, "unit": "GeV", "source_key": "pdg_2024", "locator": "Baryon Summary Tables p. 29, Sigma(1385) charge-specific mass entries; baseline reconstruction convention; adopts isospin-symmetric 1.385 GeV, not a printed PDG mass"},
+  "sigma_star_width_gev": {"value": 0.036, "unit": "GeV", "source_key": "doering_2006_prc", "locator": "p. 045209-11, paragraph following Eq. (42), Sigma*(1385) rest width = 36 MeV"},
+  "g_k_sigma_star": {"value": {"real": 3.3, "imag": 0.7}, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-10, paragraph following Eq. (37), g_K = 3.3 + i0.7 adopted for Eqs. (40)-(41)"},
+  "sigma_star_su3_correction": {"value": 1.15, "unit": "1", "source_key": "doering_2006_prc", "locator": "Eqs. (40) and (42), pp. 045209-10 to 045209-11; paragraph following Eq. (42), phenomenological SU(3) Sigma*piLambda coupling correction = 1.15"},
+  "proton_mass": {"value": 0.93827208816, "unit": "GeV", "source_key": "pdg_2024", "locator": "Baryon Summary Tables p. 1, proton mass = 938.27208816 MeV; nucleon-mass convention for converting m_N^-1 and m_N^-2"}
+}
