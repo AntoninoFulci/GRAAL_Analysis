@@ -266,6 +266,19 @@ def test_eta_rejects_malformed_parameter_records_with_context(parameters, strong
         loops.eta_photoproduction_amplitude(1.62, [1., 0, 0], parameters, strong_parameters, lambda z: np.eye(6))
 
 
+@pytest.mark.parametrize("field", ["electric_charge", "axial_d", "axial_f"])
+@pytest.mark.parametrize("bad", [None, True, 1j, np.nan, np.inf, -np.inf])
+def test_eta_replacement_record_rejects_invalid_real_couplings_with_context(parameters, strong_parameters, field, bad):
+    # Catches trusting the record type despite replace() bypassing loader checks:
+    # None must not leak TypeError, bool/complex must not change physical couplings,
+    # and nonfinite failures must name the field as well as family/invariant.
+    changed = replace(parameters, **{field: bad})
+    t = np.zeros((6, 6), dtype=complex)
+    t[1, 2] = 1.
+    with pytest.raises(ValueError, match=rf"eta photoproduction.*invariant=1\.62.*{field}"):
+        loops.eta_photoproduction_amplitude(1.62, [1., 0, 0], changed, strong_parameters, lambda z: t)
+
+
 def test_eta_strong_t_pole_is_reported_with_family_and_invariant(parameters, strong_parameters):
     def pole(w):
         raise ZeroDivisionError("genuine T pole")

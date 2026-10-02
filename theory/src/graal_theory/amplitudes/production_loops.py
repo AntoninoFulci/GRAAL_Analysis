@@ -383,6 +383,11 @@ def eta_photoproduction_amplitude(
             or not isinstance(strong_parameters, ReducedTParameters)):
         raise ValueError(f"{context}: requires production and strong parameter records")
     try:
+        for field in ("electric_charge", "axial_d", "axial_f"):
+            _finite_real(getattr(production, field), field)
+    except ValueError as exc:
+        raise ValueError(f"{context}: {exc}") from exc
+    try:
         w = _validated_energy(sqrt_s, strong_parameters)
         if w <= strong_parameters.baryon_masses_gev[0]:
             raise ValueError("invariant must exceed proton mass")
