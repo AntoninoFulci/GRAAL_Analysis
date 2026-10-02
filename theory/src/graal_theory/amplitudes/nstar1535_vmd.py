@@ -81,10 +81,10 @@ def _factor(
 
 
 @lru_cache(maxsize=128)
-def switching_energies(
+def _switching_energy_bytes(
     parameters: ReducedTParameters, masses: VectorMasses,
-) -> NDArray[np.float64]:
-    """Return read-only F=1 switches in GeV, bracketed by pair thresholds.
+) -> bytes:
+    """Cache immutable F=1 switches, bracketed by pair thresholds.
 
     Only nonzero WT pairs are evaluated. Zero coefficients have NaN switches;
     a missing crossing raises rather than silently changing the prescription.
@@ -110,8 +110,20 @@ def switching_energies(
                     lo, hi, xtol=1e-12,
                 )
             roots[i, j] = roots[j, i] = root
-    # Immutable bytes prevent callers from re-enabling writes to cached data.
-    return np.frombuffer(roots.tobytes(), dtype=np.float64).reshape((6, 6))
+    return roots.tobytes()
+
+
+def switching_energies(
+    parameters: ReducedTParameters, masses: VectorMasses,
+) -> NDArray[np.float64]:
+    """Return a read-only float64 6×6 view of cached F=1 switches in GeV.
+
+    Each call has its own array metadata, so caller changes to dtype or shape
+    cannot alter subsequent switches or predictions. The shared bytes prevent
+    callers from re-enabling data writes.
+    """
+    return np.frombuffer(
+        _switching_energy_bytes(parameters, masses), dtype=np.float64).reshape((6, 6))
 
 
 def corrected_coefficients(

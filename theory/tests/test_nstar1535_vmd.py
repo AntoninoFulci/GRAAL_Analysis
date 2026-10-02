@@ -11,8 +11,8 @@ from graal_theory.amplitudes.nstar1535_reduced import (
     C_COEFFICIENTS, load_reduced_parameters, wt_kernel,
 )
 from graal_theory.amplitudes.nstar1535_vmd import (
-    VECTOR_SPECIES, VectorMasses, corrected_coefficients, load_vector_masses,
-    switching_energies, vmd_kernel,
+    VECTOR_SPECIES, VectorMasses, _switching_energy_bytes, corrected_coefficients,
+    load_vector_masses, switching_energies, vmd_kernel,
 )
 from graal_theory.amplitudes.vmd import angular_factor
 from graal_theory.cli import _REFERENCES
@@ -165,6 +165,7 @@ def test_switches_are_bracketed_and_continuous(parameters, vector_masses):
 
 
 def test_switches_are_read_only_and_cache_is_preserved(parameters, vector_masses):
+    _switching_energy_bytes.cache_clear()
     roots = switching_energies(parameters, vector_masses)
     original = roots.copy()
     with pytest.raises(ValueError, match="read-only"):
@@ -172,9 +173,15 @@ def test_switches_are_read_only_and_cache_is_preserved(parameters, vector_masses
     np.testing.assert_array_equal(
         switching_energies(parameters, vector_masses), original)
     # Equal immutable values must reuse the cache; changed values must not.
-    assert switching_energies(replace(parameters), replace(vector_masses)) is roots
+    cache_before = _switching_energy_bytes.cache_info()
+    np.testing.assert_array_equal(
+        switching_energies(replace(parameters), replace(vector_masses)), original)
+    cache_equal = _switching_energy_bytes.cache_info()
+    assert cache_equal.hits == cache_before.hits + 1
+    assert cache_equal.misses == cache_before.misses
     changed = switching_energies(parameters, replace(vector_masses, rho_gev=0.8))
-    assert changed is not roots
+    assert _switching_energy_bytes.cache_info().misses == cache_equal.misses + 1
+    assert not np.array_equal(changed, original, equal_nan=True)
 
 
 def test_cached_switches_cannot_be_made_writeable(parameters, vector_masses):
@@ -184,6 +191,32 @@ def test_cached_switches_cannot_be_made_writeable(parameters, vector_masses):
         roots.setflags(write=True)
     np.testing.assert_array_equal(
         switching_energies(parameters, vector_masses), original)
+
+
+@pytest.mark.parametrize("metadata,value", [("dtype", np.uint64), ("shape", (36,))])
+@pytest.mark.filterwarnings(
+    "ignore:Setting the (dtype|shape) on a NumPy array has been deprecated:DeprecationWarning")
+def test_switch_metadata_cannot_change_later_predictions(
+    parameters, vector_masses, metadata, value,
+):
+    roots = switching_energies(parameters, vector_masses)
+    original = roots.copy()
+    coefficients = corrected_coefficients(1.5, parameters, vector_masses)
+    kernel = vmd_kernel(1.5, parameters, vector_masses)
+    original_metadata = getattr(roots, metadata)
+    try:
+        setattr(roots, metadata, value)
+        np.testing.assert_array_equal(
+            corrected_coefficients(1.5, parameters, vector_masses), coefficients)
+        np.testing.assert_array_equal(
+            vmd_kernel(1.5, parameters, vector_masses), kernel)
+        later = switching_energies(parameters, vector_masses)
+        assert later.dtype == np.float64
+        assert later.shape == (6, 6)
+        assert not later.flags.writeable
+        np.testing.assert_array_equal(later, original)
+    finally:
+        setattr(roots, metadata, original_metadata)
 
 
 @pytest.mark.parametrize("threshold_gap", [0.0, 0.001])
