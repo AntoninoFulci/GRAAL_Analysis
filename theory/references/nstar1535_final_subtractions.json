@@ -1,0 +1,32 @@
+{
+  "mu": {
+    "value": 1.2,
+    "unit": "GeV",
+    "source_key": "inoue_2002",
+    "locator": "Eq. (28)"
+  },
+  "a_piN": {
+    "value": 2.0,
+    "unit": "1",
+    "source_key": "inoue_2002",
+    "locator": "Eq. (28)"
+  },
+  "a_etaN": {
+    "value": 0.1,
+    "unit": "1",
+    "source_key": "inoue_2002",
+    "locator": "Eq. (28)"
+  },
+  "a_KLambda": {
+    "value": 1.5,
+    "unit": "1",
+    "source_key": "inoue_2002",
+    "locator": "Eq. (28)"
+  },
+  "a_KSigma": {
+    "value": -2.8,
+    "unit": "1",
+    "source_key": "inoue_2002",
+    "locator": "Eq. (28)"
+  }
+}
