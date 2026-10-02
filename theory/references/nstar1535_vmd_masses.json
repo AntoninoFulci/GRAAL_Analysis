@@ -1,0 +1,14 @@
+{
+  "m_rho": {
+    "value": 0.770,
+    "unit": "GeV",
+    "source_key": "inoue_2002",
+    "locator": "Sec. II B, Eq. (13), p. 035204-5"
+  },
+  "m_kstar": {
+    "value": 0.892,
+    "unit": "GeV",
+    "source_key": "inoue_2002",
+    "locator": "Sec. II B, p. 035204-5"
+  }
+}
