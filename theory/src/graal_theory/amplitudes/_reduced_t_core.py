@@ -53,13 +53,12 @@ def loop_functions(w_gev: float, parameters: ReducedTParameters) -> NDArray[np.c
              + q/w*logs)).astype(np.complex128)
 
 
-def reduced_tmatrix(
-    w_gev: float, parameters: ReducedTParameters, coefficients: NDArray[np.float64],
+def solve_tmatrix(
+    v: NDArray[np.float64] | NDArray[np.complex128],
+    g: NDArray[np.complex128],
 ) -> NDArray[np.complex128]:
-    """Solve (I - VG)T = V for the reduced on-shell strong amplitude."""
-    v = wt_kernel(w_gev, parameters, coefficients)
-    g = loop_functions(w_gev, parameters)
-    size = len(parameters.meson_masses_gev)
+    """Solve (I - VG)T = V with the reduced amplitude's numerical guards."""
+    size = v.shape[0]
     system = np.eye(size, dtype=complex)-v*g[None, :]
     try:
         condition = np.linalg.cond(system)
@@ -72,3 +71,12 @@ def reduced_tmatrix(
     if not np.all(np.isfinite(t)):
         raise ValueError("reduced T is nonfinite")
     return np.asarray(t, dtype=np.complex128)
+
+
+def reduced_tmatrix(
+    w_gev: float, parameters: ReducedTParameters, coefficients: NDArray[np.float64],
+) -> NDArray[np.complex128]:
+    """Solve (I - VG)T = V for the reduced on-shell strong amplitude."""
+    v = wt_kernel(w_gev, parameters, coefficients)
+    g = loop_functions(w_gev, parameters)
+    return solve_tmatrix(v, g)
