@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "source_key": "doering_2006_prc",
+  "doi": "10.1103/PhysRevC.73.045209",
+  "pdf_sha256": "19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb",
+  "extraction_date": "2026-10-05",
+  "reading_method": "Independent source-only extraction. Visually audit complete Poppler 150 dpi pages and 400 dpi figure crops; read the identifiable vector stroke centers from pdftocairo SVG paths at five specified invariant masses. Linear sampling within the published polyline is graphical digitization, never model interpolation. Caption line styles are checked against SVG dash arrays. Values are rounded to six decimals; fixed conservative reading errors include stroke width, calibration, sampling and crossings. No model output or fitted scale enters these readings.",
+  "units": {"x_gev": "GeV", "eta_p": "microbarn/GeV", "total": "microbarn"},
+  "figures": {
+    "12": {
+      "page_in_pdf": 11, "printed_page": "045209-11", "figure": 12,
+      "photon_energy_gev": 1.2, "raster_dpi": 400,
+      "crop_origin_pixels": [1880, 2750],
+      "axis_calibration": {"coordinate_system": "PDF points, bottom-left origin",
+        "x_at_1500_mev": 361.023438, "x_at_1520_mev": 388.988281,
+        "y_at_zero": 163.546875, "y_at_0_2_microbarn_per_gev": 193.808594},
+      "ambiguity_notes": "Dotted, solid, dash-dot and double-dash-dot strokes are identifiable; crossing tails outside chosen masses were not sampled. Caption double dashed dotted corresponds to SVG dash + dot + dot (4.182 2.091 0.209 2.091 0.209 2.091)."
+    },
+    "13": {
+      "page_in_pdf": 12, "printed_page": "045209-12", "figure": 13,
+      "photon_energy_gev": 1.2, "raster_dpi": 400,
+      "crop_origin_pixels": [360, 340],
+      "axis_calibration": {"coordinate_system": "PDF points, bottom-left origin",
+        "x_at_1500_mev": 101.03125, "x_at_1520_mev": 128.550781,
+        "y_at_zero": 600.46875, "y_at_0_02_microbarn_per_gev": 619.582031},
+      "ambiguity_notes": "Stroke identities are readable, but individual kernels are not separately available through the whole-family diagnostic API. Every point stays unresolved for source-to-model mapping. No individual stroke is compared to a coherent family sum."
+    },
+    "14": {
+      "page_in_pdf": 12, "printed_page": "045209-12", "figure": 14,
+      "photon_energy_gev": 1.2, "raster_dpi": 400,
+      "crop_origin_pixels": [360, 2700],
+      "axis_calibration": {"coordinate_system": "PDF points, bottom-left origin",
+        "x_at_1500_mev": 96.742188, "x_at_1520_mev": 124.902344,
+        "y_at_zero": 173.503906, "y_at_20_microbarn_per_gev": 215.496094},
+      "ambiguity_notes": "Solid and dashed centerlines are independently readable even near their crossing using SVG path styles. The dotted Eq.43 record is reused exactly; reduced coherent API capability is absent and recorded as unresolved."
+    },
+    "19": {
+      "page_in_pdf": 15, "printed_page": "045209-15", "figure": 19,
+      "photon_energy_gev": null, "raster_dpi": 400,
+      "crop_origin_pixels": [300, 300],
+      "axis_calibration": {"linked_metadata": "digitization.json", "record": "figure19_total_1202"},
+      "ambiguity_notes": "Reuse the audited solid full-model point at 1.202 GeV, with 0.10 microbarn reading uncertainty. Dashed reduced and dash-dot phenomenological curves are not additional digitized inputs in this increment."
+    }
+  },
+  "curves": {
+    "fig12_contact": {"figure": 12, "curve": "Fig.6 contact including anomalous magnetic moment", "line_style": "dotted", "family": "chiral_contact", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig12_external": {"figure": 12, "curve": "Fig.7 meson pole plus Kroll-Ruderman", "line_style": "dash_dot", "family": "external_pi0", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig12_internal": {"figure": 12, "curve": "Fig.8 intermediate pion emission", "line_style": "solid", "family": "internal_pi0", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig12_k_sigma": {"figure": 12, "curve": "Fig.10 Delta*(1700) K Sigma*, Eqs.40-41", "line_style": "double_dash_dot", "family": "k_sigma_star_rescattering", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Published stroke contains Eqs.40-41 only; implemented whole family includes coherent Eq.42 Sigma* KR. Whole-family diagnostic is not this individual source stroke.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig13_delta1700": {"figure": 13, "curve": "Fig.9(e) Delta*(1700) pi Delta, Eqs.30,33", "line_style": "dotted", "family": "explicit_resonances", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Published individual Delta*(1700) kernel cannot be isolated by whole-family explicit_resonances diagnostic, which coherently includes N*(1520) and Delta KR+pion-pole.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig13_nstar1520": {"figure": 13, "curve": "Fig.9(e) N*(1520) pi Delta, Eqs.31,34", "line_style": "solid", "family": "explicit_resonances", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Published individual N*(1520) kernel cannot be isolated by whole-family explicit_resonances diagnostic.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig13_delta_kr": {"figure": 13, "curve": "Fig.9(f) Delta KR+pion-pole, Eq.32", "line_style": "dash_dot", "family": "explicit_resonances", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Published individual Delta KR+pion-pole kernel cannot be isolated by whole-family explicit_resonances diagnostic.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig13_sigma_kr": {"figure": 13, "curve": "Fig.10 Sigma* Kroll-Ruderman, Eq.42", "line_style": "double_dash_dot", "family": "k_sigma_star_rescattering", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Published Eq.42-only kernel belongs to the indivisible k_sigma_star_rescattering family containing coherent Eqs.40-42; no equivalent individual diagnostic.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig14_eta_delta": {"figure": 14, "curve": "Fig.10 eta Delta rescattering, Eq.39", "line_style": "dash_dot", "family": "eta_delta_rescattering", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig14_tree": {"figure": 14, "curve": "Fig.11 tree, Eq.43", "line_style": "dotted", "family": "eq43_tree", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "figure14_eta_p_tree.csv", "metadata_filename": "digitization.json", "metadata_record": "figure14_eta_p_tree", "columns": ["mass_gev", "dsigma_dmass_microbarn_per_gev"]}},
+    "fig14_full": {"figure": 14, "curve": "All contributions coherent, full N*(1535)", "line_style": "solid", "family": "full", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": false, "ambiguity_note": "", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig14_reduced": {"figure": 14, "curve": "All contributions coherent, reduced N*(1535)", "line_style": "dashed", "family": "reduced", "photon_energy_gev": 1.2, "observable": "eta_p", "unresolved": true, "ambiguity_note": "Capability gap: EtaPi0PFullModel hardcodes reconstructed_full_tmatrix with final-fit parameters; no source-faithful reduced_tmatrix closure with reduced parameters for all families. Reduced coherent output was not substituted.", "source": {"filename": "p73_full_production_curves.csv"}},
+    "fig19_full": {"figure": 19, "curve": "Integrated coherent full N*(1535)", "line_style": "solid", "family": "full", "photon_energy_gev": null, "observable": "total", "unresolved": false, "ambiguity_note": "", "source": {"filename": "figure19_total_1202.csv", "metadata_filename": "digitization.json", "metadata_record": "figure19_total_1202", "columns": ["photon_energy_gev", "total_cross_section_microbarn"]}}
+  }
+}
