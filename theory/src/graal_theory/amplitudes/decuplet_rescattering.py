@@ -170,6 +170,8 @@ def _inputs(sample, polarization, production, tree, strong_parameters, strong_t,
                 raise ValueError("sigma_star_mass_gev must exceed Lambda-pi0 threshold")
         else:
             _complex_scalar(tree.g_eta_delta, label+" g_eta_delta")
+            if tree.delta_mass_gev <= strong_parameters.baryon_masses_gev[0]+strong_parameters.meson_masses_gev[0]:
+                raise ValueError("delta_mass_gev must exceed proton-pi0 threshold")
         initial, momenta = _real_array(sample.initial, label), _real_array(sample.momenta, label)
         if momenta.ndim != 3 or momenta.shape[1:] != (3, 4) or initial.shape != (len(momenta), 4):
             raise ValueError("invalid sample shape")

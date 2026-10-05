@@ -401,6 +401,25 @@ def test_k_replacement_parameters_are_validated_before_zero_transition(
             tree, strong, lambda z: np.zeros((6, 6)))
 
 
+@pytest.mark.parametrize("offset", [0., -.05])
+@pytest.mark.parametrize("different_tree_masses", [False, True])
+def test_eta_delta_daughter_threshold_is_validated_before_zero_transition(
+        decuplet, production, tree, strong, sample, offset, different_tree_masses):
+    # Catches the zero-T bypass, equality acceptance, and using tree daughters.
+    threshold = strong.baryon_masses_gev[0]+strong.meson_masses_gev[0]
+    invalid_tree = replace(tree, delta_mass_gev=threshold+offset)
+    if different_tree_masses:
+        invalid_tree = replace(invalid_tree, proton_mass_gev=.8, pi0_mass_gev=.1)
+    calls = []
+    def zero_t(z):
+        calls.append(z)
+        return np.zeros((6, 6), complex)
+    with pytest.raises(ValueError, match="eta_delta.*delta_mass_gev.*proton-pi0 threshold"):
+        decuplet.eta_delta_rescattering_amplitude(sample, EPSILON, production,
+            invalid_tree, strong, zero_t)
+    assert calls == []
+
+
 def test_k_zero_channel_coefficient_map_is_immutable(decuplet):
     # An exposed mapping must not let a caller turn physical channel 4 on.
     coefficients = decuplet.K_SIGMA_STAR_COEFFICIENTS
