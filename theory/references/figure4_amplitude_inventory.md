@@ -3,8 +3,10 @@
 Scope: `gamma p -> eta pi0 p` model behind Ajaka et al., *Phys. Rev.
 Lett.* **100**, 052003 (2008), Fig. 4. This inventory maps the production
 and rescattering contributions described by Döring, Oset, and Strottman,
-*Phys. Rev. C* **73**, 045209 (2006). It is **not** an implemented coherent
-model. Equation numbers and figure numbers below refer to that PRC paper.
+*Phys. Rev. C* **73**, 045209 (2006). The seven-family coherent implementation
+exists as `EtaPi0PFullModel`; its physical convergence and curve-validation
+exit gate is **not passed**. Equation and figure numbers below refer to that
+PRC paper. **“code complete” is independent of “curve compatible.”**
 
 ## Source availability
 
@@ -16,7 +18,7 @@ model. Equation numbers and figure numbers below refer to that PRC paper.
 | S. Sarkar, E. Oset, M. J. Vicente Vacas, *Nucl. Phys. A* **750**, 294 (2005), PRC Ref. [21] | Dynamically generated `Delta*(1700)` couplings to `eta Delta` and `K Sigma*` | `tmp/pdfs/nucl-th-0407025.pdf` | `1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af` |
 | T. Inoue, E. Oset, M. J. Vicente Vacas, *Phys. Rev. C* **65**, 035204 (2002), PRC Ref. [8] | `N*(1535)` six-channel `T` matrix, loop `G`, subtraction/regularization, full/reduced variants | `tmp/pdfs/PhysRevC.65.035204.pdf` | `e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac` |
 | M. Döring, E. Oset, M. J. Vicente Vacas, *Phys. Rev. C* **70**, 045203 (2004), PRC Ref. [25] | Later low-energy treatment of the `pi pi N` correction cited after Eq. (6); compare conventions, but do not substitute its constant-vertex approximation for Ref. [8] | `tmp/pdfs/PhysRevC.70.045203.pdf` | `7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f` |
-| M. N. Butler, M. J. Savage, R. P. Springer, *Nucl. Phys. B* **399**, 69 (1993), PRC Ref. [40] | Adopted decuplet effective Lagrangian and state phases in Sec. IV D, Eq. (38) | `tmp/pdfs/9211247v1.pdf` (author preprint `hep-ph/9211247v1`, not journal PDF) | `a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29`; phase cross-check pending |
+| M. N. Butler, M. J. Savage, R. P. Springer, *Nucl. Phys. B* **399**, 69 (1993), PRC Ref. [40] | Adopted decuplet effective Lagrangian and state phases in Sec. IV D, Eq. (38) | `tmp/pdfs/9211247v1.pdf` (author preprint `hep-ph/9211247v1`, not journal PDF) | `a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29`; Task 5 checked preprint Eqs. (2.9)–(2.11) |
 | E. Oset, A. Ramos, *Nucl. Phys. A* **679**, 616 (2001), PRC Ref. [41] | Comparison SU(3) factors, explicitly up to a different phase | Not supplied | Comparison only; not the adopted convention |
 
 The PRC paper prints the charge-`+1` channel order, leading potential,
@@ -36,51 +38,65 @@ Ref. [40], stating agreement with Ref. [21]. It compares the resulting
 SU(3) factors with Ref. [41] **up to a different phase**; [41] is not the
 source of the adopted convention. An author preprint of [40] is supplied;
 the comparison paper [41] is not.
-Eqs. (39)–(42) print the factors used here, but their relative phase
-still needs an explicit cross-check against the supplied [40] preprint
-before coding.
+Task 5 checked the supplied [40] preprint: `T112=Delta+/sqrt(3)`,
+`T113=Sigma*+/sqrt(3)`, `T123=Sigma*0/sqrt(6)`. Eqs. (39)–(42) set the
+implemented factors. In particular Eq. (41) is `(2D+F)/(10 f_pi)` and
+Eq. (42) contains `4 sqrt(3)/25`; plan transcription alternatives were
+not substituted. Only kaon topologies use the intermediate `Sigma*`;
+Eq. (39) retains `Delta(1232)`.
 
 ## Amplitude families
 
-`source_available_not_implemented` means primary sources are present, but
-equation-level mapping, conventions, numerical validation, or coding remain.
+Each family is independently callable through its listed function and through
+`selected_amplitude(sample, polarization, (family_name,))`. These diagnostics
+select complete families. The physical `amplitude` always sums all seven
+complex spin matrices before squaring; internal gauge partners cannot be
+selected separately. Paths in this table are relative to `theory/`.
 
-| Family | PRC locator | Needed external source | Phase/coupling evidence | Local PDF | Status |
+| Family / source equation | Implementation | Parameter source record | Unit-test evidence | Convergence status | Comparison curve/status and remaining discrepancy |
 | --- | --- | --- | --- | --- | --- |
-| `N*(1535)` coupled-channel transition matrix `T^(i3)` and loop `G_i` | Sec. II, Eqs. (1)–(6), Table I; Sec. III, Eq. (8) | Ref. [8] for projected `V`, `G`, and full/reduced variants; Ref. [25] for comparison of `pi pi N` conventions | Channel order `(pi0 p, pi+ n, eta p, K+ Sigma0, K+ Lambda, K0 Sigma+)` fixed by Eq. (1); coherent complex matrix required by Eq. (5) | PRC and Refs. [8], [25] present | **source_available_not_implemented** |
-| Chiral magnetic/contact photoproduction with rescattering | Fig. 6, Eq. (21); Sec. IV A | Ref. [8] for `G_j T^(j3)` | `b6D`, `b6F` and `X1j`, `Y1j` appear in Eqs. (16)–(21); minimal versus anomalous magnetic terms must retain paper convention | PRC and Ref. [8] present | **source_available_not_implemented** |
-| External `pi0` emission around `gamma p -> eta p` (KR and meson-pole subamplitudes) | Fig. 7, Eq. (24), using Sec. III Eqs. (8)–(9) | Ref. [8] for the `gamma p -> eta p` rescattering amplitude | Eq. (24) fixes recoil `sigma · p_pi` factor; Eq. (9) is coherent KR + meson pole, not their squared sum | PRC and Ref. [8] present | **source_available_not_implemented** |
-| `pi0` emission inside first meson–baryon loop | Fig. 8(c,d), Eq. (25) | Ref. [8] for `T^(i3)`; Ref. [17] for monopole `F_pi` convention | Diagram (d) and form factor pairing are required by the paper's gauge-invariance argument; nonzero channels 2, 4, 5 are printed after Eq. (25) | PRC and Refs. [8], [17] present | **source_available_not_implemented** |
-| Explicit `Delta*(1700) pi Delta`, `N*(1520) pi Delta`, and `Delta` KR/pole production kernels | Fig. 9(e,f), Eqs. (26)–(36); Fig. 13 | Ref. [17] for resonance couplings, width and form-factor conventions; Ref. [8] for final `T^(i3)` | Eqs. (28)–(35) specify charge-channel factors; Eq. (26) sums **complex** amplitudes before squaring; KR pole factor in Eq. (32) cannot be omitted | PRC and Refs. [8], [17] present | **source_available_not_implemented** |
-| `Delta*(1700) -> eta Delta` rescattering | Fig. 10, Eq. (39) inserted into Eq. (26); Fig. 14 dash-dot | Ref. [21] for `g_eta`; Ref. [17] for electromagnetic coupling/width; Ref. [8] for `eta p -> eta p` `T^(33)`; Ref. [40] for adopted state phases | PRC Sec. IV D adopts Ref. [40]/[21] phase convention; `g_eta`/`g_K` also share a global sign tied to empirical `Delta pi` analysis; relative complex phase must be preserved | PRC and Refs. [8], [17], [21], [40] present (last as preprint) | **source_available_not_implemented** |
-| `Delta*(1700) -> K Sigma*` rescattering and `Sigma*` KR term | Fig. 10, Eqs. (40)–(42) inserted into Eq. (26); Figs. 12–13 | Ref. [21] for `g_K`; Ref. [17] for production couplings; Ref. [8] for `K Sigma/K Lambda -> eta p` transitions; Ref. [40] for adopted state phases | Eqs. (40)–(42) supply charge/SU(3) factors and the 1.15 empirical correction; `Sigma*` propagator replaces `Delta` one in Eq. (26) | PRC and Refs. [8], [17], [21], [40] present (last as preprint) | **source_available_not_implemented** |
-| Isolated `Delta*(1700) -> eta Delta -> eta pi0 p` tree | Fig. 11, Eqs. (39), (43)–(44); Fig. 14 dotted | Ref. [17] and [21] as already documented in `parameter_provenance.md` | Existing code uses complete Eq. (39) production spin matrix and polarized Eq. (43) amplitude; does **not** include Eq. (26) rescattering | PRC, Ref. [17], Ref. [21] present | **implemented_partial** |
+| `chiral_contact`: Fig. 6, Eqs. (16)–(21), Table III | `src/graal_theory/amplitudes/chiral_photoproduction.py:chiral_contact_amplitude` | `eta_pi0_p_full_parameters.json`: `electric_charge`, `b6d`, `b6f`; strong dependency below | `test_chiral_photoproduction.py`: `test_contact_eta_column_isolates_table_iii_and_ordinary_magnetic_limit`, `test_contact_ordinary_term_equals_charge_weighted_wt_coefficient` | No first-loop quadrature; real strong closure is finite inside its domain. Task 7 p4/5 spectra fail the Sobol gate; end-to-end convergence unestablished. | Fig. 12 dotted: 5 masked overlap points, 0 accepted comparisons. Upper-energy external strong invariants can exceed its trusted domain. |
+| `external_pi0`: Fig. 7, Eq. (24), coherent Eqs. (8)–(9) | `src/graal_theory/amplitudes/chiral_photoproduction.py:external_pi0_amplitude`; `production_loops.py:eta_photoproduction_amplitude` | `eta_pi0_p_full_parameters.json`: axial, charge and first-loop-cutoff inputs; strong dependency below | `test_chiral_photoproduction.py`: `test_external_complete_eta_pair_propagator_spin_order_and_printed_i`, `test_external_uses_real_coherent_eta_pair`; `test_production_loops.py` | Direct KR+meson-pole pair has checked configured/doubled orders. Task 7 p4/5 spectra fail the Sobol gate; no end-to-end convergence claim. | Fig. 12 dash-dot: 5 masked overlap points. Printed recoil spin order and explicit `i` retained; no accepted source comparison. |
+| `internal_pi0`: Fig. 8(c,d), Eq. (25), channels 2/4/5 | `src/graal_theory/amplitudes/chiral_photoproduction.py:internal_pi0_amplitude` | `eta_pi0_p_full_parameters.json`: axial, charge, first-loop and pion-monopole cutoffs; strong dependency below | `test_chiral_photoproduction.py`: independent Eq. (25) channel oracle and closed-channel tests; `test_full_production_convergence.py:test_source_internal_pi0_real_strong_amplitude_at_converged_loop_orders` | Source event 15, `K+Lambda`, `z=1.60842859385` GeV fails strict q/angle16 and 32, passes the isolated 64/128 complex-amplitude check. This single event does not certify the full spectrum. | Fig. 12 solid: 5 masked overlap points. Task 7 failure propagates to the full coherent output; no parameter/tolerance adjustment. |
+| `explicit_resonances`: Fig. 9(e,f), Eqs. (26)–(36) | `src/graal_theory/amplitudes/resonance_photoproduction.py:explicit_resonance_amplitude` | `eta_pi0_p_full_parameters.json`: N*(1520) mass/width/couplings and form factor; `central_parameters.json`: Delta*(1700)/Delta inputs; strong dependency below | `test_resonance_photoproduction.py`: printed kernel phase/channel/pole-partner oracle, source partial-width integrals and coherent wrapper tests | Strict threshold+1 MeV full q/angle16 fails Eq. (26), event 0, `pi+n`, `z=1.48664055351` GeV. q/angle32 yields finite p4 output at high runtime; full loop+Sobol convergence not established. | Fig. 13 dotted/solid/dash-dot individual kernels: 15 unresolved points. The indivisible coherent family is not equivalent to any individual stroke; no kernel split was introduced. |
+| `eta_delta_rescattering`: Fig. 10, Eq. (39) in Eq. (26) | `src/graal_theory/amplitudes/decuplet_rescattering.py:eta_delta_rescattering_amplitude` | `central_parameters.json`: complex `g_eta_delta`, electromagnetic couplings and Delta parameters; strong dependency below | `test_decuplet_rescattering.py`: `test_eta_family_uses_the_shared_eq39_with_original_tree_and_complex_polarization`, direct loop oracle and default/doubled checks | Independent loop tests pass at their specified events; Task 7 p4/5 spectra fail the Sobol gate. No real-full-spectrum certification. | Fig. 14 dash-dot: 5 masked overlap points. Delta(1232) intermediate propagator retained; no accepted source comparison. |
+| `k_sigma_star_rescattering`: Fig. 10, Eqs. (40)–(42) in Eq. (26) | `src/graal_theory/amplitudes/decuplet_rescattering.py:k_sigma_star_rescattering_amplitude` | `eta_pi0_p_full_parameters.json`: complex `g_k_sigma_star`, Sigma* mass/width, axial/charge and empirical `1.15` correction; strong dependency below | `test_decuplet_rescattering.py`: printed K/Sigma* coefficients, `4 sqrt(3)/25` Eq. (42), coherent KR addition and direct-loop oracles | Independent loop checks pass at their specified events; whole-family Task 7 p4/5 spectrum does not establish Sobol convergence. | Fig. 12 Eqs. (40)–(41) and Fig. 13 Eq. (42) separate strokes: 10 unresolved points. Eqs. (40)–(42) remain one coherent family; common Lambda/pi0 running-width and off-real zero-width prescriptions are stated reconstruction conventions. |
+| `eq43_tree`: Fig. 11, Eqs. (39), (43)–(44) | `src/graal_theory/amplitudes/delta1700.py:tree_amplitude`; standalone `models/eta_pi0_p.py:EtaPi0PModel` | `central_parameters.json`; [parameter provenance](parameter_provenance.md) | `test_delta1700_amplitude.py`, unchanged `test_eta_pi0_p_model.py`; cold-import complex-amplitude/spectrum preservation and four-energy Sobol tests in `test_full_production_convergence.py` | Eight-bin spectra pass strict p16/17 at threshold+1 MeV, 1.2, 1.4, 1.5 GeV; sampled p10/11, p12/13 and p14/15 fail a populated-bin gate. No production first loop. | Fig. 14 dotted: Task 7's low-resolution 15 overlap points remain masked. Separate legacy tree comparison is not evidence for the full coherent curve. |
+
+Shared strong dependency: `src/graal_theory/amplitudes/nstar1535_reduced.py`,
+`nstar1535_pipi_n.py` and `nstar1535_full.py` implement reduced, pion-corrected
+intermediate, and reconstructed-full variants. The physical production model
+uses `reconstructed_full_tmatrix` with `nstar1535_final_subtractions.json`,
+`nstar1535_reduced_parameters.json` mass/decay inputs, and
+`nstar1535_vmd_masses.json`. Tests in the corresponding three strong-T files
+are invoked unchanged. External `W` is restricted to the real-axis domain
+through 1.7 GeV. A domain failure is **masked unsupported domain**, distinct
+from quadrature nonconvergence; extrapolation has not been authorized.
 
 The PRC Fig. 14 **solid** curve is the coherent sum with the full
 `N*(1535)` model; the **dashed** curve uses its reduced variant. The
 **dotted** curve is the isolated Fig. 11/Eq. (43) tree; the
 **dash-dotted** curve is Eq. (39) followed by `eta p` rescattering. The
-current `theory/` code validates only the dotted component and an
-approximate tree/full cross-section ratio; it does not validate the solid
-line or Ajaka Fig. 4. Figure 12 groups chiral contributions; Figure 13
+current `theory/` code has a coherent seven-family implementation, but the
+solid line and Ajaka Fig. 4 are not validated. Figure 12 groups chiral
+contributions; Figure 13
 groups explicit-resonance contributions. Neither group can be added as
 incoherent cross sections to obtain the solid curve.
 
-## Gate before coherent-model implementation
+## Increment A exit gate and Increment B handoff
 
-1. Use the linked source map to freeze channel ordering, mass inputs,
-   regularization, and regression targets; keep Ref. [8]'s basic/reduced
-   and final/full parameter sets separate.
-2. Implement the resonance-region `pi pi N` prescription from Ref. [8]
-   and principal PRC Eq. (6), not the constant low-energy approximation
-   of Ref. [25]. Label the base calculation **reduced model** only when
-   both corrections are absent; an intermediate variant is neither the
-   paper's full nor its reduced model.
-3. Verify the adopted decuplet-state phase convention against Ref. [40]
-   author preprint (not the comparison convention in Ref. [41]) before
-   combining its terms.
-4. Map each source input to a concrete parameter and regression target
-   before implementing its amplitude. Preserve isolated Eq. (43) result.
+The source-linked callable-family and immutable-parameter API gates are
+implemented. The numerical exit gate is **not passed**: representative full
+loop+Sobol convergence is not demonstrated, and upper publication energies
+reach external strong invariants outside the 1.7 GeV trust boundary.
+Figs. 12–14/19 comparisons are recorded without tuning: the Task 7 baseline
+has 71 overlap points (0 compatible, 0 discrepant, 30 unresolved, 41 masked).
+Its q/angle16, p4/5 results are a diagnostic baseline, not convergence evidence.
+The Fig. 14 reduced coherent closure is unavailable and its 5 points stay
+unresolved. Individual source kernels remain unresolved where the diagnostic
+whole-family API cannot represent them.
 
-This audit records remaining convention/numerical gaps, not a request to fit
-them away using Ajaka points or theoretical-line digitization.
+The exact API and bounded physical measurements, preservation checks, runtime,
+convention limitations, and prerequisites for integrating Ajaka's four-by-three
+panels are in [the validation summary](full_production_validation.md).
+No parameters were fitted to Ajaka points or digitized theory curves.
