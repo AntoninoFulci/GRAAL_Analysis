@@ -270,3 +270,110 @@ def test_validation_cache_preserves_polarization_validation_on_cache_hits():
     cached.selected_amplitude(sample, np.array([1., 0., 0.]), ("eq43_tree",))
     with pytest.raises(ValueError, match="polarization"):
         cached.selected_amplitude(sample, np.array([1.+1j, 0j, 0j]), ("eq43_tree",))
+
+
+@pytest.mark.parametrize("field,invalid", [
+    ("x", np.array([1.5+1j])),
+    ("y", np.array([10.+100j])),
+    ("numerical_error", np.array([0.+1j])),
+    ("y", ["10"]),
+    ("numerical_error", ["0"]),
+    ("y", [True]),
+    ("y", [True, 10.]),
+    ("numerical_error", [False, 0.]),
+    ("converged", [np.nan]),
+    ("converged", ["false"]),
+    ("converged", [1]),
+    ("converged", [False, 1]),
+    ("converged", np.array([True], dtype=object)),
+    ("converged", [None]),
+])
+def test_malformed_raw_predictions_are_rejected_before_comparison(field, invalid):
+    api = _api()
+    size = len(invalid)
+    arguments = {"x": np.array([1.50, 1.51][:size]), "y": np.full(size, 10.),
+                 "numerical_error": np.zeros(size), "converged": np.ones(size, dtype=bool)}
+    arguments[field] = invalid
+    with pytest.raises(ValueError, match=f"prediction.{field}"):
+        api.PredictionCurve(**arguments)
+
+
+@pytest.mark.parametrize("field,invalid", [
+    ("x", np.array([1.5+1j])),
+    ("y", np.array([10.+100j])),
+    ("reading_error", np.array([.5+1j])),
+    ("y", ["10"]),
+    ("reading_error", [True]),
+])
+def test_malformed_raw_reference_arrays_are_rejected_with_context(field, invalid):
+    api = _api()
+    arguments = {"x": [1.5], "y": [10.], "reading_error": [.5]}
+    arguments[field] = invalid
+    with pytest.raises(ValueError, match=f"reference.{field}"):
+        api.ReferenceCurve(figure=12, curve="contact", family="chiral_contact",
+            photon_energy_gev=1.2, observable="eta_p", **arguments)
+
+
+@pytest.mark.parametrize("field", ["y", "numerical_error"])
+@pytest.mark.parametrize("value", [np.nan, np.inf, -np.inf])
+def test_nonfinite_real_predictions_stay_masked(field, value):
+    api = _api()
+    arguments = {"x": [1.5], "y": [10.], "numerical_error": [0.], "converged": [True]}
+    arguments[field] = [value]
+    prediction = api.PredictionCurve(**arguments)
+    reference = _reference(api, x=(1.5,), y=(10.,), reading_error=(.5,))
+    result = api.compare_full_production({"contact": prediction}, {"contact": reference})
+    assert result.counts["masked_nonconverged"] == result.total == 1
+    assert result.counts["compatible"] == 0
+    assert "nonfinite" in result.points[0]["reason"]
+
+
+@pytest.mark.parametrize("reference_id,wrong_observable", [
+    ("fig12_contact", "total"), ("fig14_tree", "total"), ("fig19_full", "eta_p"),
+])
+def test_loader_rejects_a_supported_but_wrong_scientific_observable(tmp_path, reference_id, wrong_observable):
+    api = _api()
+    copytree(REFERENCES, tmp_path / "references")
+    path = tmp_path / "references" / "p73_full_production_curves.json"
+    metadata = json.loads(path.read_text())
+    metadata["curves"][reference_id]["observable"] = wrong_observable
+    path.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match=f"{reference_id}.*observable"):
+        api.load_full_production_reference(path.parent)
+
+
+@pytest.mark.parametrize("bad_units", [
+    {"x_gev": "MeV", "eta_p": "microbarn/GeV", "total": "microbarn"},
+    {"x_gev": "GeV", "eta_p": "nanobarn/GeV", "total": "microbarn"},
+    {"x_gev": "GeV", "eta_p": "microbarn/GeV", "total": "nanobarn"},
+    {"x_gev": "GeV", "eta_p": "microbarn/GeV"},
+    {"x_gev": "GeV", "eta_p": "microbarn/GeV", "total": "microbarn", "extra": "1"},
+    {}, None,
+])
+def test_loader_requires_the_exact_scientific_unit_registry(tmp_path, bad_units):
+    api = _api()
+    copytree(REFERENCES, tmp_path / "references")
+    path = tmp_path / "references" / "p73_full_production_curves.json"
+    metadata = json.loads(path.read_text())
+    metadata["units"] = bad_units
+    path.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match="unit"):
+        api.load_full_production_reference(path.parent)
+
+
+def test_generated_convention_metadata_reports_the_sourced_pion_monopole_cutoff(tmp_path):
+    api = _api()
+    from graal_theory.models.eta_pi0_p_full import EtaPi0PFullModel
+
+    model = EtaPi0PFullModel.from_files(REFERENCES)
+    result = api.compare_full_production({"contact": _prediction(api)}, {"contact": _reference(api)})
+    metadata = _metadata()
+    metadata["conventions"] = api._baseline_conventions(model.parameters)
+    path, markdown_path = api.write_full_production_report(tmp_path, result, metadata)
+    conventions = json.loads(path.read_text())["metadata"]["conventions"]
+    expected = "Pion monopole form-factor cutoff Lambda_pi=1.25 GeV."
+    assert expected in conventions
+    assert expected in markdown_path.read_text()
+    varied = replace(model.parameters, production=replace(model.parameters.production,
+                     pion_form_factor_cutoff_gev=1.3))
+    assert "Pion monopole form-factor cutoff Lambda_pi=1.3 GeV." in api._baseline_conventions(varied)

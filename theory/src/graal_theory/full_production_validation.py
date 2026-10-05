@@ -51,17 +51,31 @@ _UNRESOLVED = frozenset(("fig12_k_sigma", "fig13_delta1700", "fig13_nstar1520",
 
 
 def _array(value, *, dtype=float, label="curve") -> NDArray:
-    array = np.array(value, dtype=dtype, copy=True)
-    if array.ndim != 1 or not len(array):
-        raise ValueError(f"{label} requires nonempty one-dimensional arrays")
+    try:
+        raw = np.asarray(value)
+        if raw.ndim != 1 or not len(raw):
+            raise ValueError("requires a nonempty one-dimensional array")
+        if dtype is bool:
+            if raw.dtype.kind != "b":
+                raise ValueError("requires boolean convergence flags without truth-value casting")
+        else:
+            mixed_bool = (not isinstance(value, np.ndarray)
+                and any(isinstance(item, (bool, np.bool_))
+                        for item in np.asarray(value, dtype=object).flat))
+            if raw.dtype.kind not in "iuf" or mixed_bool:
+                raise ValueError("requires real numeric values without booleans, strings or complex casts")
+        with np.errstate(over="raise", invalid="raise"):
+            array = np.array(raw, dtype=dtype, copy=True)
+    except (ValueError, TypeError, OverflowError, FloatingPointError) as exc:
+        raise ValueError(f"{label}: {exc}") from exc
     array.setflags(write=False)
     return array
 
 
-def _x(value) -> NDArray:
-    array = _array(value, label="abscissae")
+def _x(value, *, label="abscissae") -> NDArray:
+    array = _array(value, label=label)
     if not np.all(np.isfinite(array)) or np.any(np.diff(array) <= 0):
-        raise ValueError("abscissae must be finite and increase strictly, without duplicate points")
+        raise ValueError(f"{label} must be finite and increase strictly, without duplicate points")
     return array
 
 
@@ -79,7 +93,8 @@ class ReferenceCurve:
     ambiguity_note: str = ""
 
     def __post_init__(self):
-        x, y, error = _x(self.x), _array(self.y), _array(self.reading_error)
+        x, y, error = (_x(self.x, label="reference.x"), _array(self.y, label="reference.y"),
+                       _array(self.reading_error, label="reference.reading_error"))
         if y.shape != x.shape or error.shape != x.shape:
             raise ValueError("reference arrays must have equal shape")
         if not np.all(np.isfinite(y)) or np.any(y < 0):
@@ -107,12 +122,13 @@ class PredictionCurve:
     reason: str = ""
 
     def __post_init__(self):
-        values = (_x(self.x), _array(self.y), _array(self.numerical_error),
-                  _array(self.converged, dtype=bool))
+        values = (_x(self.x, label="prediction.x"), _array(self.y, label="prediction.y"),
+                  _array(self.numerical_error, label="prediction.numerical_error"),
+                  _array(self.converged, dtype=bool, label="prediction.converged"))
         if any(value.shape != values[0].shape for value in values):
             raise ValueError("prediction arrays must have equal shape")
-        if np.any(values[2] < 0):
-            raise ValueError("numerical uncertainty must be nonnegative")
+        if np.any(np.isfinite(values[2]) & (values[2] < 0)):
+            raise ValueError("prediction.numerical_error: finite numerical uncertainty must be nonnegative")
         for name, value in zip(("x", "y", "numerical_error", "converged"), values):
             object.__setattr__(self, name, value)
 
@@ -151,6 +167,8 @@ def load_full_production_reference(reference_dir: Path) -> Mapping[str, Referenc
         raise ValueError("reference requires the complete source curve inventory")
     if not metadata.get("reading_method") or metadata.get("doi") != "10.1103/PhysRevC.73.045209":
         raise ValueError("reference requires an independent reading method and source DOI")
+    if metadata.get("units") != {"x_gev": "GeV", "eta_p": "microbarn/GeV", "total": "microbarn"}:
+        raise ValueError("reference requires the exact GeV/microbarn scientific unit registry")
     rows = _csv_rows(root / _CSV, ["figure", "curve", "x_gev", "y", "reading_error"])
     groups = {key: [] for key in _MAPPINGS}
     for row in rows:
@@ -173,6 +191,9 @@ def load_full_production_reference(reference_dir: Path) -> Mapping[str, Referenc
         expected_energy = None if key == "fig19_full" else 1.2
         if record["photon_energy_gev"] != expected_energy:
             raise ValueError(f"curve {key}: source photon energy disagrees with caption")
+        expected_observable = "total" if key == "fig19_full" else "eta_p"
+        if record["observable"] != expected_observable:
+            raise ValueError(f"curve {key}: observable must be {expected_observable!r} for this published quantity")
         figure = metadata.get("figures", {}).get(str(record["figure"]), {})
         if (figure.get("printed_page") != f"045209-{figure.get('page_in_pdf')}"
                 or not figure.get("axis_calibration") or not figure.get("ambiguity_notes")):
@@ -423,6 +444,20 @@ def _prediction_record(prediction) -> dict:
                        for name, histogram in prediction.histograms.items()}}
 
 
+def _baseline_conventions(parameters) -> list[str]:
+    """Record conventions from the parameter record used by the calculation."""
+    return [
+        "All seven complex spin families sum coherently before spin and photon averages.",
+        "Selected diagnostic adapters restrict only whole families and preserve inseparable gauge partners.",
+        "Reconstructed full N*(1535) uses final-fit subtractions, pion correction and sourced modern masses.",
+        "Quoted g_eta=1.7-1.4i and g_K=3.3+0.7i; Butler decuplet phases; empirical 1.15 correction.",
+        "Lambda=1.4 GeV first-loop cutoff; direct +i0 checked quadrature with principal continuation.",
+        f"Pion monopole form-factor cutoff Lambda_pi={parameters.production.pion_form_factor_cutoff_gev:g} GeV.",
+        "No tuning to source curves; 20% source-relative allowance plus reading and numerical errors.",
+        "Reduced coherent closure is unavailable; reduced source stroke stays unresolved.",
+        "Individual resonance and split Sigma* strokes are unresolved; whole-family outputs are diagnostics only."]
+
+
 def generate_baseline(reference_dir: Path, pdf_path: Path, output_dir: Path, *,
                       low_power: int = 4, bins: int = 8, quadrature=None,
                       command: str) -> tuple[Path, Path]:
@@ -502,15 +537,7 @@ def generate_baseline(reference_dir: Path, pdf_path: Path, output_dir: Path, *,
         "pdf_sha256": pdf_hash, "reference_file_sha256": {
             name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in
             (_CSV, _JSON, "figure14_eta_p_tree.csv", "figure19_total_1202.csv", "digitization.json")},
-        "conventions": [
-            "All seven complex spin families sum coherently before spin and photon averages.",
-            "Selected diagnostic adapters restrict only whole families and preserve inseparable gauge partners.",
-            "Reconstructed full N*(1535) uses final-fit subtractions, pion correction and sourced modern masses.",
-            "Quoted g_eta=1.7-1.4i and g_K=3.3+0.7i; Butler decuplet phases; empirical 1.15 correction.",
-            "Lambda=1.4 GeV first-loop cutoff; direct +i0 checked quadrature with principal continuation.",
-            "No tuning to source curves; 20% source-relative allowance plus reading and numerical errors.",
-            "Reduced coherent closure is unavailable; reduced source stroke stays unresolved.",
-            "Individual resonance and split Sigma* strokes are unresolved; whole-family outputs are diagnostics only."],
+        "conventions": _baseline_conventions(model.parameters),
         "diagnostics": diagnostics, "numerical_failures": failures,
         "cached_event_family_polarization_count": model.evaluated_event_families,
         "step6_incomplete": ["Source-faithful reduced coherent model API is unavailable.",
