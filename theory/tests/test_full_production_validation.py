@@ -377,3 +377,40 @@ def test_generated_convention_metadata_reports_the_sourced_pion_monopole_cutoff(
     varied = replace(model.parameters, production=replace(model.parameters.production,
                      pion_form_factor_cutoff_gev=1.3))
     assert "Pion monopole form-factor cutoff Lambda_pi=1.3 GeV." in api._baseline_conventions(varied)
+
+
+@pytest.mark.parametrize("g_eta,g_k,want", [
+    (2.1+.4j, -3.2-.6j, "Quoted g_eta=2.1+0.4i and g_K=-3.2-0.6i; Butler decuplet phases; empirical 1.07 correction."),
+    (-.8-1.2j, .2+.9j, "Quoted g_eta=-0.8-1.2i and g_K=0.2+0.9i; Butler decuplet phases; empirical 1.07 correction."),
+    (0j, 2.+0j, "Quoted g_eta=0+0i and g_K=2+0i; Butler decuplet phases; empirical 1.07 correction."),
+])
+def test_convention_reports_derive_all_replaceable_numbers(tmp_path, g_eta, g_k, want):
+    # Reporting stale defaults would misidentify the actual calculation inputs.
+    api = _api()
+    from graal_theory.models.eta_pi0_p_full import EtaPi0PFullModel
+
+    original = EtaPi0PFullModel.from_files(REFERENCES).parameters
+    changed = replace(original, tree=replace(original.tree, g_eta_delta=g_eta),
+        production=replace(original.production, g_k_sigma_star=g_k,
+            sigma_star_su3_correction=1.07, first_loop_cutoff_gev=1.35,
+            pion_form_factor_cutoff_gev=1.3))
+    metadata = _metadata()
+    metadata["conventions"] = api._baseline_conventions(changed)
+    result = api.compare_full_production({"contact": _prediction(api)}, {"contact": _reference(api)})
+    path, markdown_path = api.write_full_production_report(tmp_path, result, metadata)
+    conventions = json.loads(path.read_text())["metadata"]["conventions"]
+    expected = (want,
+        "Lambda=1.35 GeV first-loop cutoff; direct +i0 checked quadrature with principal continuation.",
+        "Pion monopole form-factor cutoff Lambda_pi=1.3 GeV.")
+    for line in expected:
+        assert line in conventions
+        assert line in markdown_path.read_text()
+
+
+def test_default_convention_metadata_retains_the_sourced_baseline():
+    api = _api()
+    from graal_theory.models.eta_pi0_p_full import EtaPi0PFullModel
+
+    conventions = api._baseline_conventions(EtaPi0PFullModel.from_files(REFERENCES).parameters)
+    assert "Quoted g_eta=1.7-1.4i and g_K=3.3+0.7i; Butler decuplet phases; empirical 1.15 correction." in conventions
+    assert "Lambda=1.4 GeV first-loop cutoff; direct +i0 checked quadrature with principal continuation." in conventions

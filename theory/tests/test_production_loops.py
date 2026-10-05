@@ -247,6 +247,31 @@ def test_eta_true_cutoff_endpoint_pole_is_contextual(parameters, strong_paramete
         loops.eta_photoproduction_amplitude(1.62, [1., 0, 0], replace(parameters, first_loop_cutoff_gev=cutoff), strong_parameters, lambda z: t)
 
 
+def test_eta_rejects_independently_derived_one_ulp_cutoff_pole(parameters, strong_parameters):
+    # Expanded Kallen polynomial independently solves E_pi(q)+E_n(q)=W.
+    # At W=1.65 this endpoint is one ULP below the factorized loop root.
+    w = 1.65
+    mass, baryon = strong_parameters.meson_masses_gev[1], strong_parameters.baryon_masses_gev[1]
+    cutoff = np.sqrt((w*w-mass*mass-baryon*baryon)**2-4*mass*mass*baryon*baryon)/(2*w)
+    assert cutoff == 0.5458312150165392
+    assert np.nextafter(cutoff, np.inf) == 0.5458312150165393
+    t = np.zeros((6, 6), complex)
+    t[1, 2] = 1.
+    with pytest.raises(ValueError, match=r"eta photoproduction.*invariant=1\.65.*pi_plus_n.*pole at radial cutoff"):
+        loops.eta_photoproduction_amplitude(w, [1., 0, 0],
+            replace(parameters, first_loop_cutoff_gev=cutoff), strong_parameters, lambda z: t)
+
+
+@pytest.mark.parametrize("direction", [-np.inf, np.inf])
+def test_radial_cut_rejects_one_ulp_endpoint_on_both_sides(direction):
+    # The general +i0 subtraction must reject before deciding inside/outside.
+    cutoff = .7
+    pole = np.nextafter(cutoff, direction)
+    with pytest.raises(ValueError, match=CONTEXT+".*pole at radial cutoff"):
+        loops._radial_cut_density(.2, lambda q: q*q, lambda q: q-pole,
+            (pole,), lambda q: 1., cutoff, CONTEXT)
+
+
 def test_eta_circular_polarization_preserves_pauli_spin_structure(parameters, strong_parameters):
     # Catches treating sigma.epsilon as scalar or dropping complex polarization.
     t = np.zeros((6, 6), dtype=complex)

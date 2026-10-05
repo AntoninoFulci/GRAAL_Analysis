@@ -426,3 +426,79 @@ def test_k_zero_channel_coefficient_map_is_immutable(decuplet):
     assert coefficients[3] == 0.
     with pytest.raises(TypeError):
         coefficients[3] = 1.
+
+
+@pytest.mark.parametrize("family,channel,w", [(FAMILIES[0], 2, 1.82),
+    (FAMILIES[1], 4, 2.05), (FAMILIES[1], 5, 2.05)])
+@pytest.mark.parametrize("location", ["interior", "cutoff"])
+def test_active_zero_width_intermediate_poles_are_rejected_before_landmark_integration(
+        decuplet, production, tree, strong, family, channel, w, location):
+    # Independently derive the real pole radius; GL split nodes never sample it.
+    pole = tree.delta_mass_gev if channel == 2 else production.sigma_star_mass_gev
+    meson = strong.meson_masses_gev[channel]
+    omega = (w*w+meson*meson-pole*pole)/(2*w)
+    radius = np.sqrt(omega*omega-meson*meson)
+    assert 0 < radius < production.first_loop_cutoff_gev
+    zero_tree = replace(tree, delta_width_gev=0.,
+        width_parameters=replace(tree.width_parameters, delta_pole_width_gev=0.))
+    zero_production = replace(production, sigma_star_width_gev=0.)
+    if location == "cutoff":
+        zero_production = replace(zero_production, first_loop_cutoff_gev=float(radius))
+    t = np.zeros((6, 6), complex)
+    t[channel, 2] = 1.
+    label = "eta_delta" if channel == 2 else "k_sigma_star"
+    particle = "Delta" if channel == 2 else r"Sigma\*"
+    with pytest.raises(ValueError, match=rf"{label}.*event=0.*channel={channel}.*z=.*invariant=.*zero-width {particle} intermediate pole"):
+        getattr(decuplet, family)(_sample(w, strong, [7]), EPSILON,
+            zero_production, zero_tree, strong, lambda z: t)
+
+
+@pytest.mark.parametrize("family,channel,w", [(FAMILIES[0], 2, 1.82),
+    (FAMILIES[1], 4, 2.05), (FAMILIES[1], 5, 2.05)])
+@pytest.mark.parametrize("control", ["finite_width", "outside_cutoff", "threshold", "inactive"])
+def test_intermediate_pole_preflight_preserves_regular_family_controls(
+        decuplet, production, tree, strong, family, channel, w, control):
+    # Rejecting all zero widths, landmarks or threshold endpoints breaks these.
+    p, delta = production, tree
+    if control != "finite_width":
+        delta = replace(tree, delta_width_gev=0.,
+            width_parameters=replace(tree.width_parameters, delta_pole_width_gev=0.))
+        p = replace(production, sigma_star_width_gev=0.)
+    if control == "outside_cutoff":
+        p = replace(p, first_loop_cutoff_gev=.05)
+    elif control == "threshold":
+        pole = tree.delta_mass_gev if channel == 2 else p.sigma_star_mass_gev
+        w = pole+strong.meson_masses_gev[channel]  # q=0: q^2 cancels the pole.
+    t = np.zeros((6, 6), complex)
+    if control != "inactive":
+        t[channel, 2] = 1.
+    actual = getattr(decuplet, family)(_sample(w, strong, [7]), EPSILON,
+        p, delta, strong, lambda z: t)
+    assert np.all(np.isfinite(actual))
+    if control == "inactive":
+        np.testing.assert_array_equal(actual, np.zeros((1, 2, 2)))
+    else:
+        assert np.linalg.norm(actual) > 0
+
+
+@pytest.mark.parametrize("channel", [4, 5])
+def test_zero_width_sigma_star_above_accessible_invariant_is_regular(
+        decuplet, production, tree, strong, channel):
+    # At 1.82 GeV W-m_K < M_Sigma*: no real radius reaches the pole.
+    assert 1.82-strong.meson_masses_gev[channel] < production.sigma_star_mass_gev
+    t = np.zeros((6, 6), complex)
+    t[channel, 2] = 1.
+    actual = decuplet.k_sigma_star_rescattering_amplitude(_sample(1.82, strong, [7]),
+        EPSILON, replace(production, sigma_star_width_gev=0.), tree, strong, lambda z: t)
+    assert np.all(np.isfinite(actual)) and np.linalg.norm(actual) > 0
+
+
+def test_inactive_eta_source_does_not_reject_zero_width_delta(
+        decuplet, production, tree, strong):
+    zero_tree = replace(tree, g_eta_delta=0j, delta_width_gev=0.,
+        width_parameters=replace(tree.width_parameters, delta_pole_width_gev=0.))
+    t = np.zeros((6, 6), complex)
+    t[2, 2] = 1.
+    actual = decuplet.eta_delta_rescattering_amplitude(_sample(1.82, strong, [7]),
+        EPSILON, production, zero_tree, strong, lambda z: t)
+    np.testing.assert_array_equal(actual, np.zeros((1, 2, 2)))

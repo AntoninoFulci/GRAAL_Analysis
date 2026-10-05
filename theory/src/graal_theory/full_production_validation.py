@@ -446,12 +446,17 @@ def _prediction_record(prediction) -> dict:
 
 def _baseline_conventions(parameters) -> list[str]:
     """Record conventions from the parameter record used by the calculation."""
+    eta, kaon = parameters.tree.g_eta_delta, parameters.production.g_k_sigma_star
+    eta_text = f"{eta.real:g}{eta.imag:+g}i"
+    kaon_text = f"{kaon.real:g}{kaon.imag:+g}i"
     return [
         "All seven complex spin families sum coherently before spin and photon averages.",
         "Selected diagnostic adapters restrict only whole families and preserve inseparable gauge partners.",
         "Reconstructed full N*(1535) uses final-fit subtractions, pion correction and sourced modern masses.",
-        "Quoted g_eta=1.7-1.4i and g_K=3.3+0.7i; Butler decuplet phases; empirical 1.15 correction.",
-        "Lambda=1.4 GeV first-loop cutoff; direct +i0 checked quadrature with principal continuation.",
+        f"Quoted g_eta={eta_text} and g_K={kaon_text}; Butler decuplet phases; "
+        f"empirical {parameters.production.sigma_star_su3_correction:g} correction.",
+        f"Lambda={parameters.production.first_loop_cutoff_gev:g} GeV first-loop cutoff; "
+        "direct +i0 checked quadrature with principal continuation.",
         f"Pion monopole form-factor cutoff Lambda_pi={parameters.production.pion_form_factor_cutoff_gev:g} GeV.",
         "No tuning to source curves; 20% source-relative allowance plus reading and numerical errors.",
         "Reduced coherent closure is unavailable; reduced source stroke stays unresolved.",

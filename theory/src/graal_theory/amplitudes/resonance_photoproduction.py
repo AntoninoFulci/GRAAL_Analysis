@@ -25,6 +25,7 @@ from .nstar1535_reduced import CHANNELS, ReducedTParameters
 from .production_loops import (
     ProductionParameters, QuadratureSettings, _complex_scalar, _finite_real,
     _integrate_complex_2d, _polarization, _quadrature_value, _real_array,
+    _reject_zero_width_intermediate_pole,
     eq26_rescattering_loop, pion_monopole,
 )
 from .propagators import Delta1700WidthParameters, breit_wigner, delta1700_width, p_wave_width
@@ -326,6 +327,9 @@ def explicit_resonance_amplitude(
                 label = f"explicit_resonances event={event} channel={channel}={CHANNELS[channel]} z={z:.12g}GeV"
                 if t[channel, 2] == 0:
                     continue
+                _reject_zero_width_intermediate_pole(float(initial[event, 0]),
+                    strong_parameters.meson_masses_gev[channel], tree.delta_mass_gev,
+                    tree.delta_width_gev, production.first_loop_cutoff_gev, label, "Delta")
                 def source(q, x):
                     args = (channel, q, x, pion, k, epsilon, production, tree)
                     return np.add.reduce((delta1700_pi_delta_kernel(*args),

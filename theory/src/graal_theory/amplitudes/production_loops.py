@@ -282,6 +282,28 @@ for _coefficient in (KR_A, KR_B, BBM_A, BBM_B, MESON_CHARGE):
     _coefficient.setflags(write=False)
 
 
+def _at_radial_cutoff(root, limit):
+    """Allow only roundoff in equivalent kinematic endpoint expressions."""
+    return abs(root-limit) <= 32*np.finfo(float).eps*max(1., root, limit)
+
+
+def _reject_zero_width_intermediate_pole(w, meson, pole, width, limit, context, particle):
+    """Preflight a declared resonance pole before GL nodes avoid a split.
+
+    At W=meson+pole the q=0 denominator zero is canceled by the radial q^2
+    measure. A nonzero-radius pole has no stable-particle prescription here.
+    Consumers own the mass, width and active source/transition; this helper
+    neither probes callbacks nor classifies arbitrary numerical landmarks.
+    """
+    if width != 0 or w <= meson+pole:
+        return
+    radial_squared = (w*w-(meson+pole)**2)*(w*w-(meson-pole)**2)/(4*w*w)
+    radial = np.sqrt(radial_squared)
+    if radial < limit or _at_radial_cutoff(radial, limit):
+        raise ValueError(f"{context} invariant={w:.12g}GeV: zero-width {particle} "
+                         f"intermediate pole at q={radial:.12g}GeV")
+
+
 def _radial_cut_density(q, numerator, denominator, roots, derivative, limit, context):
     """Regular density for the source's 1/(D+i0), without finite epsilon.
 
@@ -293,7 +315,7 @@ def _radial_cut_density(q, numerator, denominator, roots, derivative, limit, con
     poles = []
     correction = 0j
     for root in roots:
-        if root == limit:
+        if _at_radial_cutoff(root, limit):
             raise ValueError(f"{context}: pole at radial cutoff")
         if not 0 < root < limit:
             continue
@@ -347,7 +369,7 @@ def _eq8_cut_density(q, smooth_numerator, momentum_squared, limit, context):
     h = smooth_numerator(q)
     if momentum_squared > 0:
         pole = np.sqrt(momentum_squared)
-        if pole == limit:
+        if _at_radial_cutoff(pole, limit):
             raise ValueError(f"{context}: pole at radial cutoff")
         on_shell = momentum_squared*smooth_numerator(pole)
         if abs(q-pole) < 1e-8:
@@ -588,8 +610,10 @@ def eq26_rescattering_loop(
     if 0 < branch < limit:
         cuts.append(branch)
     for value in landmarks:
-        if value > w-mass:
-            continue  # Not reachable by a positive-energy intermediate meson.
+        if w <= value+mass:
+            # Omit unreachable values and the removable q=0 endpoint. The
+            # addition form avoids a spurious tiny split from subtraction.
+            continue
         omega = (w*w+mass*mass-value*value)/(2*w)
         radial_squared = omega*omega-mass*mass
         if omega >= mass and radial_squared > 0:

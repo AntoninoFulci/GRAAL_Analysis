@@ -22,7 +22,8 @@ from .delta1700 import Delta1700Parameters, delta1700_eta_delta_vertex
 from .nstar1535_reduced import CHANNELS, ReducedTParameters
 from .production_loops import (
     ProductionParameters, _complex_scalar, _finite_real, _polarization,
-    _quadrature_value, _real_array, eq26_rescattering_loop,
+    _quadrature_value, _real_array, _reject_zero_width_intermediate_pole,
+    eq26_rescattering_loop,
 )
 from .propagators import breit_wigner, p_wave_width
 from .resonance_photoproduction import _delta_propagator, _parameters
@@ -221,6 +222,13 @@ def _rescattering_amplitude(sample, polarization, production, tree, strong_param
                               if channel == 4 else eq41_k_sigma_star(*args))
                     def propagator(invariant):
                         return _sigma_star_propagator(invariant, production, daughters)
+                if np.any(source):
+                    width = (tree.delta_width_gev if channel == 2
+                             else production.sigma_star_width_gev)
+                    _reject_zero_width_intermediate_pole(w,
+                        strong_parameters.meson_masses_gev[channel], pole, width,
+                        production.first_loop_cutoff_gev, label,
+                        "Delta" if channel == 2 else "Sigma*")
                 result[event] += eq26_rescattering_loop(sample, event, channel,
                     source_kernel=lambda q, x: source, intermediate_propagator=propagator,
                     transition=t[channel, 2], production=production, strong_parameters=strong_parameters,

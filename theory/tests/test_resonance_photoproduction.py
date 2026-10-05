@@ -64,6 +64,19 @@ def _q(w, m1, m2):
     return np.sqrt((w*w-(m1+m2)**2)*(w*w-(m1-m2)**2))/(2*w)
 
 
+@pytest.mark.parametrize("channel", [0, 1])
+def test_explicit_family_rejects_reachable_zero_width_intermediate_delta(
+        resonance, production, tree, strong, sample, channel):
+    # Disable the separate Nstar spectral convolution to isolate the Eq26 pole.
+    p = replace(production, f_tilde_nstar_delta_pi=0., g_tilde_nstar_delta_pi=0.)
+    zero_tree = replace(tree, delta_width_gev=0.,
+        width_parameters=replace(tree.width_parameters, delta_pole_width_gev=0.))
+    t = np.zeros((6, 6), complex)
+    t[channel, 2] = 1.
+    with pytest.raises(ValueError, match=rf"explicit_resonances.*event=0.*channel={channel}.*z=.*invariant=.*zero-width Delta intermediate pole"):
+        resonance.explicit_resonance_amplitude(sample, [1., 0., 0.], p, zero_tree, strong, lambda z: t)
+
+
 def _sigma(v):
     x, y, z = v
     return np.array([[z, x-1j*y], [x+1j*y, -z]])
