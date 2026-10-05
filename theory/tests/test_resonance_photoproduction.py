@@ -180,6 +180,32 @@ def test_nstar_width_at_pole_matches_all_three_independent_source_integrals(reso
     assert resonance.nstar1520_width(production.nstar1520_mass_gev, production, tree, strong) == pytest.approx(sum(expected), rel=2e-5, abs=1e-10)
 
 
+def test_nstar_width_rejects_accessible_interior_zero_width_delta_spectral_pole(
+        resonance, production, tree, strong):
+    # quad(points=[pole]) avoids sampling the pole and otherwise returns false zero.
+    delta_only = replace(production, nstar1520_npi_width_gev=0., g_rho_nstar=0.)
+    zero_width = replace(tree, delta_width_gev=0.)
+    with pytest.raises(ValueError, match="nstar1520 width.*zero-width Delta spectral pole"):
+        resonance.nstar1520_width(1.52, delta_only, zero_width, strong)
+
+
+@pytest.mark.parametrize("offset", [-1e-8, 0.])
+def test_zero_width_delta_spectral_pole_at_or_above_upper_endpoint_contributes_zero(
+        resonance, production, tree, strong, offset):
+    # The phase-space endpoint is zero; no stable-Delta distribution is invented.
+    delta_only = replace(production, nstar1520_npi_width_gev=0., g_rho_nstar=0.)
+    zero_width = replace(tree, delta_width_gev=0.)
+    endpoint_energy = tree.delta_mass_gev+strong.meson_masses_gev[1]+offset
+    assert resonance.nstar1520_width(endpoint_energy, delta_only, zero_width, strong) == 0.
+
+
+def test_inactive_delta_pi_couplings_do_not_trigger_zero_width_spectral_pole(
+        resonance, production, tree, strong):
+    zero = replace(production, nstar1520_npi_width_gev=0., g_rho_nstar=0.,
+                   f_tilde_nstar_delta_pi=0., g_tilde_nstar_delta_pi=0.)
+    assert resonance.nstar1520_width(1.52, zero, replace(tree, delta_width_gev=0.), strong) == 0.
+
+
 def test_kr_pole_uses_pi_delta_on_shell_kinematics_with_signed_closed_channel(resonance, production, tree, strong):
     # W=1.30 is below pi-Delta threshold; the signed q_on^2 must stay negative.
     w = 1.30
@@ -232,6 +258,18 @@ def test_replacement_rho_cutoff_is_validated_before_zero_transition(resonance, p
         resonance.nstar1520_width(1.52, p, tree, strong)
     with pytest.raises(ValueError, match="explicit_resonances.*rho_form_factor_cutoff_gev"):
         resonance.explicit_resonance_amplitude(sample, [1., 0., 0.], p, tree, strong, lambda z: np.zeros((6, 6)))
+
+
+@pytest.mark.parametrize("bad_width", [None, {"rho_mass_gev": .77526}])
+def test_nested_width_record_is_validated_before_zero_transition(
+        resonance, production, tree, strong, sample, bad_width):
+    # A zero strong transition must not hide a malformed consumed tree record.
+    bad_tree = replace(tree, width_parameters=bad_width)
+    with pytest.raises(ValueError, match="explicit_resonances.*width_parameters.*Delta1700WidthParameters"):
+        resonance.explicit_resonance_amplitude(sample, [1., 0., 0.], production,
+            bad_tree, strong, lambda z: np.zeros((6, 6)))
+    with pytest.raises(ValueError, match="nstar1520 width.*width_parameters.*Delta1700WidthParameters"):
+        resonance.nstar1520_width(1.52, production, bad_tree, strong)
 
 
 @pytest.mark.parametrize("invariant", [1.3+0j, 1.+0j, .4j, 0j])

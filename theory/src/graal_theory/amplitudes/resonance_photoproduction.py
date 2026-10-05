@@ -27,7 +27,7 @@ from .production_loops import (
     _integrate_complex_2d, _polarization, _quadrature_value, _real_array,
     eq26_rescattering_loop, pion_monopole,
 )
-from .propagators import breit_wigner, delta1700_width, p_wave_width
+from .propagators import Delta1700WidthParameters, breit_wigner, delta1700_width, p_wave_width
 
 
 _WIDTH_FIELDS = ("nstar1520_mass_gev", "nstar1520_npi_width_gev",
@@ -42,6 +42,10 @@ _ERRORS = (ValueError, TypeError, AttributeError, ZeroDivisionError,
 def _parameters(production, tree, fields, label):
     if not isinstance(production, ProductionParameters) or not isinstance(tree, Delta1700Parameters):
         raise ValueError(f"{label}: requires production and tree parameter records")
+    # The frozen nested record owns its field invariants; verify its type
+    # here before a zero transition or neutral-channel shortcut can hide it.
+    if not isinstance(tree.width_parameters, Delta1700WidthParameters):
+        raise ValueError(f"{label}: width_parameters requires Delta1700WidthParameters")
     for name in fields:
         value = _finite_real(getattr(production, name), name)
         if (name.endswith("mass_gev") or "cutoff" in name) and value <= 0:
@@ -72,7 +76,12 @@ def _nstar_width(w, pole, npi_pole, ft, gt, g_rho, rho_cutoff, rho_mass,
         return float(npi)
 
     delta = 0.
-    if ft != 0 or gt != 0:
+    # With zero spectral width, a pole at/above the upper phase-space
+    # endpoint contributes zero; an active interior pole is unsupported.
+    if (ft != 0 or gt != 0) and (delta_pole_width != 0 or w-mu > delta_mass):
+        low, high = m+mu, w-mu
+        if delta_pole_width == 0 and low < delta_mass < high:
+            raise ValueError("zero-width Delta spectral pole inside accessible phase space")
         def delta_integrand(mi):
             k = two_body_momentum(w, mi, mu)
             gamma = float(p_wave_width(mi, delta_mass, delta_pole_width, (m, mu)))
@@ -82,7 +91,6 @@ def _nstar_width(w, pole, npi_pole, ft, gt, g_rho, rho_cutoff, rho_mass,
             if denominator == 0:
                 raise ValueError("zero-width Delta spectral pole")
             return gamma/denominator*mi*k*(a_s*a_s+a_d*a_d)/(8*np.pi**3*w)
-        low, high = m+mu, w-mu
         points = [delta_mass] if low < delta_mass < high else None
         delta, error = quad(delta_integrand, low, high, points=points,
                            epsabs=settings.absolute_tolerance,
