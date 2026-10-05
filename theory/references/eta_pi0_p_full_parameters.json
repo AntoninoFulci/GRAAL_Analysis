@@ -6,6 +6,7 @@
   "b6f": {"value": 1.82, "unit": "1", "source_key": "doering_2006_prc", "locator": "p. 045209-7, below Eq. (19), b6F = 1.82; Table III and Eq. (21)"},
   "first_loop_cutoff_gev": {"value": 1.4, "unit": "GeV", "source_key": "doering_2006_prc", "locator": "p. 045209-4, below Eq. (8), cutoff Lambda = 1400 MeV, retained for following sections; p. 045209-9, below Eq. (26)"},
   "pion_form_factor_cutoff_gev": {"value": 1.25, "unit": "GeV", "source_key": "doering_2006_prc", "locator": "p. 045209-8, paragraph following Eq. (25), monopole F_pi with Lambda = 1.25 GeV"},
+  "rho_form_factor_cutoff_gev": {"value": 1.4, "unit": "GeV", "source_key": "nacher_2001", "locator": "Appendix A3, PDF p. 30, Eq. (75), Lambda_rho = 1.4 GeV"},
   "nstar1520_mass_gev": {"value": 1.520, "unit": "GeV", "source_key": "nacher_2001", "locator": "PDF pp. 7-8, N*(1520) resonance in Eqs. (13)-(16); baseline reconstruction convention uses nominal resonance-label mass 1520 MeV"},
   "nstar1520_npi_width_gev": {"value": 0.066, "unit": "GeV", "source_key": "nacher_2001", "locator": "PDF p. 8, below Eq. (15), pole N*pi partial width = 66 MeV"},
   "f_tilde_nstar_delta_pi": {"value": -1.061, "unit": "1", "source_key": "nacher_2001", "locator": "PDF p. 7, Eq. (14), solution (b) selected on p. 8; Appendix A3, PDF p. 30"},

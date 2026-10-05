@@ -61,6 +61,7 @@ class ProductionParameters:
     b6f: float
     first_loop_cutoff_gev: float
     pion_form_factor_cutoff_gev: float
+    rho_form_factor_cutoff_gev: float
     nstar1520_mass_gev: float
     nstar1520_npi_width_gev: float
     f_tilde_nstar_delta_pi: float
@@ -88,6 +89,7 @@ _SCHEMA = {
     "b6f": ("1", "doering_2006_prc"),
     "first_loop_cutoff_gev": ("GeV", "doering_2006_prc"),
     "pion_form_factor_cutoff_gev": ("GeV", "doering_2006_prc"),
+    "rho_form_factor_cutoff_gev": ("GeV", "nacher_2001"),
     "nstar1520_mass_gev": ("GeV", "nacher_2001"),
     "nstar1520_npi_width_gev": ("GeV", "nacher_2001"),
     "f_tilde_nstar_delta_pi": ("1", "nacher_2001"),
@@ -103,6 +105,7 @@ _SCHEMA = {
 }
 _POSITIVE = frozenset({
     "first_loop_cutoff_gev", "pion_form_factor_cutoff_gev",
+    "rho_form_factor_cutoff_gev",
     "nstar1520_mass_gev", "sigma_star_mass_gev", "proton_mass",
 })
 _WIDTHS = frozenset({"nstar1520_npi_width_gev", "sigma_star_width_gev"})
@@ -477,6 +480,7 @@ def eq26_rescattering_loop(
     intermediate_propagator: Callable[[complex], complex], transition: complex,
     production: ProductionParameters, strong_parameters: ReducedTParameters,
     context: str,
+    *, intermediate_invariant_landmarks_gev: tuple[float, ...] = (),
 ) -> NDArray[np.complex128]:
     """Shared direct PRC73 Eq. (26), with exact Eq. (27) recoil energies.
 
@@ -486,7 +490,13 @@ def eq26_rescattering_loop(
     No intermediate width or mass is invented here. The callback receives
     principal sqrt(complex((W-omega)^2-q^2)), including Im(sqrt)>=0 for a
     spacelike invariant. Physical meson-baryon +i0 cuts use direct quadrature
-    with the same principal-value subtraction as Eq. (8).
+    with the same principal-value subtraction as Eq. (8). If the principal
+    sqrt has a branch point inside the radial domain, quadratic maps on
+    either side remove its endpoint cusp. The convergence comparison applies
+    to their combined integral, retaining the full PV/cut normalization.
+    Families can additionally supply an immutable tuple of numerical invariant
+    landmarks (thresholds or pole masses). Reachable values become radial
+    boundaries. The helper owns the invariant conversion, not resonance physics.
     """
     label = f"{context} Eq26 event={event_index!r} channel={channel_index!r}"
     try:
@@ -520,6 +530,12 @@ def eq26_rescattering_loop(
         limit = _finite_real(production.first_loop_cutoff_gev, "first_loop_cutoff_gev")
         if limit <= 0:
             raise ValueError("cutoff must be positive")
+        if not isinstance(intermediate_invariant_landmarks_gev, tuple):
+            raise ValueError("invariant landmarks require an immutable tuple")
+        landmarks = tuple(_finite_real(value, "invariant landmark")
+                          for value in intermediate_invariant_landmarks_gev)
+        if any(value < 0 for value in landmarks):
+            raise ValueError("invariant landmarks must be nonnegative")
     except (ValueError, TypeError, AttributeError) as exc:
         raise ValueError(f"{label}: {exc}") from exc
     w = float(initial[event_index, 0])
@@ -567,6 +583,37 @@ def eq26_rescattering_loop(
         return _radial_cut_density(q, lambda r: numerator(r, x), denominator,
                                    roots, derivative, limit, label)
 
-    return _integrate_complex_2d(
-        density, 0., limit, -1., 1., settings=production.quadrature, context=label,
-    )
+    branch = (w*w-mass*mass)/(2*w)
+    cuts = [0., limit]
+    if 0 < branch < limit:
+        cuts.append(branch)
+    for value in landmarks:
+        if value > w-mass:
+            continue  # Not reachable by a positive-energy intermediate meson.
+        omega = (w*w+mass*mass-value*value)/(2*w)
+        radial_squared = omega*omega-mass*mass
+        if omega >= mass and radial_squared > 0:
+            radial = np.sqrt(radial_squared)
+            if 0 < radial < limit:
+                cuts.append(float(radial))
+    cuts = sorted(set(cuts))
+    if len(cuts) > 2:
+        segments = tuple(zip(cuts[:-1], cuts[1:]))
+        def mapped_density(u, x):
+            total = np.zeros((2, 2), dtype=np.complex128)
+            for lower, upper in segments:
+                length = upper-lower
+                if upper == branch:
+                    q, jacobian = upper-length*u*u, 2*length*u
+                elif lower == branch:
+                    q, jacobian = lower+length*u*u, 2*length*u
+                else:
+                    q, jacobian = lower+length*u, length
+                total += jacobian*density(q, x)
+            return total
+        # One checked integral compares the configured combined sum with
+        # the doubled-order combined sum; no individual segment is accepted.
+        return _integrate_complex_2d(mapped_density, 0., 1., -1., 1.,
+            settings=production.quadrature, context=label)
+    return _integrate_complex_2d(density, 0., limit, -1., 1.,
+        settings=production.quadrature, context=label)

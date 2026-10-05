@@ -410,3 +410,79 @@ def test_eq26_rejects_malformed_or_non_cm_sample(parameters, strong_parameters, 
     for bad in (replace(sample, momenta=np.zeros((16, 2, 4))), replace(sample, initial=initial)):
         with pytest.raises(ValueError, match=CONTEXT):
             loops.eq26_rescattering_loop(bad, 7, 3, lambda q, x: np.eye(2), lambda z: 1., 1., parameters, strong_parameters, CONTEXT)
+
+
+def _independent_mapped_eq26(sample, strong, channel, order):
+    """Separate vectorized high-order GL, with the principal-sqrt cusp removed.
+
+    The selected K-baryon channel is closed, so this oracle needs no PV or
+    production helper. Both quadratic maps retain their literal Jacobians.
+    """
+    w, pion = sample.initial[7, 0], sample.momenta[7, 1]
+    m, baryon = strong.meson_masses_gev[channel], strong.baryon_masses_gev[channel]
+    p = np.linalg.norm(pion[1:])
+    branch = (w*w-m*m)/(2*w)
+    nodes, weights = np.polynomial.legendre.leggauss(order)
+    u, uw = (nodes+1)/2, weights/2
+    total = 0j
+    for radial, jacobian in ((branch-branch*u*u, 2*branch*u),
+                             (branch+(1.4-branch)*u*u, 2*(1.4-branch)*u)):
+        q = radial[:, None]
+        omega = np.sqrt(m*m+q*q)
+        energy = np.sqrt(baryon*baryon+q*q+p*p+2*q*p*nodes)
+        invariant = np.sqrt(((w-omega)**2-q*q).astype(complex))
+        numerator = q*q*baryon*(q+1j*nodes**2)/(8*np.pi**2*omega*energy)
+        density = numerator/((w-omega-pion[0]-energy)*(invariant-1.232+.12j))
+        total += np.sum(density*(uw*jacobian)[:, None]*weights)
+    return total*np.array([[1., 2j], [-1j, .3]])
+
+
+@pytest.mark.parametrize("channel", [3, 5])
+def test_eq26_resolves_principal_sqrt_branch_at_default_orders_against_mapped_oracle(
+        parameters, strong_parameters, sample, channel):
+    # Catches leaving the cusp inside one GL interval or omitting either map/Jacobian.
+    reference = _independent_mapped_eq26(sample, strong_parameters, channel, 256)
+    high = _independent_mapped_eq26(sample, strong_parameters, channel, 384)
+    np.testing.assert_allclose(reference, high, rtol=1e-10, atol=1e-12)
+    spin = np.array([[1., 2j], [-1j, .3]])
+    actual = loops.eq26_rescattering_loop(sample, 7, channel,
+        lambda q, x: (q+1j*x*x)*spin, lambda z: 1/(z-1.232+.12j),
+        1., parameters, strong_parameters, CONTEXT)
+    np.testing.assert_allclose(actual, high, rtol=1e-5, atol=1e-10)
+
+
+def _physical_delta_callback(strong):
+    m, mu = strong.baryon_masses_gev[1], strong.meson_masses_gev[1]
+    def momentum(w):
+        return np.sqrt((w*w-(m+mu)**2)*(w*w-(m-mu)**2))/(2*w)
+    def callback(invariant):
+        gamma = (0.117*(momentum(invariant.real)/momentum(1.232))**3*1.232/invariant.real
+                 if invariant.imag == 0 and invariant.real > m+mu else 0.)
+        return 1/(invariant-1.232+.5j*gamma)
+    return callback
+
+
+def test_eq26_landmarks_resolve_physical_delta_at_configured_default_order(parameters, strong_parameters, sample):
+    # Pin the observed failure before supplying landmarks; no weakened tolerance.
+    callback = _physical_delta_callback(strong_parameters)
+    args = (sample, 7, 1, lambda q, x: np.eye(2), callback, 1., parameters, strong_parameters, CONTEXT)
+    with pytest.raises(ValueError, match="quadrature convergence failure"):
+        loops.eq26_rescattering_loop(*args)
+    landmarks = (strong_parameters.baryon_masses_gev[1]+strong_parameters.meson_masses_gev[1], 1.232)
+    actual = loops.eq26_rescattering_loop(*args, intermediate_invariant_landmarks_gev=landmarks)
+    # Independent adaptive Cauchy oracle in Task4 further pins this complex value.
+    np.testing.assert_allclose(actual, (-.03530489545+.05687651000j)*np.eye(2), rtol=1e-5, atol=1e-9)
+
+
+def test_eq26_landmark_splitting_preserves_smooth_callback_and_analytic_cut(parameters, strong_parameters, sample):
+    args = (sample, 7, 1, lambda q, x: np.eye(2), lambda z: 1., 1., parameters, strong_parameters, CONTEXT)
+    original = loops.eq26_rescattering_loop(*args)
+    split = loops.eq26_rescattering_loop(*args, intermediate_invariant_landmarks_gev=(1.08, 1.232, 3.))
+    np.testing.assert_allclose(split, original, rtol=1e-9, atol=1e-11)
+
+
+@pytest.mark.parametrize("landmarks", [[1.2], (True,), (np.nan,), (1j,), (-1.,)])
+def test_eq26_rejects_mutable_nonphysical_invariant_landmarks(parameters, strong_parameters, sample, landmarks):
+    with pytest.raises(ValueError, match=CONTEXT+".*landmark"):
+        loops.eq26_rescattering_loop(sample, 7, 1, lambda q, x: np.eye(2), lambda z: 1.,
+            1., parameters, strong_parameters, CONTEXT, intermediate_invariant_landmarks_gev=landmarks)

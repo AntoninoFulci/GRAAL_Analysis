@@ -1,7 +1,7 @@
 """Production input loading, provenance, and numerical control contracts."""
 
 import json
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 
 import pytest
@@ -27,6 +27,7 @@ def test_production_parameter_record_is_closed_and_sourced():
         "b6f": 1.82,
         "first_loop_cutoff_gev": 1.4,
         "pion_form_factor_cutoff_gev": 1.25,
+        "rho_form_factor_cutoff_gev": 1.4,
         "nstar1520_mass_gev": 1.520,
         "nstar1520_npi_width_gev": 0.066,
         "f_tilde_nstar_delta_pi": -1.061,
@@ -118,6 +119,7 @@ def test_rejects_nonfinite_and_nonreal_components(tmp_path, bad, name):
 @pytest.mark.parametrize("name", [
     "proton_mass", "nstar1520_mass_gev", "sigma_star_mass_gev",
     "first_loop_cutoff_gev", "pion_form_factor_cutoff_gev",
+    "rho_form_factor_cutoff_gev",
 ])
 @pytest.mark.parametrize("bad", [0, -1])
 def test_rejects_nonpositive_masses_and_cutoffs(tmp_path, name, bad):
@@ -153,3 +155,20 @@ def test_custom_quadrature_settings_are_immutable():
     assert settings.absolute_tolerance == 1e-12
     with pytest.raises(FrozenInstanceError):
         settings.q_order = 32
+
+
+def test_rho_cutoff_has_distinct_eq75_provenance_and_varies_independently():
+    p = load_production_parameters(PARAMETERS, SOURCES)
+    assert p.rho_form_factor_cutoff_gev == 1.4
+    ref = p.provenance["rho_form_factor_cutoff_gev"]
+    assert ref.unit == "GeV"
+    assert ref.source.citation_key == "nacher_2001"
+    assert "Eq. (75)" in ref.source.locator and "30" in ref.source.locator
+    assert replace(p, first_loop_cutoff_gev=1.7).rho_form_factor_cutoff_gev == 1.4
+    assert replace(p, rho_form_factor_cutoff_gev=1.8).first_loop_cutoff_gev == 1.4
+
+
+@pytest.mark.parametrize("field,value", [("source_key", "doering_2006_prc"), ("unit", "1"), ("value", True)])
+def test_rho_cutoff_enforces_sourced_record_schema(tmp_path, field, value):
+    with pytest.raises(ValueError, match="rho_form_factor_cutoff_gev"):
+        _load_changed(tmp_path, lambda raw: raw["rho_form_factor_cutoff_gev"].update(**{field: value}))
