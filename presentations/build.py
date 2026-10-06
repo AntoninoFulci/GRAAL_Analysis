@@ -373,7 +373,7 @@ s.textbox("const BeamWindow beam_window =\n  ResolveBeamWindow(threshold,\n    r
           .91, 1.63, 3.65, .62, size=12.1, color=WHITE, valign="ctr")
 s.textbox("→", 4.80, 1.64, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
 s.rect(5.22, 1.58, 4.04, .72, ICE, rounded=True)
-s.textbox("L'energia parte dalla soglia calcolata con le masse finali. Il limite predefinito è 1,75 GeV; la finestra VIS si ferma a 1,10 GeV.",
+s.textbox("Estraiamo l'energia uniformemente dalla soglia fisica a 1,75 GeV (limite predefinito); la finestra VIS si ferma a 1,10 GeV.",
           5.38, 1.63, 3.72, .62, size=13.4, color=INK, valign="ctr")
 
 s.rect(.73, 2.40, 4.00, .72, NAVY, rounded=True)
@@ -389,8 +389,8 @@ s.textbox("constexpr double kTaggerFwhmGeV = 0.016;\nbeam = SmearTaggedPhoton(Eb
           .91, 3.27, 3.65, .62, size=12.1, color=WHITE, valign="ctr")
 s.textbox("→", 4.80, 3.28, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
 s.rect(5.22, 3.22, 4.04, .72, ICE, rounded=True)
-s.textbox("Smearing gaussiano per fotoni e protone; il tagger usa una risoluzione FWHM di 16 MeV.",
-          5.38, 3.27, 3.72, .62, size=13.6, color=INK, valign="ctr")
+s.textbox("Per i fotoni assumiamo 10% in energia e 5°/3° negli angoli; per il protone 4% nell'impulso e 3°/2°. Il tagger ha FWHM 16 MeV.",
+          5.38, 3.27, 3.72, .62, size=12.8, color=INK, valign="ctr")
 
 s.rect(.73, 4.04, 4.00, .72, NAVY, rounded=True)
 s.textbox("photons_4, event_mask = sample_surviving_photons(\n    photons_all, ph_E, ph_theta, rng, params, n_keep=4\n)",
