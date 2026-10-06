@@ -226,6 +226,7 @@ def _write_payload(path: Path, payload: RootOutputPayload) -> None:
     output = ROOT.TFile(str(path), "RECREATE")
     if not output or output.IsZombie():
         raise RuntimeError(f"cannot create ROOT output: {path}")
+    was_batch = ROOT.gROOT.IsBatch()
     try:
         _write_points(output, payload.points)
         _write_diagnostics(output, payload.points)
@@ -262,6 +263,8 @@ def _write_payload(path: Path, payload: RootOutputPayload) -> None:
         for name, matrix in payload.systematic_covariances.items():
             _write_matrix(systematic, name, matrix)
 
+        if payload.ratio_objects:
+            ROOT.gROOT.SetBatch(True)
         for item in payload.ratio_objects:
             directory = _directory(
                 output,
@@ -287,10 +290,33 @@ def _write_payload(path: Path, payload: RootOutputPayload) -> None:
             graph.Write()
             fit.Write()
 
+            canvas = ROOT.TCanvas(
+                f"overlay_{item.pair}_e{item.energy_bin}_m{item.mass_bin}",
+                "Azimuthal ratio and fit", 800, 600,
+            )
+            graph.SetTitle("Azimuthal ratio and fit;#phi [rad];ratio")
+            graph.SetMarkerStyle(20)
+            graph.SetMinimum(min(float(np.min(value - error)), -abs(item.sigma)) - 0.05)
+            graph.SetMaximum(max(float(np.max(value + error)), abs(item.sigma)) + 0.05)
+            graph.Draw("AP")
+            graph.GetXaxis().SetLimits(0.0, 2.0 * math.pi)
+            fit.SetLineColor(ROOT.kRed)
+            fit.SetNpx(200)
+            fit.Draw("SAME")
+            canvas.Update()
+            overlay_directory = _directory(
+                output,
+                f"ratio_overlays/{item.pair}/e{item.energy_bin}/m{item.mass_bin}",
+            )
+            overlay_directory.cd()
+            canvas.Write("overlay")
+            canvas.Close()
+
         output.cd()
         ROOT.TNamed("provenance", payload.provenance).Write()
     finally:
         output.Close()
+        ROOT.gROOT.SetBatch(was_batch)
 
 
 def write_root_output(path: Path, payload: RootOutputPayload) -> None:

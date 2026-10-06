@@ -35,6 +35,26 @@ def test_figure4_full_command_dispatches_explicit_numerical_settings(tmp_path, m
     assert observed == [(tmp_path/"run", 4, 6, 8, 4, "grid")]
 
 
+def test_figure4_bin_task_keeps_replica_checks_for_panel_assembly(monkeypatch):
+    from types import SimpleNamespace
+    from graal_theory import cli
+
+    class FlatModel:
+        masses = (.547862, .1349768, .93827208816)
+        parameters = SimpleNamespace(proton_mass_gev=masses[2])
+
+        def polarized_matrix_element_squared(self, sample, epsilon):
+            import numpy as np
+            return np.ones(len(sample.initial))
+
+    monkeypatch.setattr(cli, "_figure4_model", lambda *args: FlatModel(), raising=False)
+    key, checks = cli._figure4_bin_task((THEORY_ROOT/"references", 3, "p_eta", 5,
+        1, 4, tuple(range(2026, 2034)), "direct", 64, 48))
+    assert key == (3, "p_eta", 5)
+    assert max(abs(a-b) for a, b in zip(checks[0].mass_range_gev, (1.6, 1.64))) < 1e-12
+    assert len(checks[3]) == 8
+
+
 def test_predict_cli_writes_partial_bundle(tmp_path):
     result = _run_cli(
         "predict", "--energy", "1.2", "--sobol-power", "8",

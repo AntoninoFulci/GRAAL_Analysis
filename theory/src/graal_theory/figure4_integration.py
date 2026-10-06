@@ -319,43 +319,68 @@ def _replica_mean(moments: tuple[Figure4BinMoment, ...]) -> Figure4BinMoment:
     return replace(first, **averages)
 
 
-def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float],
-                          mass_edges_gev, *, energy_order: int, sobol_power: int,
-                          replica_seeds: tuple[int, ...] = tuple(range(2026, 2034))) -> Figure4PanelResult:
-    """Apply every fixed numerical gate to each conditional nominal bin."""
+def _validate_replica_seeds(replica_seeds):
     if (not isinstance(replica_seeds, tuple) or len(replica_seeds) < 8
             or len(set(replica_seeds)) != len(replica_seeds)
             or any(type(seed) is not int or seed < 0 for seed in replica_seeds)):
         raise ValueError("certification requires at least eight distinct nonnegative replica seeds")
+
+
+def calculate_figure4_bin_checks(model, pair: str,
+                                 energy_range_gev: tuple[float, float],
+                                 mass_range_gev: tuple[float, float], *,
+                                 energy_order: int, sobol_power: int,
+                                 replica_seeds: tuple[int, ...]):
+    """Evaluate one nominal bin and retain all checks for panel covariance."""
+    _validate_replica_seeds(replica_seeds)
     _validate_panel_input(pair, energy_range_gev)
-    edges = _panel_edges(mass_edges_gev)
+    interval = tuple(_panel_edges(mass_range_gev))
     base_config = SobolConfig(sobol_power)
     finer_config = SobolConfig(sobol_power+1)
-    raw = []
-    for lower, upper in zip(edges[:-1], edges[1:]):
-        interval = (float(lower), float(upper))
-        base = _safe_predict(model, pair, energy_range_gev, interval, energy_order, base_config)
-        if base.status != "calculated":
-            raw.append((base, None, None, (), None))
-            continue
-        energy = _safe_predict(model, pair, energy_range_gev, interval,
-                               2*energy_order, base_config)
-        sobol = _safe_predict(model, pair, energy_range_gev, interval,
-                              energy_order, finer_config)
-        replicas = tuple(_safe_predict(model, pair, energy_range_gev, interval,
-            energy_order, SobolConfig(sobol_power, scramble=True, seed=seed))
-            for seed in replica_seeds)
-        if getattr(model, "strong_grid", None) is not None:
-            direct_model = replace(model, strong_grid=None)
-            direct = _safe_predict(direct_model, pair, energy_range_gev,
-                                   interval, energy_order, base_config)
-        else:
-            direct = base
-        raw.append((base, energy, sobol, replicas, direct))
+    base = _safe_predict(model, pair, energy_range_gev, interval, energy_order, base_config)
+    if base.status != "calculated":
+        return base, None, None, (), None
+    energy = _safe_predict(model, pair, energy_range_gev, interval,
+                           2*energy_order, base_config)
+    sobol = _safe_predict(model, pair, energy_range_gev, interval,
+                          energy_order, finer_config)
+    replicas = tuple(_safe_predict(model, pair, energy_range_gev, interval,
+        energy_order, SobolConfig(sobol_power, scramble=True, seed=seed))
+        for seed in replica_seeds)
+    if getattr(model, "strong_grid", None) is not None:
+        direct_model = replace(model, strong_grid=None)
+        direct = _safe_predict(direct_model, pair, energy_range_gev,
+                               interval, energy_order, base_config)
+    else:
+        direct = base
+    return base, energy, sobol, replicas, direct
+
+
+def assemble_figure4_panel(pair: str, energy_range_gev: tuple[float, float],
+                           mass_edges_gev, checks, *, energy_order: int,
+                           sobol_power: int, replica_seeds: tuple[int, ...],
+                           mode: str) -> Figure4PanelResult:
+    """Assemble ordered bin checks, preserving cross-bin replica covariance."""
+    _validate_replica_seeds(replica_seeds)
+    _validate_panel_input(pair, energy_range_gev)
+    edges = _panel_edges(mass_edges_gev)
+    raw = tuple(checks)
+    if mode not in ("direct", "grid") or len(raw) != len(edges)-1:
+        raise ValueError("invalid mode or bin count")
+    for index, item in enumerate(raw):
+        if (not isinstance(item, tuple) or len(item) != 5
+                or not isinstance(item[0], Figure4BinMoment)
+                or item[0].pair != pair
+                or item[0].energy_range_gev != tuple(energy_range_gev)
+                or item[0].mass_range_gev != (float(edges[index]), float(edges[index+1]))):
+            raise ValueError("bin order or identity mismatch")
 
     covariance = np.full((len(raw), len(raw)), np.nan)
     valid = [index for index, (base, energy, sobol, replicas, direct) in enumerate(raw)
-             if (base.status == energy.status == sobol.status == direct.status == "calculated"
+             if (base.status == "calculated"
+                 and energy is not None and sobol is not None and direct is not None
+                 and energy.status == sobol.status == direct.status == "calculated"
+                 and len(replicas) == len(replica_seeds)
                  and all(replica.status == "calculated" for replica in replicas))]
     if valid:
         replica_sigmas = np.array([[raw[index][3][replica].sigma for index in valid]
@@ -412,8 +437,25 @@ def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float
             norm_errors[k] = float(np.std(totals, ddof=1)/np.sqrt(len(totals)))
     return Figure4PanelResult(pair, tuple(energy_range_gev), edges.copy(),
         tuple(certified), covariance, energy_order, sobol_power, replica_seeds,
-        "grid" if getattr(model, "strong_grid", None) is not None else "direct",
+        mode,
         *norm_errors)
+
+
+def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float],
+                          mass_edges_gev, *, energy_order: int, sobol_power: int,
+                          replica_seeds: tuple[int, ...] = tuple(range(2026, 2034))) -> Figure4PanelResult:
+    """Apply every fixed numerical gate to each conditional nominal bin."""
+    _validate_replica_seeds(replica_seeds)
+    _validate_panel_input(pair, energy_range_gev)
+    edges = _panel_edges(mass_edges_gev)
+    checks = tuple(calculate_figure4_bin_checks(
+        model, pair, energy_range_gev, (float(low), float(high)),
+        energy_order=energy_order, sobol_power=sobol_power,
+        replica_seeds=replica_seeds) for low, high in zip(edges[:-1], edges[1:]))
+    return assemble_figure4_panel(pair, energy_range_gev, edges, checks,
+        energy_order=energy_order, sobol_power=sobol_power,
+        replica_seeds=replica_seeds,
+        mode="grid" if getattr(model, "strong_grid", None) is not None else "direct")
 
 
 def apply_pair_total_gate(

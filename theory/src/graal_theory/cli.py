@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
+from functools import lru_cache
 import hashlib
 import json
 import sys
@@ -113,15 +114,12 @@ def _pilot_panel5(args: argparse.Namespace) -> int:
     return 0
 
 
-def _figure4_panel_task(task):
-    import numpy as np
+@lru_cache(maxsize=4)
+def _figure4_model(references, mode, q_order, angle_order):
     from .amplitudes.nstar1535_grid import build_strong_t_grid
     from .amplitudes.production_loops import QuadratureSettings
-    from .figure4_integration import certify_figure4_panel
-    from .figure4_reference import PAIR_MASS_AXES
     from .models.eta_pi0_p_full import EtaPi0PFullModel
 
-    references, energy, pair, order, power, seeds, mode, q_order, angle_order = task
     model = EtaPi0PFullModel.from_files(Path(references))
     parameters = model.parameters
     production = replace(parameters.production, quadrature=QuadratureSettings(
@@ -130,6 +128,16 @@ def _figure4_panel_task(task):
     if mode == "grid":
         grid = build_strong_t_grid(model.parameters.strong, model.parameters.vector_masses)
         model = replace(model, strong_grid=grid)
+    return model
+
+
+def _figure4_panel_task(task):
+    import numpy as np
+    from .figure4_integration import certify_figure4_panel
+    from .figure4_reference import PAIR_MASS_AXES
+
+    references, energy, pair, order, power, seeds, mode, q_order, angle_order = task
+    model = _figure4_model(references, mode, q_order, angle_order)
     low, high = PAIR_MASS_AXES[pair]
     edges = np.linspace(low, high, 11)
     energy_range = (1.10+.10*energy, 1.20+.10*energy)
@@ -138,10 +146,27 @@ def _figure4_panel_task(task):
     return (energy, pair), panel
 
 
+def _figure4_bin_task(task):
+    import numpy as np
+    from .figure4_integration import calculate_figure4_bin_checks
+    from .figure4_reference import PAIR_MASS_AXES
+
+    references, energy, pair, index, order, power, seeds, mode, q_order, angle_order = task
+    model = _figure4_model(references, mode, q_order, angle_order)
+    low, high = PAIR_MASS_AXES[pair]
+    edges = np.linspace(low, high, 11)
+    energy_range = (1.10+.10*energy, 1.20+.10*energy)
+    checks = calculate_figure4_bin_checks(model, pair, energy_range,
+        (float(edges[index]), float(edges[index+1])), energy_order=order,
+        sobol_power=power, replica_seeds=seeds)
+    return (energy, pair, index), checks
+
+
 def _figure4_full(args: argparse.Namespace) -> int:
     from .figure4_comparison import compare_figure4, write_figure4_run
-    from .figure4_integration import apply_pair_total_gate
-    from .figure4_reference import load_published_theory_curves
+    from .figure4_integration import apply_pair_total_gate, assemble_figure4_panel
+    from .figure4_reference import PAIR_MASS_AXES, load_published_theory_curves
+    import numpy as np
 
     if not 1 <= args.energy_order <= 64:
         raise ValueError("--energy-order must be between 1 and 64")
@@ -165,8 +190,25 @@ def _figure4_full(args: argparse.Namespace) -> int:
         results = map(_figure4_panel_task, tasks)
         panels = dict(results)
     else:
+        bin_tasks = [(references, energy, pair, index, args.energy_order,
+                      args.sobol_power, seeds, args.mode, args.q_order, args.angle_order)
+                     for energy in range(4)
+                     for pair in ("p_pi0", "p_eta", "eta_pi0")
+                     for index in range(10)]
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
-            panels = dict(pool.map(_figure4_panel_task, tasks))
+            bin_results = dict(pool.map(_figure4_bin_task, bin_tasks))
+        panels = {}
+        for energy in range(4):
+            for pair in ("p_pi0", "p_eta", "eta_pi0"):
+                low, high = PAIR_MASS_AXES[pair]
+                edges = np.linspace(low, high, 11)
+                energy_range = (1.10+.10*energy, 1.20+.10*energy)
+                checks = tuple(bin_results[(energy, pair, index)]
+                               for index in range(10))
+                panels[(energy, pair)] = assemble_figure4_panel(
+                    pair, energy_range, edges, checks,
+                    energy_order=args.energy_order, sobol_power=args.sobol_power,
+                    replica_seeds=seeds, mode=args.mode)
 
     panels = apply_pair_total_gate(panels)
     csv_path = references/"ajaka2008_figure4_theory.csv"

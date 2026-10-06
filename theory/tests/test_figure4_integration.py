@@ -185,3 +185,58 @@ def test_pair_total_gate_masks_disagreeing_accessible_panels():
     checked = apply_pair_total_gate(panels)
     assert all(checked[key].bins[0].status == "masked_nonconverged" for key in panels)
     assert all("pair_total_mismatch" in checked[key].bins[0].reason for key in panels)
+
+
+def test_binwise_certification_preserves_cross_bin_covariance_and_statuses():
+    from graal_theory.figure4_integration import (
+        calculate_figure4_bin_checks, assemble_figure4_panel)
+
+    class AngularModel(FlatModel):
+        def amplitude(self, sample, epsilon):
+            pion_x = sample.momenta[:, 1, 1]
+            eta_y = sample.momenta[:, 0, 2]
+            scale = 1+.8*pion_x+(.5 if epsilon[0] else -.3)*eta_y
+            return scale[:, None, None]*super().amplitude(sample, epsilon)
+
+    model = AngularModel()
+    edges = np.array([1.60, 1.64, 1.68])
+    seeds = tuple(range(2026, 2034))
+    serial = certify_figure4_panel(model, "p_eta", (1.4, 1.5), edges,
+        energy_order=2, sobol_power=4, replica_seeds=seeds)
+    checks = tuple(calculate_figure4_bin_checks(
+        model, "p_eta", (1.4, 1.5), (float(low), float(high)),
+        energy_order=2, sobol_power=4, replica_seeds=seeds)
+        for low, high in zip(edges[:-1], edges[1:]))
+    binwise = assemble_figure4_panel("p_eta", (1.4, 1.5), edges, checks,
+        energy_order=2, sobol_power=4, replica_seeds=seeds, mode="direct")
+    assert [item.status for item in binwise.bins] == [item.status for item in serial.bins]
+    np.testing.assert_allclose(
+        [item.moment.denominator for item in binwise.bins],
+        [item.moment.denominator for item in serial.bins], rtol=0, atol=0)
+    np.testing.assert_allclose(binwise.covariance, serial.covariance,
+                               rtol=0, atol=0, equal_nan=True)
+    assert binwise.covariance[0, 1] != 0
+    with pytest.raises(ValueError, match="bin order"):
+        assemble_figure4_panel("p_eta", (1.4, 1.5), edges, checks[::-1],
+            energy_order=2, sobol_power=4, replica_seeds=seeds, mode="direct")
+
+
+def test_certification_keeps_kinematic_mask_without_accessing_missing_refinements():
+    panel = certify_figure4_panel(FlatModel(), "p_eta", (1.4, 1.5),
+        [1.8, 1.84], energy_order=2, sobol_power=4,
+        replica_seeds=tuple(range(2026, 2034)))
+    assert panel.bins[0].status == "masked_kinematic"
+
+
+def test_binwise_assembly_masks_missing_replica_instead_of_accepting_it():
+    from graal_theory.figure4_integration import (
+        calculate_figure4_bin_checks, assemble_figure4_panel)
+    seeds = tuple(range(2026, 2034))
+    checks = calculate_figure4_bin_checks(FlatModel(), "p_eta", (1.4, 1.5),
+        (1.6, 1.64), energy_order=2, sobol_power=4, replica_seeds=seeds)
+    incomplete = (*checks[:3], checks[3][:-1], checks[4])
+    panel = assemble_figure4_panel("p_eta", (1.4, 1.5), [1.6, 1.64],
+        (incomplete,), energy_order=2, sobol_power=4,
+        replica_seeds=seeds, mode="direct")
+    assert panel.bins[0].status == "masked_nonconverged"
+    assert "not_completed" in panel.bins[0].reason

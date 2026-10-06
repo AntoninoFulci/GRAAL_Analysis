@@ -11,10 +11,12 @@ from scipy.optimize import brentq
 
 from graal_theory.amplitudes.delta1700 import Delta1700Parameters
 from graal_theory.amplitudes.nstar1535_reduced import load_reduced_parameters
-from graal_theory.amplitudes.production_loops import QuadratureSettings, load_production_parameters
+from graal_theory.amplitudes.production_loops import (
+    QuadratureSettings, eq26_rescattering_loop, load_production_parameters,
+)
 from graal_theory.amplitudes.propagators import delta1700_width
 from graal_theory.models.eta_pi0_p import load_central_parameters
-from graal_theory.phase_space import SobolConfig, sample_three_body
+from graal_theory.phase_space import SobolConfig, ThreeBodySample, sample_three_body
 from graal_theory.phase_space import sample_three_body_mass_window
 from graal_theory.kinematics import s_from_lab_photon_energy
 
@@ -82,6 +84,72 @@ def test_k_sigma_eq26_tangent_recoil_cut_converges_at_default_order(
     result = decuplet.k_sigma_star_rescattering_amplitude(
         one, [0., 1., 0.], production, tree, strong, lambda z: transition)
     assert np.all(np.isfinite(result))
+
+
+def test_k_sigma_eq26_near_threshold_radial_log_converges(
+        decuplet, production, tree, strong):
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0],
+              strong.baryon_masses_gev[0])
+    one = ThreeBodySample(
+        initial=np.array([[1.8763116880084585, 0., 0., 0.]]),
+        momenta=np.array([[
+            [0.6525263195724976, -0.042982653482050936,
+             -0.1599503027420862, -0.31337871472578716],
+            [0.25290699707646674, 0.1487017064883154,
+             0., 0.15372382742912316],
+            [0.9708783713594941, -0.10571905300626447,
+             0.1599503027420862, 0.159654887296664],
+        ]]),
+        weights_gev2=np.array([1.2843360486206814e-06]),
+        masses=masses, s12_gev2=np.array([0.7575591903444068]),
+        config=SobolConfig(4))
+    transition = np.zeros((6, 6), complex)
+    transition[4, 2] = .7-.3j
+    def evaluate(p):
+        return decuplet.k_sigma_star_rescattering_amplitude(
+            one, [0., 1., 0.], p, tree, strong, lambda z: transition)
+    default = evaluate(production)
+    higher = evaluate(replace(production, quadrature=QuadratureSettings(
+        q_order=96, angle_order=72)))
+    highest = evaluate(replace(production, quadrature=QuadratureSettings(
+        q_order=192, angle_order=144)))
+    np.testing.assert_allclose(default, highest, rtol=1e-5, atol=1e-10)
+    np.testing.assert_allclose(higher, highest, rtol=1e-5, atol=1e-10)
+
+
+def test_eq26_coincident_recoil_root_uses_mapped_distance(
+        production, tree, strong):
+    """A narrow physical recoil interval must not round a GL node onto its root."""
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0],
+              strong.baryon_masses_gev[0])
+    one = ThreeBodySample(
+        initial=np.array([[1.7197622794040899, 0., 0., 0.]]),
+        momenta=np.array([[
+            [0.6070642981903211, -0.20404084961368496,
+             0.004629340784485973, 0.16346312118069314],
+            [0.14959995634340187, 0.0642782304444787,
+             -0.004629340784485973, 0.002879009297542104],
+            [0.9630980248703668, 0.13976261916920624,
+             0., -0.16634213047823523],
+        ]]),
+        weights_gev2=np.array([1e-6]), masses=masses,
+        s12_gev2=np.array([0.5253374999999998]), config=SobolConfig(7),
+    )
+
+    def evaluate(settings):
+        return eq26_rescattering_loop(
+            one, 0, 0, lambda q, x: np.eye(2, dtype=complex),
+            lambda invariant: 1+0j, 1+0j, replace(production, quadrature=settings),
+            strong, "frozen recoil event", source_is_radial=True,
+            intermediate_invariant_landmarks_gev=(
+                strong.baryon_masses_gev[0]+strong.meson_masses_gev[0],
+                tree.delta_mass_gev),
+        )
+
+    default = evaluate(QuadratureSettings(q_order=64, angle_order=48))
+    higher = evaluate(QuadratureSettings(q_order=96, angle_order=72))
+    assert np.all(np.isfinite(default))
+    np.testing.assert_allclose(default, higher, rtol=1e-5, atol=1e-10)
 
 
 def _q(w, m, mu):

@@ -78,6 +78,11 @@ def test_root_output_contains_points_edges_covariance_and_ratio_objects(tmp_path
         assert source.Get("covariance/systematic/polarization_scale_3pct")
         assert source.Get("ratio_objects/p_pi0/e0/m0/ratio")
         assert source.Get("ratio_objects/p_pi0/e0/m0/fit")
+        overlay = source.Get("ratio_overlays/p_pi0/e0/m0/overlay")
+        assert overlay and overlay.InheritsFrom("TCanvas")
+        assert overlay.GetPrimitive("ratio").InheritsFrom("TGraphErrors")
+        assert overlay.GetPrimitive("fit").InheritsFrom("TF1")
+        assert overlay.GetPrimitive("fit").GetParameter(0) == 0.3
         assert source.Get("provenance")
     finally:
         source.Close()

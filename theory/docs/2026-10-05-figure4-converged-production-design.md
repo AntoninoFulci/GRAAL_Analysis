@@ -454,8 +454,96 @@ A fixed digital shift avoided that endpoint; a nearby sampled event at
 The trial was reverted from the production sampler. Subsequent isolated
 Eq. (25) regressions now pass below, on, and above this threshold after
 stationary-point radial splitting and stable recoil-log evaluation. A
-complete stratified publication bin and its variance gate remain untested;
-do not use an unverified split for the curves.
+complete stratified publication bin and its variance gate had not yet been
+tested at that point.
+An ensuing complete-bin two-stratum pilot used a fixed nested shift and
+also exposed the same tangent instability in the Eq. (26) radial-source
+loop. Its shared stable endpoint treatment now passes the frozen event.
+The real `p_eta` `p5/p6` and `p6/p7` stratified denominators drifted by
+`2.2362%` and `2.6396%` against the `<1%` requirement; the trial was
+again removed from the active sampler. This rules out this equal-allocation
+two-stratum design as the current variance solution. Unsplit higher-power
+convergence and measured throughput remain open. The unsplit `p7` at
+default `64/48` now passes every inner check after the shared recoil fix,
+but its denominator `1.2176294835` still differs from `p6` by `1.047245%`,
+above the strict `<1%` Sobol gate. Its `834.18 s` measured bin time makes
+the existing one-worker-per-panel schedule borderline against the `24 h`
+launch gate if `p7` must be the base resolution; a complete-panel scaling
+measurement is required. The CLI now schedules independent nominal-bin
+checks across workers and assembles the same cross-bin replica covariance;
+focused serial/binwise and CLI tests pass. This removes the known panel-level
+load imbalance, but measured complete-bin scaling and the `24 h` gate are
+still open.
+At the next power, unsplit `p7/p8` for this bin passes both Sobol criteria:
+denominator drift `0.1600%` and `Delta Sigma=0.0000979`. This establishes
+candidate base `p7` for this bin only; replica, energy-order, direct/grid,
+and panel-wide checks remain pending.
+The lower `p_eta` pilot (`E_gamma=[1.10,1.20]`, `M=[1.52,1.56]`) has now
+passed every *individual-bin* numerical gate at `n=4`, `p5`, `64/48`:
+`n/2n` changes `Sigma` by `0.00000396` and normalization by `0.00116%`;
+`p5/p6` changes `Sigma` by `0.005964` and normalization by `0.86895%`;
+eight fixed scrambled replicas give `SE(Sigma)=0.009120`; and direct/grid
+changes `Sigma` by `0.00000465`. Twelve independent evaluations on twelve
+processes took `431.6 s` wall time; the longest checks took about `431 s`.
+This does not establish panel-wide covariance or the three-projection total
+gate, and gives no license to use `p5` for other bins. The upper-bin complete
+checks and representative multi-bin throughput remain open.
+The upper `p_eta` pilot (`E_gamma=[1.40,1.50]`, `M=[1.60,1.64]`) now also
+passes every individual-bin gate at `n=4`, `p7`, `64/48`: `n/2n` changes
+`Sigma` by `1.52e-7` and normalization by `0.00211%`; `p7/p8` changes
+`Sigma` by `0.0000979` and normalization by `0.1601%`; eight fixed
+scrambled replicas give `SE(Sigma)=0.001603`; direct/grid changes `Sigma`
+by `5.04e-7`. Twelve independent evaluations on twelve processes took
+`2020.2 s` wall time while two other processes ran a separate source guard.
+The measured sum of per-check worker times is about `15,540 s` for this
+upper bin and `3,340 s` for the lower bin. Scaling those work sums to 78
+accessible bins and 14 workers gives illustrative `~5.2 h` if all bins
+cost like the lower pilot or `~24.1 h` if all cost like the upper pilot.
+Neither extreme is a full-run bound: bin powers, inner failures, contention,
+adaptive preflights, panel covariance and physical cross-checks are unknown.
+The `<=24 h` launch gate is therefore still unproved. The production CLI
+currently accepts one Sobol power for all bins; measured `p5` versus `p7`
+pilots show why per-bin power selection and provenance must be added before
+using this cost projection for a complete run.
+An additional deterministic `p5/p6` scan of one interior accessible bin
+from each of the twelve panels took `816.4 s` with twelve processes.
+Only `2/12` bins pass both `|Delta Sigma|<=0.01` and denominator drift
+`<1%`; all twelve inner calculations returned finite values, so the ten
+failures are phase-space resolution failures at that setting. Denominator
+drifts among the failures range from `1.26%` to `8.45%`. This sample rules
+out the all-`p5` cost scenario as a realistic operating plan; the
+illustrative `5.2 h` extreme above is not a likely full-run estimate.
+Deterministic `p6/p7` follow-up and complete certification remain necessary
+before a credible `<=24 h` decision.
+That follow-up exposed a separate Eq. (26) floating-point endpoint at a
+low-energy `eta_pi0` event. Two recoil roots only `4.427e-10 GeV` apart
+created a mapped positive distance smaller than an ULP of the first root;
+the old reconstructed `q` rounded onto the root and generated `log(0)`.
+The shared recoil-gap evaluator now accepts the exact mapped displacement
+for Eq. (26). A frozen source-independent event passes `64/48` and agrees
+with `96/72`; the complete seven-family event passes H/V. The original
+multi-bin worker used old code for this event; the bin reran successfully
+under corrected code at `p7` and remains numerically
+nonconverged: `p6/p7` denominator drift is `5.423%`. Across all ten
+representative bins that failed `p5/p6`, **zero** pass the next `p6/p7`
+`Sigma` and denominator gates (nine original finite results plus the
+corrected rerun). At least these ten need `p7/p8` or a source-equivalent
+variance treatment. This makes a uniform `p7` full run an unjustified
+launch; the illustrative `~24.1 h` all-upper-pilot workload leaves no
+headroom for preflight, harder bins, or cross-checks. The main blocker is
+amplitude variance over phase space, not the isolated Eq. (26) log defect.
+A four-energy-node diagnostic in the low `p_eta` mass window `[1.56,1.60]`
+reconstructs the real `p6→p7` denominator change: independent family
+interference allocations sum to `-0.000865587040`, versus directly measured
+`-0.000865587035`. Net allocations are approximately 28% chiral contact,
+21% external pion, 19% eta-Delta, 14% Eq. (43) tree and 18% across the
+other three families. Marginal quartile drift has comparable gross
+magnitude in pair mass (`0.00117`), spectator polar coordinate (`0.00136`),
+pair polar coordinate (`0.00137`) and relative azimuth (`0.00113`);
+these signed terms cancel in the net. This localizes a broad coherent
+amplitude/QMC variance problem, not a defect confined to the phase-space
+Jacobian or one mass threshold. No new coordinate map has yet passed
+source-equivalence and convergence tests.
 The exact recoil-angle branch remains algebraically equivalent to Eq. (25):
 `q_on²-q²=(W-omega-E_left)(q0_on+omega)(W-omega+E_left)/(2W)`, and
 `(1/A-1/B)/(B-A)=1/(AB)` for the two baryon denominators. Its physical

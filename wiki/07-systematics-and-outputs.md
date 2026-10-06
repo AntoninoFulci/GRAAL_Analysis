@@ -138,9 +138,11 @@ beam_asymmetry.root
 ├── diagnostics/
 │   ├── ratio_vs_likelihood              TGraphErrors
 │   └── uncorrected_vs_corrected          TGraph
-└── ratio_objects/<pair>/eN/mN/
-    ├── ratio                            TGraphErrors
-    └── fit                              TF1, [0] cos(2x)
+├── ratio_objects/<pair>/eN/mN/
+│   ├── ratio                            TGraphErrors
+│   └── fit                              TF1, [0] cos(2x)
+└── ratio_overlays/<pair>/eN/mN/
+    └── overlay                          TCanvas, ratio and fit overlaid
 ```
 
 `sigma_points` uses integer IDs for sample, estimator, and pair; `id_mapping`
