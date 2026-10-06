@@ -119,14 +119,20 @@ class Slide:
         self.shapes.append(sp)
         self._id += 1
 
-    def image(self, name: str, x: float, y: float, w: float, h: float):
+    def image(self, name: str, x: float, y: float, w: float, h: float, *,
+              crop: tuple[float, float, float, float] | None = None):
         path = HERE / "assets" / name
         with Image.open(path) as im:
             iw, ih = im.size
-        ratio = min(w / iw, h / ih)
-        dw, dh = iw * ratio, ih * ratio
-        x += (w - dw) / 2
-        y += (h - dh) / 2
+        if crop is None:
+            ratio = min(w / iw, h / ih)
+            dw, dh = iw * ratio, ih * ratio
+            x += (w - dw) / 2
+            y += (h - dh) / 2
+        else:
+            if any(value < 0 or value >= 1 for value in crop) or crop[0] + crop[2] >= 1 or crop[1] + crop[3] >= 1:
+                raise ValueError(f"Invalid crop for {name}: {crop}")
+            dw, dh = w, h
         pic = e(P, "pic")
         nv = e(P, "nvPicPr")
         nv.append(e(P, "cNvPr", id=self._id, name=name, descr=name))
@@ -137,6 +143,10 @@ class Slide:
         pic.append(nv)
         bf = e(P, "blipFill")
         bf.append(e(A, "blip", **{f"{{{R}}}embed": f"rId{len(self.pictures)+2}"}))
+        if crop is not None:
+            bf.append(e(A, "srcRect", l=round(crop[0] * 100000),
+                        t=round(crop[1] * 100000), r=round(crop[2] * 100000),
+                        b=round(crop[3] * 100000)))
         stretch = e(A, "stretch")
         stretch.append(e(A, "fillRect"))
         bf.append(stretch)
@@ -208,13 +218,11 @@ def add_navigation(s: Slide):
         "VERIFICHE", "PROSPETTIVE",
     )
     h = .285
-    # Header and footer share the same section cue and page counter.
+    # The page counter belongs only in the footer.
     s.rect(0, 0, 10, h, NAVY)
     s.rect(0, 0, 10 * s.number / SLIDE_COUNT, h, BAR_BLUE)
     s.textbox("GRAAL ANALYSIS", .62, 0, 5.4, h, size=9, color=WHITE,
               bold=True, valign="ctr")
-    s.textbox(f"{s.number:02d}/{SLIDE_COUNT:02d}", 8.84, 0, .54, h,
-              size=10, color=WHITE, bold=True, align="r", valign="ctr")
     y = 5.34
     s.rect(0, y, 10, h, NAVY)
     s.rect(0, y, 10 * s.number / SLIDE_COUNT, h, BAR_BLUE)
@@ -233,13 +241,22 @@ s.textbox("Σ", 7.00, 1.35, 2.3, 2.65, size=164, color=BAR_BLUE, bold=True, alig
 s.textbox("6 ottobre 2026", .72, 4.76, 8.6, .28, size=13, color=ICE)
 slides.append(s)
 
-s = standard("La domanda fisica", 2, "wiki/scientific-foundations.md; Ajaka et al. (2008)")
-s.textbox("γ p  →  p η π⁰", .74, 1.28, 8.5, .64, size=40, color=BLUE, bold=True)
-s.textbox("η → γγ     π⁰ → γγ", .77, 2.02, 7.7, .38, size=24)
-s.textbox("Negli eventi cerchiamo quattro fotoni e un protone di rinculo.", .77, 2.66, 8.4, .49, size=20)
-s.textbox("Σ in pπ⁰, pη ed ηπ⁰", .77, 3.40, 8.3, .42, size=23, color=BLUE, bold=True)
-s.textbox("UV: 1,10–1,50 GeV · VIS: 0,9313–1,10 GeV", .77, 3.93, 8.5, .38, size=19)
-s.textbox("Usiamo i risultati di Ajaka et al. (2008) per verificare l'analisi.", .77, 4.48, 8.45, .4, size=17, color=MUTED)
+s = standard("GRAAL e obiettivo del lavoro", 2,
+             "D. Rebreyend (MENU04); V. Nedorezov (2015); Ajaka et al., PRL 100 (2008)")
+s.textbox("GRAAL all'ESRF", .72, 1.14, 4.2, .38, size=21, color=BLUE, bold=True)
+s.textbox("A Grenoble, la retrodiffusione Compton del laser sugli elettroni dell'anello produce fotoni polarizzati. LAGRANγE registra i prodotti della reazione su un ampio angolo.",
+          .72, 1.55, 4.13, 1.06, size=17)
+s.textbox("Il nostro lavoro", .72, 2.78, 4.2, .38, size=21, color=BLUE, bold=True)
+s.textbox("Abbiamo costruito un framework che porta i dati GRAAL dalla preselezione all'estrazione dell'asimmetria Σ.",
+          .72, 3.18, 4.13, .68, size=17)
+s.textbox("Lo testiamo su γp → pηπ⁰, confrontando i risultati con Ajaka et al. (2008).",
+          .72, 3.94, 4.13, .60, size=17)
+s.image("graal_detector_source.jpg", 5.14, 1.21, 4.08, 2.91,
+        crop=(.05, .18, .34, .24))
+s.textbox("LAGRANγE: fascio (1), bersaglio (2), BGO (3), parete (8)", 5.15, 4.16, 4.05, .24,
+          size=11, color=MUTED)
+s.textbox("Aggiungiamo una selezione BDT addestrata sul nuovo MC e calibriamo i flussi per run. Estendiamo inoltre l'analisi ai dati VIS vicini alla soglia.",
+          .72, 4.61, 8.54, .43, size=16)
 slides.append(s)
 
 s = standard("Dal Fortran ai file ROOT", 3, "wiki/01-pre-analysis.md; 01_pre_analysis/PreAnalysis.C")
@@ -443,6 +460,8 @@ def build():
         extensions = {node.get("Extension") for node in types.findall(f"{{{CT}}}Default")}
         if "png" not in extensions:
             types.append(e(CT, "Default", Extension="png", ContentType="image/png"))
+        if "jpg" not in extensions:
+            types.append(e(CT, "Default", Extension="jpg", ContentType="image/jpeg"))
         members["[Content_Types].xml"] = etree.tostring(types, xml_declaration=True, encoding="UTF-8")
         with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as out:
             for name, data in members.items():

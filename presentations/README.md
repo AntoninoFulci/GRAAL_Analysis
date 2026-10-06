@@ -3,8 +3,17 @@
 `graal_analysis_framework_asimmetrie.pptx` presenta il framework di analisi
 per `γp → pηπ⁰` in 19 slide (Aptos, blu e bianco). `build.py` rigenera il
 file usando le immagini versionate in `assets/` (richiede pandoc, lxml e
-Pillow). Ogni slide include barre di navigazione superiore e inferiore,
-entrambe con numerazione corrente/19 centrata verticalmente.
+Pillow). Ogni slide include barre di navigazione superiore e inferiore;
+la numerazione corrente/19 compare soltanto in quella inferiore.
+
+La slide 2 riassume GRAAL e l'obiettivo del lavoro. Lo schema di
+LAGRANγE è tratto dalla presentazione di D. Rebreyend (MENU04),
+[disponibile online](https://www.slideserve.com/balin/general-review-of-graal-physics-achievements-and-future),
+e compare anche come figura 2 nell'[articolo di V. Nedorezov](https://inspirehep.net/files/5bd029fb512b4d1bcec10f146acc514a).
+La [pagina della figura](https://www.researchgate.net/figure/Experimental-scheme-of-the-detector-LAGRANE-1-Compton-beam-2-target-3-BGO_fig1_323873310)
+ne indica la licenza CC BY-NC-SA 1.0.
+La descrizione di GRAAL è verificata sulle fonti del progetto e sul
+[lavoro di Ajaka et al.](https://doi.org/10.1103/PhysRevLett.100.052003).
 
 Le figure e le metriche UV/VIS provengono dalla campagna locale
 `results/test_data/` del 5 ottobre 2026. Sono risultati di prova, non una
