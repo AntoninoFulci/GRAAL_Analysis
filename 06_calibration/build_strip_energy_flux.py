@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import tempfile
 import time
 from typing import NamedTuple, Sequence
 
@@ -23,17 +24,10 @@ from calibration.strip_energy_flux import (
     StripEnergyRecord,
     StripEnergyFluxError,
     StripFlux,
-    aggregate_group_flux,
-    atomic_output_directory,
     complete_strip_energy_lookup,
     find_monotonic_inversions,
     integrate_run_flux,
     join_strip_exposures,
-    write_group_flux_csv,
-    write_lookup_csv,
-    write_qa_json,
-    write_run_flux_csv,
-    write_strip_exposure_csv,
 )
 
 
@@ -44,6 +38,7 @@ _CALIBRATION_ENERGY_BINS = 2048
 _CALIBRATION_ENERGY_LOW_GEV = 0.5
 _CALIBRATION_ENERGY_HIGH_GEV = 2.0
 _RDF_HELPERS_DECLARED = False
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data/00_external"
 
 
 class CalibrationCell(NamedTuple):
@@ -1152,27 +1147,55 @@ def _input_paths(args: argparse.Namespace) -> dict[str, str]:
 
 
 def _validate_output_location(args: argparse.Namespace) -> None:
-    lexical_output = Path(os.path.abspath(args.output_dir))
-    resolved_output = args.output_dir.resolve(strict=False)
-    for input_path in (
-        args.preanalysis_dir,
-        args.manifest,
-        args.flux,
-    ):
+    output_path = args.output_dir / "flux_calibrated.root"
+    lexical_output = Path(os.path.abspath(output_path))
+    resolved_output = output_path.resolve(strict=False)
+    for input_path in (args.manifest, args.flux):
         lexical_input = Path(os.path.abspath(input_path))
         resolved_input = input_path.resolve(strict=False)
-        lexical_collision = (
-            lexical_input == lexical_output
-            or lexical_output in lexical_input.parents
-        )
-        resolved_collision = (
-            resolved_input == resolved_output
-            or resolved_output in resolved_input.parents
-        )
-        if lexical_collision or resolved_collision:
+        if lexical_input == lexical_output or resolved_input == resolved_output:
             raise StripEnergyFluxError(
-                f"output directory contains input path: {input_path}"
+                f"output path overlaps input path: {input_path}"
             )
+    lexical_preanalysis = Path(os.path.abspath(args.preanalysis_dir))
+    resolved_preanalysis = args.preanalysis_dir.resolve(strict=False)
+    if (
+        lexical_output == lexical_preanalysis
+        or lexical_preanalysis in lexical_output.parents
+        or resolved_output == resolved_preanalysis
+        or resolved_preanalysis in resolved_output.parents
+    ):
+        raise StripEnergyFluxError(
+            f"output path overlaps pre-analysis input: {args.preanalysis_dir}"
+        )
+
+
+def _write_calibrated_flux_root_atomic(
+    input_path: Path,
+    output_path: Path,
+    calibration_cells,
+    calibration_energy_bins,
+):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output_path.name}.",
+        suffix=".tmp",
+        dir=output_path.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        qa = write_calibrated_flux_root(
+            input_path,
+            temporary,
+            calibration_cells,
+            calibration_energy_bins,
+        )
+        temporary.replace(output_path)
+        return qa
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def build_qa_payload(
@@ -1243,13 +1266,15 @@ def build_qa_payload(
 
 def run(args: argparse.Namespace) -> int:
     progress = ProgressReporter()
+    output_path = args.output_dir / "flux_calibrated.root"
     progress_every_events = getattr(args, "progress_every_events", 1_000_000)
     threads = getattr(args, "threads", os.cpu_count() or 1)
     samples_per_run_strip = getattr(args, "samples_per_run_strip", 256)
+    target = getattr(args, "target", None)
     progress.log("starting strip-energy/flux build")
     progress.log(
         f"inputs: preanalysis={args.preanalysis_dir}; manifest={args.manifest}; "
-        f"flux={args.flux}; output={args.output_dir}"
+        f"flux={args.flux}; output={output_path}"
     )
     _validate_output_location(args)
     if args.min_events_per_strip < 1:
@@ -1271,8 +1296,19 @@ def run(args: argparse.Namespace) -> int:
         raise StripEnergyFluxError("samples-per-run-strip must be at least 1")
 
     progress.log("validating run manifest")
-    records = validate_manifest(args.manifest)
-    progress.log(f"manifest loaded: {len(records)} runs")
+    all_records = validate_manifest(args.manifest)
+    records = [
+        record
+        for record in all_records
+        if target is None or record.target == target
+    ]
+    if not records:
+        raise StripEnergyFluxError(f"manifest has no {target} target runs")
+    progress.log(
+        f"manifest loaded: {len(all_records)} runs; "
+        f"selected: {len(records)} runs"
+    )
+    all_manifest_runs = {record.run_number for record in all_records}
     manifest_by_run = {record.run_number: record for record in records}
     progress.log("building strip-energy lookup with ROOT RDataFrame")
     lookup, h80_qa = read_h80_lookup(
@@ -1283,6 +1319,9 @@ def run(args: argparse.Namespace) -> int:
         progress=progress,
         progress_every_events=progress_every_events,
     )
+    h80_qa["extra_runs"] = [
+        run for run in h80_qa["extra_runs"] if run not in all_manifest_runs
+    ]
     progress.log(f"h80 scan complete: {h80_qa['entries']} events")
     progress.log("building per-polarization calibration cells")
     calibration_cells, calibration_energy_bins = read_calibration_cells(
@@ -1324,6 +1363,9 @@ def run(args: argparse.Namespace) -> int:
         sorted(manifest_runs),
         progress=progress,
     )
+    flux_qa["extra_runs"] = [
+        run for run in flux_qa["extra_runs"] if run not in all_manifest_runs
+    ]
     strips, negative_flux_bins = clamp_negative_flux(strips)
     progress.log(f"flux scan complete: {len(strips)} run/strip rows")
     flux_by_run = defaultdict(list)
@@ -1554,63 +1596,49 @@ def run(args: argparse.Namespace) -> int:
         if total_errors > len(visible_errors):
             progress.log(
                 f"QA ERROR: {total_errors - len(visible_errors)} additional "
-                "errors omitted from log; see strip_energy_flux_qa.json"
+                "errors omitted from log"
             )
-    progress.log("writing output artifacts")
-    with atomic_output_directory(args.output_dir) as staging:
-        progress.log("writing strip_energy_lookup.csv")
-        write_lookup_csv(
-            staging / "strip_energy_lookup.csv",
-            [row for row in lookup if row.run_number in manifest_by_run],
-            manifest_by_run,
+    if not qa["valid"]:
+        progress.log(f"completed with invalid QA: {len(qa['errors'])} errors")
+        return 1
+
+    progress.log(f"writing calibrated ROOT: {output_path}")
+    calibrated_root_qa = _write_calibrated_flux_root_atomic(
+        args.flux,
+        output_path,
+        calibration_cells,
+        calibration_energy_bins,
+    )
+    if calibrated_root_qa["skipped_without_calibration"]:
+        warning = (
+            "flux histograms skipped without run/polarization calibration: "
+            f"{len(calibrated_root_qa['skipped_without_calibration'])}"
         )
-        progress.log("writing flux_by_run_energy.csv")
-        write_run_flux_csv(staging / "flux_by_run_energy.csv", run_flux)
-        progress.log("writing flux_by_run_strip.csv")
-        write_strip_exposure_csv(
-            staging / "flux_by_run_strip.csv", strip_exposures
-        )
-        progress.log("writing flux_by_group_energy.csv")
-        write_group_flux_csv(
-            staging / "flux_by_group_energy.csv",
-            aggregate_group_flux(run_flux),
-        )
-        progress.log("writing flux_calibrated.root")
-        calibrated_root_qa = write_calibrated_flux_root(
-            args.flux,
-            staging / "flux_calibrated.root",
-            calibration_cells,
-            calibration_energy_bins,
-        )
-        qa["calibrated_root"] = calibrated_root_qa
-        if calibrated_root_qa["skipped_without_calibration"]:
-            warning = (
-                "flux histograms skipped without run/polarization calibration: "
-                f"{len(calibrated_root_qa['skipped_without_calibration'])}"
-            )
-            qa["warnings"].append(warning)
-            progress.log(f"QA WARNING [post-write]: {warning}")
-        progress.log("writing strip_energy_flux_qa.json")
-        write_qa_json(staging / "strip_energy_flux_qa.json", qa)
-    if qa["valid"]:
-        progress.log("completed successfully")
-        print(
-            f"Wrote {len(records)}-run strip-energy flux analysis "
-            f"to {args.output_dir}"
-        )
-        return 0
-    progress.log(f"completed with invalid QA: {len(qa['errors'])} errors")
-    return 1
+        progress.log(f"QA WARNING [post-write]: {warning}")
+    progress.log("completed successfully")
+    print(f"Wrote calibrated flux ROOT to {output_path}")
+    return 0
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build run-specific strip-energy and integrated flux artifacts."
+        description="Build calibrated run-specific flux ROOT histograms.",
+        allow_abbrev=False,
     )
     parser.add_argument("--preanalysis-dir", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--flux", required=True, type=Path)
-    parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--target",
+        choices=("P", "D"),
+        help="calibrate only runs with this manifest target",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=_DEFAULT_OUTPUT_DIR,
+        help=f"directory for flux_calibrated.root; default: {_DEFAULT_OUTPUT_DIR}",
+    )
     parser.add_argument("--min-events-per-strip", type=int, default=1)
     parser.add_argument("--max-mad-gev", type=float, default=0.005)
     parser.add_argument("--monotonic-tolerance-gev", type=float, default=0.002)
@@ -1636,27 +1664,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _write_failure_qa(args: argparse.Namespace, error: str) -> None:
-    _validate_output_location(args)
-    payload = {
-        "schema_version": FLUX_SCHEMA_VERSION,
-        "inputs": _input_paths(args),
-        "valid": False,
-        "errors": [error],
-    }
-    with atomic_output_directory(args.output_dir) as staging:
-        write_qa_json(staging / "strip_energy_flux_qa.json", payload)
-
-
 def main() -> int:
     args = parse_args()
     try:
         return run(args)
     except (ManifestError, StripEnergyFluxError, OSError, RuntimeError) as exc:
-        try:
-            _write_failure_qa(args, str(exc))
-        except (StripEnergyFluxError, OSError):
-            pass
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

@@ -68,9 +68,11 @@ def test_numpy_real_scalars_accepted():
     )
 
 
-def test_loop_domain_ends_at_1p70_gev():
+def test_loop_domain_ends_at_1p80_gev():
+    assert np.isfinite(pipi_n_loop(1.75, PION, NUCLEON))
+    assert np.isfinite(pipi_n_loop(1.80, PION, NUCLEON))
     with pytest.raises(ValueError, match="W"):
-        pipi_n_loop(1.701, PION, NUCLEON)
+        pipi_n_loop(np.nextafter(1.80, np.inf), PION, NUCLEON)
 
 
 def triangle_reference(w, m, nucleon):

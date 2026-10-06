@@ -22,6 +22,7 @@ class PublishedCurvePoint:
     mass_gev: float
     sigma: float
     reading_error: float
+    status: str = "resolved"
 
 
 def load_published_theory_curves(

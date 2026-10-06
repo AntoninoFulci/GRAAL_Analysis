@@ -266,8 +266,10 @@ def _common_stages(python: str, paths: PipelinePaths) -> list[Stage]:
                 paths.manifest,
                 "--flux",
                 paths.raw_flux,
+                "--target",
+                "P",
                 "--output-dir",
-                paths.output_root / "common",
+                paths.calibrated_flux.parent,
             ),
         )
     ]

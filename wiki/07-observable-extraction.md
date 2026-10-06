@@ -6,10 +6,14 @@ exposures, projects all three two-body subsystems, estimates `Sigma`, applies
 optional background corrections, builds covariance matrices, and writes ROOT
 and PDF products. It does not modify Stage 05 reconstruction files.
 
+Direct Stage-07 runs default to `data/00_external/flux_calibrated.root`; the
+full launcher passes `results/<mode>/common/flux_calibrated.root`. Both use
+`config/run_manifest.csv` to select target and beam profile.
+
 ```mermaid
 flowchart TB
     E["Reconstructed ROOT tree<br/>raw or fitted four-vectors"]
-    X["flux_calibrated.root<br/>+ run_manifest.csv"]
+    X["flux_calibrated.root<br/>POL1/POL2/BREM by run<br/>+ run_manifest.csv"]
     A["Adapters and validation"]
     B["Select profile energy range<br/>POL1/POL2 strata"]
     K["Project p-pi0, p-eta, eta-pi0<br/>profile energy x 10 mass x 12 phi bins"]
@@ -50,21 +54,36 @@ Equivalent ordered workflow:
 
 ### Calibrated exposures
 
-The full launcher passes `results/<mode>/common/flux_calibrated.root` and
-`config/run_manifest.csv`. ROOT keys identify run and state; manifest metadata
-selects target `P` and requested beam type. UV uses 1.10–1.50 GeV and VIS uses
-0.9313–1.10 GeV. Legacy schema-v2 CSV input remains supported by loader.
-Mappings are:
+`flux_calibrated.root` is loaded from `--flux-file`; `--run-manifest` supplies
+target and beam classification. Direct CLI defaults select target `P`, beam
+type `UV`, and energy range 1.10–1.50 GeV. The full launcher passes
+`results/<mode>/common/flux_calibrated.root` and selects UV at 1.10–1.50 GeV
+or VIS at 0.9313–1.10 GeV. Legacy schema-v2 CSV input remains supported by the
+loader. ROOT mappings are:
 
 - `POL1` -> vertical exposure;
 - `POL2` -> horizontal exposure;
 - `BREM` -> independent unpolarized control exposure;
 - UV polarization -> Compton transfer calculated from strip energy.
 
-The ROOT loader requires every selected run to have exactly one `POL1`, `POL2`,
-and `BREM` histogram. Incomplete runs are skipped atomically. Exposures require
-positive selected polarized flux, non-negative `BREM`, unique
-`(run_number, xstrip)` keys, finite values, and polarization in `[0,1]`.
+Run completeness is atomic: `POL1`, `POL2`, and `BREM` must each exist exactly
+once. If any state is missing or duplicated, the entire run is skipped for all
+polarizations and a warning is emitted. This invariant also applies when a
+state is not directly used by a requested estimator; partial-run normalization
+is forbidden. Within complete runs, selected `POL1` and `POL2` flux must be
+positive and `BREM` non-negative. Exposure keys must be unique by
+`(run_number, xstrip)`; values must be finite and polarization must lie in
+`[0,1]`. Invalid run/strip strata are skipped explicitly, and loading fails if
+no selected exposure remains.
+
+Only run numbers present in the nominal reconstructed sample are loaded.
+Calibrated runs absent from that sample never contribute to flux
+normalization.
+
+The exposure energy is the mean of the calibrated `POL1` and `POL2` bin
+centres for the same strip. Linear polarization transfer is evaluated
+separately at each state's calibrated energy, so vertical and horizontal
+polarization are not forced to be equal.
 
 ### Reconstructed events
 

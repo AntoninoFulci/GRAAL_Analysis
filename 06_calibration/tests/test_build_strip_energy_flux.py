@@ -1,6 +1,4 @@
 from array import array
-import csv
-import json
 import importlib.util
 import os
 from pathlib import Path
@@ -13,8 +11,6 @@ import pytest
 
 from calibration.run_manifest import RunRecord, write_manifest
 from calibration.strip_energy_flux import (
-    FLUX_SCHEMA_VERSION,
-    STRIP_EXPOSURE_FIELDS,
     EnergyBinning,
     StripEnergyRecord,
     StripEnergyFluxError,
@@ -165,7 +161,7 @@ def make_complete_fixture(tmp_path, *, entries_by_run=None, flux_by_run=None):
         ],
         manifest_path,
     )
-    return pre, flux, manifest_path, tmp_path / "output"
+    return pre, flux, manifest_path, tmp_path / "flux_calibrated.root"
 
 
 def run_cli(pre, flux, manifest_path, output, *extra):
@@ -180,7 +176,7 @@ def run_cli(pre, flux, manifest_path, output, *extra):
             "--flux",
             str(flux),
             "--output-dir",
-            str(output),
+            str(output.parent),
             *extra,
         ],
         text=True,
@@ -188,32 +184,71 @@ def run_cli(pre, flux, manifest_path, output, *extra):
     )
 
 
-def test_cli_writes_lookup_run_group_and_valid_qa(tmp_path):
-    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+def test_cli_writes_only_root_file_in_requested_directory(tmp_path):
+    pre, flux, manifest_path, _ = make_complete_fixture(tmp_path)
+    output = tmp_path / "published" / "flux_calibrated.root"
 
-    result = run_cli(pre, flux, manifest_path, output)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--preanalysis-dir",
+            str(pre),
+            "--manifest",
+            str(manifest_path),
+            "--flux",
+            str(flux),
+            "--output-dir",
+            str(output.parent),
+        ],
+        text=True,
+        capture_output=True,
+    )
 
     assert result.returncode == 0, result.stderr
-    assert sorted(path.name for path in output.iterdir()) == [
-        "flux_by_group_energy.csv",
-        "flux_by_run_energy.csv",
-        "flux_by_run_strip.csv",
-        "flux_calibrated.root",
-        "strip_energy_flux_qa.json",
-        "strip_energy_lookup.csv",
-    ]
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["schema_version"] == FLUX_SCHEMA_VERSION
-    assert qa["valid"] is True
-    assert qa["manifest_run_count"] == 2
-    assert qa["h80_run_count"] == 2
-    assert qa["flux_run_count"] == 2
-    assert "Wrote 2-run strip-energy flux analysis" in result.stdout
-    with (output / "flux_by_run_strip.csv").open(newline="") as stream:
-        strip_rows = list(csv.DictReader(stream))
-    assert tuple(strip_rows[0]) == STRIP_EXPOSURE_FIELDS
-    assert strip_rows[0]["schema_version"] == str(FLUX_SCHEMA_VERSION)
-    assert (strip_rows[0]["target"], strip_rows[0]["beam_type"]) == ("P", "UV")
+    assert output.is_file()
+    assert [path.name for path in output.parent.iterdir()] == [output.name]
+
+
+def test_cli_defaults_to_external_output_directory(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(SCRIPT),
+            "--preanalysis-dir",
+            "pre",
+            "--manifest",
+            "manifest.csv",
+            "--flux",
+            "flux.root",
+        ],
+    )
+
+    args = cli.parse_args()
+
+    assert args.output_dir == SCRIPT.parents[1] / "data/00_external"
+
+
+def test_atomic_root_write_preserves_previous_file_on_failure(tmp_path, monkeypatch):
+    output = tmp_path / "flux_calibrated.root"
+    output.write_text("previous")
+
+    def fail_write(*args, **kwargs):
+        raise RuntimeError("ROOT write failed")
+
+    monkeypatch.setattr(cli, "write_calibrated_flux_root", fail_write)
+
+    with pytest.raises(RuntimeError, match="ROOT write failed"):
+        cli._write_calibrated_flux_root_atomic(
+            tmp_path / "flux.root",
+            output,
+            (),
+            (),
+        )
+
+    assert output.read_text() == "previous"
+    assert sorted(path.name for path in tmp_path.iterdir()) == [output.name]
 
 
 def test_cli_writes_pol4_calibrated_root_and_ignores_calcerr(tmp_path):
@@ -279,7 +314,7 @@ def test_cli_writes_pol4_calibrated_root_and_ignores_calcerr(tmp_path):
 
     assert result.returncode == 0, result.stderr
 
-    calibrated = ROOT.TFile.Open(str(output / "flux_calibrated.root"))
+    calibrated = ROOT.TFile.Open(str(output))
     try:
         assert calibrated and not calibrated.IsZombie()
         top_level_keys = [
@@ -317,14 +352,6 @@ def test_cli_writes_pol4_calibrated_root_and_ignores_calcerr(tmp_path):
         assert fit.Eval(64.0) == pytest.approx(energy(64.0), abs=2.0e-4)
     finally:
         calibrated.Close()
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    coverage = next(
-        item
-        for item in qa["calibrated_root"]["calibration_coverage"]
-        if item["run_number"] == 7 and item["polarization"] == 0
-    )
-    assert coverage["accepted"] is True
-    assert coverage["missing_strips"] == [50]
 
 
 def test_calibration_profile_anchors_fractional_events_to_integer_strip():
@@ -404,7 +431,7 @@ def test_cli_reports_phase_file_run_and_event_progress(tmp_path):
         "flux run 1/2:",
         "building strip-energy lookup",
         "integrating flux binning: ajaka_sigma",
-        "writing output artifacts",
+        "writing calibrated ROOT:",
         "completed successfully",
     ):
         assert message in result.stderr
@@ -422,8 +449,7 @@ def test_cli_rejects_nonpositive_rdataframe_thread_count(tmp_path):
 
     assert result.returncode == 1
     assert "threads must be at least 1" in result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["errors"] == ["threads must be at least 1"]
+    assert not output.exists()
 
 
 def test_cli_rejects_nonpositive_sample_capacity(tmp_path):
@@ -440,8 +466,7 @@ def test_cli_rejects_nonpositive_sample_capacity(tmp_path):
 
     assert result.returncode == 1
     assert "samples-per-run-strip must be at least 1" in result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["errors"] == ["samples-per-run-strip must be at least 1"]
+    assert not output.exists()
 
 
 def test_zero_event_interval_disables_only_inner_event_updates(tmp_path):
@@ -471,9 +496,7 @@ def test_cli_complete_extra_flux_run_is_warning_only(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "WARNING: unused complete flux run 99" in result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["extra_flux_runs"] == [99]
+    assert output.is_file()
 
 
 def test_flux_histogram_bin_errors_do_not_change_final_flux(tmp_path):
@@ -513,13 +536,9 @@ def test_cli_missing_h80_manifest_run_is_warning_only(tmp_path):
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["missing_h80_runs"] == [8]
-    assert qa["errors"] == []
-    assert "manifest runs absent from h80: [8]" in qa["warnings"]
+    assert "manifest runs absent from h80: [8]" in result.stderr
     assert "QA WARNING [1/1]" in result.stderr
-    assert (output / "flux_by_run_energy.csv").is_file()
+    assert output.is_file()
 
 
 def test_cli_interpolates_missing_lookup_with_nonzero_flux(tmp_path):
@@ -538,26 +557,9 @@ def test_cli_interpolates_missing_lookup_with_nonzero_flux(tmp_path):
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["nonzero_unmapped_strips"] == []
-    assert qa["h80"]["observed_strip_count"] == 255
-    assert qa["h80"]["completed_strip_count"] == 256
-    assert qa["h80"]["filled_strips"] == [
-        {
-            "run_number": 7,
-            "xstrip": 128,
-            "provenance": "extrapolated",
-        }
-    ]
-    with (output / "strip_energy_lookup.csv").open(newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    filled = next(
-        row for row in rows
-        if row["run_number"] == "7" and row["xstrip"] == "128"
-    )
-    assert filled["event_count"] == "0"
-    assert filled["provenance"] == "extrapolated"
+    assert "strip-energy lookup built: 256 run/strip rows" in result.stderr
+    assert "filled missing rows: 1" in result.stderr
+    assert output.is_file()
 
 
 def test_cli_accepts_single_observed_strip_when_all_other_flux_is_zero(tmp_path):
@@ -589,18 +591,78 @@ def test_cli_accepts_single_observed_strip_when_all_other_flux_is_zero(tmp_path)
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["nonzero_unmapped_strips"] == []
-    assert qa["h80"]["observed_strip_count"] == 129
-    assert qa["h80"]["completed_strip_count"] == 129
-    with (output / "strip_energy_lookup.csv").open(newline="") as stream:
-        run_seven_rows = [
-            row for row in csv.DictReader(stream) if row["run_number"] == "7"
-        ]
-    assert [(row["xstrip"], row["provenance"]) for row in run_seven_rows] == [
-        ("24", "sampled")
-    ]
+    assert "strip-energy lookup built: 129 run/strip rows" in result.stderr
+    assert "filled missing rows: 0" in result.stderr
+    assert output.is_file()
+
+
+def test_cli_target_filter_ignores_unmapped_deuterium_flux(tmp_path):
+    entries = {
+        7: [
+            (7, strip, 1.00 + (strip - 1) * 0.5 / 127)
+            for strip in range(1, 129)
+        ],
+        8: [(8, 23, 0.8394)],
+        9: [
+            (9, strip, 1.00 + (strip - 1) * 0.5 / 127)
+            for strip in range(1, 129)
+        ],
+    }
+    flux_by_run = {
+        7: {
+            "POL1": {strip: 10.0 for strip in range(1, 129)},
+            "POL2": {strip: 8.0 for strip in range(1, 129)},
+            "BREM": {strip: 1.0 for strip in range(1, 129)},
+        },
+        8: {
+            "POL1": {24: 100.0},
+            "POL2": {24: 80.0},
+            "BREM": {24: 1.0},
+        },
+        9: {
+            "POL1": {strip: 10.0 for strip in range(1, 129)},
+            "POL2": {strip: 8.0 for strip in range(1, 129)},
+            "BREM": {strip: 1.0 for strip in range(1, 129)},
+        },
+    }
+    pre, flux, manifest_path, output = make_complete_fixture(
+        tmp_path,
+        entries_by_run=entries,
+        flux_by_run=flux_by_run,
+    )
+    (pre / "pre_7.root").rename(pre / "pre_analisi_1999_uv1.root")
+    (pre / "pre_8.root").rename(pre / "pre_analisi_2001_d.root")
+    write_h80(pre / "pre_analisi_1999_uv2.root", entries[9])
+    write_flux(flux, flux_by_run)
+    write_manifest(
+        [
+            RunRecord(7, "1999_uv1", "P", "UV", "P_UV", "manual", "1999_uv1/run7.root"),
+            RunRecord(8, "2001_d", "D", "VIS", "D_VIS", "manual", "2001_d/run8.root"),
+            RunRecord(9, "1999_uv2", "P", "UV", "P_UV", "manual", "1999_uv2/run9.root"),
+        ],
+        manifest_path,
+    )
+
+    result = run_cli(pre, flux, manifest_path, output, "--target", "P")
+
+    assert result.returncode == 0, result.stderr
+    assert output.is_file()
+    assert "nonzero flux without lookup" not in result.stderr
+    import ROOT
+
+    calibrated = ROOT.TFile.Open(str(output))
+    try:
+        assert calibrated.Get("run7_POL1")
+        assert calibrated.Get("run9_POL1")
+        assert not calibrated.Get("run8_POL1")
+    finally:
+        calibrated.Close()
+
+    unfiltered_output = tmp_path / "unfiltered" / "flux_calibrated.root"
+    unfiltered = run_cli(pre, flux, manifest_path, unfiltered_output)
+    assert unfiltered.returncode == 1
+    assert "run 8 strip 24: nonzero flux without lookup" in unfiltered.stderr
+    assert not unfiltered_output.exists()
 
 
 def test_cli_negative_flux_content_is_clamped_and_warned(tmp_path):
@@ -622,35 +684,15 @@ def test_cli_negative_flux_content_is_clamped_and_warned(tmp_path):
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["errors"] == []
-    assert qa["warnings"] == [
-        "1 negative flux histogram bin clamped to zero",
-        "1 run/strip exposure with non-positive POL1/POL2 excluded from extraction",
-        "flux histograms skipped without run/polarization calibration: 4",
-    ]
-    assert qa["negative_flux_bins"] == [
-        {
-            "run_number": 7,
-            "xstrip": 1,
-            "component": "flux_pol1",
-            "value": -1000.0,
-            "action": "clamped_to_zero",
-        }
-    ]
-    assert qa["nonpositive_selected_exposures"] == [
-        {"run_number": 7, "xstrip": 1}
-    ]
-    assert "negative_net_errors" not in qa
-    with (output / "flux_by_run_strip.csv").open(newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    clamped = next(
-        row for row in rows
-        if row["run_number"] == "7" and row["xstrip"] == "1"
-    )
-    assert float(clamped["flux_pol1"]) == 0.0
-    assert clamped["status"] == "invalid"
+    assert "negative flux histogram bin clamped to zero" in result.stderr
+    assert "run/strip exposure with non-positive POL1/POL2" in result.stderr
+    import ROOT
+
+    calibrated = ROOT.TFile.Open(str(output))
+    try:
+        assert calibrated.Get("run7_POL1").GetBinContent(1) == 0.0
+    finally:
+        calibrated.Close()
 
 
 def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):
@@ -670,11 +712,9 @@ def test_cli_local_monotonic_inversion_above_tolerance_is_invalid(tmp_path):
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 1
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["monotonic_inversions"]
-    assert any("monotonic inversion" in error for error in qa["errors"])
     assert "QA ERROR [1/" in result.stderr
     assert "monotonic inversion" in result.stderr
+    assert not output.exists()
 
 
 def test_cli_mad_and_low_stat_findings_are_warnings_only(tmp_path):
@@ -703,29 +743,18 @@ def test_cli_mad_and_low_stat_findings_are_warnings_only(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["mad_warnings"] == [
-        {
-            "run_number": 7,
-            "xstrip": 64,
-            "energy_mad_gev": pytest.approx(0.02),
-        }
-    ]
-    assert qa["low_stat_warnings"]
-    assert qa["errors"] == []
+    assert output.is_file()
 
 
 def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
     (pre / "pre_7.root").write_text("not a ROOT file")
-    output.mkdir()
-    (output / "sentinel").write_text("old")
+    output.write_text("old")
     args = SimpleNamespace(
         preanalysis_dir=pre,
         manifest=manifest_path,
         flux=flux,
-        output_dir=output,
+        output_dir=output.parent,
         min_events_per_strip=1,
         max_mad_gev=0.005,
         monotonic_tolerance_gev=0.002,
@@ -735,27 +764,21 @@ def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
     with pytest.raises(StripEnergyFluxError, match="zombie"):
         cli.run(args)
 
-    assert (output / "sentinel").read_text() == "old"
-    assert not (output / "strip_energy_flux_qa.json").exists()
+    assert output.read_text() == "old"
 
 
-def test_cli_malformed_root_writes_minimal_atomic_diagnostic_qa(tmp_path):
+def test_cli_malformed_root_does_not_publish_output(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
     (pre / "pre_7.root").write_text("not a ROOT file")
 
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 1
-    assert sorted(path.name for path in output.iterdir()) == [
-        "strip_energy_flux_qa.json"
-    ]
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is False
-    assert qa["inputs"]["preanalysis_dir"] == str(pre)
-    assert qa["errors"] == [f"zombie ROOT file: {pre / 'pre_7.root'}"]
+    assert f"zombie ROOT file: {pre / 'pre_7.root'}" in result.stderr
+    assert not output.exists()
 
 
-def test_cli_h80_beam_without_energy_method_writes_contextual_minimal_qa(
+def test_cli_h80_beam_without_energy_method_reports_context_without_output(
     tmp_path,
 ):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
@@ -765,16 +788,14 @@ def test_cli_h80_beam_without_energy_method_writes_contextual_minimal_qa(
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 1
-    assert sorted(path.name for path in output.iterdir()) == [
-        "strip_energy_flux_qa.json"
-    ]
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["errors"] == [
+    assert (
         f"{malformed}: h80 entry 0: cannot convert RunNumber/Xstrip/beam.E()"
-    ]
+        in result.stderr
+    )
+    assert not output.exists()
 
 
-def test_cli_duplicate_custom_binning_writes_diagnostic_qa(tmp_path):
+def test_cli_duplicate_custom_binning_reports_error_without_output(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
 
     result = run_cli(
@@ -789,12 +810,11 @@ def test_cli_duplicate_custom_binning_writes_diagnostic_qa(tmp_path):
     )
 
     assert result.returncode == 1
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is False
-    assert qa["errors"] == ["duplicate binning name: fine"]
+    assert "duplicate binning name: fine" in result.stderr
+    assert not output.exists()
 
 
-def test_cli_custom_binning_appears_in_csv_and_qa(tmp_path):
+def test_cli_custom_binning_does_not_add_output_files(tmp_path):
     pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
 
     result = run_cli(
@@ -807,18 +827,12 @@ def test_cli_custom_binning_appears_in_csv_and_qa(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
-        run_rows = list(csv.DictReader(stream))
-    with (output / "flux_by_group_energy.csv").open(newline="") as stream:
-        group_rows = list(csv.DictReader(stream))
-    assert {
-        (row["energy_low_gev"], row["energy_high_gev"])
-        for row in run_rows
-        if row["binning"] == "fine"
-    } == {("1.0", "1.25"), ("1.25", "1.5")}
-    assert any(row["binning"] == "fine" for row in group_rows)
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["binnings"]["fine"] == [1.0, 1.25, 1.5]
+    assert output.is_file()
+    assert sorted(path.name for path in output.parent.iterdir() if path != pre) == [
+        "flux.root",
+        output.name,
+        "run_manifest.csv",
+    ]
 
 
 def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path):
@@ -841,24 +855,7 @@ def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path)
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    included_pol1 = sum(
-        float(row["flux_pol1"])
-        for row in rows
-        if row["binning"] == "ajaka_cross_section"
-        and row["run_number"] == "7"
-    )
-    assert included_pol1 == pytest.approx(1270.0)
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    excluded = qa["out_of_range"]["ajaka_cross_section"]
-    assert excluded["below_lookup_count"] == 1
-    assert excluded["above_lookup_count"] == 0
-    assert excluded["raw_flux_excluded"] == {
-        "flux_pol1": 10.0,
-        "flux_pol2": 8.0,
-        "flux_brem": 1.0,
-    }
+    assert output.is_file()
 
 
 def test_cli_reports_underflow_overflow_as_warning_without_folding(tmp_path):
@@ -880,23 +877,10 @@ def test_cli_reports_underflow_overflow_as_warning_without_folding(tmp_path):
     result = run_cli(pre, flux, manifest_path, output)
 
     assert result.returncode == 0, result.stderr
-    qa = json.loads((output / "strip_energy_flux_qa.json").read_text())
-    assert qa["valid"] is True
-    assert qa["errors"] == []
-    assert qa["underflow_overflow"] == [
-        {"histogram": "run7_POL1", "underflow": 50.0, "overflow": 60.0}
-    ]
-    with (output / "flux_by_run_energy.csv").open(newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    assert sum(
-        float(row["flux_pol1"])
-        for row in rows
-        if row["binning"] == "ajaka_cross_section"
-        and row["run_number"] == "7"
-    ) == pytest.approx(1280.0)
+    assert output.is_file()
 
 
-def test_cli_argument_syntax_error_exits_two_without_qa(tmp_path):
+def test_cli_argument_syntax_error_exits_two_without_output(tmp_path):
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--output-dir", str(tmp_path / "out")],
         text=True,
@@ -907,31 +891,34 @@ def test_cli_argument_syntax_error_exits_two_without_qa(tmp_path):
     assert not (tmp_path / "out").exists()
 
 
-def test_cli_rejects_output_containing_inputs_without_deleting_them(tmp_path):
+def test_cli_rejects_output_equal_to_input_without_deleting_it(tmp_path):
     pre, flux, manifest_path, _ = make_complete_fixture(tmp_path)
+    input_flux = tmp_path / "flux_calibrated.root"
+    flux.rename(input_flux)
 
-    result = run_cli(pre, flux, manifest_path, tmp_path)
+    result = run_cli(pre, input_flux, manifest_path, input_flux)
 
     assert result.returncode == 1
-    assert "output directory contains input path" in result.stderr
+    assert "output path overlaps input path" in result.stderr
     assert pre.is_dir()
-    assert flux.is_file()
+    assert input_flux.is_file()
     assert manifest_path.is_file()
-    assert not (tmp_path / "strip_energy_flux_qa.json").exists()
 
 
 def test_cli_rejects_lexical_input_symlink_inside_output_without_deleting_it(
     tmp_path,
 ):
-    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
-    output.mkdir()
-    supplied_pre = output / "preanalysis-link"
+    pre, flux, manifest_path, _ = make_complete_fixture(tmp_path)
+    output_dir = tmp_path / "published"
+    output_dir.mkdir()
+    supplied_pre = output_dir / "preanalysis-link"
     supplied_pre.symlink_to(pre, target_is_directory=True)
+    output = supplied_pre / "flux_calibrated.root"
 
     result = run_cli(supplied_pre, flux, manifest_path, output)
 
     assert result.returncode == 1
-    assert "output directory contains input path" in result.stderr
+    assert "output path overlaps pre-analysis input" in result.stderr
     assert supplied_pre.is_symlink()
     assert pre.is_dir()
 

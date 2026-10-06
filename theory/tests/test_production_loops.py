@@ -74,6 +74,19 @@ def test_complex_2d_retains_both_interval_jacobians_and_spin_shape():
     np.testing.assert_allclose(value, 2j/3*matrix, atol=1e-13)
 
 
+def test_batched_complex_2d_matches_scalar_tensor_quadrature():
+    settings = loops.QuadratureSettings(q_order=32, angle_order=32)
+    matrix = np.array([[1, 2j], [3, 4]], dtype=complex)
+    scalar = loops._integrate_complex_2d(
+        lambda q, x: np.exp(1j*q)*(1+x*x)*matrix,
+        .1, .9, -.6, .8, settings=settings, context=CONTEXT)
+    batched = loops._integrate_complex_2d_array(
+        lambda q, x: np.exp(1j*q[:, None, None, None])
+            *(1+x[None, :, None, None]**2)*matrix,
+        .1, .9, -.6, .8, settings=settings, context=CONTEXT)
+    np.testing.assert_allclose(batched, scalar, rtol=1e-13, atol=1e-13)
+
+
 @pytest.mark.parametrize("dimensions", [1, 2])
 def test_quadrature_rejects_nonfinite_values_with_physics_context(dimensions):
     helper = getattr(loops, f"_integrate_complex_{dimensions}d")
@@ -188,7 +201,8 @@ def test_eta_diagonal_strong_t_is_exactly_zero(parameters, strong_parameters):
     )
 
 
-@pytest.mark.parametrize("bad", [True, np.bool_(True), 1.62+0j, np.nan, np.inf, 0, 1.71])
+@pytest.mark.parametrize("bad", [True, np.bool_(True), 1.62+0j, np.nan, np.inf, 0,
+                                  np.nextafter(1.80, np.inf)])
 def test_eta_energy_domain_rejects_malformed_and_unsupported_invariants(parameters, strong_parameters, bad):
     with pytest.raises(ValueError, match="eta photoproduction.*invariant"):
         loops.eta_photoproduction_amplitude(bad, np.array([1., 0, 0]), parameters, strong_parameters, lambda w: np.eye(6))

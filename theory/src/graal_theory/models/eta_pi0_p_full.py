@@ -26,6 +26,7 @@ from ..amplitudes.decuplet_rescattering import (
 from ..amplitudes.delta1700 import Delta1700Parameters, tree_amplitude
 from ..amplitudes.nstar1535_final_fit import load_final_fit_parameters
 from ..amplitudes.nstar1535_full import reconstructed_full_tmatrix
+from ..amplitudes.nstar1535_grid import StrongTGrid
 from ..amplitudes.nstar1535_reduced import ReducedTParameters, load_reduced_parameters
 from ..amplitudes.nstar1535_vmd import VectorMasses, load_vector_masses
 from ..amplitudes.production_loops import (
@@ -211,13 +212,18 @@ def _selection(families: tuple[str, ...]) -> tuple[str, ...]:
 @dataclass(frozen=True)
 class EtaPi0PFullModel:
     parameters: FullModelParameters
+    strong_grid: StrongTGrid | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.parameters, FullModelParameters):
             raise ValueError("parameters requires FullModelParameters")
+        if self.strong_grid is not None and (
+                not isinstance(self.strong_grid, StrongTGrid)
+                or not self.strong_grid.matches(self.parameters.strong, self.parameters.vector_masses)):
+            raise ValueError("strong grid must match model strong parameters and vector masses")
 
     @classmethod
-    def from_files(cls, reference_dir: Path) -> "EtaPi0PFullModel":
+    def from_files(cls, reference_dir: Path, *, strong_grid: StrongTGrid | None = None) -> "EtaPi0PFullModel":
         references = Path(reference_dir)
         sources = references / "sources.json"
         # The legacy tree loader predates strict complex-component validation.
@@ -237,7 +243,7 @@ class EtaPi0PFullModel:
         strong = load_final_fit_parameters(reduced, references / "nstar1535_final_subtractions.json", sources)
         vectors = load_vector_masses(references / "nstar1535_vmd_masses.json", sources)
         production = load_production_parameters(references / "eta_pi0_p_full_parameters.json", sources)
-        return cls(FullModelParameters(tree, strong, vectors, production))
+        return cls(FullModelParameters(tree, strong, vectors, production), strong_grid=strong_grid)
 
     @property
     def masses(self) -> tuple[float, float, float]:
@@ -277,6 +283,8 @@ class EtaPi0PFullModel:
         p = self.parameters
 
         def strong_t(w_gev: float) -> NDArray[np.complex128]:
+            if self.strong_grid is not None:
+                return self.strong_grid.evaluate(w_gev)
             return reconstructed_full_tmatrix(w_gev, p.strong, p.vector_masses)
 
         # Concrete family functions retain ownership of their indivisible subterms.

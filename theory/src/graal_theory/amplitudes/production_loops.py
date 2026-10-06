@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from math import isfinite
 from numbers import Integral, Real
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Callable, Mapping
 import numpy as np
 from numpy.polynomial.legendre import leggauss
 from numpy.typing import ArrayLike, NDArray
+from scipy.optimize import brentq
 
 from ..sources import PhysicalParameter, SourceRef, load_source_registry
 from ..spin import PAULI
@@ -272,6 +274,32 @@ def _integrate_complex_2d(
     )
 
 
+def _integrate_complex_2d_array(
+    integrand, q_lower, q_upper, x_lower, x_upper, *, settings, context,
+):
+    """Checked tensor GL integration for an array-valued q/x callback."""
+    if not isinstance(settings, QuadratureSettings) or not callable(integrand):
+        raise ValueError(f"{context}: requires QuadratureSettings and callable integrand")
+
+    def evaluate(multiplier):
+        q, qw = _interval(q_lower, q_upper, multiplier*settings.q_order, context)
+        x, xw = _interval(x_lower, x_upper, multiplier*settings.angle_order, context)
+        try:
+            values = _quadrature_value(integrand(q, x), context)
+        except (ValueError, TypeError, ZeroDivisionError, FloatingPointError, OverflowError) as exc:
+            raise ValueError(f"{context}: {exc}") from exc
+        if values.ndim < 2 or values.shape[:2] != (len(q), len(x)):
+            raise ValueError(f"{context}: integrand requires leading (n_q,n_x) axes")
+        return _quadrature_value(np.einsum("i,j,ij...->...", qw, xw, values), context)
+
+    low, high = evaluate(1), evaluate(2)
+    tolerance = settings.absolute_tolerance+settings.relative_tolerance*np.abs(high)
+    if np.any(np.abs(high-low) > tolerance):
+        raise ValueError(f"{context}: quadrature convergence failure; "
+                         f"max difference={np.max(np.abs(high-low)):.6g}")
+    return high
+
+
 # PRC 73, 045209, Table II; the ordering is the six-channel strong-T ordering.
 KR_A = np.array([0, -1, 0, 0, np.sqrt(2/3), 0.0])
 KR_B = np.array([0, 0, 0, -1/np.sqrt(2), -1/np.sqrt(6), 0.0])
@@ -503,6 +531,7 @@ def eq26_rescattering_loop(
     production: ProductionParameters, strong_parameters: ReducedTParameters,
     context: str,
     *, intermediate_invariant_landmarks_gev: tuple[float, ...] = (),
+    source_is_radial: bool = False,
 ) -> NDArray[np.complex128]:
     """Shared direct PRC73 Eq. (26), with exact Eq. (27) recoil energies.
 
@@ -572,24 +601,29 @@ def eq26_rescattering_loop(
         return (np.sqrt(mass*mass+q*q),
                 np.sqrt(baryon*baryon+q*q+pion_magnitude**2+2*q*pion_magnitude*x))
 
-    def numerator(q, x):
-        omega, energy = energies(q, x)
-        spin = _quadrature_value(source_kernel(q, x), label+" source kernel")
-        if spin.shape != (2, 2):
-            raise ValueError(f"{label}: source kernel requires shape (2,2)")
+    @lru_cache(maxsize=8192)
+    def radial_factor(q):
+        omega = np.sqrt(mass*mass+q*q)
         intermediate = np.sqrt(np.complex128((w-omega)**2-q*q))
         prop = _complex_scalar(intermediate_propagator(intermediate), label+" intermediate propagator")
-        return transition_value*spin*prop*q*q*baryon/(8*np.pi**2*omega*energy)
+        return transition_value*prop*q*q*baryon/(8*np.pi**2*omega)
 
-    def density(q, x):
+    @lru_cache(maxsize=8192)
+    def radial_source(q):
+        return _quadrature_value(source_kernel(q, 0.), label+" source kernel")
+
+    def numerator(q, x):
+        _, energy = energies(q, x)
+        spin = (radial_source(q) if source_is_radial else
+                _quadrature_value(source_kernel(q, x), label+" source kernel"))
+        if spin.shape != (2, 2):
+            raise ValueError(f"{label}: source kernel requires shape (2,2)")
+        return radial_factor(q)*spin/energy
+
+    def radial_roots(x):
         def denominator(r):
             omega, energy = energies(r, x)
             return available-omega-energy
-
-        def derivative(r):
-            omega, energy = energies(r, x)
-            return -r/omega-(r+pion_magnitude*x)/energy
-
         # Solving A*omega(q)+q*p_pi*x=B gives all possible radial roots.
         # Check the unsquared equation to reject roots introduced by squaring.
         b = (available**2+mass**2-baryon**2-pion_magnitude**2)/2
@@ -602,8 +636,19 @@ def eq26_rescattering_loop(
                 if root > 0 and abs(denominator(root)) < 1e-10:
                     if not roots or abs(root-roots[0]) > 1e-12:
                         roots.append(root)
+        return roots
+
+    def density(q, x):
+        def denominator(r):
+            omega, energy = energies(r, x)
+            return available-omega-energy
+
+        def derivative(r):
+            omega, energy = energies(r, x)
+            return -r/omega-(r+pion_magnitude*x)/energy
+
         return _radial_cut_density(q, lambda r: numerator(r, x), denominator,
-                                   roots, derivative, limit, label)
+                                   radial_roots(x), derivative, limit, label)
 
     branch = (w*w-mass*mass)/(2*w)
     cuts = [0., limit]
@@ -621,6 +666,65 @@ def eq26_rescattering_loop(
             if 0 < radial < limit:
                 cuts.append(float(radial))
     cuts = sorted(set(cuts))
+    if source_is_radial:
+        # Eq. (26) has no angular source factor: integrate 1/(E_R B+i0)
+        # analytically after y=E_R(x). This removes the coalescing radial
+        # recoil roots without introducing a finite-width prescription.
+        def b_endpoint(q, sign):
+            omega = np.sqrt(mass*mass+q*q)
+            recoil = np.sqrt(baryon*baryon+(q+sign*pion_magnitude)**2)
+            return available-omega-recoil
+
+        probe = np.linspace(0., limit, 257)
+        for sign in (-1, 1):
+            values = [b_endpoint(float(q), sign) for q in probe]
+            for index in range(len(probe)-1):
+                if values[index]*values[index+1] < 0:
+                    root = brentq(lambda q: b_endpoint(q, sign),
+                                  float(probe[index]), float(probe[index+1]), xtol=1e-14)
+                    if 0 < root < limit:
+                        cuts.append(root)
+        cuts = sorted(set(cuts))
+
+        @lru_cache(maxsize=8192)
+        def radial_angular(q):
+            omega = np.sqrt(mass*mass+q*q)
+            c = available-omega
+            y_low = np.sqrt(baryon*baryon+(q-pion_magnitude)**2)
+            y_high = np.sqrt(baryon*baryon+(q+pion_magnitude)**2)
+            if q*pion_magnitude == 0:
+                angular = 2/(y_low*np.complex128(c-y_low))
+            else:
+                angular = (np.log(np.complex128(c-y_low))
+                           -np.log(np.complex128(c-y_high)))/(q*pion_magnitude)
+            return radial_factor(q)*radial_source(q)*angular
+
+        pieces = []
+        for lower, upper in zip(cuts[:-1], cuts[1:]):
+            if lower != 0 and upper != limit:
+                middle = (lower+upper)/2
+                pieces.extend(((lower, middle, "lower"),
+                               (middle, upper, "upper")))
+            else:
+                pieces.append((lower, upper,
+                    "lower" if lower != 0 else
+                    "upper" if upper != limit else "linear"))
+
+        def mapped_radial(u):
+            total = np.zeros((2, 2), dtype=np.complex128)
+            for lower, upper, anchor in pieces:
+                length = upper-lower
+                if anchor == "lower":
+                    q, jacobian = lower+length*u*u, 2*length*u
+                elif anchor == "upper":
+                    q, jacobian = upper-length*u*u, 2*length*u
+                else:
+                    q, jacobian = lower+length*u, length
+                total += jacobian*radial_angular(q)
+            return total
+
+        return _integrate_complex_1d(mapped_radial, 0., 1.,
+            settings=production.quadrature, context=label)
     if len(cuts) > 2:
         segments = tuple(zip(cuts[:-1], cuts[1:]))
         def mapped_density(u, x):

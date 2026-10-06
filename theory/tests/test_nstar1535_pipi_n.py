@@ -204,7 +204,7 @@ def test_intermediate_t_reduces_when_three_body_channel_closed(
 
 
 @pytest.mark.parametrize("w", [True, 1+0j, "1.55", float("nan"),
-                                    float("inf"), 1.0, 1.70001])
+                                    float("inf"), 1.0, np.nextafter(1.80, np.inf)])
 def test_intermediate_t_rejects_invalid_energy(w, final_parameters):
     with pytest.raises(ValueError, match="W"):
         pipi_n_tmatrix(w, final_parameters)

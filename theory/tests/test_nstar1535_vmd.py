@@ -294,7 +294,8 @@ def test_vmd_replaces_coefficients_inside_wt_kernel(parameters, vector_masses):
 
 
 @pytest.mark.parametrize("function", [corrected_coefficients, vmd_kernel])
-@pytest.mark.parametrize("w", [True, np.bool_(True), "1.5", np.nan, np.inf, 1.0, 1.71])
+@pytest.mark.parametrize("w", [True, np.bool_(True), "1.5", np.nan, np.inf, 1.0,
+                               np.nextafter(1.80, np.inf)])
 def test_vmd_matrix_functions_validate_energy(parameters, vector_masses, function, w):
     with pytest.raises(ValueError, match="W"):
         function(w, parameters, vector_masses)

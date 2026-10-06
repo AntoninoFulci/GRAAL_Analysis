@@ -75,7 +75,7 @@ def _loop_at_order(w: float, m: float, nucleon: float, order: int) -> float:
 
 def pipi_n_loop(w_gev: float, pion_mass_gev: float,
                 nucleon_mass_gev: float) -> complex:
-    """Return the pure imaginary P65 Eq. (26) loop in GeV^5, W <= 1.70 GeV.
+    """Return the pure imaginary P65 Eq. (26) loop in GeV^5, W <= 1.80 GeV.
 
     All inputs are positive real scalars in GeV. At and below the physical
     M_N + 2m_pi threshold the loop vanishes exactly. Above it, the 96-point
@@ -84,7 +84,7 @@ def pipi_n_loop(w_gev: float, pion_mass_gev: float,
     w = _finite_positive(w_gev, "W")
     m = _finite_positive(pion_mass_gev, "m_pi")
     nucleon = _finite_positive(nucleon_mass_gev, "M_N")
-    if w > 1.70:
+    if w > 1.80:
         raise ValueError("W outside pi pi N real-axis domain")
     if w <= nucleon + 2*m:
         return 0j

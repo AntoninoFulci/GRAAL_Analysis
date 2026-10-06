@@ -12,7 +12,7 @@ of relying on a central database.
 flowchart LR
     RAW["Raw detector ROOT<br/>h70"] --> H80["Pre-analysis ROOT<br/>h80"]
     H80 --> H85["Selected ROOT<br/>h85"]
-    H80 --> CAL["Calibration CSV/JSON/ROOT"]
+    H80 --> CAL["flux_calibrated.root"]
     H85 --> BS["beam_spectrum.npz"]
     MC["Channel MC ROOT<br/>mc"] --> DS["features_stage1.npz"]
     BS --> DS
@@ -36,7 +36,7 @@ flowchart LR
 | search | `best_hyperparams.json`, `grid_search_results.csv` | trainer and audit |
 | final trainer | model, threshold, provenance | Stage-1 reconstruction gate |
 | reconstruction | nominal, fitted, sideband, and control ROOT trees | observable extraction and plots |
-| calibration | lookup/exposure CSV, QA JSON, calibrated ROOT | observable extraction and QA |
+| calibration | `data/00_external/flux_calibrated.root` | observable extraction and ROOT inspection |
 | observable extraction | `beam_asymmetry.root` and PDFs | review and publication |
 
 ## ROOT Trees
@@ -83,20 +83,18 @@ Metrics and PNG reports document training but are not runtime dependencies.
 All three runtime files must be replaced together; current provenance does not
 cryptographically bind them.
 
-### Calibration tables
+### Calibration ROOT
 
 | File | Contract |
 |---|---|
-| `strip_energy_lookup.csv` | run/strip energy median, MAD, range, count, provenance, manifest metadata |
-| `flux_by_run_energy.csv` | flux integrated by named binning and run |
-| `flux_by_group_energy.csv` | the same aggregation by target/beam group |
-| `flux_by_run_strip.csv` | exact schema-v2 exposure interface consumed by Stage 07 |
-| `strip_energy_flux_qa.json` | thresholds, inputs, diagnostics, warnings/errors, validity |
-| `flux_calibrated.root` | calibrated flux histograms on photon-energy axes |
+| `data/00_external/flux_calibrated.root` | calibrated per-run flux histograms on photon-energy axes and calibration fit objects |
 
-The run/strip table's schema version, exact field order, status, positive
-polarized flux, and non-negative BREM flux are checked on load. See
-[Calibration](06-calibration) for field-level details and failure policy.
+Stage 06 publishes no CSV or JSON side products. Its checks still validate
+run/strip mappings and flux values before atomic ROOT replacement; diagnostics
+are reported through stderr and exit status. Stage 07 consumes this ROOT file
+directly. A run is usable only when exactly one `POL1`, `POL2`, and `BREM`
+histogram is present; otherwise Stage 07 skips the entire run for every
+polarization. See [Calibration](06-calibration).
 
 ### Full-campaign layout
 
@@ -127,6 +125,7 @@ generated or ignored local fixture.
 | `04_bdt_training/artifacts/stage1/` | released runtime model and reports | currently tracked |
 | `data/00_external/flux.root` | small external calibration input | explicitly allowed by `.gitignore` |
 | `07_observable_extraction/references/ajaka2008_figure4_digitized.csv` | published comparison data | tracked |
+| `data/00_external/flux_calibrated.root` | generated Stage 06 calibration | ignored by Git; replace atomically |
 | other `data/` content | raw, selected, or farm-linked experimental data | ignored |
 | `results/` | generated reconstruction, calibration, plots, observables | ignored |
 | `03_mc_simulation/data/*.root` and general `*.root`, `*.npz` | large generated artifacts | ignored unless explicitly unignored |
@@ -138,8 +137,8 @@ the experiment's storage system together with command line, source revision,
 input identities, and environment information. Git only protects tracked
 contracts and the explicitly versioned small/model artifacts.
 
-Atomic publication is stage-specific: event selection, signal-MC preparation,
-and calibration stage complete directories before replacement; observable
-ROOT output uses a temporary sibling file. Reconstruction and most plotting
-entry points write ROOT/PDF outputs directly. Never infer atomicity from a
-file extension.
+Atomic publication is stage-specific: event selection and signal-MC
+preparation stage complete directories before replacement; calibration and
+observable ROOT output use temporary sibling files. Reconstruction and most
+plotting entry points write ROOT/PDF outputs directly. Never infer atomicity
+from a file extension.

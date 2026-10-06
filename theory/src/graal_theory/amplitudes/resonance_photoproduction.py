@@ -264,6 +264,69 @@ def delta_kr_pole_kernel(charge_channel, q_gev, cos_theta, event_pion,
         raise ValueError(f"{label}: {exc}") from exc
 
 
+def _prepare_explicit_source(
+    channel: int, event_pion: NDArray, photon_momentum: NDArray,
+    polarization: NDArray, production: ProductionParameters,
+    tree: Delta1700Parameters,
+) -> Callable[[float, float], NDArray[np.complex128]]:
+    """Prepare the three coherent Fig. 9 kernels once per event/channel.
+
+    Their printed source kernels depend on radial q, but not the Eq. (26)
+    angle x. Keeping one q cache avoids repeating fixed spin and width work
+    for every angular quadrature node. The public kernels remain scalar oracles.
+    """
+    _, pion_vec, photon, epsilon, k0, w, label = _kernel_inputs(
+        channel, 0., 0., event_pion, photon_momentum, polarization,
+        production, tree, "explicit_source")
+    try:
+        width = tree.width_parameters
+        delta_prop = breit_wigner(w, tree.delta1700_mass_gev,
+                                   delta1700_width(w, width))
+        nstar_prop = breit_wigner(w, production.nstar1520_mass_gev,
+            _width_for_masses(w, production, tree, width.proton_mass_gev,
+                              width.pion_mass_gev))
+        s_dot_p = np.einsum("aij,a->ij", TRANSITION, pion_vec)
+        sdag_dot_k = np.einsum("aij,a->ji", TRANSITION.conj(), photon)
+        sdag_dot_epsilon = np.einsum("aij,a->ji", TRANSITION.conj(), epsilon)
+        spin_cross = _spin(np.cross(photon, epsilon))
+
+        def spin_matrix(g1: float, g2: float) -> NDArray[np.complex128]:
+            electromagnetic = (g1/(2*tree.proton_mass_gev)*sdag_dot_k @ spin_cross
+                - 1j*sdag_dot_epsilon*(g1*(k0+k0*k0/(2*tree.proton_mass_gev))
+                                         +g2*w*k0))
+            return s_dot_p @ electromagnetic
+
+        delta_coefficient = 2/np.sqrt(3)*(1/(2*np.sqrt(2)) if channel == 0 else 1.)
+        nstar_coefficient = np.sqrt(2)/3*(np.sqrt(2) if channel == 0 else 1.)
+        common = -1j*tree.f_delta_n_pi/tree.pion_reference_mass_gev
+        delta_matrix = common*delta_coefficient*delta_prop*spin_matrix(
+            tree.g1_prime, tree.g2_prime)
+        nstar_matrix = common*nstar_coefficient*nstar_prop*spin_matrix(
+            production.g1_nstar_per_gev, production.g2_nstar_per_gev2)
+        kr_matrix = delta_kr_pole_kernel(channel, 0., 0., event_pion,
+            photon_momentum, polarization, production, tree)
+        mu2 = 3*tree.pion_reference_mass_gev**2
+    except _ERRORS as exc:
+        raise ValueError(f"{label}: {exc}") from exc
+
+    @lru_cache(maxsize=2048)
+    def radial(q: float) -> NDArray[np.complex128]:
+        q2 = q*q/mu2
+        value = (delta_matrix*(width.f_tilde_delta_pi+width.g_tilde_delta_pi*q2)
+                 +nstar_matrix*(production.f_tilde_nstar_delta_pi
+                                +production.g_tilde_nstar_delta_pi*q2)
+                 +kr_matrix)
+        return _quadrature_value(value, label)
+
+    def source(q: float, x: float) -> NDArray[np.complex128]:
+        q_real, x_real = _finite_real(q, "q_gev"), _finite_real(x, "cos_theta")
+        if q_real < 0 or not -1 <= x_real <= 1:
+            raise ValueError(f"{label}: requires q>=0 and cos_theta in [-1,1]")
+        return radial(q_real)
+
+    return source
+
+
 def _delta_propagator(invariant, channel, tree, strong_parameters):
     """Principal invariant retained; physical p-wave width vanishes off-real."""
     label = f"Delta1232 propagator channel={channel}"
@@ -315,6 +378,10 @@ def explicit_resonance_amplitude(
         raise ValueError(f"{label}: {exc}") from exc
 
     result = np.zeros((len(initial), 2, 2), dtype=np.complex128)
+    # Every printed source term contains f_delta_n_pi (the KR partner its
+    # square). A dormant family cannot expose an intermediate Delta pole.
+    if tree.f_delta_n_pi == 0:
+        return result
     for event, z in enumerate(invariants):
         label = f"explicit_resonances event={event} channel=all z={z:.12g}GeV"
         try:
@@ -330,14 +397,13 @@ def explicit_resonance_amplitude(
                 _reject_zero_width_intermediate_pole(float(initial[event, 0]),
                     strong_parameters.meson_masses_gev[channel], tree.delta_mass_gev,
                     tree.delta_width_gev, production.first_loop_cutoff_gev, label, "Delta")
-                def source(q, x):
-                    args = (channel, q, x, pion, k, epsilon, production, tree)
-                    return np.add.reduce((delta1700_pi_delta_kernel(*args),
-                        nstar1520_pi_delta_kernel(*args), delta_kr_pole_kernel(*args)))
+                source = _prepare_explicit_source(
+                    channel, pion, k, epsilon, production, tree)
                 def propagator(invariant):
                     return _delta_propagator(invariant, channel, tree, strong_parameters)
                 result[event] += eq26_rescattering_loop(sample, event, channel,
                     source_kernel=source, intermediate_propagator=propagator,
+                    source_is_radial=True,
                     transition=t[channel, 2], production=production,
                     strong_parameters=strong_parameters, context=label,
                     intermediate_invariant_landmarks_gev=(

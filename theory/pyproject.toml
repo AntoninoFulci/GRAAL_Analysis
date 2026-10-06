@@ -9,7 +9,8 @@ requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "scipy>=1.10", "matplotlib>=3.7"]
 
 [project.optional-dependencies]
-test = ["pytest>=7.4"]
+test = ["pytest>=7.4", "uproot>=5"]
+flux = ["uproot>=5"]
 
 [project.scripts]
 graal-theory = "graal_theory.cli:main"

@@ -231,6 +231,7 @@ def _rescattering_amplitude(sample, polarization, production, tree, strong_param
                         "Delta" if channel == 2 else "Sigma*")
                 result[event] += eq26_rescattering_loop(sample, event, channel,
                     source_kernel=lambda q, x: source, intermediate_propagator=propagator,
+                    source_is_radial=True,
                     transition=t[channel, 2], production=production, strong_parameters=strong_parameters,
                     context=label, intermediate_invariant_landmarks_gev=(sum(daughters), pole))
             _quadrature_value(result[event], label)

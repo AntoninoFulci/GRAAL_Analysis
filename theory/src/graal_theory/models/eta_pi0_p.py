@@ -91,6 +91,23 @@ class EtaPi0PModel:
         p = self.parameters
         return p.eta_mass_gev, p.pi0_mass_gev, p.proton_mass_gev
 
+    def polarized_matrix_element_squared(
+        self,
+        sample: ThreeBodySample,
+        polarization: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Sum final proton spin, average initial proton spin for one photon state."""
+        epsilon = np.asarray(polarization, dtype=np.float64)
+        if (
+            epsilon.shape != (3,)
+            or not np.all(np.isfinite(epsilon))
+            or not np.isclose(np.linalg.norm(epsilon), 1.0, atol=1e-12)
+            or not np.isclose(epsilon[2], 0.0, atol=1e-12)
+        ):
+            raise ValueError("photon polarization must be a unit transverse vector")
+        amplitude = tree_amplitude(sample, epsilon, self.parameters)
+        return np.sum(np.abs(amplitude) ** 2, axis=(1, 2)) / 2.0
+
     def matrix_element_squared(
         self,
         sample: ThreeBodySample,
@@ -106,6 +123,5 @@ class EtaPi0PModel:
             raise ValueError("photon polarizations must be orthonormal and transverse")
         total = np.zeros(len(sample.momenta), dtype=np.float64)
         for epsilon in basis:
-            amplitude = tree_amplitude(sample, epsilon, self.parameters)
-            total += np.sum(np.abs(amplitude) ** 2, axis=(1, 2))
-        return total / 4.0
+            total += self.polarized_matrix_element_squared(sample, epsilon)
+        return total / 2.0

@@ -170,6 +170,7 @@ def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     calibration = stages[0].argv
     assert "--output" not in calibration
     assert calibration[-2:] == ("--output-dir", str(paths.output_root / "common"))
+    assert calibration[calibration.index("--target") + 1] == "P"
     assert _stage(stages, "uv:extract").argv[-2:] == (
         "--bootstrap-replicas",
         "0",

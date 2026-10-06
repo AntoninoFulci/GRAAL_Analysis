@@ -55,3 +55,25 @@ def test_unpolarized_result_is_invariant_under_transverse_basis_rotation():
         rtol=1e-12,
         atol=1e-14,
     )
+
+
+def test_polarized_spin_average_reconstructs_unpolarized_result():
+    model = EtaPi0PModel.from_files(PARAMETER_FILE, SOURCE_FILE)
+    sample = sample_three_body(1.77, model.masses, SobolConfig(power=4))
+    horizontal = model.polarized_matrix_element_squared(sample, np.array([1.0, 0.0, 0.0]))
+    vertical = model.polarized_matrix_element_squared(sample, np.array([0.0, 1.0, 0.0]))
+    assert np.all(horizontal >= 0.0)
+    assert np.all(vertical >= 0.0)
+    np.testing.assert_allclose(
+        (horizontal + vertical) / 2.0,
+        model.matrix_element_squared(sample),
+        rtol=1e-12,
+        atol=1e-14,
+    )
+
+
+def test_polarized_spin_average_rejects_longitudinal_polarization():
+    model = EtaPi0PModel.from_files(PARAMETER_FILE, SOURCE_FILE)
+    sample = sample_three_body(1.77, model.masses, SobolConfig(power=4))
+    with pytest.raises(ValueError, match="transverse"):
+        model.polarized_matrix_element_squared(sample, np.array([0.0, 0.0, 1.0]))

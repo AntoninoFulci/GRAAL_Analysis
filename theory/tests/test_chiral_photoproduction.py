@@ -11,6 +11,8 @@ from graal_theory.amplitudes import chiral_photoproduction as chiral
 from graal_theory.amplitudes import production_loops as loops
 from graal_theory.amplitudes.nstar1535_reduced import load_reduced_parameters, loop_functions
 from graal_theory.phase_space import SobolConfig, sample_three_body
+from graal_theory.phase_space import sample_three_body_mass_window
+from graal_theory.kinematics import s_from_lab_photon_energy
 
 
 REFERENCES = Path(__file__).resolve().parents[1] / "references"
@@ -61,6 +63,84 @@ def _transition(channel, value=.7-.3j):
 def _invariant(sample, event):
     pair = sample.momenta[event, 0] + sample.momenta[event, 2]
     return np.sqrt(pair[0]**2 - pair[1:] @ pair[1:])
+
+
+def test_internal_eq25_uses_checked_array_path_without_changing_matrix(
+        production, strong, sample, monkeypatch):
+    one = replace(sample, initial=sample.initial[:1], momenta=sample.momenta[:1],
+                  weights_gev2=sample.weights_gev2[:1], s12_gev2=sample.s12_gev2[:1])
+    settings = loops.QuadratureSettings(q_order=32, angle_order=32)
+    p = replace(production, quadrature=settings)
+    calls = []
+    original = loops._integrate_complex_2d_array
+    def checked(*args, **kwargs):
+        calls.append(kwargs["context"])
+        return original(*args, **kwargs)
+    monkeypatch.setattr(chiral, "_integrate_complex_2d_array", checked, raising=False)
+    result = chiral.internal_pi0_amplitude(one, [1., 0., 0.], p, strong,
+                                            _transition(1))
+    assert calls
+    assert result.shape == (1, 2, 2)
+
+
+def test_internal_eq25_tangent_recoil_cut_is_convergent_at_default_order(
+        production, strong):
+    energy = 1.4069431844202973
+    proton = strong.baryon_masses_gev[0]
+    w = np.sqrt(s_from_lab_photon_energy(energy, proton))
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0], proton)
+    full = sample_three_body_mass_window(w, masses, (2, 0), (1.60, 1.64), SobolConfig(4))
+    event = 3
+    one = replace(full, initial=full.initial[[event]], momenta=full.momenta[[event]],
+                  weights_gev2=full.weights_gev2[[event]], s12_gev2=full.s12_gev2[[event]])
+    result = chiral.internal_pi0_amplitude(
+        one, [0., 1., 0.], production, strong, _transition(4))
+    assert np.all(np.isfinite(result))
+
+
+def test_internal_eq25_near_tangent_converges_at_default_order(production, strong):
+    energy = 1.4069431844202973
+    proton = strong.baryon_masses_gev[0]
+    w = np.sqrt(s_from_lab_photon_energy(energy, proton))
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0], proton)
+    full = sample_three_body_mass_window(
+        w, masses, (2, 0), (1.60, 1.64), SobolConfig(7),
+        reduce_global_azimuth=True)
+    event = 104
+    one = replace(full, initial=full.initial[[event]], momenta=full.momenta[[event]],
+                  weights_gev2=full.weights_gev2[[event]], s12_gev2=full.s12_gev2[[event]])
+    default = chiral.internal_pi0_amplitude(
+        one, [0., 1., 0.], production, strong, _transition(4))
+    values = []
+    for q, angle in ((96, 72), (128, 96)):
+        settings = loops.QuadratureSettings(q_order=q, angle_order=angle)
+        values.append(chiral.internal_pi0_amplitude(
+            one, [0., 1., 0.], replace(production, quadrature=settings),
+            strong, _transition(4)))
+    np.testing.assert_allclose(values[0], values[1], rtol=1e-8, atol=1e-10)
+    np.testing.assert_allclose(default, values[1], rtol=1e-5, atol=1e-10)
+
+
+@pytest.mark.parametrize("lower_mass", [1.6092949864266957, 1.60936, 1.609361])
+def test_internal_eq25_threshold_log_stays_finite_when_order_doubles(
+        production, strong, lower_mass):
+    energy = 1.4069431844202973
+    proton = strong.baryon_masses_gev[0]
+    w = np.sqrt(s_from_lab_photon_energy(energy, proton))
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0], proton)
+    full = sample_three_body_mass_window(
+        w, masses, (2, 0), (lower_mass, lower_mass+0.001), SobolConfig(4),
+        reduce_global_azimuth=True)
+    one = replace(full, initial=full.initial[:1], momenta=full.momenta[:1],
+                  weights_gev2=full.weights_gev2[:1], s12_gev2=full.s12_gev2[:1])
+    values = []
+    for q, angle in ((64, 48), (96, 72), (192, 144)):
+        settings = loops.QuadratureSettings(q_order=q, angle_order=angle)
+        values.append(chiral.internal_pi0_amplitude(
+            one, [0., 1., 0.], replace(production, quadrature=settings),
+            strong, _transition(4)))
+    np.testing.assert_allclose(values[0], values[2], rtol=1e-5, atol=1e-10)
+    np.testing.assert_allclose(values[1], values[2], rtol=1e-5, atol=1e-10)
 
 
 def test_printed_coefficient_zeros_signs_and_channel_order():

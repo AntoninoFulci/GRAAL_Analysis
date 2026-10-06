@@ -80,6 +80,9 @@ against scattering data up to `1.80 GeV`. Reports must distinguish:
 - `source_used_extension`: `1.60 < W <= 1.80 GeV`;
 - unsupported: `W > 1.80 GeV`, which remains an error or mask.
 
+The first label records the source's **qualitative** scattering-data agreement;
+it does not imply a quantified model uncertainty or exact data reproduction.
+
 No polynomial, loop, or amplitude may be extrapolated past `1.80 GeV`. Every
 reported bin records the fraction of its unpolarized denominator produced by
 events in the source-used extension. This is a limitation indicator, not an
@@ -121,7 +124,11 @@ residual of `(I - V G) T = V`.
 Add one bounded high-energy production comparison from PRC73 Fig. 18. It need
 not digitize all six Fig. 18 panels: the `E_gamma = 1.7 GeV` full-model
 `M(eta p)` curve is sufficient to exercise the strong input through the new
-ceiling. Record digitization uncertainty and do not use this curve for tuning.
+ceiling. Compare only source points with `M(eta p) <= 1.80 GeV`; the published
+panel continues beyond that mass, but its tail cannot authorize extrapolating
+this reconstruction. Record digitization uncertainty and do not use this
+curve for tuning. This is an additional high-energy source check, not a
+substitute for the Ajaka Figure 4 gate.
 
 ### 2. Validated strong-T grid
 
@@ -130,6 +137,14 @@ nested event and loop integrations is unnecessary. Introduce one concrete,
 immutable `StrongTGrid` value owned by the strong-amplitude layer. It is an
 acceleration of `reconstructed_full_tmatrix`, not a new physical model and not
 a generic plugin framework.
+
+The grid is a correctness-preserving cache, but it is **not** sufficient as
+the main throughput solution. A measured `W=1.62 GeV` direct strong-T call
+took about `0.0013 s`, whereas one seven-family event at `E_gamma=1.2 GeV`,
+q/angle order `32`, one polarization took about `16.9 s`. Roughly `13.1 s`
+was in `explicit_resonances`; profiling traced repeated scalar Eq. (26)
+quadrature and per-node source validation. These measurements are local
+performance evidence, not extrapolated physics acceptance.
 
 Construction rules:
 
@@ -169,6 +184,28 @@ direct evaluator. This is dependency injection for a validated numerical
 representation, not injection of an arbitrary strong model. Physical
 parameters and the grid fingerprint must match before any family evaluation.
 
+### 2b. Direct production-loop throughput gate
+
+Before running the full twelve-panel calculation, retain the current scalar
+production quadrature as an independent oracle and make the same direct
+integrals practical. Profile representative low- and upper-energy events by
+family. First hoist event-constant source parameters, spin factors, and width
+values out of radial/angle node loops; then batch node evaluation in the
+existing Eq. (8)/(26) quadrature path where numerical branches allow it.
+Preserve principal-value subtraction, `+i0` cut, radial landmarks, endpoint
+rules, and configured/doubled-order checks. No surrogate or interpolation of
+production loops is authorized by this throughput work.
+
+For each optimized family, compare complete complex spin matrices with the
+scalar oracle on fixed threshold, cut, pole-adjacent, and upper-domain events
+for both polarizations and both quadrature orders. Record a measured
+per-event throughput and project the cost of the required energy nodes,
+conditional Sobol points, scrambled replicates, and refinements. Full-panel
+execution starts only if the measured projection is at most `24 h` on
+available hardware. This is a planning threshold, not a physics tolerance;
+otherwise retain typed `not_completed_runtime_bound` masks and revise the
+computational plan, never infer convergence from a fast partial run.
+
 ### 3. Mass- and energy-stratified phase space
 
 Whole-space Sobol sampling poorly resolves narrow or partially accessible
@@ -189,7 +226,11 @@ For each nominal mass bin and photon energy:
    accessible support, and weighted mass position.
 
 Photon-energy integration uses fixed Gauss-Legendre nodes inside each published
-energy interval. Compare order `n` with `2n`. The primary publication
+energy interval. For each mass bin, split the interval at the exact incident-
+energy onset where its lower mass edge first becomes accessible, then integrate
+only the accessible energy subinterval. This removes a step in the integrand
+that would otherwise make a fixed-order edge-bin check misleading. Compare
+order `n` with `2n` on the same subinterval. The primary publication
 calculation uses uniform incident-photon weighting because Ajaka specifies the
 intervals but not the theory-line photon spectrum. A measured-flux-weighted
 calculation is a separately labeled sensitivity result when a provenance-
@@ -197,8 +238,10 @@ complete spectrum is available. It cannot replace the primary result merely
 because it agrees better with the digitized stroke.
 
 Independent scrambled Sobol replicates provide numerical covariance across
-mass bins. Fixed seeds and identical events for horizontal/vertical
-polarizations preserve correlations and reduce asymmetry noise. The older
+mass bins. Use the same replicate identifiers across bins to estimate their
+joint covariance, even though each conditional mass-bin sample is distinct.
+Fixed seeds and identical events for horizontal/vertical polarizations
+preserve correlations and reduce asymmetry noise. The older
 nonscrambled `p` versus `p+1` comparison remains an independent bias check.
 
 ### 4. Beam-asymmetry observable
@@ -216,6 +259,19 @@ Sigma_b = 2 integral_b dPhi cos(2 phi)
               [w_vertical - w_horizontal]
           / integral_b dPhi [w_vertical + w_horizontal]
 ```
+
+For the full coherent model, the redundant global azimuth is integrated
+analytically using its horizontal and vertical complex spin matrices. If
+`C=Re Tr(M_H^† M_V)/2`, `D=w_V-w_H`, and the sampled pair azimuth is `phi`,
+the exact global-angle contribution to the numerator is
+`D cos(2phi)-2 C sin(2phi)`; its denominator is `w_V+w_H`. Each separately
+integrated H/V normalization equals half that denominator. The model's
+rotation covariance was checked on a real seven-family event. Conditional
+Sobol sampling therefore fixes the spectator global azimuth to zero and uses
+four coordinates (pair mass, two polar cosines, relative azimuth). This is a
+variance reduction of the same continuous-phi observable, not a change of
+polarization sign or a fit to the published line. The old five-coordinate
+sampler remains the direct Monte Carlo diagnostic.
 
 The implementation must verify this normalization with synthetic amplitudes.
 It must not introduce a second sign convention to match Figure 4. Twelve-bin
@@ -249,7 +305,8 @@ three pair definitions. Each bin carries:
 - covariance row identifier;
 - direct/grid mode and numerical settings;
 - strong-domain extension fraction;
-- status and mask reason;
+- status and mask reason, distinguishing `masked_kinematic`,
+  `masked_unsupported_domain`, and `masked_nonconverged`;
 - source, parameter, and code fingerprints.
 
 Generate a 4-by-3 comparison figure containing experimental points only where
@@ -260,12 +317,21 @@ masked bin. Never connect across a missing, unsupported, or unconverged value.
 Compare predictions with
 `theory/references/ajaka2008_figure4_theory.csv`. At each overlapping mass,
 interpolate only between adjacent accepted calculated bins and combine the
-`0.020` digitization bound with numerical uncertainty. Never interpolate
+`0.020` digitization **bound** conservatively with the numerical error bound;
+do not treat it as a Gaussian standard deviation. Never interpolate
 through a mask or beyond the calculated support. Do not add an invented
 quantitative allowance for PRC65 high-energy limitations. Preserve point
 statuses `compatible`, `discrepant`, `unresolved`, and `masked`; a panel passes
-reproduction only when all resolved points in its published stroke are
-compatible and every physically supported calculated segment is converged.
+reproduction only when all resolved published points within exact physical
+support are compatible and every physically populated nominal bin is
+converged. Expected `masked_kinematic` bins outside that support do not fail
+the panel; an accessible bin masked for nonconvergence does.
+Published points outside exact kinematic support or the calculated interval
+are recorded as `masked` with their reason; they cannot silently disappear
+from the comparison or count as agreement. A complete, converged calculation
+with one or more `discrepant` panels is a valid negative scientific result,
+reported as `calculated_discrepant`, never `reproduced`. Tests passing means
+software gates pass, not that the physical reproduction claim passes.
 Sensitivity weightings cannot upgrade the primary uniform-weight status.
 
 Outputs live under a dedicated ignored `theory/outputs/` run directory and
@@ -278,6 +344,9 @@ the discrepant panels and cannot be relabeled as reproduction.
 
 A bin is publishable only if all applicable checks pass:
 
+- the scalar-oracle and accelerated production quadratures agree on fixed
+  physical events, and measured throughput supports a complete run (a
+  practical planning gate, never a substitute for any physics gate);
 - inner production-loop configured/doubled quadratures pass on representative
   high-impact events, including upper-domain events;
 - strong-grid and direct evaluations meet the bounds above;
@@ -316,18 +385,106 @@ are grouped by responsibility:
 1. source-domain tests for the `1.80 GeV` ceiling and unchanged lower-domain
    fingerprints;
 2. direct/grid tests at landmarks and off-grid points;
-3. conditional phase-space tests against independent one-dimensional phase-
+3. source-equivalent direct-production throughput tests and runtime projection;
+4. conditional phase-space tests against independent one-dimensional phase-
    space integrals and whole-space sums for constant amplitudes;
-4. analytic toy-amplitude tests for sign, finite-phi attenuation, covariance,
+5. analytic toy-amplitude tests for sign, finite-phi attenuation, covariance,
    partial support, and energy weighting;
-5. real seven-family direct-versus-grid and convergence tests;
-6. twelve-panel output/schema/reference comparison tests;
-7. dormant/active explicit-resonance pole regressions;
-8. full standalone theory suite.
+6. real seven-family direct-versus-grid and convergence tests;
+7. twelve-panel output/schema/reference comparison tests;
+8. dormant/active explicit-resonance pole regressions;
+9. full standalone theory suite.
 
 The final review must separately assess software correctness, numerical
 convergence, and physics claims. Passing tests alone cannot upgrade a masked or
 source-limited scientific result.
+
+## Execution audit, 2026-10-05 to 2026-10-06
+
+Source-equivalent vectorization of Eqs. (26) and (25) now reduces one warm
+seven-family event/polarization at `E_gamma=1.5` from roughly `9.9 s` to
+`0.28 s` at q/angle `32/32`, or `0.63 s` at sourced default `64/48` (the first
+event also computes the cached resonance width). Exactly 78 of 120 nominal
+bins are kinematically accessible. Four measured processes deliver 4.206
+event/polarization evaluations per second versus 1.136 for one process.
+These measurements make a minimum-setting calculation plausible, but do not
+establish that the necessary energy/Sobol refinements will converge within
+24 hours. The Task 3C feasibility gate remains open until a real pilot fixes
+those settings and includes every mandatory check. No twelve-panel
+reproduction claim is currently supported. The physics objective and every
+numerical tolerance remain unchanged.
+
+The first real conditional pilot exposed an Eq. (25) tangent recoil cut in
+`K+Lambda` at `E_gamma=1.4069431844202973 GeV`,
+`M(eta p)=1.61009316501 GeV`. Its original scalar quadrature failed even at
+`2048/1536`. Exact analytic recoil-angle integration, including the `+i0`
+logarithm, now makes that event pass the unchanged configured/doubled loop
+gate at `64/48`; the corresponding radial-source Eq. (26) integral uses the
+same treatment. This resolves the specific Task 3D blocker, not all possible
+events or the publication-bin convergence gate.
+
+For the first seven-family `p_eta` publication bin, energy `[1.40,1.50]` and
+mass `[1.60,1.64]`, exact global-azimuth averaging reduces conditional Sobol
+dimension from five to four. At energy order four and loop `64/48`, four-
+coordinate `p4/p5/p6` gave approximately
+`Sigma=-0.508793605/-0.506391888/-0.512297379` and unpolarized
+denominators `1.163684060/1.184197284/1.204877917`. The `p5/p6`
+values are from the latest source-equivalent diagnostic run; differences
+of a few parts per million from earlier pilot output do not affect gates.
+The `p5/p6` Sigma difference passes `0.01`, but denominator change is about
+`1.72%`, failing the strict `<1%` gate. No numerical acceptance follows.
+At raised inner order `96/72`, all events of the same `p7` bin pass their
+unchanged configured/doubled checks, giving `Sigma=-0.508868327` and
+denominator `1.217629483` in `1288.9 s`. A fresh same-order `p6` run at
+`96/72` gives `Sigma=-0.512297379`, denominator `1.204877915` in
+`644.4 s`. The formal `p6/p7` denominator change is `1.047245%`, again
+failing `<1%`, while `Delta Sigma=0.003429` passes `0.01`.
+Partitioning the fresh `p5/p6` denominator at the sourced `K+Lambda`
+threshold (`1.60936 GeV`) gives changes `-0.00994` below threshold,
+`+0.02570` in `[1.60936,1.62)`, and `+0.00492` in `[1.62,1.64)`.
+The narrow interval immediately above threshold drives more than the net
+`+0.02068` drift, with partial cancellation below. This identifies a
+specific mass region for source-equivalent stratification, without proving
+that stratification will pass the gate.
+An exact two-stratum trial at `1.60936 GeV` preserved volume and nested
+Sobol points in toy tests, but its deterministic zero point landed exactly
+on the new threshold and failed the Eq. (25) cut check even at `512/384`.
+A fixed digital shift avoided that endpoint; a nearby sampled event at
+`M(eta p)=1.60929498643 GeV` still failed at `64/48` and `96/72`.
+The trial was reverted from the production sampler. Subsequent isolated
+Eq. (25) regressions now pass below, on, and above this threshold after
+stationary-point radial splitting and stable recoil-log evaluation. A
+complete stratified publication bin and its variance gate remain untested;
+do not use an unverified split for the curves.
+The exact recoil-angle branch remains algebraically equivalent to Eq. (25):
+`q_on²-q²=(W-omega-E_left)(q0_on+omega)(W-omega+E_left)/(2W)`, and
+`(1/A-1/B)/(B-A)=1/(AB)` for the two baryon denominators. Its physical
+logarithm has the required negative imaginary cut. The remaining blocker
+is full-bin Sobol normalization convergence, not a missing numerator factor.
+At measured `p6` runtime about `355 s` per bin, 78 accessible bins and the
+required base, doubled-energy, `p+1`, eight replicas, and direct comparison
+cost at least `78 * 355 * (1+2+2+8+1) / 4 = 96,915 s`, or `26.9 h`, on four
+measured workers. This omits startup, source comparison, and any further
+refinement. The 24-hour feasibility gate therefore fails at `p6` on the
+measured four-worker setup. The host reports 14 logical CPUs. A separate
+56-evaluation warm-event benchmark measured `6.04`, `11.62`, and `15.13`
+event/polarization evaluations per second at 4, 8, and 14 workers. Its
+14-worker rate is 2.50 times its four-worker rate, implying a rough `10.8 h`
+projection for the same `p6` workload. Event mix, process startup,
+inner-order failures, and convergence refinements make that an estimate,
+not a passed feasibility gate. The `p6` normalization gate already fails.
+Do not start the twelve-panel run at this setting. The next throughput task
+must confirm representative complete-bin scaling or reduce the
+remaining angular/mass variance through source-equivalent integration; it
+must remeasure complete certification cost before Task 10.
+At the measured `p7`/`96/72` cost, a same-cost estimate for the eight
+accessible bins of the upper `p_eta` panel is
+`8 * (1+2+2+8+1) * 1288.9 s = 40.1 h` on its single panel worker; the
+current CLI parallelizes by panel. Different bins may cost less or more, so
+this is a workload projection, not a lower bound. Bin-level parallelism and
+shared H/V work would be needed to revisit throughput if `p7` or higher
+powers prove numerically necessary. The strict numerical blocker remains
+the measured same-order `p5/p6` and `p6/p7` denominator failures.
 
 ## Handoff to native-data fitting
 

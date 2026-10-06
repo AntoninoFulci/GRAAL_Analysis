@@ -1,0 +1,18 @@
+{
+  "source_pdf_sha256": "19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb",
+  "source": "Doring, Oset, Strottman, Physical Review C 73, 045209 (2006)",
+  "figure": 18,
+  "pdf_page": 14,
+  "panel": "E_gamma=1.7 GeV, M(eta p), lower right",
+  "curve_kind": "full_model_solid",
+  "energy_gev": 1.7,
+  "supported_mass_interval_gev": [1.515, 1.8],
+  "trace_method": "Independent visual trace of the solid stroke in a 600 dpi Poppler render; values read to 0.1 microbarn/GeV, no calculated curve consulted.",
+  "calibration": {
+    "crop_origin_full_page_px_at_600dpi": [3290, 4970],
+    "axis_x_px_in_crop": {"1500_MeV": 128, "1800_MeV": 1001},
+    "axis_y_px_in_crop": {"0_microbarn_per_GeV": 822, "70_microbarn_per_GeV": 102}
+  },
+  "ambiguity": "Solid and dashed strokes approach or overlap around 1.60 and above 1.72 GeV. A conservative 2.0 microbarn/GeV reading bound covers stroke width, manual location and line assignment there. The 1.80 GeV point is the allowed ceiling; no farther tail is traced.",
+  "reading_error_kind": "conservative_absolute_bound_microbarn_per_gev"
+}

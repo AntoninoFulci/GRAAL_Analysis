@@ -59,7 +59,7 @@ Setup prepares four local data tiers:
 
 | Path | Meaning |
 |---|---|
-| `data/00_external/` | External reference inputs, including optional `flux.root` |
+| `data/00_external/` | External `flux.root` input and generated `flux_calibrated.root` |
 | `data/01_raw/` | Raw detector input or a farm link |
 | `data/02_pre_analyzed/` | Pre-analysis files or a farm link |
 | `data/03_selected/` | Event-selection output |

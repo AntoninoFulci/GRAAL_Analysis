@@ -1,9 +1,8 @@
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
-
+from pathlib import Path
 
 THEORY_ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,7 +16,23 @@ def _run_cli(*args):
         env=env,
         text=True,
         capture_output=True,
+        check=False,
     )
+
+
+def test_figure4_full_command_dispatches_explicit_numerical_settings(tmp_path, monkeypatch):
+    from graal_theory import cli
+    observed = []
+    def fake(args):
+        observed.append((args.output, args.energy_order, args.sobol_power,
+                         args.replicas, args.workers, args.mode))
+        return 2
+    monkeypatch.setattr(cli, "_figure4_full", fake, raising=False)
+    result = cli.main(["figure4-full", "--output", str(tmp_path/"run"),
+                       "--energy-order", "4", "--sobol-power", "6",
+                       "--replicas", "8", "--workers", "4", "--mode", "grid"])
+    assert result == 2
+    assert observed == [(tmp_path/"run", 4, 6, 8, 4, "grid")]
 
 
 def test_predict_cli_writes_partial_bundle(tmp_path):
@@ -98,3 +113,50 @@ def test_validate_cli_rejects_bundle_with_missing_source_locator(tmp_path):
     assert validated.returncode == 1
     assert "locator" in validated.stderr
     assert json.loads(path.read_text())["validation_state"] == "pending"
+
+
+def test_pilot_panel5_cli_writes_labeled_partial_overlay(tmp_path):
+    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    output = tmp_path / "panel5"
+    result = _run_cli(
+        "pilot-panel5", "--published-csv", str(published),
+        "--sobol-power", "14", "--energy-nodes", "9", "--output", str(output),
+    )
+    assert result.returncode == 0, result.stderr
+    assert (output / "panel5.pdf").is_file()
+    prediction = json.loads((output / "prediction.json").read_text())
+    assert prediction["scope"] == "partial:delta1700_eta_delta_tree_eq43"
+    assert prediction["energy_weighting"] == "uniform"
+    assert prediction["beam_asymmetry_sign"] == "vertical_minus_horizontal"
+    assert len(prediction["sigma"]) == 10
+    assert prediction["sigma"][:2] == [None, None]
+    assert len(prediction["published_points"]) == 4
+    assert len(prediction["theory_parameters_sha256"]) == 64
+    assert "g1_prime" in prediction["theory_parameters"]
+    assert prediction["code_revision"]["commit"]
+    assert prediction["published_source"]["doi"] == "10.1103/PhysRevLett.100.052003"
+    assert prediction["published_source"]["uncertainties"] == "statistical only"
+
+
+def test_pilot_panel5_cli_rejects_unreliable_resolution(tmp_path):
+    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    output = tmp_path / "panel5"
+    result = _run_cli(
+        "pilot-panel5", "--published-csv", str(published),
+        "--sobol-power", "8", "--energy-nodes", "3", "--output", str(output),
+    )
+    assert result.returncode == 1
+    assert "sobol-power" in result.stderr
+    assert not output.exists()
+
+
+def test_pilot_panel5_flux_option_requires_manifest(tmp_path):
+    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    result = _run_cli(
+        "pilot-panel5", "--published-csv", str(published),
+        "--flux-root", str(tmp_path / "flux.root"),
+        "--output", str(tmp_path / "panel5"),
+    )
+    assert result.returncode == 1
+    assert "run-manifest" in result.stderr
+    assert not (tmp_path / "panel5").exists()

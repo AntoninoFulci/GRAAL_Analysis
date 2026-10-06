@@ -192,7 +192,8 @@ example together with data as follows:
 python 07_observable_extraction/beam_asymmetry.py \
   --sideband results/reco/reco_eta_pi0_bdt_sideband.root \
   --signal-mc results/reco/reco_eta_pi0_bdt_sideband_signal_mc.root \
-  --calibration-dir path/to/legacy_calibration
+  --flux-file data/00_external/flux_calibrated.root \
+  --run-manifest config/run_manifest.csv
 ```
 
 ## Source and Test Map

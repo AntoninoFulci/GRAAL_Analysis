@@ -100,8 +100,8 @@ def test_gate_excludes_real_nonzero_bins_below_total_weight_fraction():
 
 
 @pytest.mark.parametrize("energy", (1.4, 1.5))
-def test_upper_energy_domain_mask_affects_interior_phase_space(energy):
-    """Catch mistaking the domain blocker for a zero-weight endpoint only."""
+def test_upper_energy_strong_domain_is_open_on_interior_phase_space(energy):
+    """Catch a residual 1.70 GeV guard on populated upper-bin events."""
     from graal_theory.kinematics import invariant_mass, s_from_lab_photon_energy
     from graal_theory.models.eta_pi0_p_full import EtaPi0PFullModel
     from graal_theory.phase_space import sample_three_body
@@ -110,15 +110,17 @@ def test_upper_energy_domain_mask_affects_interior_phase_space(energy):
     sample = sample_three_body(np.sqrt(s_from_lab_photon_energy(energy, model.masses[-1])),
                                model.masses, SobolConfig(5))
     z = invariant_mass(sample.momenta[:, 0]+sample.momenta[:, 2])
-    # A substantial phase-space-volume contribution, far from a zero-weight
-    # boundary, has unsupported strong W. This is not a cross-section estimate.
+    # A substantial phase-space-volume contribution lies above the old 1.70
+    # ceiling. This is not a cross-section or convergence estimate.
     indices = np.flatnonzero((z > 1.7)
                             & (sample.weights_gev2 > 1e-4*np.sum(sample.weights_gev2)))[:1]
     assert len(indices) == 1
     interior = replace(sample, initial=sample.initial[indices], momenta=sample.momenta[indices],
                        weights_gev2=sample.weights_gev2[indices], s12_gev2=sample.s12_gev2[indices])
-    with pytest.raises(ValueError, match="chiral_contact.*strong T.*outside reduced real-axis domain"):
-        model.selected_amplitude(interior, np.array([1., 0., 0.]), ("chiral_contact",))
+    amplitude = model.selected_amplitude(
+        interior, np.array([1., 0., 0.]), ("chiral_contact",))
+    assert amplitude.shape == (1, 2, 2)
+    assert np.isfinite(amplitude).all()
 
 
 def _physical_audit(energy):
@@ -140,6 +142,15 @@ def _physical_audit(energy):
             original.parameters.production, quadrature=controls)))
         for power in (4, 5):
             start, reason, status = perf_counter(), "", "finite_unvalidated"
+            if energy >= 1.4:
+                attempts.append({"q_order": order, "angle_order": order, "power": power,
+                                 "relative_tolerance": controls.relative_tolerance,
+                                 "absolute_tolerance": controls.absolute_tolerance,
+                                 "status": "not_completed_runtime_bound",
+                                 "reason": "1.80 GeV strong domain is open; upper-energy full-loop "
+                                           "convergence awaits conditional Figure 4 integrator",
+                                 "runtime_seconds": 0.})
+                continue
             # Measured q32 threshold p4 costs 505 s; p5 remains a separate
             # physical audit run, not a 25-minute addition to every test suite.
             # This is incompleteness, never a fabricated convergence failure.
@@ -202,7 +213,7 @@ def test_real_seven_family_loop_and_sobol_audit_has_explicit_outcome(energy):
     assert {(row["q_order"], row["power"]) for row in audit["attempts"]} == {
         (16, 4), (16, 5), (32, 4), (32, 5)}
     if energy >= 1.4:
-        assert all(row["status"] == "masked_unsupported_domain" for row in audit["attempts"])
+        assert all(row["status"] == "not_completed_runtime_bound" for row in audit["attempts"])
     for row in audit["attempts"]:
         if row["status"].startswith("masked_"):
             assert "event=" in row["reason"] and "channel=" in row["reason"]

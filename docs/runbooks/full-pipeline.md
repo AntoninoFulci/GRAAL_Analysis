@@ -36,7 +36,11 @@ python scripts/run_pipeline.py --mode production
 ```
 
 Reads all matching UV/VIS pre-analysis periods, generates 1000000 attempted MC
-events per required channel, and writes `results/production/`.
+events per required channel, and writes `results/production/`. Calibration
+selects every manifest run with target `P`, including multiple proton periods
+from the same year. Deuterium runs remain in the shared manifest but do not
+enter this proton campaign; target selection uses manifest metadata, not file
+names.
 
 ## Alternate output root
 

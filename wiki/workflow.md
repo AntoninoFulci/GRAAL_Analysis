@@ -60,7 +60,7 @@ flowchart LR
 | Grid search | `best_hyperparams.json` | Final training |
 | Final training | Model, threshold, provenance | Stage-1 runtime gate |
 | Reconstruction | Reconstructed and sideband ROOT trees | Observable extraction, plots |
-| Calibration | Calibrated ROOT flux plus QA/table products | Observable extraction |
+| Calibration | Calibrated ROOT flux (`data/00_external/` standalone; `results/<mode>/common/` launcher) | Observable extraction |
 | Observable extraction | Result ROOT and PDF products | Scientific review and publication |
 
 ## Training Branch
@@ -91,9 +91,11 @@ Calibration can proceed after pre-analysis and does not require selected
 - tagger observations from `h80` files;
 - external per-run tagger-flux histograms.
 
-It derives strip energies, aggregates flux into configured energy bins, writes
-exposure tables and calibrated ROOT objects, and records QA. The launcher
-passes shared `common/flux_calibrated.root` plus checked-in run manifest to
+It derives strip energies, validates run/strip flux consistency, aggregates
+flux into configured energy bins, and atomically publishes the configured ROOT
+output. Diagnostics stay in the process log. Standalone runs default to
+`data/00_external/flux_calibrated.root`; the launcher writes shared
+`common/flux_calibrated.root` and passes it with the checked-in run manifest to
 both profile-local Stage-07 extractors.
 
 ## Reuse and Failure Boundaries
@@ -113,7 +115,7 @@ Local safeguards prevent the most dangerous silent reuse:
 - the Stage-1 gate validates all runtime-bundle members and hypothesis
   provenance before scoring;
 - calibration separates warning-only quality findings from fatal structural or
-  numerical invalidity and publishes through staging;
+  numerical invalidity and atomically replaces one ROOT output;
 - observable estimators validate exposure, polarization, fit, and physical
   domains before reporting a result.
 

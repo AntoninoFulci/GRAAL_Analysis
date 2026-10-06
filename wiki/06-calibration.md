@@ -1,10 +1,9 @@
 # 06 — Calibration
 
 Stage 06 converts detector-level tagger strips and external flux histograms
-into the run/strip exposure table consumed by observable extraction. Its
-central invariant is that every selected event stratum `(run_number, xstrip)`
-has one validated beam energy and three independent flux values: `POL1`,
-`POL2`, and `BREM`.
+into one calibrated ROOT file. Its publication invariant is strict: a
+successful run writes only `data/00_external/flux_calibrated.root`; CSV and
+JSON side products are not published.
 
 ```mermaid
 flowchart LR
@@ -17,11 +16,9 @@ flowchart LR
     L --> Q{"QA gates"}
     R --> Q
     C --> Q
-    Q -->|"valid or warning-only"| P["Atomic publication"]
-    Q -->|"fatal finding"| J["Invalid QA report<br/>exit 1"]
-    P --> CSV["Lookup and exposure CSVs"]
-    P --> ROOT["flux_calibrated.root"]
-    P --> JSON["strip_energy_flux_qa.json"]
+    Q -->|"valid or warning-only"| P["Atomic ROOT publication"]
+    Q -->|"fatal finding"| J["stderr + exit 1<br/>no new output"]
+    P --> ROOT["data/00_external/<br/>flux_calibrated.root"]
 ```
 
 Equivalent data flow:
@@ -32,11 +29,10 @@ Equivalent data flow:
 3. Fill missing strip energies where interpolation or extrapolation is
    defensible, and check the completed lookup for monotonicity.
 4. Read the external `POL1`, `POL2`, and `BREM` histogram triplet for each run.
-5. Join lookup, flux, and manifest metadata; integrate the flux in every
-   configured energy binning.
+5. Join lookup, flux, and manifest metadata and run consistency checks.
 6. Fit per-run/per-polarization strip calibrations and rewrite calibrated
    flux histograms on energy axes.
-7. Publish the complete artifact set through an atomic directory swap.
+7. Publish only the calibrated ROOT file through an atomic file replacement.
 
 ## Run Manifest
 
@@ -140,9 +136,15 @@ finite and strictly increasing. The upper edge belongs to the final bin.
 python 06_calibration/build_strip_energy_flux.py \
   --preanalysis-dir results/preanalysis \
   --manifest config/run_manifest.csv \
-  --flux path/to/external_flux.root \
-  --output-dir results/strip_energy_flux
+  --flux data/00_external/flux.root
 ```
+
+Default output is `data/00_external/flux_calibrated.root`. Use
+`--output-dir path/to/directory` to place the single `flux_calibrated.root`
+file elsewhere. By default, calibration checks every manifest
+run. Use `--target P` or `--target D` to select all runs for one target; the
+production UV/VIS launcher selects `P`. Selection follows manifest records,
+including distinct periods from the same year, rather than file names.
 
 Useful controls:
 
@@ -156,27 +158,20 @@ Useful controls:
 | `--samples-per-run-strip` | `256` | retained energy samples per run/strip |
 | `--binning` | none | append a custom named energy binning |
 
-### Published artifacts
+### Published artifact
 
 | Artifact | Granularity and purpose |
 |---|---|
-| `strip_energy_lookup.csv` | manifest metadata plus one robust energy summary per run/strip |
-| `flux_by_run_energy.csv` | `POL1`, `POL2`, `BREM` integrated by run and named energy binning |
-| `flux_by_run_strip.csv` | schema-v2 run/strip exposure contract used by Stage 07 |
-| `flux_by_group_energy.csv` | integrated exposure aggregated by target/beam group |
-| `flux_calibrated.root` | canonical flux histograms on fitted photon-energy axes and fit QA |
-| `strip_energy_flux_qa.json` | inputs, thresholds, binnings, counts, diagnostics, warnings, errors, and `valid` |
+| `data/00_external/flux_calibrated.root` | canonical per-run `POL1`, `POL2`, and `BREM` histograms on fitted photon-energy axes, plus calibration objects under `calibration/` |
 
-`flux_by_run_strip.csv` has exact fields `schema_version`, `run_number`,
-`source_period`, `target`, `beam_type`, `group`, `xstrip`,
-`energy_median_gev`, `flux_pol1`, `flux_pol2`, `flux_brem`, and `status`.
-Schema version is `2`. A row is `valid` only when both selected polarized
-fluxes are positive; `BREM` need only be non-negative.
+Legacy lookup, exposure, integrated-flux CSVs and QA JSON are no longer
+written. Validation remains part of the run; diagnostics go to stderr and the
+exit status.
 
 ## QA and Failure Policy
 
-Warnings preserve usable output but make limitations visible. Errors mark the
-QA payload invalid and return exit status `1`.
+Warnings preserve usable output but remain visible in stderr. Errors prevent a
+new ROOT publication and return exit status `1`.
 
 | Warning-only condition | Consequence |
 |---|---|
@@ -184,7 +179,7 @@ QA payload invalid and return exit status `1`.
 | Extra complete `h80` or flux run | ignored and printed as unused |
 | Negative flux bin | clamped to zero and listed |
 | Low event count or high MAD | lookup retained with diagnostic |
-| Non-positive selected `POL1`/`POL2` exposure | row marked invalid and excluded by Stage 07 |
+| Non-positive selected `POL1`/`POL2` exposure | reported during internal validation |
 | Calibrated ROOT histogram lacks matching calibration | histogram skipped and counted |
 | Flux outside configured energy range | excluded amount and affected strips recorded |
 
@@ -197,12 +192,11 @@ QA payload invalid and return exit status `1`.
 | Undetermined monotonic direction or excessive inversion | strip-to-energy map is not trustworthy |
 | Invalid quartic fit/derivative or no calibrated histogram match | energy-axis ROOT product would be misleading |
 
-Outputs are staged with `atomic_output_directory`; readers see either the old
-complete directory or the new complete directory, never a partially written
-set. The output directory may not contain any input path. On a caught fatal
-error, the CLI attempts to atomically publish a failure-only QA JSON containing
-the error. Exit status is `0` only when `qa.valid` is true; warnings alone do
-not invalidate it.
+ROOT output is written to a temporary sibling and atomically replaces the
+destination only after successful validation and file closure. A failed run
+leaves the previous ROOT file unchanged. Output may not equal an input or live
+inside the pre-analysis input tree. Exit status is `0` only when validation
+succeeds; warnings alone do not invalidate it.
 
 ## Source and Test Map
 

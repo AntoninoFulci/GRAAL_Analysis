@@ -131,7 +131,7 @@ def test_charge_zero_threshold_branches_and_eq7():
                                          p.baryon_masses_gev)):
         threshold = m + baryon
         for w in (threshold-1e-6, threshold, threshold+1e-6):
-            if not lightest <= w <= 1.70:
+            if not lightest <= w <= 1.80:
                 continue
             g = charge_zero_loop_functions(w, p)
             assert np.all(np.isfinite(g))
@@ -166,7 +166,8 @@ def test_charge_zero_solve_and_two_body_unitarity():
                                rtol=2e-9, atol=2e-9)
 
 
-@pytest.mark.parametrize("w", [1+0j, True, float("nan"), 1.0, 1.701])
+@pytest.mark.parametrize("w", [1+0j, True, float("nan"), 1.0,
+                               np.nextafter(1.80, np.inf)])
 def test_charge_zero_invalid_energy_is_rejected(w):
     p = load_charge_zero_parameters(PARAM, SOURCES, EXTRA)
     with pytest.raises(ValueError, match="W"):

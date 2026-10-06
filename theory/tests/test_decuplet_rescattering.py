@@ -15,6 +15,8 @@ from graal_theory.amplitudes.production_loops import QuadratureSettings, load_pr
 from graal_theory.amplitudes.propagators import delta1700_width
 from graal_theory.models.eta_pi0_p import load_central_parameters
 from graal_theory.phase_space import SobolConfig, sample_three_body
+from graal_theory.phase_space import sample_three_body_mass_window
+from graal_theory.kinematics import s_from_lab_photon_energy
 
 
 REFERENCES = Path(__file__).resolve().parents[1] / "references"
@@ -63,6 +65,23 @@ def _sample(w, strong, indices):
 @pytest.fixture(scope="module")
 def sample(strong):
     return _sample(1.82, strong, [7, 13])
+
+
+def test_k_sigma_eq26_tangent_recoil_cut_converges_at_default_order(
+        decuplet, production, tree, strong):
+    energy = 1.4069431844202973
+    w = np.sqrt(s_from_lab_photon_energy(energy, tree.proton_mass_gev))
+    masses = (strong.meson_masses_gev[2], strong.meson_masses_gev[0],
+              strong.baryon_masses_gev[0])
+    full = sample_three_body_mass_window(w, masses, (2, 0),
+                                          (1.60, 1.64), SobolConfig(4))
+    one = replace(full, initial=full.initial[[3]], momenta=full.momenta[[3]],
+                  weights_gev2=full.weights_gev2[[3]], s12_gev2=full.s12_gev2[[3]])
+    transition = np.zeros((6, 6), complex)
+    transition[4, 2] = .7-.3j
+    result = decuplet.k_sigma_star_rescattering_amplitude(
+        one, [0., 1., 0.], production, tree, strong, lambda z: transition)
+    assert np.all(np.isfinite(result))
 
 
 def _q(w, m, mu):
@@ -297,7 +316,8 @@ def test_families_supply_physical_landmarks_and_common_lambda_pi_sigma_width(
     # Contract pins threshold/pole splits, Delta in Eq39, Lambda-pi for both K rows.
     def checked_loop(event_sample, event, channel_index, *, source_kernel,
                      intermediate_propagator, transition, production, strong_parameters,
-                     context, intermediate_invariant_landmarks_gev):
+                     context, intermediate_invariant_landmarks_gev, source_is_radial):
+        assert source_is_radial
         pole, threshold, width = ((tree.delta_mass_gev, strong.baryon_masses_gev[0]
             +strong.meson_masses_gev[0], tree.delta_width_gev) if channel_index == 2 else
             (production.sigma_star_mass_gev, strong.baryon_masses_gev[4]

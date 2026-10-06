@@ -60,6 +60,25 @@ def sample(strong):
                    weights_gev2=full.weights_gev2[indices], s12_gev2=full.s12_gev2[indices])
 
 
+@pytest.mark.parametrize("channel", [0, 1])
+@pytest.mark.parametrize("epsilon", [[1., 0., 0.], [0., 1., 0.]])
+def test_prepared_explicit_source_matches_three_printed_kernels(
+        resonance, production, tree, sample, channel, epsilon):
+    # Catches dropping one coherent kernel while hoisting fixed event work.
+    pion = sample.momenta[0, 1]
+    photon = np.array([0., 0., 0.7])
+    q, x = 0.23, 0.37
+    prepared = resonance._prepare_explicit_source(
+        channel, pion, photon, epsilon, production, tree)
+    args = (channel, q, x, pion, photon, epsilon, production, tree)
+    expected = np.add.reduce((
+        resonance.delta1700_pi_delta_kernel(*args),
+        resonance.nstar1520_pi_delta_kernel(*args),
+        resonance.delta_kr_pole_kernel(*args),
+    ))
+    np.testing.assert_allclose(prepared(q, x), expected, rtol=1e-10, atol=1e-10)
+
+
 def _q(w, m1, m2):
     return np.sqrt((w*w-(m1+m2)**2)*(w*w-(m1-m2)**2))/(2*w)
 
@@ -75,6 +94,59 @@ def test_explicit_family_rejects_reachable_zero_width_intermediate_delta(
     t[channel, 2] = 1.
     with pytest.raises(ValueError, match=rf"explicit_resonances.*event=0.*channel={channel}.*z=.*invariant=.*zero-width Delta intermediate pole"):
         resonance.explicit_resonance_amplitude(sample, [1., 0., 0.], p, zero_tree, strong, lambda z: t)
+
+
+def test_dormant_explicit_source_skips_unrelated_strong_pole(
+        resonance, production, tree, strong, sample):
+    dormant = replace(tree, f_delta_n_pi=0., delta_width_gev=0.,
+        width_parameters=replace(tree.width_parameters, delta_pole_width_gev=0.))
+    no_nstar = replace(production, f_tilde_nstar_delta_pi=0.,
+                       g_tilde_nstar_delta_pi=0.)
+    transition = np.zeros((6, 6), complex)
+    transition[0, 2] = 1.
+    transition[1, 2] = 1.
+    actual = resonance.explicit_resonance_amplitude(
+        sample, [1., 0., 0.], no_nstar, dormant, strong, lambda z: transition)
+    np.testing.assert_array_equal(actual, np.zeros((len(sample.initial), 2, 2), complex))
+    active = replace(dormant, f_delta_n_pi=tree.f_delta_n_pi)
+    with pytest.raises(ValueError, match="zero-width Delta intermediate pole"):
+        resonance.explicit_resonance_amplitude(
+            sample, [1., 0., 0.], no_nstar, active, strong, lambda z: transition)
+
+
+def test_prepared_family_matches_scalar_three_kernel_oracle(
+        resonance, production, tree, strong, sample):
+    from graal_theory.amplitudes.production_loops import (
+        QuadratureSettings, eq26_rescattering_loop,
+    )
+    from graal_theory.kinematics import cm_photon_momentum, invariant_mass
+    one = replace(sample, initial=sample.initial[:1], momenta=sample.momenta[:1],
+                  weights_gev2=sample.weights_gev2[:1], s12_gev2=sample.s12_gev2[:1])
+    p = replace(production, quadrature=QuadratureSettings(q_order=32, angle_order=32))
+    transition = np.zeros((6, 6), complex)
+    transition[0, 2], transition[1, 2] = .7+.2j, -.3+.5j
+    epsilon = np.array([1., 0., 0.])
+    actual = resonance.explicit_resonance_amplitude(
+        one, epsilon, p, tree, strong, lambda z: transition)[0]
+    z = float(invariant_mass(one.momenta[0, 0]+one.momenta[0, 2]))
+    k = cm_photon_momentum(float(one.initial[0, 0]), tree.proton_mass_gev)
+    expected = np.zeros((2, 2), complex)
+    for channel in (0, 1):
+        def source(q, x):
+            args = (channel, q, x, one.momenta[0, 1], k, epsilon, p, tree)
+            return np.add.reduce(tuple(getattr(resonance, name)(*args) for name in
+                ("delta1700_pi_delta_kernel", "nstar1520_pi_delta_kernel",
+                 "delta_kr_pole_kernel")))
+        expected += eq26_rescattering_loop(
+            one, 0, channel, source,
+            lambda invariant: resonance._delta_propagator(invariant, channel, tree, strong),
+            transition[channel, 2], p, strong, "scalar oracle",
+            intermediate_invariant_landmarks_gev=(
+                strong.baryon_masses_gev[channel]+strong.meson_masses_gev[channel],
+                tree.delta_mass_gev))
+    # Analytic angular integration changes reduction order; keep a bound
+    # tighter than configured 1e-5 direct-loop tolerance.
+    np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=1e-10)
 
 
 def _sigma(v):
@@ -338,8 +410,9 @@ def test_wrapper_selects_only_pi_channels_coherently_and_delta_propagator_once(
     # Control diagnostic sources but exercise the real Eq26 loop and real propagator.
     matrices = (np.array([[1+2j, .4j], [.3, -.2j]]),
                 np.array([[-.2j, .7], [1j, 2.]]), np.eye(2)*(1-.5j))
-    for name, matrix in zip(("delta1700_pi_delta_kernel", "nstar1520_pi_delta_kernel", "delta_kr_pole_kernel"), matrices):
-        monkeypatch.setattr(resonance, name, lambda c, q, x, pion, k, e, p, t, a=matrix: a*(c+1)*pion[1])
+    monkeypatch.setattr(resonance, "_prepare_explicit_source",
+        lambda c, pion, k, e, p, t: (
+            lambda q, x: sum(matrices)*(c+1)*pion[1]))
     seen = []
     def transition(z):
         seen.append(z)
@@ -360,7 +433,7 @@ def test_wrapper_selects_only_pi_channels_coherently_and_delta_propagator_once(
 
 
 def test_phase_flip_changes_coherent_wrapper_without_changing_kernel_norm(
-        resonance, production, tree, strong, sample, monkeypatch):
+        resonance, production, tree, strong, sample):
     # Reject incoherent sum of norms: the same isolated magnitude interferes differently.
     one = replace(sample, initial=sample.initial[:1], momenta=sample.momenta[:1],
                   weights_gev2=sample.weights_gev2[:1], s12_gev2=sample.s12_gev2[:1])
@@ -368,15 +441,19 @@ def test_phase_flip_changes_coherent_wrapper_without_changing_kernel_norm(
         matrix = np.zeros((6, 6), complex)
         matrix[1, 2] = 1+1j
         return matrix
-    original = resonance.nstar1520_pi_delta_kernel
     pion = one.momenta[0, 1]
     w = one.initial[0, 0]
     k = [0., 0., (w*w-tree.proton_mass_gev**2)/(2*w)]
-    kernel = original(1, .3, .2, pion, k, [1., 0., 0.], production, tree)
+    kernel = resonance.nstar1520_pi_delta_kernel(
+        1, .3, .2, pion, k, [1., 0., 0.], production, tree)
     first = resonance.explicit_resonance_amplitude(one, [1., 0., 0.], production, tree, strong, t)
-    monkeypatch.setattr(resonance, "nstar1520_pi_delta_kernel", lambda *args: -original(*args))
-    flipped = resonance.nstar1520_pi_delta_kernel(1, .3, .2, pion, k, [1., 0., 0.], production, tree)
-    second = resonance.explicit_resonance_amplitude(one, [1., 0., 0.], production, tree, strong, t)
+    flipped_production = replace(production,
+        g1_nstar_per_gev=-production.g1_nstar_per_gev,
+        g2_nstar_per_gev2=-production.g2_nstar_per_gev2)
+    flipped = resonance.nstar1520_pi_delta_kernel(
+        1, .3, .2, pion, k, [1., 0., 0.], flipped_production, tree)
+    second = resonance.explicit_resonance_amplitude(
+        one, [1., 0., 0.], flipped_production, tree, strong, t)
     assert np.sum(abs(kernel)**2) == np.sum(abs(flipped)**2)
     assert not np.isclose(np.sum(abs(first)**2), np.sum(abs(second)**2), rtol=1e-3)
 

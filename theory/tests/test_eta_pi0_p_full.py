@@ -13,9 +13,10 @@ import pytest
 from graal_theory.amplitudes.delta1700 import Delta1700Parameters, tree_amplitude
 from graal_theory.amplitudes.nstar1535_final_fit import load_final_fit_parameters
 from graal_theory.amplitudes.nstar1535_full import reconstructed_full_tmatrix
+from graal_theory.amplitudes.nstar1535_grid import build_strong_t_grid
 from graal_theory.amplitudes.nstar1535_reduced import load_reduced_parameters, reduced_tmatrix
 from graal_theory.amplitudes.nstar1535_vmd import load_vector_masses
-from graal_theory.amplitudes.production_loops import load_production_parameters
+from graal_theory.amplitudes.production_loops import QuadratureSettings, load_production_parameters
 from graal_theory.constants import GEV2_TO_MICROBARN
 from graal_theory.models.eta_pi0_p import EtaPi0PModel, load_central_parameters
 from graal_theory.observables import predict_energy
@@ -76,6 +77,49 @@ def _cancelling_matrices(sample):
     values = (large, -large, small, 2*small, -small, 1j*small, -1j*small)
     return {key: np.broadcast_to(value, (len(sample.momenta), 2, 2)).copy()
             for key, value in zip(FAMILIES, values)}
+
+
+def test_grid_bound_model_matches_direct_event_and_rejects_mismatch(full, model, sample):
+    grid = build_strong_t_grid(model.parameters.strong, model.parameters.vector_masses)
+    gridded = full.EtaPi0PFullModel(model.parameters, strong_grid=grid)
+    one = replace(sample, initial=sample.initial[:1], momenta=sample.momenta[:1],
+                  weights_gev2=sample.weights_gev2[:1], s12_gev2=sample.s12_gev2[:1])
+    for epsilon in (EX, EY):
+        direct = model.family_amplitudes(one, epsilon)
+        fast = gridded.family_amplitudes(one, epsilon)
+        for family in FAMILIES:
+            np.testing.assert_allclose(fast[family], direct[family], rtol=0.003, atol=1e-8)
+        weight_direct = model.polarized_matrix_element_squared(one, epsilon)
+        weight_fast = gridded.polarized_matrix_element_squared(one, epsilon)
+        np.testing.assert_allclose(weight_fast, weight_direct, rtol=0.0025, atol=1e-14)
+    wrong = replace(model.parameters, vector_masses=replace(
+        model.parameters.vector_masses, rho_gev=model.parameters.vector_masses.rho_gev+0.001))
+    with pytest.raises(ValueError, match="grid.*match"):
+        full.EtaPi0PFullModel(wrong, strong_grid=grid)
+
+
+def test_full_amplitude_obeys_global_azimuth_rotation(full, model, sample):
+    one = replace(sample, initial=sample.initial[:1], momenta=sample.momenta[:1],
+                  weights_gev2=sample.weights_gev2[:1], s12_gev2=sample.s12_gev2[:1])
+    p = model.parameters
+    fast = replace(model, parameters=replace(p, production=replace(p.production,
+        quadrature=QuadratureSettings(q_order=32, angle_order=32))))
+    h_matrix = fast.amplitude(one, EX)[0]
+    v_matrix = fast.amplitude(one, EY)[0]
+    h = np.sum(abs(h_matrix)**2)/2
+    v = np.sum(abs(v_matrix)**2)/2
+    cross = np.real(np.vdot(h_matrix, v_matrix))/2
+    beta = .7
+    rotation = np.array([[np.cos(beta), -np.sin(beta), 0.],
+                         [np.sin(beta), np.cos(beta), 0.], [0., 0., 1.]])
+    rotated_momenta = one.momenta.copy()
+    rotated_momenta[:, :, 1:] = np.einsum("ij,nkj->nki", rotation,
+                                         one.momenta[:, :, 1:])
+    rotated = replace(one, momenta=rotated_momenta)
+    expected_h = np.cos(beta)**2*h+np.sin(beta)**2*v-2*np.sin(beta)*np.cos(beta)*cross
+    expected_v = np.sin(beta)**2*h+np.cos(beta)**2*v+2*np.sin(beta)*np.cos(beta)*cross
+    assert fast.polarized_matrix_element_squared(rotated, EX)[0] == pytest.approx(expected_h, rel=1e-10)
+    assert fast.polarized_matrix_element_squared(rotated, EY)[0] == pytest.approx(expected_v, rel=1e-10)
 
 
 def test_from_files_composes_independently_sourced_frozen_records():

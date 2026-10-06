@@ -1,12 +1,58 @@
-# Coherent production validation and Increment A exit gate
+# Coherent production validation and historical Increment A exit gate
 
-The audit implementation is complete; the **Increment A physical exit gate
-is NOT PASSED**. Seven source-linked families and an immutable full-model API
-exist, but representative full loop-plus-Sobol convergence has not been
-demonstrated. Upper publication energies also reach external strong invariants
-beyond the trusted real-axis domain. Neither finite output nor a green test
-that verifies a mask is evidence of a converged full prediction. Ajaka Figure 4
-has **not** been reproduced or validated by this increment.
+This document retains the **historical Increment A** audit and its measured
+results. Its `W <= 1.70 GeV` guard and upper-energy masks describe that
+baseline, not current code. The current direct strong amplitude is bounded
+at `W <= 1.80 GeV`: PRC65 describes qualitative scattering agreement only
+through about `1.60 GeV`, while PRC73 uses the model through `1.80 GeV` in
+Fig. 18. The extension is source use, with no quantified model uncertainty.
+Ajaka Figure 4 still has **not** been reproduced or validated: numerical
+publication-bin convergence and comparison remain open.
+
+Current full-production pilot: analytic recoil-angle treatment resolves the
+historical Eq. (25) tangent-cut event at `E_gamma=1.4069431844202973 GeV`,
+`M(eta p)=1.61009316501 GeV`, using unchanged `64/48` and `1e-5/1e-10`
+inner checks. Analytic global-azimuth integration reduces conditional Sobol
+to four coordinates. In the real `p_eta` energy `[1.40,1.50]`, mass
+`[1.60,1.64]` pilot, `p5/p6` gives `Sigma=-0.506392405/-0.512297890`
+but denominators `1.184199708/1.204879559`; the latter changes about
+`1.72%` and fails the fixed `<1%` gate. At `p7`, a new near-tangent
+`K+Lambda` event (`M(eta p)=1.60914962014 GeV`, event 104 at the first
+energy node) fails the default `64/48` inner check by `1.5179e-6`; isolated
+`96/72` and `128/96` agree. The subsequent full `p7` bin at `96/72`
+passes every strict inner check, but its
+denominator `1.217629483` differs from a fresh same-order `p6/96:72`
+denominator `1.204877915` by `1.047245%`, failing the fixed `<1%`
+Sobol gate. The `p6` run took `644.4 s`; its `Sigma=-0.512297379` differs
+from `p7` by `0.003429`, within the `0.01` gate.
+`Sigma=-0.508868327`. Its measured runtime is
+`1288.9 s`. Extrapolating this bin cost to the upper `p_eta` panel's eight
+accessible bins and all 14 base-equivalent certification passes gives
+`40.1 h` on the current one-worker-per-panel scheduler. This is a
+same-cost estimate, not a measured full-panel runtime.
+Fresh `p5/p6` diagnostic denominator contributions change by `-0.00994`
+below the `K+Lambda` threshold at `1.60936 GeV`, `+0.02570` between that
+threshold and `1.62 GeV`, and `+0.00492` above `1.62 GeV` in this bin.
+The narrow interval immediately above threshold dominates the net
+`+0.02068` drift. This is a variance-localization result, not a converged
+prediction or permission to tune physical parameters.
+An exact `K+Lambda` threshold split was tested and reverted: the Sobol zero
+point sampled the threshold exactly and Eq. (25) failed even at `512/384`;
+after a fixed digital shift, a nearby `1.60929498643 GeV` event failed at
+both `64/48` and `96/72`. Toy phase-space volume and nested-point tests
+passed, but no complete physical split-bin result exists. Resolving this
+near-threshold loop behavior precedes any mass-split production run.
+The measured `p6` bin cost is about `355 s`; even perfect four-worker scaling
+projects at least `26.9 h` for 78 accessible bins and the mandatory base,
+energy doubling, Sobol doubling, eight replicas, and direct check. The
+24-hour launch gate fails on the measured four-worker setup. The host reports
+14 logical CPUs; a separate warm-event benchmark measured
+`6.04/11.62/15.13` evaluations/s at 4/8/14 workers. That suggests about
+`10.8 h` for the same `p6` workload at 14 workers, but does not establish
+complete-bin scaling or convergence. No twelve-panel
+numerical or physical comparison
+has been run; the independent bounded PRC73 Fig. 18 trace is present but its
+full-model spectrum comparison also remains open.
 
 ## Source comparisons and counts
 
@@ -161,7 +207,7 @@ explicit reconstruction conventions, not unique source-prescribed analytic
 continuations. No parameters were tuned to experimental points or theory
 strokes, and no numerical acceptance threshold was loosened for this audit.
 
-## Blockers and exact Increment B handoff
+## Historical blockers and exact Increment B handoff
 
 The full-domain blocker first arises at
 `graal_theory/amplitudes/_reduced_t_core.py:validated_energy`, which rejects

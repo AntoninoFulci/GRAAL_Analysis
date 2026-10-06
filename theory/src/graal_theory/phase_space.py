@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from scipy.integrate import quad
 from scipy.stats import qmc
 
-from .kinematics import boost, kallen, validate_final_state
+from .kinematics import boost, invariant_mass, kallen, validate_final_state
 
 
 class BelowThresholdError(ValueError):
@@ -70,6 +70,54 @@ def sample_three_body(
     points = qmc.Sobol(d=5, scramble=config.scramble, seed=config.seed).random_base2(config.power)
     s12_min = (m1 + m2) ** 2
     s12_max = (sqrt_s - m3) ** 2
+    return _sample_ordered(sqrt_s, masses, config, points, s12_min, s12_max)
+
+
+def sample_three_body_mass_window(
+    sqrt_s: float, masses: tuple[float, float, float], pair: tuple[int, int],
+    mass_range_gev: tuple[float, float], config: SobolConfig,
+    *, reduce_global_azimuth: bool = False,
+) -> ThreeBodySample | None:
+    """Sample one invariant-mass interval while returning canonical daughters."""
+    _validate_inputs(sqrt_s, masses)
+    if (not isinstance(pair, tuple) or len(pair) != 2
+            or any(type(index) is not int or index not in range(3) for index in pair)
+            or pair[0] == pair[1]):
+        raise ValueError("pair requires two distinct daughter indices")
+    try:
+        lower, upper = mass_range_gev
+        if (isinstance(lower, (bool, complex)) or isinstance(upper, (bool, complex))
+                or not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper):
+            raise ValueError("mass range must be finite and increasing")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("mass range must be finite and increasing") from exc
+    spectator = next(index for index in range(3) if index not in pair)
+    permutation = (*pair, spectator)
+    ordered_masses = tuple(masses[index] for index in permutation)
+    minimum = max(float(lower), ordered_masses[0]+ordered_masses[1])
+    maximum = min(float(upper), sqrt_s-ordered_masses[2])
+    if minimum >= maximum:
+        return None
+    if not isinstance(reduce_global_azimuth, bool):
+        raise ValueError("reduce_global_azimuth requires bool")
+    if reduce_global_azimuth:
+        four = qmc.Sobol(d=4, scramble=config.scramble, seed=config.seed).random_base2(config.power)
+        points = np.column_stack((four[:, 0], four[:, 1], np.zeros(len(four)),
+                                  four[:, 2], four[:, 3]))
+    else:
+        points = qmc.Sobol(d=5, scramble=config.scramble, seed=config.seed).random_base2(config.power)
+    ordered = _sample_ordered(sqrt_s, ordered_masses, config, points,
+                              minimum**2, maximum**2)
+    inverse = np.argsort(permutation)
+    momenta = ordered.momenta[:, inverse, :].copy()
+    canonical_s12 = invariant_mass(momenta[:, 0]+momenta[:, 1])**2
+    validate_final_state(ordered.initial, momenta, masses, atol=1e-12)
+    return ThreeBodySample(ordered.initial, momenta, ordered.weights_gev2,
+                           masses, canonical_s12, config)
+
+
+def _sample_ordered(sqrt_s, masses, config, points, s12_min, s12_max):
+    m1, m2, m3 = masses
     s12_range = s12_max - s12_min
     s12 = s12_min + s12_range * points[:, 0]
     mass12 = np.sqrt(s12)

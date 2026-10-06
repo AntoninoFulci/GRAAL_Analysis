@@ -6,7 +6,11 @@ and rescattering contributions described by Döring, Oset, and Strottman,
 *Phys. Rev. C* **73**, 045209 (2006). The seven-family coherent implementation
 exists as `EtaPi0PFullModel`; its physical convergence and curve-validation
 exit gate is **not passed**. Equation and figure numbers below refer to that
-PRC paper. **“code complete” is independent of “curve compatible.”**
+PRC paper. The family comparison table retains the historical low-order
+Increment A audit; its `W > 1.70 GeV` masks are not current domain limits.
+Current direct strong-T support ends at `1.80 GeV`, matching PRC73 source
+use, while PRC65 reports qualitative scattering agreement only through about
+`1.60 GeV`. **“code complete” is independent of “curve compatible.”**
 
 ## Source availability
 
@@ -69,9 +73,11 @@ intermediate, and reconstructed-full variants. The physical production model
 uses `reconstructed_full_tmatrix` with `nstar1535_final_subtractions.json`,
 `nstar1535_reduced_parameters.json` mass/decay inputs, and
 `nstar1535_vmd_masses.json`. Tests in the corresponding three strong-T files
-are invoked unchanged. External `W` is restricted to the real-axis domain
-through 1.7 GeV. A domain failure is **masked unsupported domain**, distinct
-from quadrature nonconvergence; extrapolation has not been authorized.
+are invoked unchanged. Current external real-axis `W` is bounded through
+`1.80 GeV`; the validated `StrongTGrid` may accelerate the same values.
+Above `1.80 GeV` remains **masked unsupported domain**, distinct from
+quadrature nonconvergence. The `1.60 < W <= 1.80 GeV` source-used extension
+has no assigned quantitative scattering-model uncertainty.
 
 The PRC Fig. 14 **solid** curve is the coherent sum with the full
 `N*(1535)` model; the **dashed** curve uses its reduced variant. The
@@ -86,9 +92,16 @@ incoherent cross sections to obtain the solid curve.
 ## Increment A exit gate and Increment B handoff
 
 The source-linked callable-family and immutable-parameter API gates are
-implemented. The numerical exit gate is **not passed**: representative full
-loop+Sobol convergence is not demonstrated, and upper publication energies
-reach external strong invariants outside the 1.7 GeV trust boundary.
+implemented. The numerical exit gate is **not passed**. The historical
+Increment A reason included upper energies beyond its `1.70 GeV` guard;
+that domain block is resolved by the source-bounded `1.80 GeV` extension.
+Current publication-bin Sobol normalization and runtime gates still fail.
+The upper-energy `p_eta` pilot at `p5/p6` changes its denominator by about
+`1.72%`, above the fixed `<1%` gate. `p7` also encounters a near-tangent
+Eq. (25) event that needs at least `96/72` inner order; complete same-order
+`p6/p7` still changes its denominator `1.047245%`, failing `<1%`.
+Neither result is an
+accepted Ajaka Figure 4 curve.
 Figs. 12–14/19 comparisons are recorded without tuning: the Task 7 baseline
 has 71 overlap points (0 compatible, 0 discrepant, 30 unresolved, 41 masked).
 Its q/angle16, p4/5 results are a diagnostic baseline, not convergence evidence.

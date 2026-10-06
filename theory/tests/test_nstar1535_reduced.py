@@ -141,7 +141,7 @@ def test_t_satisfies_both_linear_equations():
                                rtol=1e-11, atol=1e-11)
 
 
-@pytest.mark.parametrize("w", [0.5, 1.701, float("nan"), float("inf"), True])
+@pytest.mark.parametrize("w", [0.5, np.nextafter(1.80, np.inf), float("nan"), float("inf"), True])
 def test_invalid_real_axis_energy_is_rejected(w):
     p = load_reduced_parameters(PARAM, SOURCES)
     with pytest.raises(ValueError, match="W"):

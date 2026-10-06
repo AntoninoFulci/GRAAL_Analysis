@@ -16,7 +16,7 @@ def validated_energy(w_gev: float, parameters: ReducedTParameters) -> float:
         raise ValueError("W must be a finite real scalar")
     w = float(w_gev)
     threshold = min(np.add(parameters.meson_masses_gev, parameters.baryon_masses_gev))
-    if not np.isfinite(w) or not threshold <= w <= 1.70:
+    if not np.isfinite(w) or not threshold <= w <= 1.80:
         raise ValueError("W outside reduced real-axis domain")
     return w
 
