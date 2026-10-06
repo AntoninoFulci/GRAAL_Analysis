@@ -31,7 +31,7 @@ WHITE = "FFFFFF"
 INK = "112642"
 MUTED = "52657B"
 BAR_BLUE = "0877C7"
-SLIDE_COUNT = 19
+SLIDE_COUNT = 18
 CONTENT_FONT_SCALE = 0.86
 
 
@@ -213,7 +213,7 @@ def standard(title: str, n: int, source: str = "") -> Slide:
 
 def add_navigation(s: Slide):
     sections = (
-        "INTRO", "INTRO", "FRAMEWORK", "DATI", "FRAMEWORK", "RICOSTRUZIONE",
+        "INTRO", "INTRO", "FRAMEWORK", "DATI", "RICOSTRUZIONE",
         "MONTE CARLO", "MONTE CARLO", "BDT", "BDT", "BDT", "CALIBRAZIONE",
         "ASIMMETRIE", "RISULTATI", "RISULTATI", "RISULTATI", "INTERPRETAZIONE",
         "VERIFICHE", "PROSPETTIVE",
@@ -333,27 +333,34 @@ s.textbox("RunNumber, Polarization e Xstrip restano disponibili per ricostruzion
           .75, 4.72, 8.55, .28, size=14, color=MUTED)
 slides.append(s)
 
-s = Slide("Un framework di analisi", 5, dark=True, source="wiki/workflow.md")
-s.textbox("Un framework di analisi", .65, .4, 8.8, .56, size=32, bold=True)
-s.textbox("01  Dai dati grezzi alla preselezione", .75, 1.18, 8.1, .4, size=23)
-s.textbox("I file h70, h80 e h85 mantengono i metadati di run e polarizzazione.", 1.34, 1.59, 7.75, .3, size=16, color=ICE)
-s.textbox("02  Simulazione e selezione BDT", .75, 2.05, 8.1, .4, size=23)
-s.textbox("Simuliamo nove canali e alleniamo modelli distinti per UV e VIS.", 1.34, 2.46, 7.75, .3, size=16, color=ICE)
-s.textbox("03  Ricostruzione e flussi", .75, 2.92, 8.1, .4, size=23)
-s.textbox("Usiamo lo stesso pairing e calibriamo i flussi POL1, POL2 e BREM.", 1.34, 3.33, 7.75, .3, size=16, color=ICE)
-s.textbox("04  Asimmetrie e verifiche", .75, 3.79, 8.1, .4, size=23)
-s.textbox("Estraiamo Σ nei tre sottosistemi e confrontiamo i risultati con Ajaka.", 1.34, 4.20, 7.75, .3, size=16, color=ICE)
-s.textbox("La stessa catena di analisi potrà essere applicata ad altri canali.", .75, 4.80, 8.5, .28, size=15, color=ICE)
-slides.append(s)
+s = standard("Ricostruzione dei candidati pηπ⁰", 5,
+             "05_reconstruction/runtime/reco_core.py; core/event_logic.py; 00_common/physics/pairing.py")
+s.textbox("Dagli eventi h85 ricostruiamo η → γγ e π⁰ → γγ. I percorsi standard e BDT usano lo stesso algoritmo: nel secondo, il classificatore seleziona gli eventi prima del pairing.",
+          .74, 1.04, 8.56, .58, size=16)
 
-s = standard("Ricostruzione pηπ⁰", 6, "wiki/scientific-foundations.md; wiki/05-reconstruction.md")
-s.textbox("3 partizioni", .76, 1.22, 4.0, .4, size=24, color=BLUE, bold=True)
-s.textbox("Con quattro fotoni possiamo formare tre coppie disgiunte e sei possibili assegnazioni a η e π⁰.", .76, 1.71, 4.05, 1.1, size=18)
-s.textbox("χ² minimo", 5.00, 1.22, 4.0, .4, size=24, color=BLUE, bold=True)
-s.textbox("Scegliamo l'assegnazione più vicina alle masse nominali e richiediamo χ² < 10.", 5.00, 1.71, 4.02, 1.1, size=18)
-s.textbox("Due campioni confrontabili", .76, 3.08, 8.2, .43, size=23, color=BLUE, bold=True)
-s.textbox("Nel campione standard usiamo il pairing χ². Nel campione BDT filtriamo prima sullo score, poi applichiamo lo stesso pairing e gli stessi criteri.", .76, 3.60, 8.44, .73, size=19)
-s.textbox("Il modello e la ricostruzione usano le stesse ipotesi sulle masse e lo stesso codice di pairing.", .76, 4.53, 8.44, .44, size=17, color=MUTED)
+s.rect(.73, 1.77, 4.00, .77, NAVY, rounded=True)
+s.textbox("if chain.gammas.size() < 4: continue\nif chain.protons.size() != 1: continue",
+          .91, 1.91, 3.65, .53, size=12.7, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 1.84, .37, .62, size=27, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 1.77, 4.04, .77, ICE, rounded=True)
+s.textbox("Servono almeno quattro fotoni e un solo protone. Usiamo i primi quattro fotoni e conserviamo la molteplicità originale.",
+          5.38, 1.84, 3.72, .61, size=14.4, color=INK, valign="ctr")
+
+s.rect(.73, 2.69, 4.00, 1.00, NAVY, rounded=True)
+s.textbox("pairing, chi2_value = pairing_fn(\n    event.photons, channel.hypothesis)\nif chi2_value >= config.chi2_cut:\n    return RejectionReason.CHI_SQUARE",
+          .91, 2.79, 3.65, .80, size=12.4, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 2.87, .37, .62, size=27, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 2.69, 4.04, 1.00, ICE, rounded=True)
+s.textbox("Tre partizioni dei fotoni, con due assegnazioni ciascuna, danno sei ipotesi ηπ⁰. Scegliamo quella più vicina alle masse nominali: χ² < 10.",
+          5.38, 2.77, 3.72, .84, size=14.2, color=INK, valign="ctr")
+
+s.rect(.73, 3.84, 4.00, .91, NAVY, rounded=True)
+s.textbox("heavy = photons[0] + photons[1]\nlight = photons[2] + photons[3]",
+          .91, 3.99, 3.65, .60, size=12.7, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 3.97, .37, .62, size=27, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 3.84, 4.04, .91, ICE, rounded=True)
+s.textbox("Sommiamo i quadrivettori per ottenere η e π⁰. Scartiamo energie incompatibili con il fascio; salviamo masse, χ² e dati del run.",
+          5.38, 3.92, 3.72, .75, size=14.2, color=INK, valign="ctr")
 slides.append(s)
 
 s = standard("Simulazione Monte Carlo senza G3", 7, "wiki/03-monte-carlo-simulation.md; 03_mc_simulation/generators/smearing.h")
@@ -485,8 +492,30 @@ s.textbox("Completeremo i controlli sulle sideband e sul MC con asimmetria piatt
 slides.append(s)
 
 assert len(slides) == SLIDE_COUNT
-for slide in slides:
+for number, slide in enumerate(slides, 1):
+    slide.number = number
     add_navigation(slide)
+
+
+def renumber_manual_navigation(xml: bytes, number: int) -> bytes:
+    """Keep PowerPoint edits while updating its footer and progress bars."""
+    root = etree.fromstring(xml)
+    for shape in root.xpath("//p:sp", namespaces=N):
+        xfrm = shape.find("p:spPr/a:xfrm", namespaces=N)
+        if xfrm is None:
+            continue
+        off = xfrm.find("a:off", namespaces=N)
+        ext = xfrm.find("a:ext", namespaces=N)
+        if off is None or ext is None:
+            continue
+        if (int(off.get("x")) == 0
+                and int(off.get("y")) in {0, round(5.34 * EMU)}
+                and 0 < int(ext.get("cx")) < 10 * EMU):
+            ext.set("cx", str(round(10 * number / SLIDE_COUNT * EMU)))
+    for label in root.xpath("//a:t", namespaces=N):
+        if label.text and label.text in {"02/19", "04/19", "07/19"}:
+            label.text = f"{number:02d}/{SLIDE_COUNT:02d}"
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
 def build():
@@ -502,10 +531,14 @@ def build():
         members.pop("ppt/theme/theme2.xml", None)
         for s in slides:
             xml, rels = s.render()
-            if s.number == 2:
-                # Keep the user's PowerPoint edits to slide 2. Its sole image
-                # still uses rId2, resolved by the generated relationship.
-                xml = (HERE / "assets" / "slide2_manual.xml").read_bytes()
+            manual_slide = {2: "slide2_manual.xml", 4: "slide4_manual.xml",
+                            6: "slide7_manual.xml"}.get(s.number)
+            if manual_slide:
+                # Preserve edits made in PowerPoint; navigation follows the
+                # new order without replacing the user's text or formatting.
+                xml = renumber_manual_navigation(
+                    (HERE / "assets" / manual_slide).read_bytes(), s.number
+                )
             members[f"ppt/slides/slide{s.number}.xml"] = xml
             members[f"ppt/slides/_rels/slide{s.number}.xml.rels"] = rels
             for path in s.pictures:
