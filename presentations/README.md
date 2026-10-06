@@ -35,12 +35,14 @@ La slide 7 raggruppa gli otto fondi secondo il modo in cui possono imitare
 il segnale; le soglie del registro dei canali spiegano perché tre di essi
 restano fuori dalla regione VIS.
 
-La slide 8 introduce gli alberi decisionali potenziati tramite boosting.
-Lo schema dei due alberi proviene dalla
-[documentazione ufficiale XGBoost](https://xgboost.readthedocs.io/en/stable/tutorials/model.html)
-ed è distribuito da DMLC con licenza Apache 2.0, conservata in
-`assets/xgboost_web_data_LICENSE.txt`. Per la terminologia BDT in fisica si
-rimanda anche alla [guida ROOT/TMVA, §8.13](https://root.cern.ch/download/doc/tmva/TMVAUsersGuide.pdf).
+La slide 8 incorpora la revisione manuale dell'autore e riassume le pagine
+10–11 della [presentazione BDT di A. Nayak (2024)](https://indico.global/event/8005/contributions/72298/attachments/35527/66183/BDT.pdf).
+Il diagramma dell'albero, già scelto dall'autore nella slide, è versionato
+in `assets/decision_tree_nayak.png`. Il testo ora usa normali caselle
+modificabili di PowerPoint e descrive i pesi degli eventi, la scelta di
+variabile e soglia a ogni nodo, la divisione ricorsiva, le foglie e i
+criteri di arresto. La frase sui tagli conserva il senso della modifica
+manuale: un evento segue un ramo invece di essere scartato subito.
 La slide 9 presenta il classificatore del progetto: 26 variabili, modelli
 separati UV/VIS, selezione sullo score e un grafico UV della campagna locale
 `results/production-20261006-113738`. La distribuzione degli score mostra

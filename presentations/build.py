@@ -426,18 +426,20 @@ s.textbox("Nel VIS restano accessibili 6 dei 9 canali: il segnale e i cinque fon
 slides.append(s)
 
 s = standard("Che cos'è un BDT", 8,
-             "XGBoost, Introduction to Boosted Trees; ROOT/TMVA Users Guide §8.13; schema DMLC, Apache 2.0")
-s.textbox("Un Boosted Decision Tree (BDT) combina alberi: ognuno pone domande sulle variabili e assegna un punteggio alle foglie.",
-          .74, 1.04, 8.52, .51, size=17)
-s.image("xgboost_two_trees.png", .77, 1.71, 5.35, 2.65)
-s.textbox("1  Alberi successivi", 6.25, 1.72, 3.00, .30, size=16.2, color=BLUE, bold=True)
-s.textbox("Nel boosting, ogni nuovo albero corregge gli errori accumulati.",
-          6.25, 2.07, 3.00, .58, size=14)
-s.textbox("2  Punteggi sommati", 6.25, 2.89, 3.00, .30, size=16.2, color=BLUE, bold=True)
-s.textbox("Sommiamo i punteggi delle foglie attraversate per ottenere lo score.",
-          6.25, 3.24, 3.00, .58, size=14)
-s.textbox("Variando la soglia sullo score scegliamo quanta parte del segnale conservare e quanto fondo accettare.",
-          .76, 4.48, 8.50, .44, size=16, color=INK)
+             "A. Nayak, BDT (2024), pp. 10–11; schema dalla stessa presentazione")
+s.textbox("Il BDT impara da eventi etichettati come segnale o fondo. Ogni evento è descritto da variabili e può avere un peso.",
+          .74, 1.05, 5.30, .66, size=16)
+s.textbox("Dalla radice ai rami", .74, 1.89, 5.15, .32, size=18, color=BLUE, bold=True)
+s.textbox("Partendo da tutti gli eventi, l'algoritmo prova variabili e soglie e sceglie la divisione che separa meglio le due classi. A ogni nodo può riusare una variabile già scelta.",
+          .74, 2.24, 5.20, .82, size=14)
+s.textbox("Dai rami alle foglie", .74, 3.10, 5.15, .32, size=18, color=BLUE, bold=True)
+s.textbox("Ripete la divisione finché raggiunge la profondità massima o non migliora più la separazione. Le foglie indicano la classe; nel BDT contribuiscono allo score finale.",
+          .74, 3.45, 5.20, .77, size=14)
+s.image("decision_tree_nayak.png", 6.14, 1.13, 3.28, 3.56)
+s.textbox("B = fondo     S = segnale", 6.28, 4.73, 3.00, .24,
+          size=11.6, color=MUTED, align="ctr")
+s.textbox("Invece di essere scartato da un singolo taglio, l'evento percorre un ramo a ogni risposta. Più alberi formano lo score; la sua soglia regola segnale e fondo.",
+          .75, 4.37, 5.28, .62, size=12.8, color=INK)
 slides.append(s)
 
 s = standard("Il nostro BDT: metodo e risultati", 9,
