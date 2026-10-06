@@ -5,6 +5,18 @@ per `γp → pηπ⁰` in 19 slide (Aptos, blu e bianco). `build.py` rigenera il
 file usando le immagini versionate in `assets/` (richiede pandoc, lxml e
 Pillow). Ogni slide include barre di navigazione superiore e inferiore;
 la numerazione corrente/19 compare soltanto in quella inferiore.
+`assets/slide2_manual.xml` conserva la slide 2 modificata in PowerPoint
+dall'utente, che il generatore reinserisce senza riscriverne testi e impaginazione.
+
+La slide 3 adatta lo schema in `wiki/workflow.md` alle tre diramazioni principali
+(dati, MC/BDT, flussi). La slide 4 unisce la precedente descrizione dei file
+ROOT alla preselezione e accompagna due frammenti di codice con la spiegazione.
+Il repository conferma che `PreAnalysis.C` legge il tree ROOT `h70`, applica
+tagli PID per run e scrive `h80`; `select_events.py` usa PyROOT/RDataFrame
+per filtrare gli eventi e scrivere `h85`. La conversione originaria dalle
+routine Fortran ai file ROOT e l'attribuzione di conversione e tagli ad
+Antonio Riggio derivano dalla ricostruzione storica fornita dal progetto:
+il convertitore non è presente in questo repository.
 
 La slide 2 riassume GRAAL e l'obiettivo del lavoro. Lo schema di
 LAGRANγE è tratto dalla presentazione di D. Rebreyend (MENU04),

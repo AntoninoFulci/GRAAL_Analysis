@@ -49,7 +49,8 @@ class Slide:
         self.pictures = []
         self._id = 2
 
-    def rect(self, x: float, y: float, w: float, h: float, color: str):
+    def rect(self, x: float, y: float, w: float, h: float, color: str,
+             *, rounded: bool = False):
         sp = e(P, "sp")
         nv = e(P, "nvSpPr")
         nv.append(e(P, "cNvPr", id=self._id, name=f"Fill {self._id}"))
@@ -61,7 +62,7 @@ class Slide:
         xf.append(e(A, "off", x=round(x * EMU), y=round(y * EMU)))
         xf.append(e(A, "ext", cx=round(w * EMU), cy=round(h * EMU)))
         pr.append(xf)
-        geom = e(A, "prstGeom", prst="rect")
+        geom = e(A, "prstGeom", prst="roundRect" if rounded else "rect")
         geom.append(e(A, "avLst"))
         pr.append(geom)
         fill = e(A, "solidFill")
@@ -212,7 +213,7 @@ def standard(title: str, n: int, source: str = "") -> Slide:
 
 def add_navigation(s: Slide):
     sections = (
-        "INTRO", "INTRO", "DATI", "DATI", "FRAMEWORK", "RICOSTRUZIONE",
+        "INTRO", "INTRO", "FRAMEWORK", "DATI", "FRAMEWORK", "RICOSTRUZIONE",
         "MONTE CARLO", "MONTE CARLO", "BDT", "BDT", "BDT", "CALIBRAZIONE",
         "ASIMMETRIE", "RISULTATI", "RISULTATI", "RISULTATI", "INTERPRETAZIONE",
         "VERIFICHE", "PROSPETTIVE",
@@ -259,25 +260,77 @@ s.textbox("Aggiungiamo una selezione BDT addestrata sul nuovo MC e calibriamo i 
           .72, 4.61, 8.54, .43, size=16)
 slides.append(s)
 
-s = standard("Dal Fortran ai file ROOT", 3, "wiki/01-pre-analysis.md; 01_pre_analysis/PreAnalysis.C")
-s.textbox("01", .72, 1.22, 1.05, .63, size=40, color=BLUE, bold=True)
-s.textbox("Eredità Fortran", 1.82, 1.24, 6.9, .35, size=22, bold=True)
-s.textbox("Il formato h70 conserva gli array e i metadati originali. Nel passaggio\na C++, l'indice forward passa dalla base 1 alla base 0.", 1.82, 1.65, 7.4, .69, size=17)
-s.textbox("02", .72, 2.51, 1.05, .63, size=40, color=BLUE, bold=True)
-s.textbox("Pre-analisi C++/ROOT", 1.82, 2.53, 6.9, .35, size=22, bold=True)
-s.textbox("PreAnalysis.C applica i criteri PID del singolo run e ricostruisce\nfascio, fotoni, tracce cariche e polarizzazione.", 1.82, 2.93, 7.4, .69, size=17)
-s.textbox("03", .72, 3.8, 1.05, .63, size=40, color=BLUE, bold=True)
-s.textbox("Output normalizzato", 1.82, 3.82, 6.9, .35, size=22, bold=True)
-s.textbox("Otteniamo un file ROOT h80 per periodo. La preselezione produce h85,\nmentre RunNumber e Xstrip conservano il legame con la calibrazione.", 1.82, 4.22, 7.4, .69, size=17)
+s = standard("Il flusso completo dell'analisi", 3, "wiki/workflow.md; wiki/data-and-artifacts.md")
+
+def flow_box(slide: Slide, label: str, x: float, y: float, w: float,
+             *, color: str = ICE, size: float = 15):
+    slide.rect(x, y, w, .63, color, rounded=True)
+    slide.textbox(label, x + .08, y + .04, w - .16, .55, size=size,
+                  color=NAVY, bold=True, align="ctr", valign="ctr")
+
+def flow_arrow(slide: Slide, x: float, y: float):
+    slide.textbox("→", x, y, .30, .63, size=23, color=BLUE,
+                  bold=True, align="ctr", valign="ctr")
+
+s.textbox("DATI", .67, 1.32, .76, .30, size=12, color=BLUE, bold=True)
+for label, x, w in (("ROOT h70\ngrezzi", 1.45, 1.32),
+                    ("Pre-analisi\nh80", 3.01, 1.38),
+                    ("Selezione\nh85", 4.64, 1.35),
+                    ("Ricostruzione\npηπ⁰", 6.24, 1.43),
+                    ("Σ e figure", 7.94, 1.37)):
+    flow_box(s, label, x, 1.13, w,
+             size=13 if label.startswith("Ricostruzione") else 15)
+for x in (2.76, 4.39, 5.99, 7.67):
+    flow_arrow(s, x, 1.13)
+s.textbox("Il percorso principale trasforma i dati del rivelatore in eventi ricostruiti e osservabili.",
+          1.46, 1.83, 7.83, .31, size=14.5, color=MUTED)
+
+s.textbox("MC / BDT", .67, 2.56, .76, .34, size=12, color=BLUE, bold=True)
+for label, x, w in (("9 canali MC\ne spettro h85", 1.45, 1.73),
+                    ("26 variabili\nper evento", 3.54, 1.70),
+                    ("Training\nUV e VIS", 5.60, 1.70),
+                    ("Gate BDT\nsui dati", 7.66, 1.65)):
+    flow_box(s, label, x, 2.36, w, color="EAF4FB", size=14.5)
+for x in (3.19, 5.25, 7.31):
+    flow_arrow(s, x, 2.36)
+s.textbox("Il classificatore apprende dal MC e dallo spettro misurato; il gate precede la ricostruzione.",
+          1.46, 3.06, 7.83, .31, size=14.5, color=MUTED)
+
+s.textbox("FLUSSI", .67, 3.79, .76, .34, size=12, color=BLUE, bold=True)
+for label, x, w in (("h80, manifest\ne flussi esterni", 1.45, 2.08),
+                    ("Energia per strip\ne polarizzazione", 3.94, 2.20),
+                    ("Flussi calibrati\nPOL1 / POL2 / BREM", 6.56, 2.75)):
+    flow_box(s, label, x, 3.59, w, color="EEF6FC", size=14.5)
+for x in (3.56, 6.18):
+    flow_arrow(s, x, 3.59)
+s.textbox("Gli estimatori di Σ combinano eventi ricostruiti, esposizione calibrata e polarizzazione per run.",
+          .73, 4.51, 8.63, .42, size=15.5, color=INK)
 slides.append(s)
 
-s = standard("Preselezione dei dati", 4, "wiki/02-event-selection.md; wiki/05-reconstruction.md")
-s.textbox("h80", .78, 1.20, 2.1, .62, size=44, color=BLUE, bold=True)
-s.textbox("h85", 6.9, 1.20, 2.1, .62, size=44, color=BLUE, bold=True, align="r")
-s.textbox("Applichiamo un filtro topologico con ROOT RDataFrame", .78, 2.02, 8.4, .4, size=22, bold=True)
-s.textbox("gammas.size() > 1  &&  fcharged_theta.size() == 1", .78, 2.55, 8.5, .5, size=21, color=BLUE)
-s.textbox("In questa fase bastano almeno due fotoni. I quattro fotoni dello stato finale vengono richiesti più avanti.", .78, 3.33, 8.5, .51, size=19)
-s.textbox("Il tree h85 conserva tutti i rami. RunNumber, Polarization e Xstrip\naccompagnano ogni evento nella ricostruzione e nella calibrazione.", .78, 4.02, 8.45, .77, size=17.5, color=MUTED)
+s = standard("Dai dati Fortran alla preselezione", 4,
+             "codice semplificato da PreAnalysis.C e select_events.py; attribuzione: progetto")
+s.textbox("Le routine Fortran hanno prodotto i dati storici. Antonio Riggio li ha convertiti in ROOT h70 e ha preparato i tagli PID; il codice della repo parte dai file h70 già convertiti.",
+          .72, 1.08, 8.58, .62, size=16.5)
+s.textbox("Con C++/ROOT produciamo h80; Python/PyROOT filtra gli eventi in h85. La ricostruzione e gli osservabili usano entrambi gli ambienti.",
+          .72, 1.77, 8.58, .50, size=16, color=BLUE, bold=True)
+
+s.rect(.73, 2.47, 3.69, .88, NAVY, rounded=True)
+s.textbox('auto* cut = RequireCut("Proton","Cnt",Idrun);\ncut->IsInside(Eclusc_track[i],\n              Dedx_track[i]);',
+          .91, 2.57, 3.34, .63, size=12.8, color=WHITE, valign="ctr")
+s.textbox("→", 4.51, 2.59, .45, .64, size=28, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.04, 2.47, 4.24, .88, ICE, rounded=True)
+s.textbox("I poligoni PID del run classificano le tracce centrali. PreAnalysis.C scrive h80 con particelle e metadati.",
+          5.20, 2.55, 3.94, .70, size=15, color=INK, valign="ctr")
+
+s.rect(.73, 3.56, 3.69, 1.04, NAVY, rounded=True)
+s.textbox('selected = frame.Filter(\n  "gammas.size() > 1 &&"\n  " fcharged_theta.size() == 1")\nselected.Snapshot("h85", ...)',
+          .91, 3.62, 3.34, .94, size=12.3, color=WHITE, valign="ctr")
+s.textbox("→", 4.51, 3.76, .45, .64, size=28, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.04, 3.56, 4.24, 1.04, ICE, rounded=True)
+s.textbox("La preselezione richiede almeno 2 fotoni e una traccia carica in avanti. h85 conserva tutti i rami; i 4 fotoni si richiedono più avanti.",
+          5.20, 3.65, 3.94, .85, size=14.5, color=INK, valign="ctr")
+s.textbox("RunNumber, Polarization e Xstrip restano disponibili per ricostruzione e calibrazione.",
+          .75, 4.72, 8.55, .28, size=14, color=MUTED)
 slides.append(s)
 
 s = Slide("Un framework di analisi", 5, dark=True, source="wiki/workflow.md")
@@ -449,6 +502,10 @@ def build():
         members.pop("ppt/theme/theme2.xml", None)
         for s in slides:
             xml, rels = s.render()
+            if s.number == 2:
+                # Keep the user's PowerPoint edits to slide 2. Its sole image
+                # still uses rId2, resolved by the generated relationship.
+                xml = (HERE / "assets" / "slide2_manual.xml").read_bytes()
             members[f"ppt/slides/slide{s.number}.xml"] = xml
             members[f"ppt/slides/_rels/slide{s.number}.xml.rels"] = rels
             for path in s.pictures:
