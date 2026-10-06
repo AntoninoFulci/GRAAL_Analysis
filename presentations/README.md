@@ -5,9 +5,9 @@ per `γp → pηπ⁰` in 18 slide (Aptos, blu e bianco). `build.py` rigenera il
 file usando le immagini versionate in `assets/` (richiede pandoc, lxml e
 Pillow). Ogni slide include barre di navigazione superiore e inferiore;
 la numerazione corrente/18 compare soltanto in quella inferiore.
-Gli XML in `assets/slide{2,4,7}_manual.xml` conservano le modifiche fatte
-in PowerPoint alle vecchie slide 2, 4 e 7 (quest'ultima è ora la 6). Il
-generatore le reinserisce aggiornando numerazione e barre di navigazione.
+Gli XML in `assets/slide{2,4}_manual.xml` conservano le modifiche fatte
+in PowerPoint alle slide 2 e 4. Il generatore le reinserisce aggiornando
+numerazione e barre di navigazione.
 
 La slide 3 adatta lo schema in `wiki/workflow.md` alle tre diramazioni principali
 (dati, MC/BDT, flussi). La slide 4 unisce la precedente descrizione dei file
@@ -26,6 +26,14 @@ masse e costruzione dei due mesoni. I frammenti di codice sono tratti da
 `00_common/physics/pairing.py`; le spiegazioni affiancate riassumono i
 passaggi. La precedente slide 5, ridondante rispetto allo schema, è stata
 rimossa.
+
+La slide 6 documenta la generazione Monte Carlo con quattro coppie
+«codice → spiegazione»: finestra energetica, eventi non pesati, smearing e
+selezione di quattro fotoni osservati per il BDT. Gli estratti provengono dai
+generatori C++/ROOT, da `smearing.h` e da `04_bdt_training/dataset/mc_samples.py`.
+La slide 7 raggruppa gli otto fondi secondo il modo in cui possono imitare
+il segnale; le soglie del registro dei canali spiegano perché tre di essi
+restano fuori dalla regione VIS.
 
 La slide 2 riassume GRAAL e l'obiettivo del lavoro. Lo schema di
 LAGRANγE è tratto dalla presentazione di D. Rebreyend (MENU04),

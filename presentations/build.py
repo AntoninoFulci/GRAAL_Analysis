@@ -363,23 +363,66 @@ s.textbox("Sommiamo i quadrivettori per ottenere η e π⁰. Scartiamo energie i
           5.38, 3.92, 3.72, .75, size=14.2, color=INK, valign="ctr")
 slides.append(s)
 
-s = standard("Simulazione Monte Carlo senza G3", 7, "wiki/03-monte-carlo-simulation.md; 03_mc_simulation/generators/smearing.h")
-s.textbox("Generazione", .75, 1.20, 4.0, .37, size=22, color=BLUE, bold=True)
-s.textbox("Generiamo eventi non pesati con ROOT TGenPhaseSpace. La soglia deriva dalle masse dei prodotti finali.", .75, 1.62, 8.46, .72, size=18.5)
-s.textbox("Finestra energetica", .75, 2.51, 4.1, .37, size=22, color=BLUE, bold=True)
-s.textbox("Il campione esteso arriva a 1,75 GeV. Per VIS produciamo un campione dedicato tra la soglia fisica, o 0,9313 GeV se più alta, e 1,10 GeV.", .75, 2.94, 8.45, .75, size=18.5)
-s.textbox("Risposta strumentale", .75, 3.84, 4.7, .37, size=22, color=BLUE, bold=True)
-s.textbox("Applichiamo lo smearing a fotoni, protone e tagger (FWHM 16 MeV), con un'accettanza semplificata. La simulazione non usa il vecchio G3.", .75, 4.26, 8.46, .72, size=17.5)
+s = standard("Simulazione Monte Carlo", 6,
+             "03_mc_simulation/generators/generate_eta_pi0_dataset.C e smearing.h; 04_bdt_training/dataset/mc_samples.py")
+s.textbox("I generatori descrivono produzione e decadimenti. Prima del training, applichiamo una risposta strumentale semplificata e selezioniamo gli eventi con quattro fotoni osservabili.",
+          .74, 1.02, 8.55, .48, size=15.7)
+
+s.rect(.73, 1.58, 4.00, .72, NAVY, rounded=True)
+s.textbox("const BeamWindow beam_window =\n  ResolveBeamWindow(threshold,\n    requested_min_gev, requested_max_gev);",
+          .91, 1.63, 3.65, .62, size=12.1, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 1.64, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 1.58, 4.04, .72, ICE, rounded=True)
+s.textbox("L'energia parte dalla soglia calcolata con le masse finali. Il limite predefinito è 1,75 GeV; la finestra VIS si ferma a 1,10 GeV.",
+          5.38, 1.63, 3.72, .62, size=13.4, color=INK, valign="ctr")
+
+s.rect(.73, 2.40, 4.00, .72, NAVY, rounded=True)
+s.textbox("if (!event.SetDecay(W, 3, masses))\n    continue;\nGenerateUnweighted(event, rng);",
+          .91, 2.45, 3.65, .62, size=12.1, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 2.46, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 2.40, 4.04, .72, ICE, rounded=True)
+s.textbox("TGenPhaseSpace genera pηπ⁰ senza pesi finali; η e π⁰ decadono poi in due fotoni ciascuno.",
+          5.38, 2.45, 3.72, .62, size=13.6, color=INK, valign="ctr")
+
+s.rect(.73, 3.22, 4.00, .72, NAVY, rounded=True)
+s.textbox("constexpr double kTaggerFwhmGeV = 0.016;\nbeam = SmearTaggedPhoton(Ebeam, rng);",
+          .91, 3.27, 3.65, .62, size=12.1, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 3.28, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 3.22, 4.04, .72, ICE, rounded=True)
+s.textbox("Smearing gaussiano per fotoni e protone; il tagger usa una risoluzione FWHM di 16 MeV.",
+          5.38, 3.27, 3.72, .62, size=13.6, color=INK, valign="ctr")
+
+s.rect(.73, 4.04, 4.00, .72, NAVY, rounded=True)
+s.textbox("photons_4, event_mask = sample_surviving_photons(\n    photons_all, ph_E, ph_theta, rng, params, n_keep=4\n)",
+          .91, 4.08, 3.65, .65, size=10.6, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 4.10, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 4.04, 4.04, .72, ICE, rounded=True)
+s.textbox("La perdita di fotoni dipende da energia e angolo. Teniamo quattro fotoni osservati, con la stessa procedura per segnale e fondi.",
+          5.38, 4.09, 3.72, .62, size=13.4, color=INK, valign="ctr")
 slides.append(s)
 
-s = standard("Nove canali simulati", 8, "wiki/physics-channels.md; wiki/03-monte-carlo-simulation.md")
-s.textbox("Segnale", .75, 1.16, 2.5, .34, size=20, color=BLUE, bold=True)
-s.textbox("ηπ⁰", .75, 1.55, 2.6, .48, size=30, bold=True)
-s.textbox("Canali di fondo storici e nuovi", 3.28, 1.16, 5.6, .34, size=20, color=BLUE, bold=True)
-s.textbox("π⁰π⁰    3π⁰    4π⁰\nη → 3π⁰    ηπ⁰ con η → 3π⁰\nη2π⁰    ωπ⁰    η′", 3.28, 1.58, 5.8, 1.63, size=20)
-s.textbox("VIS: 6/9 canali", .75, 3.36, 8.4, .4, size=23, color=BLUE, bold=True)
-s.textbox("ηπ⁰, π⁰π⁰, 3π⁰, 4π⁰, η → 3π⁰, ηπ⁰ con η → 3π⁰.", .75, 3.83, 8.5, .48, size=18)
-s.textbox("Le soglie di η2π⁰, ωπ⁰ ed η′ superano 1,10 GeV. Questi canali restano nel catalogo UV, ma non nel campione VIS.", .75, 4.46, 8.5, .50, size=16.5, color=MUTED)
+s = standard("Perché questi nove canali", 7,
+             "00_common/physics/channels.py; generatori MC; 04_bdt_training/photon_loss.py")
+s.textbox("Segnale: pηπ⁰ con η → γγ e π⁰ → γγ. Gli altri canali coprono le reazioni che possono produrre quattro fotoni osservati o imitare le masse cercate.",
+          .75, 1.04, 8.50, .58, size=16)
+
+s.rect(.74, 1.77, 8.52, .76, ICE, rounded=True)
+s.textbox("π⁰π⁰ · 3π⁰ · 4π⁰", .91, 1.86, 3.06, .58, size=18, color=BLUE, bold=True, valign="ctr")
+s.textbox("Il primo produce già quattro fotoni; gli altri ne producono sei o otto e possono apparire come eventi a quattro fotoni quando alcuni sfuggono al rivelatore.",
+          4.02, 1.83, 5.06, .64, size=13.9, color=INK, valign="ctr")
+
+s.rect(.74, 2.67, 8.52, .85, ICE, rounded=True)
+s.textbox("η → 3π⁰ · ηπ⁰ (η → 3π⁰)", .91, 2.76, 3.06, .66, size=16, color=BLUE, bold=True, valign="ctr")
+s.textbox("La prima contiene una η reale; la seconda è la reazione del segnale con un diverso decadimento della η. Perdendo fotoni, entrambe possono contaminare il campione.",
+          4.02, 2.73, 5.06, .73, size=13.7, color=INK, valign="ctr")
+
+s.rect(.74, 3.66, 8.52, .84, ICE, rounded=True)
+s.textbox("η2π⁰ · ωπ⁰ · η′", .91, 3.75, 3.06, .66, size=17.2, color=BLUE, bold=True, valign="ctr")
+s.textbox("Producono cinque o sei fotoni; η2π⁰ ed η′ contengono anche una η reale. Le loro soglie sono oltre 1,10 GeV: contribuiscono al catalogo UV, non al VIS.",
+          4.02, 3.72, 5.06, .72, size=13.7, color=INK, valign="ctr")
+
+s.textbox("Nel VIS restano accessibili 6 dei 9 canali: il segnale e i cinque fondi dei primi due gruppi.",
+          .75, 4.65, 8.51, .31, size=15.1, color=BLUE, bold=True)
 slides.append(s)
 
 s = standard("Come funziona il BDT", 9, "wiki/04-bdt-training.md; artifacts/stage1")
@@ -513,7 +556,7 @@ def renumber_manual_navigation(xml: bytes, number: int) -> bytes:
                 and 0 < int(ext.get("cx")) < 10 * EMU):
             ext.set("cx", str(round(10 * number / SLIDE_COUNT * EMU)))
     for label in root.xpath("//a:t", namespaces=N):
-        if label.text and label.text in {"02/19", "04/19", "07/19"}:
+        if label.text and label.text in {"02/19", "04/19"}:
             label.text = f"{number:02d}/{SLIDE_COUNT:02d}"
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
 
@@ -531,8 +574,7 @@ def build():
         members.pop("ppt/theme/theme2.xml", None)
         for s in slides:
             xml, rels = s.render()
-            manual_slide = {2: "slide2_manual.xml", 4: "slide4_manual.xml",
-                            6: "slide7_manual.xml"}.get(s.number)
+            manual_slide = {2: "slide2_manual.xml", 4: "slide4_manual.xml"}.get(s.number)
             if manual_slide:
                 # Preserve edits made in PowerPoint; navigation follows the
                 # new order without replacing the user's text or formatting.
