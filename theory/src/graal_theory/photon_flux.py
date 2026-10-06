@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import re
 from dataclasses import dataclass
 from itertools import pairwise
@@ -32,6 +33,7 @@ class FluxSpectrum:
     skipped_nonpositive_strips: int
     root_path: Path
     manifest_path: Path
+    source_fingerprint: str | None = None
 
 
 def _uv_polarization(energy_gev: float) -> float:
@@ -48,7 +50,8 @@ def _uv_polarization(energy_gev: float) -> float:
 
 
 def load_calibrated_flux(
-    root_path: Path, manifest_path: Path, energy_range_gev: tuple[float, float]
+    root_path: Path, manifest_path: Path, energy_range_gev: tuple[float, float],
+    *, selected_run_numbers: frozenset[int] | None = None,
 ) -> FluxSpectrum:
     """Use only manifest P/UV runs with one POL1/POL2/BREM ROOT triplet."""
     try:
@@ -60,16 +63,25 @@ def load_calibrated_flux(
     low, high = energy_range_gev
     if not np.isfinite(low) or not np.isfinite(high) or high <= low:
         raise ValueError("energy range must be finite and increasing")
+    if selected_run_numbers is not None and (
+            not isinstance(selected_run_numbers, frozenset) or not selected_run_numbers
+            or any(isinstance(run, bool) or not isinstance(run, int) or run <= 0
+                   for run in selected_run_numbers)):
+        raise ValueError("selected run numbers must be a nonempty frozenset of positive integers")
     selected: set[int] = set()
     with manifest_path.open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
             if row["target"] == "P" and row["beam_type"] == "UV":
                 run = int(row["run_number"])
+                if selected_run_numbers is not None and run not in selected_run_numbers:
+                    continue
                 if run in selected:
                     raise ValueError(f"duplicate selected run {run} in manifest")
                 selected.add(run)
     if not selected:
         raise ValueError("manifest has no P/UV runs")
+    if selected_run_numbers is not None and selected != selected_run_numbers:
+        raise ValueError("selected reconstructed run missing from P/UV manifest")
 
     exposures: list[PhotonExposure] = []
     complete_runs = 0
@@ -83,7 +95,11 @@ def load_calibrated_flux(
                 keys.setdefault(int(match[1]), {}).setdefault(match[2], []).append(name)
         for run in sorted(selected):
             run_keys = keys.get(run, {})
+            if any(len(run_keys.get(state, ())) > 1 for state in _REQUIRED):
+                raise ValueError(f"duplicate ROOT cycles for selected run {run}")
             if any(len(run_keys.get(state, ())) != 1 for state in _REQUIRED):
+                if selected_run_numbers is not None:
+                    raise ValueError(f"selected run {run} has no complete POL1/POL2/BREM triplet")
                 continue
             complete_runs += 1
             histograms = {state: source[run_keys[state][0]] for state in _REQUIRED}
@@ -116,6 +132,56 @@ def load_calibrated_flux(
         (low, high), tuple(exposures), len(selected), complete_runs,
         skipped_nonpositive, root_path, manifest_path,
     )
+
+
+def selected_uv_runs(reco_root: Path) -> frozenset[int]:
+    """Read only run numbers from the nominal raw BDT reconstruction tree."""
+    import uproot
+
+    with uproot.open(reco_root) as source:
+        if "reco_eta_pi0_bdt" not in source:
+            raise ValueError("missing reco_eta_pi0_bdt tree")
+        tree = source["reco_eta_pi0_bdt"]
+        if "RunNumber" not in tree.keys():
+            raise ValueError("missing RunNumber branch")
+        values = tree["RunNumber"].array(library="np")
+    if values.ndim != 1 or values.dtype.kind not in "iu" or not len(values) \
+            or np.any(values <= 0):
+        raise ValueError("RunNumber requires nonempty positive integer values")
+    return frozenset(int(value) for value in np.unique(values))
+
+
+def native_flux_spectrum(flux_root: Path, manifest: Path, reco_root: Path,
+                         energy_range_gev: tuple[float, float]) -> FluxSpectrum:
+    """Match measured exposure to nominal reconstruction runs and inputs."""
+    from dataclasses import replace
+    import uproot
+
+    reconstructed = selected_uv_runs(reco_root)
+    with Path(manifest).open(newline="", encoding="utf-8") as stream:
+        manifest_runs = {int(row["run_number"]) for row in csv.DictReader(stream)
+                         if row["target"] == "P" and row["beam_type"] == "UV"}
+    with uproot.open(flux_root) as source:
+        states: dict[int, dict[str, int]] = {}
+        for name in source.keys(cycle=True, recursive=False):
+            match = _RUN_HISTOGRAM.fullmatch(name.split(";", 1)[0])
+            if match is not None and int(match[1]) in reconstructed:
+                counts = states.setdefault(int(match[1]), {})
+                counts[match[2]] = counts.get(match[2], 0) + 1
+    # Stage 07 ignores incomplete/duplicate run triplets before selecting events.
+    selected = frozenset(run for run in reconstructed & manifest_runs
+                         if all(states.get(run, {}).get(state) == 1 for state in _REQUIRED))
+    if not selected:
+        raise ValueError("no complete reconstructed P/UV runs in calibrated flux")
+    spectrum = load_calibrated_flux(flux_root, manifest, energy_range_gev,
+                                    selected_run_numbers=selected)
+    digest = hashlib.sha256()
+    for label, path in (("reco", reco_root), ("flux", flux_root), ("manifest", manifest)):
+        digest.update(label.encode("ascii"))
+        with Path(path).open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024*1024), b""):
+                digest.update(chunk)
+    return replace(spectrum, source_fingerprint=digest.hexdigest())
 
 
 def group_flux_by_energy(spectrum: FluxSpectrum, bins: int) -> tuple[PhotonExposure, ...]:
