@@ -1,10 +1,10 @@
 # Presentazione GRAAL Analysis
 
 `graal_analysis_framework_asimmetrie.pptx` presenta il framework di analisi
-per `γp → pηπ⁰` in 18 slide (Aptos, blu e bianco). `build.py` rigenera il
+per `γp → pηπ⁰` in 17 slide (Aptos, blu e bianco). `build.py` rigenera il
 file usando le immagini versionate in `assets/` (richiede pandoc, lxml e
 Pillow). Ogni slide include barre di navigazione superiore e inferiore;
-la numerazione corrente/18 compare soltanto in quella inferiore.
+la numerazione corrente/17 compare soltanto in quella inferiore.
 Gli XML in `assets/slide{2,4}_manual.xml` conservano le modifiche fatte
 in PowerPoint alle slide 2 e 4. Il generatore le reinserisce aggiornando
 numerazione e barre di navigazione.
@@ -35,6 +35,20 @@ La slide 7 raggruppa gli otto fondi secondo il modo in cui possono imitare
 il segnale; le soglie del registro dei canali spiegano perché tre di essi
 restano fuori dalla regione VIS.
 
+La slide 8 introduce gli alberi decisionali potenziati tramite boosting.
+Lo schema dei due alberi proviene dalla
+[documentazione ufficiale XGBoost](https://xgboost.readthedocs.io/en/stable/tutorials/model.html)
+ed è distribuito da DMLC con licenza Apache 2.0, conservata in
+`assets/xgboost_web_data_LICENSE.txt`. Per la terminologia BDT in fisica si
+rimanda anche alla [guida ROOT/TMVA, §8.13](https://root.cern.ch/download/doc/tmva/TMVAUsersGuide.pdf).
+La slide 9 presenta il classificatore del progetto: 26 variabili, modelli
+separati UV/VIS, selezione sullo score e un grafico UV della campagna locale
+`results/production-20261006-113738`. La distribuzione degli score mostra
+densità non pesate e normalizzate separatamente per segnale e fondo; ROC,
+AUC e F1 usano i pesi del MC. La soglia che massimizza F1 viene scelta
+sullo stesso campione di validazione usato per riportare F1: il valore non
+è una stima su un test indipendente né misura la purezza nei dati reali.
+
 La slide 2 riassume GRAAL e l'obiettivo del lavoro. Lo schema di
 LAGRANγE è tratto dalla presentazione di D. Rebreyend (MENU04),
 [disponibile online](https://www.slideserve.com/balin/general-review-of-graal-physics-achievements-and-future),
@@ -44,7 +58,7 @@ ne indica la licenza CC BY-NC-SA 1.0.
 La descrizione di GRAAL è verificata sulle fonti del progetto e sul
 [lavoro di Ajaka et al.](https://doi.org/10.1103/PhysRevLett.100.052003).
 
-Le figure e le metriche UV/VIS provengono dalla campagna locale
+Le figure delle asimmetrie UV/VIS provengono dalla campagna locale
 `results/test_data/` del 5 ottobre 2026. Sono risultati di prova, non una
 pubblicazione finale. Il confronto con Ajaka et al. (2008) usa i punti
 sperimentali digitalizzati in

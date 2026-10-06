@@ -31,7 +31,7 @@ WHITE = "FFFFFF"
 INK = "112642"
 MUTED = "52657B"
 BAR_BLUE = "0877C7"
-SLIDE_COUNT = 18
+SLIDE_COUNT = 17
 CONTENT_FONT_SCALE = 0.86
 
 
@@ -214,7 +214,7 @@ def standard(title: str, n: int, source: str = "") -> Slide:
 def add_navigation(s: Slide):
     sections = (
         "INTRO", "INTRO", "FRAMEWORK", "DATI", "RICOSTRUZIONE",
-        "MONTE CARLO", "MONTE CARLO", "BDT", "BDT", "BDT", "CALIBRAZIONE",
+        "MONTE CARLO", "MONTE CARLO", "BDT", "BDT", "CALIBRAZIONE",
         "ASIMMETRIE", "RISULTATI", "RISULTATI", "RISULTATI", "INTERPRETAZIONE",
         "VERIFICHE", "PROSPETTIVE",
     )
@@ -425,37 +425,37 @@ s.textbox("Nel VIS restano accessibili 6 dei 9 canali: il segnale e i cinque fon
           .75, 4.65, 8.51, .31, size=15.1, color=BLUE, bold=True)
 slides.append(s)
 
-s = standard("Come funziona il BDT", 9, "wiki/04-bdt-training.md; artifacts/stage1")
-s.textbox("BDT", .75, 1.14, 3.2, .73, size=49, color=BLUE, bold=True)
-s.textbox("Alleniamo XGBoost sul MC per distinguere il segnale dai canali di fondo.", .75, 1.99, 4.03, .82, size=19)
-s.textbox("Il modello usa 26 variabili, tra cui masse γγ, massa mancante, energia e angoli. Le calcoliamo allo stesso modo anche sui dati.", .75, 2.94, 4.08, 1.13, size=17.5)
-s.textbox("Nel training bilanciamo le classi e rimescoliamo l'ordine dei fotoni, così il modello non impara scorciatoie spurie.", .75, 4.12, 4.05, .80, size=16.5, color=MUTED)
-s.image("score_uv.png", 4.94, 1.18, 4.30, 3.77)
+s = standard("Che cos'è un BDT", 8,
+             "XGBoost, Introduction to Boosted Trees; ROOT/TMVA Users Guide §8.13; schema DMLC, Apache 2.0")
+s.textbox("Un Boosted Decision Tree (BDT) combina alberi: ognuno pone domande sulle variabili e assegna un punteggio alle foglie.",
+          .74, 1.04, 8.52, .51, size=17)
+s.image("xgboost_two_trees.png", .77, 1.71, 5.35, 2.65)
+s.textbox("1  Alberi successivi", 6.25, 1.72, 3.00, .30, size=16.2, color=BLUE, bold=True)
+s.textbox("Nel boosting, ogni nuovo albero corregge gli errori accumulati.",
+          6.25, 2.07, 3.00, .58, size=14)
+s.textbox("2  Punteggi sommati", 6.25, 2.89, 3.00, .30, size=16.2, color=BLUE, bold=True)
+s.textbox("Sommiamo i punteggi delle foglie attraversate per ottenere lo score.",
+          6.25, 3.24, 3.00, .58, size=14)
+s.textbox("Variando la soglia sullo score scegliamo quanta parte del segnale conservare e quanto fondo accettare.",
+          .76, 4.48, 8.50, .44, size=16, color=INK)
 slides.append(s)
 
-s = standard("Dal MC ai dati", 10, "wiki/04-bdt-training.md; wiki/05-stage1-gate.md")
-s.textbox("1", .78, 1.18, .55, .59, size=39, color=BLUE, bold=True)
-s.textbox("Spettro misurato e pesi", 1.5, 1.19, 7.4, .4, size=21, bold=True)
-s.textbox("Pesiamo il MC con il flusso del tagger, la sezione d'urto e l'accettanza.", 1.5, 1.59, 7.43, .37, size=16.5)
-s.textbox("2", .78, 2.14, .55, .59, size=39, color=BLUE, bold=True)
-s.textbox("Quattro fotoni osservati", 1.5, 2.15, 7.4, .4, size=21, bold=True)
-s.textbox("Applichiamo a segnale e fondi la perdita di fotoni e il loro rimescolamento.", 1.5, 2.55, 7.43, .37, size=16.5)
-s.textbox("3", .78, 3.10, .55, .59, size=39, color=BLUE, bold=True)
-s.textbox("Due modelli per UV e VIS", 1.5, 3.11, 7.4, .4, size=21, bold=True)
-s.textbox("Per ogni regione salviamo insieme il modello, la soglia e la provenienza.", 1.5, 3.51, 7.43, .37, size=16.5)
-s.textbox("4", .78, 4.06, .55, .59, size=39, color=BLUE, bold=True)
-s.textbox("Selezione dei dati", 1.5, 4.07, 7.4, .4, size=21, bold=True)
-s.textbox("Dopo il filtro BDT, ricostruiamo gli eventi con la stessa ipotesi e lo stesso pairing χ².", 1.5, 4.47, 7.43, .37, size=16.5)
-slides.append(s)
-
-s = standard("Risultati del BDT", 11, "results/test_data/uv|vis/bdt/artifacts/stage1/stage1_metrics.txt")
-s.textbox("UV  AUC 0,9975", .84, 1.13, 4.0, .4, size=22, color=BLUE, bold=True)
-s.textbox("VIS  AUC 0,9995", 5.13, 1.13, 4.0, .4, size=22, color=BLUE, bold=True)
-s.image("roc_uv.png", .69, 1.57, 4.38, 2.72)
-s.image("roc_vis.png", 5.0, 1.57, 4.38, 2.72)
-s.textbox("F1 0,9842 · soglia 0,1233", .81, 4.30, 4.12, .32, size=16, color=INK)
-s.textbox("F1 0,9956 · soglia 0,0740", 5.10, 4.30, 4.12, .32, size=16, color=INK)
-s.textbox("Queste metriche vengono dal MC di prova: l'AUC non indica la purezza del campione reale.", .76, 4.74, 8.5, .25, size=14.5, color=MUTED)
+s = standard("Il nostro BDT: metodo e risultati", 9,
+             "00_common/stage1/features.py; wiki/04-bdt-training.md; results/production-20261006-113738")
+s.image("score_uv_production.png", .69, 1.26, 4.79, 3.45)
+s.textbox("Score UV: 0 ≈ fondo, 1 ≈ segnale; densità per classe.\nLinea rossa: soglia 0,394.",
+          .74, 4.70, 4.80, .33, size=10.5, color=MUTED)
+s.textbox("Training e selezione", 5.57, 1.08, 3.65, .31, size=17, color=BLUE, bold=True)
+s.textbox("MC di nove canali: accettanza simulata, quattro fotoni osservati, pesi per fascio e canale. Dividiamo il campione 80/20; usiamo modelli UV/VIS e le stesse variabili sui dati.",
+          5.57, 1.44, 3.67, .89, size=12.5)
+s.textbox("Le 26 variabili", 5.57, 2.41, 3.65, .31, size=17, color=BLUE, bold=True)
+s.textbox("6 masse γγ; 2 conteggi vicino a η/π⁰ e χ² del pairing; 4 variabili mancanti; 9 misure di fotoni/fascio; 2 del protone; 2 dei mesoni.",
+          5.57, 2.77, 3.67, .65, size=12.5)
+s.textbox("Risultati sul MC di validazione", 5.57, 3.50, 3.67, .31, size=17, color=BLUE, bold=True)
+s.textbox("UV: AUC 0,9979; F1 0,9855; soglia 0,394.\nVIS: AUC 0,9997; F1 0,9962; soglia 0,291.",
+          5.57, 3.86, 3.67, .45, size=12.5)
+s.textbox("AUC pesata misura la separazione a tutte le soglie (1 è ideale). F1 pesato combina precisione e richiamo; scegliamo la soglia massimizzandolo sulla stessa validazione MC. Non misura la purezza dei dati.",
+          5.57, 4.37, 3.67, .65, size=11.5, color=MUTED)
 slides.append(s)
 
 s = standard("Calibrazione dei flussi", 12, "wiki/06-calibration.md; config/run_manifest.csv")
