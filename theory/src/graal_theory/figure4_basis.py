@@ -48,6 +48,9 @@ class BasisBinMoment:
     status: str
     reason: str | None = None
     model_fingerprint: str | None = None
+    anchor_g1: float | None = None
+    anchor_g2: float | None = None
+    proton_mass_gev: float | None = None
 
     def source_used_extension_fraction(self, coefficients) -> float:
         denominator = self.evaluate(coefficients).denominator
@@ -275,6 +278,7 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     energy_low = max(e_low, onset)
     numerator, denominator, source_used = _zero_matrix(), _zero_matrix(), _zero_matrix()
     state_phi = np.zeros((2, 12, 3, 3), dtype=np.complex128) if energy_rule == "native_flux" else None
+    anchor = None
     def result(status, reason, energies=(), fingerprint=None, flux=None):
         for matrix in (numerator, denominator, source_used, state_phi):
             if matrix is not None:
@@ -287,7 +291,9 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
             fv, fh, pv, ph = flux
         return BasisBinMoment(pair, (e_low, e_high), (m_low, m_high), energy_rule,
                               numerator, denominator, state_phi, fv, fh, pv, ph,
-                              source_used, nodes, status, reason, fingerprint)
+                              source_used, nodes, status, reason, fingerprint,
+                              None if anchor is None else anchor[0],
+                              None if anchor is None else anchor[1], proton)
     if mass_low >= mass_high or energy_low >= e_high:
         return result("masked_kinematic", "no accessible energy-mass intersection")
     if energy_rule == "uniform":
@@ -335,6 +341,13 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
         horizontal = delta_em_event_basis(model, sample, _HORIZONTAL)
         vertical.validate_model(model)
         horizontal.validate_model(model)
+        candidate_anchor = (getattr(vertical, "anchor_g1", None),
+                            getattr(vertical, "anchor_g2", None))
+        if (candidate_anchor != (getattr(horizontal, "anchor_g1", None),
+                                 getattr(horizontal, "anchor_g2", None))
+                or (anchor is not None and anchor != candidate_anchor)):
+            raise ValueError("H/V or energy-node EM source anchor mismatch")
+        anchor = candidate_anchor
         if getattr(vertical, "fingerprint", None) != getattr(horizontal, "fingerprint", None):
             raise ValueError("H/V basis model fingerprint mismatch")
         if fingerprint is None:

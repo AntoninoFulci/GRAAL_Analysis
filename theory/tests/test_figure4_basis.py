@@ -34,6 +34,8 @@ class ToyModel:
 
 class ToyBasis:
     def __init__(self, model, sample, polarization):
+        self.anchor_g1 = 0.
+        self.anchor_g2 = 0.
         source_model = replace(model, g1=0., g2=0.)
         source = source_model.amplitude(sample, polarization)
         first = replace(source_model, g1=1.).amplitude(sample, polarization) - source
@@ -54,6 +56,8 @@ def test_uniform_basis_bin_matches_direct_integral(monkeypatch, pair, mass_range
     interval = (1.1, 1.2)
     moment = integrate_basis_bin(model, pair, interval, mass_range,
                                  energy_rule="uniform", energy_order=2, sobol=SobolConfig(4))
+    assert moment.anchor_g1 == 0. and moment.anchor_g2 == 0.
+    assert moment.proton_mass_gev == model.masses[2]
     for g1, g2 in ((0., 0.), (.08, -.03), (-.06, .05)):
         expected = predict_figure4_bin(replace(model, g1=g1, g2=g2), pair, interval,
                                        mass_range, energy_order=2, sobol=SobolConfig(4))
