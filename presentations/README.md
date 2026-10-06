@@ -51,6 +51,17 @@ AUC e F1 usano i pesi del MC. La soglia che massimizza F1 viene scelta
 sullo stesso campione di validazione usato per riportare F1: il valore non
 è una stima su un test indipendente né misura la purezza nei dati reali.
 
+La slide 10 è stata verificata sul codice in
+`06_calibration/build_strip_energy_flux.py` e `06_calibration/run_manifest.py`.
+Mostra quattro coppie «codice → spiegazione»: validazione del manifest,
+lettura di `h80`, tripletto dei flussi e fit `pol4` con pubblicazione ROOT.
+Il manifest non contiene la polarizzazione: questa proviene dal ramo
+`Polarization` di `h80`. La mediana di energia per run/strip appartiene al
+lookup e ai controlli; l'asse energetico degli istogrammi pubblicati deriva
+dal fit separato per run e polarizzazione, costruito sulle medie per cella.
+La mancanza di uno degli istogrammi `POL1`, `POL2`, `BREM` è un errore di
+lettura, non una semplice esclusione del run.
+
 La slide 2 riassume GRAAL e l'obiettivo del lavoro. Lo schema di
 LAGRANγE è tratto dalla presentazione di D. Rebreyend (MENU04),
 [disponibile online](https://www.slideserve.com/balin/general-review-of-graal-physics-achievements-and-future),

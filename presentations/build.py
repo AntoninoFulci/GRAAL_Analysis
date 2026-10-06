@@ -460,15 +460,42 @@ s.textbox("AUC pesata misura la separazione a tutte le soglie (1 è ideale). F1 
           5.57, 4.37, 3.67, .65, size=11.5, color=MUTED)
 slides.append(s)
 
-s = standard("Calibrazione dei flussi", 12, "wiki/06-calibration.md; config/run_manifest.csv")
-s.textbox("Run manifest", .76, 1.16, 3.6, .4, size=23, color=BLUE, bold=True)
-s.textbox("Il manifest assegna a ogni run il target, la regione UV o VIS e lo stato di polarizzazione.", .76, 1.59, 8.25, .45, size=18)
-s.textbox("h80 + flux ROOT", .76, 2.19, 4.2, .4, size=23, color=BLUE, bold=True)
-s.textbox("Calibriamo l'energia delle strip 1–128 con la mediana misurata per run e polarizzazione.", .76, 2.62, 8.25, .48, size=18)
-s.textbox("POL1 · POL2 · BREM", .76, 3.25, 6.9, .4, size=23, color=BLUE, bold=True)
-s.textbox("Per usare un run servono tutti e tre i flussi. Se ne manca uno, escludiamo il run.", .76, 3.68, 8.25, .45, size=18)
-s.textbox("flux_calibrated.root", .76, 4.34, 6.0, .42, size=25, color=BLUE, bold=True)
-s.textbox("Il file finale conserva gli assi energetici calibrati e viene scritto in modo atomico.", .76, 4.75, 8.2, .27, size=16, color=MUTED)
+s = standard("Calibrazione dei flussi", 12,
+             "estratti semplificati da 06_calibration/build_strip_energy_flux.py e run_manifest.py")
+s.textbox("Per ogni run usiamo le energie del fascio in h80 per calibrare l'asse dei flussi esterni.",
+          .74, 1.03, 8.55, .43, size=16)
+
+s.rect(.73, 1.61, 4.00, .73, NAVY, rounded=True)
+s.textbox("all_records = validate_manifest(\n    args.manifest)",
+          .91, 1.72, 3.65, .51, size=12.3, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 1.68, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 1.61, 4.04, .73, ICE, rounded=True)
+s.textbox("Il CSV identifica run, target P/D e fascio UV/VIS. La polarizzazione viene dagli eventi h80.",
+          5.38, 1.67, 3.72, .62, size=13.1, color=INK, valign="ctr")
+
+s.rect(.73, 2.45, 4.00, .73, NAVY, rounded=True)
+s.textbox("read_h80_lookup(...)\nread_calibration_cells(...)",
+          .91, 2.55, 3.65, .52, size=12.3, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 2.52, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 2.45, 4.04, .73, ICE, rounded=True)
+s.textbox("Da Eγ e Xstrip otteniamo la mediana per run/strip e la media per run/polarizzazione/strip usata nel fit.",
+          5.38, 2.51, 3.72, .62, size=12.9, color=INK, valign="ctr")
+
+s.rect(.73, 3.29, 4.00, .73, NAVY, rounded=True)
+s.textbox('_FLUX_SUFFIXES = ("POL1", "POL2",\n                  "BREM")',
+          .91, 3.39, 3.65, .52, size=12.0, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 3.36, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 3.29, 4.04, .73, ICE, rounded=True)
+s.textbox("Ogni run richiede il tripletto completo. Se manca un flusso, la lettura si arresta; BREM resta un controllo separato.",
+          5.38, 3.35, 3.72, .62, size=12.7, color=INK, valign="ctr")
+
+s.rect(.73, 4.13, 4.00, .73, NAVY, rounded=True)
+s.textbox('fit = root.TF1(..., "pol4", 0.5, 128.5)\nprofile.Fit(fit, "QSWN")',
+          .91, 4.23, 3.65, .52, size=11.8, color=WHITE, valign="ctr")
+s.textbox("→", 4.80, 4.20, .37, .58, size=26, color=BLUE, bold=True, align="ctr", valign="ctr")
+s.rect(5.22, 4.13, 4.04, .73, ICE, rounded=True)
+s.textbox("Il fit monotono richiede ≥5 strip e gli estremi 1/128. Riscrive gli assi Eγ in flux_calibrated.root, in modo atomico.",
+          5.38, 4.19, 3.72, .62, size=12.6, color=INK, valign="ctr")
 slides.append(s)
 
 s = standard("Estrazione dell'asimmetria", 13, "wiki/07-beam-asymmetry-estimators.md")
