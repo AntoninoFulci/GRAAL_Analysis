@@ -3,7 +3,8 @@
 `graal_analysis_framework_asimmetrie.pptx` presenta il framework di analisi
 per `γp → pηπ⁰` in 19 slide (Aptos, blu e bianco). `build.py` rigenera il
 file usando le immagini versionate in `assets/` (richiede pandoc, lxml e
-Pillow). Ogni slide include barra di navigazione e numerazione corrente/19.
+Pillow). Ogni slide include barre di navigazione superiore e inferiore,
+entrambe con numerazione corrente/19 centrata verticalmente.
 
 Le figure e le metriche UV/VIS provengono dalla campagna locale
 `results/test_data/` del 5 ottobre 2026. Sono risultati di prova, non una
