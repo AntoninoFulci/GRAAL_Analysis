@@ -56,13 +56,14 @@ test_data/
 
 The operator places the test subset's h80 files directly in
 `test_data/02_pre_analyzed/`; the old `test_data/pre_analyzed/` path is no
-longer read. Every `test_data` run regenerates selected data, MC, beam
-spectrum, features, and BDT and replaces their stable test paths. Test
-artifacts have no cache manifest, ten-day reuse check, or force-flag decision.
-Production and test data never replace each other. No artifact filename or
-directory gets an automatic timestamp. Production cache completion time lives
-only in metadata. The operator chooses each campaign name; the launcher does
-not add a timestamp to it.
+longer read. The operator may replace this test input subset. Every
+`test_data` run regenerates selected data, MC, beam spectrum, features, and
+BDT, overwriting the previous files at the same test paths. Test artifacts
+have no cache manifest, ten-day reuse check, or force-flag decision. These
+overwrites never touch production `data/`. No artifact filename or directory
+gets an automatic timestamp. Production cache completion time lives only in
+metadata. The operator chooses each campaign name; the launcher does not add
+a timestamp to it.
 
 Production campaigns write:
 
@@ -84,8 +85,8 @@ results/<campaign>/
 ```
 
 Intensive test campaigns use the same result layout at
-`results/test_<campaign>/` (default `results/test_data/`). A test run may
-replace its existing result directory. The launcher refuses a test output
+`results/test_<campaign>/` (default `results/test_data/`). Every test run
+overwrites its previous result directory. The launcher refuses a test output
 path outside the dedicated `test_` namespace, so test replacement cannot
 erase production results. Test runs need no production cache manifest in their
 result directory.
