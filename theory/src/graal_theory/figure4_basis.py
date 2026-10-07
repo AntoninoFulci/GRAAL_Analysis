@@ -51,6 +51,19 @@ class BasisBinMoment:
     anchor_g1: float | None = None
     anchor_g2: float | None = None
     proton_mass_gev: float | None = None
+    mass_numerator: NDArray[np.complex128] | None = None
+    accessible_energy_gev: tuple[float, float] | None = None
+    accessible_mass_gev: tuple[float, float] | None = None
+
+    def weighted_mass_gev(self, coefficients) -> float:
+        denominator = self.evaluate(coefficients).denominator
+        if self.mass_numerator is None:
+            raise ValueError("mass numerator unavailable")
+        c = np.asarray(coefficients, dtype=np.float64)
+        result = float(np.real(c @ self.mass_numerator @ c)/denominator)
+        if not np.isfinite(result):
+            raise ValueError("weighted mass must be finite")
+        return result
 
     def source_used_extension_fraction(self, coefficients) -> float:
         denominator = self.evaluate(coefficients).denominator
@@ -112,6 +125,8 @@ def _prediction_bound(estimate, checks, replica_count, coefficients) -> float:
 
 def _matrix_vector(moment: BasisBinMoment) -> NDArray[np.float64]:
     parts = [moment.numerator.ravel(), moment.denominator.ravel()]
+    if moment.mass_numerator is not None:
+        parts.append(moment.mass_numerator.ravel())
     if moment.state_phi is not None:
         parts.append(moment.state_phi.ravel())
     values = np.concatenate(parts)
@@ -176,10 +191,12 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     mean = replace(base,
                    numerator=np.mean([item.numerator for item in replicas], axis=0),
                    denominator=np.mean([item.denominator for item in replicas], axis=0),
+                   mass_numerator=np.mean([item.mass_numerator for item in replicas], axis=0),
                    source_used_denominator=np.mean([item.source_used_denominator for item in replicas], axis=0),
                    state_phi=(np.mean([item.state_phi for item in replicas], axis=0)
                               if base.state_phi is not None else None))
-    for matrix in (mean.numerator, mean.denominator, mean.source_used_denominator, mean.state_phi):
+    for matrix in (mean.numerator, mean.denominator, mean.mass_numerator,
+                   mean.source_used_denominator, mean.state_phi):
         if matrix is not None:
             matrix.setflags(write=False)
     reasons = []
@@ -226,6 +243,10 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                                         ("grid_matrix", direct, .002)):
         delta = max(np.max(np.abs(candidate.numerator-base.numerator)),
                     np.max(np.abs(candidate.denominator-base.denominator)))/denominator_scale
+        if base.mass_numerator is not None:
+            mass_scale = max(np.max(np.abs(base.mass_numerator)), 1e-30)
+            delta = max(delta,
+                        np.max(np.abs(candidate.mass_numerator-base.mass_numerator))/mass_scale)
         if base.state_phi is not None:
             state_scale = max(np.max(np.abs(base.state_phi)), 1e-30)
             delta = max(delta, np.max(np.abs(candidate.state_phi-base.state_phi))/state_scale)
@@ -234,6 +255,11 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     replica_n = np.std(np.stack([item.numerator for item in replicas]), axis=0, ddof=1)/np.sqrt(len(replicas))
     replica_d = np.std(np.stack([item.denominator for item in replicas]), axis=0, ddof=1)/np.sqrt(len(replicas))
     replica_matrix = max(np.max(np.abs(replica_n)), np.max(np.abs(replica_d)))/denominator_scale
+    if base.mass_numerator is not None:
+        replica_mass = np.std(np.stack([item.mass_numerator for item in replicas]), axis=0,
+                              ddof=1)/np.sqrt(len(replicas))
+        replica_matrix = max(replica_matrix,
+                             np.max(np.abs(replica_mass))/max(np.max(np.abs(base.mass_numerator)), 1e-30))
     if base.state_phi is not None:
         replica_state = np.std(np.stack([item.state_phi for item in replicas]), axis=0, ddof=1)/np.sqrt(len(replicas))
         replica_matrix = max(replica_matrix,
@@ -276,11 +302,12 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     mass_high = min(m_high, np.sqrt(s_from_lab_photon_energy(e_high, proton))-masses[spectator])
     onset = ((mass_low+masses[spectator])**2-proton**2)/(2*proton)
     energy_low = max(e_low, onset)
-    numerator, denominator, source_used = _zero_matrix(), _zero_matrix(), _zero_matrix()
+    numerator, denominator, source_used, mass_numerator = (
+        _zero_matrix(), _zero_matrix(), _zero_matrix(), _zero_matrix())
     state_phi = np.zeros((2, 12, 3, 3), dtype=np.complex128) if energy_rule == "native_flux" else None
     anchor = None
     def result(status, reason, energies=(), fingerprint=None, flux=None):
-        for matrix in (numerator, denominator, source_used, state_phi):
+        for matrix in (numerator, denominator, source_used, mass_numerator, state_phi):
             if matrix is not None:
                 matrix.setflags(write=False)
         nodes = np.asarray(energies, dtype=np.float64)
@@ -293,7 +320,10 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                               numerator, denominator, state_phi, fv, fh, pv, ph,
                               source_used, nodes, status, reason, fingerprint,
                               None if anchor is None else anchor[0],
-                              None if anchor is None else anchor[1], proton)
+                              None if anchor is None else anchor[1], proton,
+                              mass_numerator,
+                              (energy_low, e_high) if mass_low < mass_high and energy_low < e_high else None,
+                              (mass_low, mass_high) if mass_low < mass_high and energy_low < e_high else None)
     if mass_low >= mass_high or energy_low >= e_high:
         return result("masked_kinematic", "no accessible energy-mass intersection")
     if energy_rule == "uniform":
@@ -335,6 +365,7 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
             return result("masked_unsupported_domain", "M(eta p) exceeds 1.80 GeV", energies)
         pair_momentum = sample.momenta[:, daughters[0]]+sample.momenta[:, daughters[1]]
         phi = np.arctan2(pair_momentum[:, 2], pair_momentum[:, 1])
+        pair_mass = invariant_mass(pair_momentum)
         normalization = GEV2_TO_MICROBARN*4*proton**2/(2*(s-proton**2)*len(phi))
         measure = normalization*sample.weights_gev2
         vertical = delta_em_event_basis(model, sample, _VERTICAL)
@@ -357,6 +388,9 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
         q = quadratic_moments(vertical.matrices, horizontal.matrices, phi, measure)
         numerator += energy_weight*q.numerator
         denominator += energy_weight*q.denominator
+        mass_numerator += energy_weight*quadratic_moments(
+            vertical.matrices, horizontal.matrices, phi,
+            measure*pair_mass).denominator
         extended = eta_p_mass > 1.60
         if np.any(extended):
             source_used += energy_weight*quadratic_moments(

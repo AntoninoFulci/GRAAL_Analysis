@@ -65,6 +65,7 @@ def test_uniform_basis_bin_matches_direct_integral(monkeypatch, pair, mass_range
         assert actual.numerator == pytest.approx(expected.numerator, rel=1e-12, abs=1e-12)
         assert actual.denominator == pytest.approx(expected.denominator, rel=1e-12, abs=1e-12)
         assert actual.intrinsic_sigma == pytest.approx(expected.sigma, abs=1e-12)
+        assert moment.weighted_mass_gev([1., g1, g2]) == pytest.approx(expected.weighted_mass_gev, rel=1e-12)
         assert 0. <= moment.source_used_extension_fraction([1., g1, g2]) <= 1.
 
 
@@ -75,10 +76,13 @@ def test_uniform_basis_bin_splits_onset_and_masks_kinematic(monkeypatch):
                                  energy_rule="uniform", energy_order=3, sobol=SobolConfig(4))
     onset = ((1.7+model.masses[1])**2-model.masses[2]**2)/(2*model.masses[2])
     assert moment.status == "calculated"
+    assert moment.accessible_energy_gev[0] == pytest.approx(onset)
+    assert moment.accessible_mass_gev == pytest.approx((1.7, min(1.8, np.sqrt(s_from_lab_photon_energy(1.4, model.masses[2]))-model.masses[1])))
     assert all(energy >= onset for energy in moment.energy_nodes_gev)
     missing = integrate_basis_bin(model, "p_eta", (1.3, 1.4), (1.8, 1.9),
                                   energy_rule="uniform", energy_order=3, sobol=SobolConfig(4))
     assert missing.status == "masked_kinematic"
+    assert missing.accessible_energy_gev is None
 
 
 def test_uniform_and_native_weighting_must_not_mix(monkeypatch):
@@ -213,3 +217,20 @@ def test_certificate_rejects_changed_physics_fingerprint(monkeypatch):
                                     sobol_power=4, replica_seeds=tuple(range(8)))
     assert certificate.status == "masked_nonconverged"
     assert "model_fingerprint" in certificate.reason
+
+
+def test_certificate_rejects_unstable_weighted_mass_matrix(monkeypatch):
+    monkeypatch.setattr("graal_theory.figure4_basis.delta_em_event_basis", ToyBasis)
+    args = (ToyModel(), "p_pi0", (1.1, 1.2), (1.08, 1.22))
+    base = integrate_basis_bin(*args, energy_rule="uniform", energy_order=2,
+                               sobol=SobolConfig(4))
+    def drift(*unused, **kwargs):
+        if kwargs["energy_order"] != 4:
+            return base
+        mass = base.mass_numerator.copy()
+        mass[1, 1] += 1000.
+        return replace(base, mass_numerator=mass)
+    monkeypatch.setattr("graal_theory.figure4_basis.integrate_basis_bin", drift)
+    certificate = certify_basis_bin(*args, energy_rule="uniform", energy_order=2,
+                                    sobol_power=4, replica_seeds=tuple(range(8)))
+    assert "energy_matrix" in certificate.reason
