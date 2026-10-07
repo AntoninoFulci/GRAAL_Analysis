@@ -144,10 +144,13 @@ def _json_safe(value):
 
 def write_figure4_run(output_dir, panels: Mapping[tuple[int, str], Figure4PanelResult],
                       comparison: Figure4Comparison, provenance: Mapping[str, str], *,
-                      experimental_points=None, replace_existing: bool = False) -> Path:
+                      experimental_points=None, replace_existing: bool = False,
+                      claim_kind: str = "sourced") -> Path:
     """Write one immutable, reviewable Figure 4 calculation bundle."""
     if not isinstance(comparison, Figure4Comparison):
         raise ValueError("comparison requires Figure4Comparison")
+    if claim_kind not in ("sourced", "fitted"):
+        raise ValueError("claim_kind must be sourced or fitted")
     required = ("source_sha256", "parameters_sha256", "code_sha256")
     if not isinstance(provenance, Mapping) or any(not provenance.get(key) for key in required):
         raise ValueError("provenance requires source, parameter, and code fingerprints")
@@ -224,6 +227,7 @@ def write_figure4_run(output_dir, panels: Mapping[tuple[int, str], Figure4PanelR
         fig = Figure(figsize=(13, 13))
         FigureCanvasAgg(fig)
         axes = fig.subplots(4, 3, sharey=True)
+        fig.suptitle("Published couplings" if claim_kind == "sourced" else "Fitted couplings")
         for energy in range(4):
             for column, pair in enumerate(("p_pi0", "p_eta", "eta_pi0")):
                 ax = axes[energy, column]
@@ -232,7 +236,8 @@ def write_figure4_run(output_dir, panels: Mapping[tuple[int, str], Figure4PanelR
                      for item in panel.bins]
                 y = [item.sigma if item.status == "calculated" else np.nan
                      for item in panel.bins]
-                ax.plot(x, y, color="#005c99", linewidth=1.5, label="calculated")
+                ax.plot(x, y, color="#005c99", linewidth=1.5,
+                        label=f"{claim_kind} model")
                 reference = sorted((row for row in comparison.residuals
                                     if row.energy_bin == energy and row.pair == pair),
                                    key=lambda row: row.mass_gev)
@@ -257,19 +262,26 @@ def write_figure4_run(output_dir, panels: Mapping[tuple[int, str], Figure4PanelR
                 if column == 0:
                     ax.set_ylabel(r"$\Sigma$")
         axes[0,0].legend(fontsize=8)
-        fig.tight_layout()
+        fig.tight_layout(rect=(0, 0, 1, .97))
         fig.savefig(staging/"figure4_comparison.pdf")
         counts = {status: sum(row.status == status for row in comparison.residuals)
                   for status in ("compatible", "discrepant", "unresolved", "masked")}
-        report = ["# Ajaka Figure 4 full-model validation", "",
-                  f"Overall status: **{comparison.status}**", "",
+        report_status = (comparison.status if claim_kind == "sourced" else
+                         {"reproduced": "fitted_agreement",
+                          "calculated_discrepant": "fitted_discrepant",
+                          "incomplete": "incomplete"}[comparison.status])
+        report = [f"# Ajaka Figure 4 {claim_kind} model comparison", "",
+                  f"Overall status: **{report_status}**", "",
                   f"Residual counts: {counts}", "",
-                  "Physically accessible bins require all numerical gates before a reproduction claim.",
+                  ("Fitted agreement does not establish reproduction at published couplings."
+                   if claim_kind == "fitted" else
+                   "Physically accessible bins require all numerical gates before a reproduction claim."),
                   "", "## Provenance", ""]
         report.extend(f"- {key}: `{value}`" for key, value in provenance.items())
         (staging/"validation.md").write_text("\n".join(report)+"\n", encoding="utf-8")
         (staging/"manifest.json").write_text(json.dumps(_json_safe({
-            "status": comparison.status, "provenance": dict(provenance),
+            "status": report_status, "claim_kind": claim_kind,
+            "provenance": dict(provenance),
             "prediction_rows": len(rows), "residual_rows": len(comparison.residuals),
             "experimental_points_included": experimental_points is not None,
         }), indent=2, allow_nan=False)+"\n", encoding="utf-8")
