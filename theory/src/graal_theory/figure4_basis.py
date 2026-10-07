@@ -54,6 +54,18 @@ class BasisBinMoment:
     mass_numerator: NDArray[np.complex128] | None = None
     accessible_energy_gev: tuple[float, float] | None = None
     accessible_mass_gev: tuple[float, float] | None = None
+    vertical_normalization: NDArray[np.complex128] | None = None
+    horizontal_normalization: NDArray[np.complex128] | None = None
+
+    def polarized_normalizations(self, coefficients) -> tuple[float, float]:
+        if self.status != "calculated" or self.vertical_normalization is None \
+                or self.horizontal_normalization is None:
+            raise ValueError("polarized normalizations unavailable")
+        c = np.asarray(coefficients, dtype=np.float64)
+        if c.shape != (3,) or not np.isfinite(c).all():
+            raise ValueError("coefficients must be finite three-vector")
+        return (float(np.real(c @ self.vertical_normalization @ c)),
+                float(np.real(c @ self.horizontal_normalization @ c)))
 
     def weighted_mass_gev(self, coefficients) -> float:
         denominator = self.evaluate(coefficients).denominator
@@ -125,6 +137,9 @@ def _prediction_bound(estimate, checks, replica_count, coefficients) -> float:
 
 def _matrix_vector(moment: BasisBinMoment) -> NDArray[np.float64]:
     parts = [moment.numerator.ravel(), moment.denominator.ravel()]
+    if moment.vertical_normalization is not None:
+        parts.extend((moment.vertical_normalization.ravel(),
+                      moment.horizontal_normalization.ravel()))
     if moment.mass_numerator is not None:
         parts.append(moment.mass_numerator.ravel())
     if moment.state_phi is not None:
@@ -139,8 +154,7 @@ def _relative(left: float, right: float) -> float:
 
 def _state_norm(moment: BasisBinMoment, coefficients) -> tuple[float, float]:
     if moment.state_phi is None:
-        d = moment.evaluate(coefficients).denominator
-        return d/2, d/2
+        return moment.polarized_normalizations(coefficients)
     c = np.asarray(coefficients, dtype=np.float64)
     counts = np.real(np.einsum("a,spab,b->sp", c, moment.state_phi, c))
     return (float(np.sum(counts[0])/moment.flux_vertical),
@@ -191,11 +205,14 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     mean = replace(base,
                    numerator=np.mean([item.numerator for item in replicas], axis=0),
                    denominator=np.mean([item.denominator for item in replicas], axis=0),
+                   vertical_normalization=np.mean([item.vertical_normalization for item in replicas], axis=0),
+                   horizontal_normalization=np.mean([item.horizontal_normalization for item in replicas], axis=0),
                    mass_numerator=np.mean([item.mass_numerator for item in replicas], axis=0),
                    source_used_denominator=np.mean([item.source_used_denominator for item in replicas], axis=0),
                    state_phi=(np.mean([item.state_phi for item in replicas], axis=0)
                               if base.state_phi is not None else None))
-    for matrix in (mean.numerator, mean.denominator, mean.mass_numerator,
+    for matrix in (mean.numerator, mean.denominator, mean.vertical_normalization,
+                   mean.horizontal_normalization, mean.mass_numerator,
                    mean.source_used_denominator, mean.state_phi):
         if matrix is not None:
             matrix.setflags(write=False)
@@ -247,6 +264,11 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
             mass_scale = max(np.max(np.abs(base.mass_numerator)), 1e-30)
             delta = max(delta,
                         np.max(np.abs(candidate.mass_numerator-base.mass_numerator))/mass_scale)
+        for field in ("vertical_normalization", "horizontal_normalization"):
+            original = getattr(base, field)
+            updated = getattr(candidate, field)
+            if original is not None:
+                delta = max(delta, np.max(np.abs(updated-original))/denominator_scale)
         if base.state_phi is not None:
             state_scale = max(np.max(np.abs(base.state_phi)), 1e-30)
             delta = max(delta, np.max(np.abs(candidate.state_phi-base.state_phi))/state_scale)
@@ -260,6 +282,13 @@ def certify_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                               ddof=1)/np.sqrt(len(replicas))
         replica_matrix = max(replica_matrix,
                              np.max(np.abs(replica_mass))/max(np.max(np.abs(base.mass_numerator)), 1e-30))
+    for field in ("vertical_normalization", "horizontal_normalization"):
+        original = getattr(base, field)
+        if original is not None:
+            replica_norm = np.std(np.stack([getattr(item, field) for item in replicas]),
+                                  axis=0, ddof=1)/np.sqrt(len(replicas))
+            replica_matrix = max(replica_matrix,
+                                 np.max(np.abs(replica_norm))/denominator_scale)
     if base.state_phi is not None:
         replica_state = np.std(np.stack([item.state_phi for item in replicas]), axis=0, ddof=1)/np.sqrt(len(replicas))
         replica_matrix = max(replica_matrix,
@@ -302,12 +331,14 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     mass_high = min(m_high, np.sqrt(s_from_lab_photon_energy(e_high, proton))-masses[spectator])
     onset = ((mass_low+masses[spectator])**2-proton**2)/(2*proton)
     energy_low = max(e_low, onset)
-    numerator, denominator, source_used, mass_numerator = (
-        _zero_matrix(), _zero_matrix(), _zero_matrix(), _zero_matrix())
+    numerator, denominator, source_used, mass_numerator, vertical_norm, horizontal_norm = (
+        _zero_matrix(), _zero_matrix(), _zero_matrix(), _zero_matrix(),
+        _zero_matrix(), _zero_matrix())
     state_phi = np.zeros((2, 12, 3, 3), dtype=np.complex128) if energy_rule == "native_flux" else None
     anchor = None
     def result(status, reason, energies=(), fingerprint=None, flux=None):
-        for matrix in (numerator, denominator, source_used, mass_numerator, state_phi):
+        for matrix in (numerator, denominator, source_used, mass_numerator,
+                       vertical_norm, horizontal_norm, state_phi):
             if matrix is not None:
                 matrix.setflags(write=False)
         nodes = np.asarray(energies, dtype=np.float64)
@@ -323,7 +354,8 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                               None if anchor is None else anchor[1], proton,
                               mass_numerator,
                               (energy_low, e_high) if mass_low < mass_high and energy_low < e_high else None,
-                              (mass_low, mass_high) if mass_low < mass_high and energy_low < e_high else None)
+                              (mass_low, mass_high) if mass_low < mass_high and energy_low < e_high else None,
+                              vertical_norm, horizontal_norm)
     if mass_low >= mass_high or energy_low >= e_high:
         return result("masked_kinematic", "no accessible energy-mass intersection")
     if energy_rule == "uniform":
@@ -388,6 +420,8 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
         q = quadratic_moments(vertical.matrices, horizontal.matrices, phi, measure)
         numerator += energy_weight*q.numerator
         denominator += energy_weight*q.denominator
+        vertical_norm += energy_weight*q.vertical
+        horizontal_norm += energy_weight*q.horizontal
         mass_numerator += energy_weight*quadratic_moments(
             vertical.matrices, horizontal.matrices, phi,
             measure*pair_mass).denominator

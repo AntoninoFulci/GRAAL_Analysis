@@ -31,6 +31,19 @@ def test_quadratic_moments_match_direct_coherent_oracle(toy):
         assert sigma == pytest.approx(expected_n/expected_d)
 
 
+def test_polarized_norm_matrices_recover_each_state_independently(toy):
+    vertical, horizontal, phi, weights = toy
+    moments = quadratic_moments(vertical, horizontal, phi, weights)
+    coefficients = np.array([1., .08, -.04])
+    v = np.einsum("a,anij->nij", coefficients, vertical)
+    h = np.einsum("a,anij->nij", coefficients, horizontal)
+    expected_v = float(np.sum(weights*np.sum(abs(v)**2, axis=(1, 2))/2))
+    expected_h = float(np.sum(weights*np.sum(abs(h)**2, axis=(1, 2))/2))
+    assert np.real(coefficients @ moments.vertical @ coefficients) == pytest.approx(expected_v)
+    assert np.real(coefficients @ moments.horizontal @ coefficients) == pytest.approx(expected_h)
+    np.testing.assert_allclose(moments.vertical+moments.horizontal, moments.denominator)
+
+
 def test_moments_reject_bad_measure_or_contraction(toy):
     v, h, phi, weights = toy
     with pytest.raises(ValueError):

@@ -38,6 +38,8 @@ def _hermitian(value):
 class QuadraticMoments:
     numerator: NDArray[np.complex128]
     denominator: NDArray[np.complex128]
+    vertical: NDArray[np.complex128] | None = None
+    horizontal: NDArray[np.complex128] | None = None
 
     def evaluate(self, coefficients) -> tuple[float, float, float]:
         raw = np.asarray(coefficients)
@@ -57,11 +59,14 @@ def quadratic_moments(vertical_basis, horizontal_basis, phi, weights) -> Quadrat
     v, h, angle, measure = _inputs(vertical_basis, horizontal_basis, phi, weights)
     cosine = np.cos(2*angle)
     sine = np.sin(2*angle)
-    denominator = _gram(v, v, measure) + _gram(h, h, measure)
+    vertical = _hermitian(_gram(v, v, measure))
+    horizontal = _hermitian(_gram(h, h, measure))
+    denominator = vertical + horizontal
     cross = _gram(h, v, measure*sine)
     numerator = _gram(v, v, measure*cosine) - _gram(h, h, measure*cosine)
     numerator -= cross + cross.conj().T
-    return QuadraticMoments(_hermitian(numerator), _hermitian(denominator))
+    return QuadraticMoments(_hermitian(numerator), _hermitian(denominator),
+                            vertical, horizontal)
 
 
 def azimuth_state_moments(vertical_basis, horizontal_basis, phi, weights,

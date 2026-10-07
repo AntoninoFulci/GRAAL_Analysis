@@ -66,6 +66,9 @@ def test_uniform_basis_bin_matches_direct_integral(monkeypatch, pair, mass_range
         assert actual.denominator == pytest.approx(expected.denominator, rel=1e-12, abs=1e-12)
         assert actual.intrinsic_sigma == pytest.approx(expected.sigma, abs=1e-12)
         assert moment.weighted_mass_gev([1., g1, g2]) == pytest.approx(expected.weighted_mass_gev, rel=1e-12)
+        vertical, horizontal = moment.polarized_normalizations([1., g1, g2])
+        assert vertical == pytest.approx(expected.vertical_normalization, rel=1e-12)
+        assert horizontal == pytest.approx(expected.horizontal_normalization, rel=1e-12)
         assert 0. <= moment.source_used_extension_fraction([1., g1, g2]) <= 1.
 
 
