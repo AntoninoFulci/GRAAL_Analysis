@@ -1,14 +1,18 @@
 # Persistent pipeline artifacts and campaign plots
 
 Date: 2026-10-06
+Revised: 2026-10-07
 Status: design approved in conversation; written specification pending review
 
 ## Goal
 
-Run new UV/VIS campaigns without repeating valid event selection, Monte Carlo
-generation, or Stage-1 BDT training. Keep reusable inputs and intermediate
-artifacts under stable paths in `data/`. Keep each campaign's reconstruction,
-asymmetry results, and plots together under its `results/<campaign>/` root.
+Run new production UV/VIS campaigns without repeating valid event selection,
+Monte Carlo generation, or Stage-1 BDT training. Keep production reusable
+inputs and intermediate artifacts under stable paths in `data/`. Keep each
+campaign's reconstruction, asymmetry results, and plots together under its
+`results/<campaign>/` root. Intensive `test_data` runs use parallel paths in
+`test_data/` and replace their own intermediate artifacts and results on each
+run.
 Produce invariant-mass and raw-versus-kinematic-fit asymmetry comparisons for
 both profiles, plus combined UV/VIS views. Add the missing plots to the full
 pipeline and support plotting an already completed campaign without rerunning
@@ -37,15 +41,30 @@ data/
     `-- artifacts/stage1/{model,threshold,provenance,metrics,plots}
 ```
 
-`test_data` keeps its existing pre-analysis fixtures and uses separate cache
-paths under `data/03_selected/test_data/`, `data/04_mc/test_data/`, and
-`data/05_bdt/test_data/`, each with `uv/` and `vis/` children. Test and
-production artifacts never replace each other. No reusable artifact filename
-or directory gets an automatic timestamp. Cache completion time lives only in
-metadata. The operator chooses each campaign name; the launcher does not add
-a timestamp to it.
+Intensive `test_data` runs use the same visible layout under their own root:
 
-Each new campaign writes:
+```text
+test_data/
+|-- 02_pre_analyzed/pre_analisi_*.root
+|-- 03_selected/{uv,vis}/<selected ROOT files>
+|-- 04_mc/{uv,vis}/<channel>_mc.root
+`-- 05_bdt/{uv,vis}/
+    |-- beam_spectrum.npz
+    |-- features_stage1.npz
+    `-- artifacts/stage1/{model,threshold,provenance,metrics,plots}
+```
+
+The operator places the test subset's h80 files directly in
+`test_data/02_pre_analyzed/`; the old `test_data/pre_analyzed/` path is no
+longer read. Every `test_data` run regenerates selected data, MC, beam
+spectrum, features, and BDT and replaces their stable test paths. Test
+artifacts have no cache manifest, ten-day reuse check, or force-flag decision.
+Production and test data never replace each other. No artifact filename or
+directory gets an automatic timestamp. Production cache completion time lives
+only in metadata. The operator chooses each campaign name; the launcher does
+not add a timestamp to it.
+
+Production campaigns write:
 
 ```text
 results/<campaign>/
@@ -64,6 +83,13 @@ results/<campaign>/
 `-- pipeline_commands.log
 ```
 
+Intensive test campaigns use the same result layout at
+`results/test_<campaign>/` (default `results/test_data/`). A test run may
+replace its existing result directory. The launcher refuses a test output
+path outside the dedicated `test_` namespace, so test replacement cannot
+erase production results. Test runs need no production cache manifest in their
+result directory.
+
 Existing per-profile Stage-07 PDFs go to the profile `plots/` directory while
 its ROOT result stays under `beam_asymmetry/`. The four figures currently
 written to `combined/` go to `common/plots/` for new campaigns. Training plots
@@ -72,7 +98,8 @@ campaign's physics result.
 
 ## Cache decision
 
-Use the existing stage entry points and one small launcher-owned cache check.
+For production, use the existing stage entry points and one small
+launcher-owned cache check.
 Every cache item has a sidecar manifest at a stable path. The manifest records
 its input inventory/fingerprint, relevant options, source fingerprint,
 completion time, and output identity. Source fingerprints cover the stage's
@@ -85,22 +112,25 @@ checks, and completion age is at most ten 24-hour days. Missing or malformed
 manifests never authorize reuse. Expiration is measured from recorded
 completion, not from a timestamp in a filename or a touched output file.
 
-The launcher logs `RUN` or `SKIP` for every candidate cache item, including
-reason. It never interprets a status-tool internal error as a missing item.
-`--force-selected`, `--force-mc`, and `--force-bdt` override reuse for their
-respective stages. Forcing or rebuilding an upstream item invalidates dependent
-items through its changed output identity.
+The production launcher logs `RUN` or `SKIP` for every candidate cache item,
+including reason. It never interprets a status-tool internal error as a
+missing item. `--force-selected`, `--force-mc`, and `--force-bdt` override
+production reuse for their respective stages. Forcing or rebuilding an
+upstream item invalidates dependent items through its changed output identity.
+Test runs execute all stages and overwrite only test paths.
 
 ### Pre-analysis input
 
-Pre-analysis remains externally produced. Preflight requires UV and VIS
-`pre_analisi_*.root` files containing usable `h80` trees and required selection
-branches. It records their inventory for downstream validation. Files older
-than ten days produce an explicit warning and remain usable if otherwise
-valid. Missing or invalid files stop the pipeline. A legacy nested
+Production pre-analysis remains externally produced. Preflight requires UV
+and VIS `pre_analisi_*.root` files containing usable `h80` trees and required
+selection branches. It records their inventory for downstream validation.
+Files older than ten days produce an explicit warning and remain usable if
+otherwise valid. Missing or invalid files stop the pipeline. A legacy nested
 `pre_analisi` symlink is not followed as the production input; preflight
 reports the expected flat path. The launcher does not generate h80 from raw
 h70.
+Test pre-analysis is read from `test_data/02_pre_analyzed/` and validated for
+the same h80 contract. Its age does not gate or warn on disposable test runs.
 
 ### Selected data
 
@@ -138,15 +168,22 @@ model.
 
 ## Execution and failure behavior
 
-The full launcher continues to require a new empty `results/<campaign>/`
-directory. It reads selected data, MC, and BDT from `data/` and writes
+Production runs continue to require a new empty `results/<campaign>/`
+directory. They read selected data, MC, and BDT from `data/` and write
 calibration, reconstruction, extraction, and plots under that campaign root.
-It records cache paths and fingerprints, source revision, pre-analysis
-inventory, and run/skip outcomes in `pipeline_artifacts.json` and the command
-log. It stops on the first failed stage. Cache checks and writes run under a
-single launcher lock so two full campaigns cannot replace stable shared paths
-while another consumes them. Direct standalone stage calls remain the
-operator's responsibility.
+The launcher records cache paths and fingerprints, source revision,
+pre-analysis inventory, and run/skip outcomes in `pipeline_artifacts.json`
+and the command log. It stops on the first failed stage. Cache checks and
+writes run under a single launcher lock so two full campaigns cannot replace
+stable shared paths while another consumes them. Direct standalone stage calls
+remain the operator's responsibility.
+
+Test runs read h80 inputs from `test_data/02_pre_analyzed/`, rebuild
+intermediates under `test_data/`, and replace `results/test_<campaign>/`.
+The dedicated test output prefix is checked before any replacement. They do
+not inspect, age-check, or modify production cache. The same launcher lock
+prevents concurrent test runs from writing the fixed test paths. The command
+log records every test stage as executed.
 
 No stage replaces a valid cached artifact with a partial one. New output is
 validated before publication; a failure leaves the prior cache usable if it
@@ -207,11 +244,12 @@ campaign plot set.
 - Plot tests use small reconstructed ROOT fixtures and Stage-07 point fixtures
   to verify same-event raw/fit pairing, fitted-proton use, energy-bin grouping,
   output paths, and missing-fit errors.
-- A `test_data` pipeline run verifies the launcher and output layout. A second
-  run in a new campaign root verifies skip decisions; forced and expired
-  fixtures verify selective rebuilding. Postprocessing a completed campaign
-  creates all requested PDFs without changing its reconstruction or
-  asymmetry ROOT files.
+- Two `test_data` pipeline runs against the same test paths verify complete
+  replacement and the `results/test_<campaign>/` layout without touching
+  production paths. Production cache fixtures verify skip decisions, force
+  flags, and expiry. Postprocessing a completed campaign creates all
+  requested PDFs without changing its reconstruction or asymmetry ROOT files.
 - Runbook and wiki describe manual placement of production h80 files, new
-  cache paths, no-timestamp filenames, cache validity and expiry, force flags,
-  campaign layout, and the postprocessing command.
+  cache paths, the parallel disposable `test_data/` layout, no-timestamp
+  filenames, production cache validity and expiry, force flags, both result
+  namespaces, and the postprocessing command.
