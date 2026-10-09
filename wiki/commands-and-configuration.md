@@ -72,6 +72,9 @@ The launcher prints a validated run summary and asks `Avviare la pipeline? [s/N]
 before creating or replacing campaign output. Only `s`, `si`, `sì`,
 `y`, or `yes` starts work; Enter, another answer, or EOF cancels. The table
 lists paths, channels, MC events, cache policy, force flags, and every stage.
+Old production `h80` files appear in a separate warning table. Both tables
+wrap within the terminal width and use color when supported; set `NO_COLOR=1`
+for plain output.
 Production output must be absent or empty; test output is replaced on each run
 and must stay in `results/test_<campaign>/`. Production selection, MC, and BDT
 are reused only with valid payloads/manifests younger than ten days. Force flags

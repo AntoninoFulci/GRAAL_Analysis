@@ -19,6 +19,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import textwrap
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -114,6 +115,7 @@ class PipelinePaths:
 @dataclass(frozen=True)
 class PreflightResult:
     root_executable: str
+    old_preanalysis_inputs: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -226,6 +228,8 @@ def preflight(
         raise PipelineError(
             f"pre-analysis directory not found: {paths.preanalysis_dir}"
         )
+    old_preanalysis_inputs: list[Path] = []
+    now = datetime.now(timezone.utc).timestamp()
     for profile, pattern in PROFILE_PATTERNS.items():
         files = sorted(path for path in paths.preanalysis_dir.glob(pattern) if path.is_file())
         if not files:
@@ -237,10 +241,9 @@ def preflight(
         except Exception as exc:
             raise PipelineError(f"{profile.upper()} pre-analysis invalid: {exc}") from exc
         if config.name == "production":
-            now = datetime.now(timezone.utc).timestamp()
             for path in files:
                 if now - path.stat().st_mtime > 10 * 86400:
-                    print(f"WARNING: pre-analysis input older than 10 days: {path}")
+                    old_preanalysis_inputs.append(path)
     for path in required_repository_files(paths):
         if not path.is_file():
             raise PipelineError(f"required file not found: {path}")
@@ -266,7 +269,7 @@ def preflight(
         manifest_validator(paths.manifest)
     except Exception as exc:
         raise PipelineError(f"invalid run manifest: {exc}") from exc
-    return PreflightResult(root_executable)
+    return PreflightResult(root_executable, tuple(old_preanalysis_inputs))
 
 
 def _argv(*values: object) -> tuple[str, ...]:
@@ -790,6 +793,93 @@ def _replace_test_output(paths: PipelinePaths) -> None:
         shutil.rmtree(paths.output_root)
 
 
+def _use_color() -> bool:
+    return (
+        sys.stdout.isatty()
+        and "NO_COLOR" not in os.environ
+        and os.environ.get("TERM") != "dumb"
+    )
+
+
+def _print_table(title: str, rows: Sequence[tuple[str, str]], *, warning: bool = False) -> None:
+    """Render a table within the current terminal width, including long paths."""
+    columns = shutil.get_terminal_size(fallback=(80, 24)).columns
+    color = _use_color()
+    border_code = "\x1b[2;33m" if warning else "\x1b[2;36m"
+    title_code = "\x1b[1;33m" if warning else "\x1b[1;36m"
+    key_code = "\x1b[33m" if warning else "\x1b[36m"
+
+    def paint(value: str, code: str) -> str:
+        return f"{code}{value}\x1b[0m" if color and code else value
+
+    def wrapped(value: str, width: int) -> list[str]:
+        return textwrap.wrap(
+            value, width=width, break_on_hyphens=False,
+            drop_whitespace=False, replace_whitespace=False,
+        ) or [""]
+
+    print()
+    for line in wrapped(title, max(columns, 1)):
+        print(paint(line, title_code))
+    if columns < 8:
+        for label, value in rows:
+            for line in wrapped(f"{label}: {value}", max(columns, 1)):
+                print(paint(line, key_code))
+        return
+    if columns < 56:
+        cell_width = columns - 4
+        top = f"╭{'─' * (columns - 2)}╮"
+        middle = f"├{'─' * (columns - 2)}┤"
+        bottom = f"╰{'─' * (columns - 2)}╯"
+        print(paint(top, border_code))
+        for index, (label, value) in enumerate(rows):
+            if index:
+                print(paint(middle, border_code))
+            for line in wrapped(label, cell_width):
+                print(f"{paint('│', border_code)} {paint(f'{line:<{cell_width}}', key_code)} {paint('│', border_code)}")
+            for line in wrapped(value, cell_width):
+                print(f"{paint('│', border_code)} {line:<{cell_width}} {paint('│', border_code)}")
+        print(paint(bottom, border_code), flush=True)
+        return
+
+    label_width = min(max(len("Campo"), *(len(label) for label, _ in rows)), max(5, (columns - 7) // 3))
+    value_width = columns - label_width - 7
+    top = f"╭{'─' * (label_width + 2)}┬{'─' * (value_width + 2)}╮"
+    middle = f"├{'─' * (label_width + 2)}┼{'─' * (value_width + 2)}┤"
+    bottom = f"╰{'─' * (label_width + 2)}┴{'─' * (value_width + 2)}╯"
+
+    def print_row(label: str, value: str, *, header: bool = False) -> None:
+        left_lines = wrapped(label, label_width)
+        right_lines = wrapped(value, value_width)
+        for index in range(max(len(left_lines), len(right_lines))):
+            left = left_lines[index] if index < len(left_lines) else ""
+            right = right_lines[index] if index < len(right_lines) else ""
+            left_code = "\x1b[1m" if header else key_code
+            right_code = "\x1b[1m" if header else ("\x1b[1;33m" if warning else "")
+            print(
+                f"{paint('│', border_code)} {paint(f'{left:<{label_width}}', left_code)} "
+                f"{paint('│', border_code)} {paint(f'{right:<{value_width}}', right_code)} "
+                f"{paint('│', border_code)}"
+            )
+
+    print(paint(top, border_code))
+    print_row("Campo", "Valore", header=True)
+    print(paint(middle, border_code))
+    for label, value in rows:
+        print_row(label, value)
+    print(paint(bottom, border_code), flush=True)
+
+
+def print_preflight_warnings(checked: PreflightResult) -> None:
+    if checked.old_preanalysis_inputs:
+        _print_table(
+            f"Avvisi pre-analisi ({len(checked.old_preanalysis_inputs)})",
+            [(f"{index:02d} · oltre 10 giorni", str(path))
+             for index, path in enumerate(checked.old_preanalysis_inputs, 1)],
+            warning=True,
+        )
+
+
 def print_run_summary(
     config: ModeConfig,
     paths: PipelinePaths,
@@ -845,17 +935,7 @@ def print_run_summary(
         ))
     rows.append(("Stage previsti", str(len(stages))))
     rows.extend((f"{index:02d}", stage.name) for index, stage in enumerate(stages, 1))
-
-    label_width = max(len("Campo"), *(len(label) for label, _ in rows))
-    value_width = max(len("Valore"), *(len(value) for _, value in rows))
-    border = f"+-{'-' * (label_width + 2)}-+-{'-' * (value_width + 2)}-+"
-    print("\nRiepilogo pipeline")
-    print(border)
-    print(f"| {'Campo':<{label_width}} | {'Valore':<{value_width}} |")
-    print(border)
-    for label, value in rows:
-        print(f"| {label:<{label_width}} | {value:<{value_width}} |")
-    print(border, flush=True)
+    _print_table("Riepilogo pipeline", rows)
 
 
 def confirm_run() -> bool:
@@ -895,6 +975,7 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
         checked = preflight(config, paths)
         stages = build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins)
         print_run_summary(config, paths, args, stages)
+        print_preflight_warnings(checked)
         if not confirm_run():
             print("Pipeline annullata.")
             return 0

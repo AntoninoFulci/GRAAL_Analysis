@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import re
 import subprocess
 import numpy as np
@@ -161,6 +162,38 @@ def test_preflight_rejects_invalid_h80_and_warns_only_for_old_input(tmp_path, ca
     os.utime(uv, (old, old))
     run_pipeline.preflight(config, paths, import_module=_imports, which=lambda _: "root", manifest_validator=lambda _: ())
     assert "10 days" not in capsys.readouterr().out  # disposable test data has no age warning
+
+
+def test_production_preflight_collects_old_h80_for_separate_warning_table(tmp_path, capsys):
+    _, test_paths = _valid_preflight_tree(tmp_path)
+    config = run_pipeline.mode_config("production", tmp_path)
+    paths = run_pipeline.build_paths(config)
+    paths.preanalysis_dir.mkdir(parents=True)
+    for profile in ("uv", "vis"):
+        source = test_paths.preanalysis_dir / f"pre_analisi_1998_{profile}.root"
+        (paths.preanalysis_dir / source.name).write_bytes(source.read_bytes())
+    old_uv = paths.preanalysis_dir / "pre_analisi_1998_uv.root"
+    old_time = old_uv.stat().st_mtime - 11 * 86400
+    os.utime(old_uv, (old_time, old_time))
+
+    checked = run_pipeline.preflight(
+        config, paths, import_module=_imports, which=lambda _: "root",
+        manifest_validator=lambda _: (),
+    )
+
+    assert checked.old_preanalysis_inputs == (old_uv,)
+    assert capsys.readouterr().out == ""
+    run_pipeline.print_preflight_warnings(checked)
+    warning_table = capsys.readouterr().out
+    assert "Avvisi pre-analisi" in warning_table
+    warning_values = "".join(
+        line.split("│")[2].strip()
+        for line in warning_table.splitlines()
+        if line.startswith("│")
+    )
+    assert str(old_uv) in warning_values
+    assert "10 giorni" in warning_table
+    assert "pre_analisi_1998_vis.root" not in warning_table
 
 
 def _plan(tmp_path: Path, mode: str = "test_data"):
@@ -625,7 +658,15 @@ def test_summary_shows_settings_and_all_planned_stages_before_prompt(
 ):
     prompts = []
     executed = []
-    monkeypatch.setattr(run_pipeline, "preflight", lambda *_: run_pipeline.PreflightResult("root"))
+    monkeypatch.setattr(
+        run_pipeline.shutil, "get_terminal_size",
+        lambda **_: os.terminal_size((240, 24)),
+    )
+    stale = tmp_path / "data/02_pre_analyzed/pre_analisi_2002_uv2.root"
+    monkeypatch.setattr(
+        run_pipeline, "preflight",
+        lambda *_: run_pipeline.PreflightResult("root", (stale,)),
+    )
 
     def approve(prompt):
         prompts.append((prompt, capsys.readouterr().out))
@@ -651,9 +692,53 @@ def test_summary_shows_settings_and_all_planned_stages_before_prompt(
     assert "uv:select" in summary
     assert "vis:train" in summary
     assert "campaign:plots" in summary
+    assert summary.index("Riepilogo pipeline") < summary.index("Avvisi pre-analisi")
+    assert "pre_analisi_2002_uv2.root" in summary
+    assert "WARNING:" not in summary
     assert len(executed) == 1
     assert all(stage in summary for stage in executed[0])
     assert "[s/N]" in prompts[0][0]
+
+
+@pytest.mark.parametrize("columns", [42, 22])
+def test_summary_wraps_inside_terminal_width_without_losing_long_paths(
+    tmp_path, monkeypatch, capsys, columns
+):
+    monkeypatch.setattr(run_pipeline.shutil, "get_terminal_size", lambda **_: os.terminal_size((columns, 24)))
+    monkeypatch.setattr(run_pipeline, "_use_color", lambda: False)
+    config = run_pipeline.mode_config("production", tmp_path)
+    paths = run_pipeline.build_paths(config)
+    args = run_pipeline.build_parser().parse_args(["--mode", "production"])
+    run_pipeline.print_run_summary(config, paths, args, (run_pipeline.Stage("uv:generate:eta_pi0", ()),))
+
+    output = capsys.readouterr().out
+    assert all(len(line) <= columns for line in output.splitlines())
+    compact = re.sub(r"[\s│╭╮╰╯─┬┴┼├┤]+", "", output)
+    assert "07_observable_extraction/references/ajaka2008_figure4_digitized.csv" in compact
+
+
+def test_summary_uses_color_only_when_enabled(tmp_path, monkeypatch, capsys):
+    config = run_pipeline.mode_config("test_data", tmp_path)
+    paths = run_pipeline.build_paths(config)
+    args = run_pipeline.build_parser().parse_args(["--mode", "test_data"])
+    monkeypatch.setattr(run_pipeline, "_use_color", lambda: True)
+    run_pipeline.print_run_summary(config, paths, args, ())
+    assert "\x1b[" in capsys.readouterr().out
+    monkeypatch.setattr(run_pipeline, "_use_color", lambda: False)
+    run_pipeline.print_run_summary(config, paths, args, ())
+    assert "\x1b[" not in capsys.readouterr().out
+
+
+def test_color_detection_respects_tty_and_no_color(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(run_pipeline.sys.stdout, "isatty", lambda: True)
+    assert run_pipeline._use_color()
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert not run_pipeline._use_color()
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setattr(run_pipeline.sys.stdout, "isatty", lambda: False)
+    assert not run_pipeline._use_color()
 
 
 def test_pipeline_documentation_names_current_launcher_and_handoff():

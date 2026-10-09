@@ -37,9 +37,12 @@ production campaigns, for example `results/phi8` and `results/phi16`.
 Production requires a new empty campaign directory. No timestamp is added to
 its name. Omit `--output-dir` to use `results/production/`, also only if empty.
 After preflight, the launcher prints a table with inputs, paths, MC settings,
-cache policy, force flags, and the ordered stages. Answer `s` (or `si`, `sì`,
-`y`, `yes`) to start. Enter, any other answer, or EOF cancels before output
-creation or replacement. Batch launchers must provide an explicit answer.
+cache policy, force flags, and the ordered stages. A separate warning table
+lists production `h80` files older than ten days. Tables wrap within the
+terminal width; colors appear on compatible terminals unless `NO_COLOR` is set.
+Answer `s` (or `si`, `sì`, `y`, `yes`) to start. Enter, any other answer,
+or EOF cancels before output creation or replacement. Batch launchers must
+provide an explicit answer.
 Use `--force-selected`, `--force-mc`, or `--force-bdt` to rebuild that artifact
 class. Otherwise a complete manifest and validated output can be reused for
 up to ten 24-hour days after recorded completion. Changes to input identity,
