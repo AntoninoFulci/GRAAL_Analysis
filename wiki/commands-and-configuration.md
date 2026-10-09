@@ -58,33 +58,42 @@ python -m bdt_training.train_bdt_stage1 \
 ## Launcher Options
 
 ```text
-python scripts/run_pipeline.py --mode test_data [--output-dir PATH]
-python scripts/run_pipeline.py --mode production [--output-dir PATH]
+python scripts/run_pipeline.py --mode test_data [--output-dir results/test_NAME] [--phi-bins {8,12,16}]
+python scripts/run_pipeline.py --mode production [--output-dir results/NAME] [--phi-bins {8,12,16}] [--force-selected] [--force-mc] [--force-bdt]
 ```
 
 Both modes start from pre-analysis `h80` files. `test_data` generates 100000
 attempted events per required channel and defaults to `results/test_data/`;
 `production` generates 1000000 and defaults to `results/production/`.
-`--output-dir` must name an absent or empty root. Launcher calibrates once,
-retrains UV and VIS independently with checked-in hyperparameters, disables
-bootstrap and sideband correction, and combines only final Stage-07 points.
+`--phi-bins` defaults to 12 and selects one ratio-fit binning for both profiles
+per campaign. Conditional likelihood remains unbinned. ROOT outputs record
+the phi edges, and UV/VIS composition requires matching binning.
+The launcher prints a validated run summary and asks `Avviare la pipeline? [s/N]:`
+before creating or replacing campaign output. Only `s`, `si`, `sì`,
+`y`, or `yes` starts work; Enter, another answer, or EOF cancels. The table
+lists paths, channels, MC events, cache policy, force flags, and every stage.
+Production output must be absent or empty; test output is replaced on each run
+and must stay in `results/test_<campaign>/`. Production selection, MC, and BDT
+are reused only with valid payloads/manifests younger than ten days. Force flags
+override each artifact class. Launcher calibrates once, disables bootstrap and
+sideband correction, and writes profile and combined plots under campaign root.
 
 ## Setup Options
 
 ```text
 ./scripts/setup.sh --mode local [--python PATH]
-./scripts/setup.sh --mode farm --raw-target DIR --pre-target DIR [--python PATH]
+./scripts/setup.sh --mode farm --raw-target DIR [--python PATH]
 ```
 
 | Option | Contract |
 |---|---|
 | `--mode local` | create environment and empty local `data/` directories |
-| `--mode farm` | additionally create checked symlinks to existing raw and pre-analysis directories |
+| `--mode farm` | additionally create checked symlink to existing raw directory |
 | `--python PATH` | select Python interpreter; default `python3`; must be >=3.10 and import ROOT |
 | `--raw-target DIR` | farm directory containing acquisition-period folders |
-| `--pre-target DIR` | farm directory containing pre-analysis ROOT files |
 
-Farm targets must already exist. Setup accepts an existing symlink only when
+Place farm `pre_analisi_*.root` files manually in flat `data/02_pre_analyzed/`.
+Farm raw target must already exist. Setup accepts an existing symlink only when
 it resolves to the requested target. It refuses broken links, different
 targets, and ordinary files/directories at those link paths. It never replaces
 data silently.
@@ -99,7 +108,7 @@ Missing `data/00_external/flux.root` is a warning, not a setup failure.
 | Stage | Important options/defaults |
 |---|---|
 | full launcher | required `--mode`; optional absent/empty `--output-dir`; no resume |
-| selection | input `data/02_pre_analyzed/pre_analisi`, output `data/03_selected`, positive worker count |
+| selection | input `data/02_pre_analyzed`, output `data/03_selected/{uv,vis}`, positive worker count |
 | MC status | default data directory `03_mc_simulation/data`; optional `--data-dir` |
 | beam spectrum | 150 bins over 0.5–2.0 GeV by default |
 | feature build | default loss seed `42`; required beam spectrum; `0 < signal-prior < 1` |
@@ -107,7 +116,7 @@ Missing `data/00_external/flux.root` is a warning, not a setup failure.
 | training | seed `42`, CPU device, `--nthread -1`; optional direct hyperparameters |
 | reconstruction | input/output/tree, chi-square ceiling, recoil partner, missing-mass window; eta-pi0 paths also expose `--no-fit` and `--fit-cl` |
 | calibration | thresholds, progress interval, ROOT threads, retained samples, repeatable custom binning |
-| observables | nominal sample `raw_bdt`, estimator `both`, fixed 12 phi/10 mass bins, bootstrap off by default |
+| observables | nominal sample `raw_bdt`, estimator `both`, 8/12/16 phi bins (default 12), fixed 10 mass bins, bootstrap off by default |
 | Dalitz plots | required `--chi2` and `--bdt`; output defaults to `results/plots` |
 | fit resolution | default signal MC, BDT result, output directory, and `--n 20000` |
 

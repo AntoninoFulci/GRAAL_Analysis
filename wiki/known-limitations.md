@@ -7,17 +7,19 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 ## Execution Model
 
 - `scripts/run_pipeline.py` provides one sequential pre-analysis-to-plots
-  runner. There is no scheduler, DAG executor, freshness database, stage
-  restart, or automatic resume; output roots must be absent or empty.
+  runner. There is no scheduler, DAG executor, stage restart, or automatic
+  resume. Production output roots must be absent or empty; disposable
+  `results/test_<campaign>/` roots are replaced. Selected, MC, and BDT
+  production artifacts have launcher-owned ten-day cache manifests.
 - Stage ordering is communicated by directories and file contracts, not
   enforced globally. A consumer validates its local inputs but cannot prove
   every upstream command used the intended source revision.
 - Resource management is per command. ROOT thread counts, training threads,
   seeds, and farm scheduling are not coordinated centrally. Launcher v1 fixes
   bootstrap replicas at zero and does not perform sideband correction.
-- Some publishers are atomic at directory or file level; reconstruction and
-  plotting generally write directly. Interruption can leave incomplete direct
-  outputs that must be validated before reuse.
+- Cached artifacts and campaign plot directories stage before publication.
+  Reconstruction and direct standalone plotting commands write directly;
+  interruption can leave incomplete campaign outputs.
 - GitHub Wiki publication is not automatic. The repository provides a sync
   script, but a human must run it deliberately with a configured remote.
 
@@ -25,7 +27,7 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 
 - CERN ROOT and a compatible PyROOT/Python ABI are external requirements.
   Standard Python dependency installation cannot repair an ABI mismatch.
-- Setup assumes a POSIX shell and uses symbolic links for farm data.
+- Setup assumes a POSIX shell and uses a symbolic link for raw farm data.
 - ROOT serialization details, `TLorentzVector`, `RDataFrame`, and PyROOT object
   lifetime behavior are part of several adapters.
 - Training depends on the versions of XGBoost, scikit-learn, NumPy, uproot,
@@ -38,8 +40,8 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 
 - Raw detector data, pre-analysis data, most MC ROOT files, and production flux
   inputs are not downloaded by the repository.
-- Farm paths are site-specific and must be supplied to setup. Local mode creates
-  directory structure only.
+- Raw farm path is site-specific and supplied to setup. Operators copy h80
+  pre-analysis files into flat `data/02_pre_analyzed/` manually.
 - Large ROOT, NPZ, selected-data, calibration, reconstruction, observable, and
   plot outputs are ignored by Git. Git history is not an artifact archive.
 - There is no built-in remote data acquisition, checksum catalog, object-store

@@ -9,11 +9,11 @@ from pre-analysis onward.
 
 ## Execution Model
 
-There is one central version-one runner, `scripts/run_pipeline.py`, but no DAG,
-scheduler, queue integration, freshness database, or resume. It validates
-inputs, runs each supported stage sequentially, records commands, and stops on
-the first nonzero exit. Numbered directories still own stage behavior and file
-contracts.
+There is one central runner, `scripts/run_pipeline.py`, with a ten-day
+production cache for selected, MC, and BDT artifacts. It has no DAG,
+scheduler, queue integration, or campaign resume. It validates inputs, records
+RUN/SKIP decisions, and stops on the first failed stage. Numbered directories
+still own stage behavior and file contracts.
 
 The launcher supports `test_data` and `production`, both beginning with
 `pre_analisi_*.root` files containing `h80`. Raw `h70` pre-analysis remains a
@@ -60,7 +60,7 @@ flowchart LR
 | Grid search | `best_hyperparams.json` | Final training |
 | Final training | Model, threshold, provenance | Stage-1 runtime gate |
 | Reconstruction | Reconstructed and sideband ROOT trees | Observable extraction, plots |
-| Calibration | Calibrated ROOT flux (`data/00_external/` standalone; `results/<mode>/common/` launcher) | Observable extraction |
+| Calibration | Calibrated ROOT flux (`data/00_external/` standalone; `results/<campaign>/common/` launcher) | Observable extraction |
 | Observable extraction | Result ROOT and PDF products | Scientific review and publication |
 
 ## Training Branch

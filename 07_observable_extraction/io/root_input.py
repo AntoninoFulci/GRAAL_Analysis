@@ -9,15 +9,17 @@ from pathlib import Path
 import ROOT
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
+from observable_extraction.core.binning import PHI_EDGES_RAD
 from observable_extraction.io.root_output import OutputPoint
 
 
 @dataclass(frozen=True)
 class RootOutputContract:
-    """Profile identity and energy binning stored in one ROOT output."""
+    """Profile identity and energy/azimuth binning stored in one ROOT output."""
 
     profile: str | None
     energy_edges_gev: tuple[float, ...]
+    phi_edges_rad: tuple[float, ...] = tuple(PHI_EDGES_RAD)
 
 
 def _id_maps(text: str, path: Path) -> dict[str, dict[int, str]]:
@@ -92,7 +94,21 @@ def read_output_contract(path: Path) -> RootOutputContract:
                 raise RuntimeError(f"{path}: malformed profile provenance")
             if profile_values:
                 profile = profile_values[0]
-        return RootOutputContract(profile=profile, energy_edges_gev=edges)
+        vector = source.Get("binning/phi_edges")
+        # Legacy Stage-07 outputs enforced exactly 12 phi bins.
+        phi_edges = tuple(PHI_EDGES_RAD)
+        if vector:
+            if not hasattr(vector, "GetNrows"):
+                raise RuntimeError(f"{path}: invalid binning/phi_edges")
+            phi_edges = tuple(float(vector[index]) for index in range(vector.GetNrows()))
+            if (
+                len(phi_edges) < 2
+                or not all(math.isfinite(edge) for edge in phi_edges)
+                or any(high <= low for low, high in zip(phi_edges[:-1], phi_edges[1:]))
+            ):
+                raise RuntimeError(f"{path}: invalid binning/phi_edges")
+        return RootOutputContract(profile=profile, energy_edges_gev=edges,
+                                  phi_edges_rad=phi_edges)
     finally:
         source.Close()
 

@@ -37,7 +37,7 @@ own `(run_number, xstrip)` stratum. Missing strata are rejected before fitting.
 
 ## Normalized-Ratio Fit
 
-For each of the 12 azimuth bins, observed counts are divided by integrated
+For each of the requested 8, 12, or 16 azimuth bins (default 12), observed counts are divided by integrated
 exposure:
 
 ```math
@@ -165,7 +165,7 @@ an unbounded Sigma.
 
 | Property | Normalized ratio | Conditional likelihood |
 |---|---|---|
-| data representation | 12 binned phi counts per state | individual event labels and phi values |
+| data representation | 8, 12, or 16 binned phi counts per state | individual event labels and phi values |
 | exposure treatment | summed by energy bin, flux-weighted polarization | exact run/strip exposure per event |
 | statistical error | weighted least-squares covariance | `Delta NLL = 0.5` profile interval |
 | physical bound | enforced by `SigmaPoint` output contract | enforced during minimization |

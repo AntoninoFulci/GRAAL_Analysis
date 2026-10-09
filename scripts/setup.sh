@@ -6,13 +6,12 @@ usage() {
     cat <<'EOF'
 Usage:
   ./scripts/setup.sh --mode local [--python PATH]
-  ./scripts/setup.sh --mode farm --raw-target DIR --pre-target DIR [--python PATH]
+  ./scripts/setup.sh --mode farm --raw-target DIR [--python PATH]
 
 Options:
   --mode local       Set up Python environment and local data directories.
-  --mode farm        Also link raw and pre-analysis directories from farm storage.
+  --mode farm        Link raw data; place h80 files in data/02_pre_analyzed/ manually.
   --raw-target DIR   Existing farm directory containing acquisition-period folders.
-  --pre-target DIR   Existing farm directory containing pre_analisi_*.root files.
   --python PATH      Base Python interpreter (default: python3).
   --help             Show this help.
 EOF
@@ -24,7 +23,6 @@ REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd -P)
 MODE=""
 PYTHON_BIN="python3"
 RAW_TARGET=""
-PRE_TARGET=""
 
 require_value() {
     local option=$1 value=${2:-}
@@ -51,11 +49,6 @@ while [[ $# -gt 0 ]]; do
             RAW_TARGET=$2
             shift 2
             ;;
-        --pre-target)
-            require_value "$1" "${2:-}"
-            PRE_TARGET=$2
-            shift 2
-            ;;
         --help|-h)
             usage
             exit 0
@@ -73,20 +66,15 @@ if [[ ${MODE} != "local" && ${MODE} != "farm" ]]; then
 fi
 
 if [[ ${MODE} == "farm" ]]; then
-    if [[ -z ${RAW_TARGET} || -z ${PRE_TARGET} ]]; then
-        echo "ERROR: farm mode requires --raw-target and --pre-target" >&2
+    if [[ -z ${RAW_TARGET} ]]; then
+        echo "ERROR: farm mode requires --raw-target" >&2
         exit 2
     fi
     if [[ ! -d ${RAW_TARGET} ]]; then
         echo "ERROR: raw target is not a directory: ${RAW_TARGET}" >&2
         exit 1
     fi
-    if [[ ! -d ${PRE_TARGET} ]]; then
-        echo "ERROR: pre-analysis target is not a directory: ${PRE_TARGET}" >&2
-        exit 1
-    fi
     RAW_TARGET=$(cd "${RAW_TARGET}" && pwd -P)
-    PRE_TARGET=$(cd "${PRE_TARGET}" && pwd -P)
 fi
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -162,7 +150,6 @@ ensure_directory_link() {
 
 if [[ ${MODE} == "farm" ]]; then
     ensure_directory_link "${REPO_ROOT}/data/01_raw/graal_data" "${RAW_TARGET}"
-    ensure_directory_link "${REPO_ROOT}/data/02_pre_analyzed/pre_analisi" "${PRE_TARGET}"
 fi
 
 "${VENV_PYTHON}" -c \

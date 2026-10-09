@@ -5,7 +5,7 @@ import pytest
 import ROOT
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
-from observable_extraction.io.root_input import read_output_points
+from observable_extraction.io.root_input import read_output_points, read_output_contract
 from observable_extraction.io.root_output import (
     OutputPoint,
     RootOutputPayload,
@@ -66,6 +66,32 @@ def test_root_output_points_round_trip(tmp_path):
     payload = _write(output)
 
     assert read_output_points(output) == payload.points
+
+
+def test_legacy_root_without_phi_edges_is_read_as_twelve_bins(tmp_path):
+    output = tmp_path / "legacy.root"
+    _write(output)
+    source = ROOT.TFile(str(output), "UPDATE")
+    source.GetDirectory("binning").Delete("phi_edges;*")
+    source.Close()
+    contract = read_output_contract(output)
+    np.testing.assert_allclose(contract.phi_edges_rad, np.linspace(0.0, 2.0 * np.pi, 13))
+
+
+@pytest.mark.parametrize("values", [[0.0, 1.0, 0.5], [0.0, float("nan")], [0.0]])
+def test_root_contract_rejects_malformed_phi_edges(tmp_path, values):
+    output = tmp_path / "bad_phi.root"
+    _write(output)
+    source = ROOT.TFile(str(output), "UPDATE")
+    source.GetDirectory("binning").cd()
+    source.GetDirectory("binning").Delete("phi_edges;*")
+    vector = ROOT.TVectorD(len(values))
+    for index, value in enumerate(values):
+        vector[index] = value
+    vector.Write("phi_edges")
+    source.Close()
+    with pytest.raises(RuntimeError, match="invalid binning/phi_edges"):
+        read_output_contract(output)
 
 
 def test_reader_rejects_missing_sigma_tree_with_path(tmp_path):

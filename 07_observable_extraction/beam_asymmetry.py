@@ -16,6 +16,8 @@ from graal_common.physics.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import (
     PHI_EDGES_RAD,
+    PHI_BIN_CHOICES,
+    phi_edges_rad,
     PAIR_NAMES,
     pair_mass_edges,
 )
@@ -133,6 +135,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("results/beam_asymmetry"),
     )
+    parser.add_argument("--plots-dir", type=Path, help="directory for diagnostic PDFs (default: output-dir)")
     parser.add_argument(
         "--nominal-sample",
         choices=tuple(SAMPLES),
@@ -144,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
     )
     parser.add_argument("--profile", choices=BEAM_PROFILES, default="uv")
-    parser.add_argument("--phi-bins", type=int, default=12)
+    parser.add_argument("--phi-bins", type=int, choices=PHI_BIN_CHOICES, default=12)
     parser.add_argument("--mass-bins", type=int, default=10)
     parser.add_argument("--bootstrap-replicas", type=int, default=0)
     parser.add_argument("--bootstrap-seed", type=int, default=1208)
@@ -354,6 +357,7 @@ def _background_asymmetries(
     exposures,
     estimator: str,
     energy_edges: np.ndarray,
+    phi_edges: np.ndarray = PHI_EDGES_RAD,
 ) -> dict[tuple[str, str, int, int], OutputPoint]:
     regions = _sideband_regions(broad_events)
     hard_events = broad_events.take(regions == Region.HARD_SIDEBAND)
@@ -366,6 +370,7 @@ def _background_asymmetries(
         estimator=estimator,
         retain_ratio_objects=False,
         energy_edges=energy_edges,
+        phi_edges=phi_edges,
     )
     return {
         (
@@ -386,6 +391,7 @@ def _extract_sample(
     estimator: str,
     retain_ratio_objects: bool,
     energy_edges: np.ndarray,
+    phi_edges: np.ndarray = PHI_EDGES_RAD,
 ) -> ExtractionBundle:
     projections = project_all_pairs(events.proton, events.eta, events.pi0)
     output_points: list[OutputPoint] = []
@@ -401,6 +407,7 @@ def _extract_sample(
             polarization=events.polarization,
             exposures=exposures,
             energy_edges=energy_edges,
+            phi_edges=phi_edges,
         )
         ratio_by_bin.update(
             {
@@ -413,7 +420,7 @@ def _extract_sample(
                 _ratio_output_point(sample_name, item) for item in ratio_results
             )
             if retain_ratio_objects:
-                phi_centers = 0.5 * (PHI_EDGES_RAD[:-1] + PHI_EDGES_RAD[1:])
+                phi_centers = 0.5 * (phi_edges[:-1] + phi_edges[1:])
                 for item in ratio_results:
                     used = item.fit.used_mask
                     ratio_objects.append(
@@ -530,6 +537,7 @@ def _bootstrap_covariance_for_points(
     replicas: int,
     seed: int,
     energy_edges: np.ndarray,
+    phi_edges: np.ndarray = PHI_EDGES_RAD,
 ) -> np.ndarray | None:
     if replicas == 0:
         return None
@@ -565,6 +573,7 @@ def _bootstrap_covariance_for_points(
             estimator=estimator,
             retain_ratio_objects=False,
             energy_edges=energy_edges,
+            phi_edges=phi_edges,
         )
         fitted = {
             (item.point.pair, item.point.energy_bin, item.point.mass_bin): item.point.sigma
@@ -598,6 +607,7 @@ def _photon_multiplicity_component(
     fractions: dict[int, BackgroundEstimate],
     background_by_bin: dict,
     energy_edges: np.ndarray,
+    phi_edges: np.ndarray = PHI_EDGES_RAD,
 ) -> tuple[np.ndarray | None, int, int]:
     selected_indices = [
         index for index, item in enumerate(points) if item.sample == sample_name
@@ -620,6 +630,7 @@ def _photon_multiplicity_component(
             estimator=estimator,
             retain_ratio_objects=False,
             energy_edges=energy_edges,
+            phi_edges=phi_edges,
         )
         extracted = list(bundle.points)
         if fractions:
@@ -654,8 +665,9 @@ def _photon_multiplicity_component(
 
 
 def run(args: argparse.Namespace) -> int:
-    if args.phi_bins != 12 or args.mass_bins != 10:
-        raise ValueError("nominal extraction requires 12 phi bins and 10 mass bins")
+    phi_edges = phi_edges_rad(args.phi_bins)
+    if args.mass_bins != 10:
+        raise ValueError("nominal extraction requires 10 mass bins")
     if (args.sideband is None) != (args.signal_mc is None):
         raise ValueError("--sideband and --signal-mc must be supplied together")
     profile = get_beam_profile(args.profile)
@@ -688,6 +700,7 @@ def run(args: argparse.Namespace) -> int:
         estimator=args.estimator,
         retain_ratio_objects=True,
         energy_edges=energy_edges,
+        phi_edges=phi_edges,
     )
     output_points = list(nominal.points)
     background_fractions: dict[int, BackgroundEstimate] = {}
@@ -715,6 +728,7 @@ def run(args: argparse.Namespace) -> int:
             exposures,
             args.estimator,
             energy_edges,
+            phi_edges,
         )
         output_points = _apply_background_correction(
             output_points,
@@ -744,6 +758,7 @@ def run(args: argparse.Namespace) -> int:
             estimator=args.estimator,
             retain_ratio_objects=False,
             energy_edges=energy_edges,
+            phi_edges=phi_edges,
         )
         output_points.extend(comparison.points)
     if not output_points:
@@ -760,6 +775,7 @@ def run(args: argparse.Namespace) -> int:
             fractions=background_fractions,
             background_by_bin=background_by_bin,
             energy_edges=energy_edges,
+            phi_edges=phi_edges,
         )
     )
     extra_shifts = (
@@ -787,6 +803,7 @@ def run(args: argparse.Namespace) -> int:
         replicas=args.bootstrap_replicas,
         seed=args.bootstrap_seed,
         energy_edges=energy_edges,
+        phi_edges=phi_edges,
     )
     if bootstrap_covariance is not None:
         off_diagonal = bootstrap_covariance.copy()
@@ -804,6 +821,7 @@ def run(args: argparse.Namespace) -> int:
     payload = RootOutputPayload(
         points=tuple(output_points),
         energy_edges=energy_edges,
+        phi_edges=phi_edges,
         mass_edges={pair: pair_mass_edges(pair) for pair in PAIR_NAMES},
         covariance_total=covariance_total,
         systematic_covariances=systematic_covariances,
@@ -812,6 +830,7 @@ def run(args: argparse.Namespace) -> int:
             f"sample={args.nominal_sample}\n"
             f"estimator={args.estimator}\n"
             f"profile={profile.name}\n"
+            f"phi_bins={args.phi_bins}\n"
             "POL1=vertical\nPOL2=horizontal\nBREM=independent-control\n"
             f"background={'sideband-corrected' if background_fractions else 'uncorrected'}\n"
             f"signal_mc_hard_sideband_leakage={background_leakage}\n"
@@ -821,28 +840,29 @@ def run(args: argparse.Namespace) -> int:
         bootstrap_covariance=bootstrap_covariance,
     )
     write_root_output(args.output_dir / "beam_asymmetry.root", payload)
+    plots_dir = args.plots_dir if args.plots_dir is not None else args.output_dir
     active_rows = profile_energy_rows(profile.name)
     points_by_profile = {profile.name: output_points}
     write_profile_figure4_pdf(
-        args.output_dir / "figure4_experimental.pdf",
+        plots_dir / "figure4_experimental.pdf",
         points_by_profile,
         active_rows,
         sample=args.nominal_sample,
         estimator=figure_estimator,
     )
     write_point_comparison_pdf(
-        args.output_dir / "comparison_reconstruction_samples.pdf",
+        plots_dir / "comparison_reconstruction_samples.pdf",
         [item for item in output_points if item.estimator == figure_estimator],
         group_by="sample",
     )
     write_profile_estimator_comparison_pdf(
-        args.output_dir / "comparison_estimators.pdf",
+        plots_dir / "comparison_estimators.pdf",
         points_by_profile,
         active_rows,
         sample=args.nominal_sample,
     )
     write_profile_fit_diagnostics_pdf(
-        args.output_dir / "fit_diagnostics.pdf",
+        plots_dir / "fit_diagnostics.pdf",
         {
             profile.name: tuple(
                 item
@@ -854,12 +874,12 @@ def run(args: argparse.Namespace) -> int:
         sample=args.nominal_sample,
     )
     write_systematic_summary_pdf(
-        args.output_dir / "systematic_summary.pdf",
+        plots_dir / "systematic_summary.pdf",
         systematic_covariances,
     )
     if background_leakage is not None:
         write_background_control_pdf(
-            args.output_dir / "background_control.pdf",
+            plots_dir / "background_control.pdf",
             background_fractions,
             signal_leakage=background_leakage,
         )
@@ -878,11 +898,12 @@ def run(args: argparse.Namespace) -> int:
         )
         brem_phi = {pair: brem_projections[pair][1] for pair in PAIR_NAMES}
     write_false_asymmetry_controls_pdf(
-        args.output_dir / "false_asymmetry_controls.pdf",
+        plots_dir / "false_asymmetry_controls.pdf",
         brem_phi,
+        phi_edges=phi_edges,
     )
     write_photon_multiplicity_pdf(
-        args.output_dir / "photon_multiplicity.pdf",
+        plots_dir / "photon_multiplicity.pdf",
         inclusive_count=inclusive_count,
         exactly_four_count=exactly_four_count,
         shifts=(

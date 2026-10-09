@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from array import array
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import os
 from pathlib import Path
@@ -14,6 +14,7 @@ import numpy as np
 import ROOT
 
 from observable_extraction.core.models import SigmaPoint
+from observable_extraction.core.binning import PHI_EDGES_RAD, validate_edges
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class RootOutputPayload:
     provenance: str
     statistical_covariance: np.ndarray | None = None
     bootstrap_covariance: np.ndarray | None = None
+    phi_edges: np.ndarray = field(default_factory=lambda: PHI_EDGES_RAD.copy())
 
 
 def _directory(root_file, path: str):
@@ -232,6 +234,7 @@ def _write_payload(path: Path, payload: RootOutputPayload) -> None:
         _write_diagnostics(output, payload.points)
         binning = _directory(output, "binning")
         _write_vector(binning, "energy_edges", payload.energy_edges)
+        _write_vector(binning, "phi_edges", validate_edges(payload.phi_edges))
         for pair, edges in payload.mass_edges.items():
             _write_vector(binning, f"{pair}_mass_edges", edges)
 

@@ -29,12 +29,13 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     assert not hasattr(args, "json_output")
 
 
-def _synthetic_events(sigma=0.30, beam_energy_gev=1.15):
-    centers = 0.5 * (PHI_EDGES_RAD[:-1] + PHI_EDGES_RAD[1:])
+def _synthetic_events(sigma=0.30, beam_energy_gev=1.15, phi_bins=12):
+    edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
+    centers = 0.5 * (edges[:-1] + edges[1:])
     flux_v, flux_h = 1.2, 0.9
     pol_v, pol_h = 0.6, 0.55
     ratio = sigma * np.cos(2.0 * centers)
-    yield_v = np.full(12, 150.0)
+    yield_v = np.full(phi_bins, 150.0)
     yield_h = yield_v * (1.0 - pol_h * ratio) / (1.0 + pol_v * ratio)
     counts_v = np.rint(flux_v * yield_v).astype(int)
     counts_h = np.rint(flux_h * yield_h).astype(int)
@@ -72,10 +73,11 @@ def _synthetic_events(sigma=0.30, beam_energy_gev=1.15):
     )
 
 
+@pytest.mark.parametrize("phi_bins", [8, 12, 16])
 def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, phi_bins
 ):
-    events = _synthetic_events(beam_energy_gev=1.0)
+    events = _synthetic_events(beam_energy_gev=1.0, phi_bins=phi_bins)
     exposures = {
         (811, 17): FluxExposure(811, 17, 1.0, 1.2, 0.9, 0.2, 0.6, 0.55)
     }
@@ -108,6 +110,7 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
             "--flux-file", str(tmp_path / "flux_calibrated.root"),
             "--run-manifest", str(tmp_path / "run_manifest.csv"),
             "--profile", "vis",
+            "--phi-bins", str(phi_bins),
             "--output-dir", str(output),
         ]
     )
@@ -139,8 +142,27 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
         ]
         assert stored_edges == pytest.approx([0.9313, 1.10])
         assert "profile=vis" in source.Get("provenance").GetTitle()
+        assert f"phi_bins={phi_bins}" in source.Get("provenance").GetTitle()
+        phi_edges = source.Get("binning/phi_edges")
+        assert phi_edges.GetNrows() == phi_bins + 1
+        np.testing.assert_allclose(
+            [phi_edges[index] for index in range(phi_edges.GetNrows())],
+            np.linspace(0.0, 2.0 * np.pi, phi_bins + 1),
+        )
+        ratios = source.Get("ratio_objects/p_pi0/e0")
+        (mass_key,) = tuple(ratios.GetListOfKeys())
+        graph = ratios.Get(mass_key.GetName()).Get("ratio")
+        assert graph.GetN() == phi_bins
+        # All synthetic events have exactly four photons: selecting exactly four
+        # must give the same result with the same phi binning.
+        multiplicity = source.Get("covariance/systematic/photon_multiplicity")
+        assert multiplicity
+        for index in range(1, multiplicity.GetNbinsX() + 1):
+            assert multiplicity.GetBinContent(index, index) == pytest.approx(0.0, abs=1e-15)
     finally:
         source.Close()
+    from observable_extraction.io.root_input import read_output_contract
+    assert len(read_output_contract(output / "beam_asymmetry.root").phi_edges_rad) == phi_bins + 1
 
 
 def test_background_correction_keeps_uncorrected_value_and_propagates_error():

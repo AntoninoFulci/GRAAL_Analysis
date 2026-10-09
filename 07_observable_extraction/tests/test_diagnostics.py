@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from observable_extraction.tests.test_figure4 import _points
 from observable_extraction.plotting.diagnostics import (
@@ -11,6 +12,7 @@ from observable_extraction.plotting.diagnostics import (
     write_photon_multiplicity_pdf,
     write_point_comparison_pdf,
     write_systematic_summary_pdf,
+    build_raw_fit_comparison,
 )
 from observable_extraction.plotting.figure4 import (
     combined_energy_rows,
@@ -102,4 +104,31 @@ def test_fit_diagnostics_use_ratio_only_and_leave_empty_panels_blank():
     assert axes.shape == (1, 3)
     assert axes[0, 0].lines[0].get_xdata().tolist() == [0.75]
     assert [text.get_text() for text in axes[0, 1].texts] == ["No fit"]
+    figure.clf()
+
+
+def test_raw_fit_comparison_requires_paired_samples():
+    point = _points()[0]
+    rows = profile_energy_rows("uv")[:1]
+    with pytest.raises(ValueError, match="raw_bdt_fit"):
+        build_raw_fit_comparison({"uv": (point,)}, rows, estimator="ratio")
+
+
+def test_raw_fit_comparison_uses_five_profile_energy_rows():
+    uv_raw = _points()
+    uv_fit = tuple(replace(item, sample="raw_bdt_fit") for item in uv_raw)
+    vis_raw = tuple(
+        replace(item, point=replace(item.point, energy_bin=0, energy_low_gev=0.9313,
+                                    energy_high_gev=1.10))
+        for item in uv_raw if item.point.energy_bin == 0
+    )
+    vis_fit = tuple(replace(item, sample="raw_bdt_fit") for item in vis_raw)
+    figure, axes = build_raw_fit_comparison(
+        {"uv": uv_raw + uv_fit, "vis": vis_raw + vis_fit},
+        combined_energy_rows(), estimator="ratio",
+    )
+    assert axes.shape == (5, 3)
+    assert all(len(axis.containers) == 2 for axis in axes.flat)
+    assert "VIS" in axes[0, 0].get_ylabel()
+    assert "UV" in axes[1, 0].get_ylabel()
     figure.clf()

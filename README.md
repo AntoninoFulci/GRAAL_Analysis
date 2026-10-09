@@ -31,15 +31,15 @@ external detector data:
 ```bash
 ./scripts/setup.sh --mode farm \
   --python /path/to/python3.10 \
-  --raw-target /farm/path/graal_data \
-  --pre-target /farm/path/pre_analisi
+  --raw-target /farm/path/graal_data
 
 source .venv/bin/activate
 ```
 
 Setup creates or reuses `.venv` with system site packages, installs
 dependencies and the editable project, prepares `data/`, and validates runtime
-imports. It never replaces an existing data path or mismatched link.
+imports. Copy `pre_analisi_*.root` files directly into `data/02_pre_analyzed/`.
+Setup never replaces an existing data path or mismatched link.
 
 ## Run
 
@@ -51,9 +51,13 @@ python scripts/run_pipeline.py --mode test_data
 python scripts/run_pipeline.py --mode production
 ```
 
-Calibration runs once. Selection, MC, beam spectrum, fresh BDT training,
-reconstruction, and asymmetry extraction remain separate for UV and VIS; only
-final Stage-07 points meet in combined plots. See the
+Both modes accept `--phi-bins 8|12|16` (default: `12`). Each launch produces
+one binning for UV/VIS ratio fits, preserving the campaign output layout.
+
+Calibration runs once. Production reuses validated selection, MC, and BDT
+artifacts in `data/` for up to ten days; `test_data` rebuilds its parallel
+artifacts on every run. Reconstruction, asymmetry extraction, and plots live
+under the named campaign in `results/`. See the
 [full pipeline runbook](docs/runbooks/full-pipeline.md) for server setup,
 outputs, and failure behavior.
 

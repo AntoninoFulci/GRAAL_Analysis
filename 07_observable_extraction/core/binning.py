@@ -1,4 +1,4 @@
-"""Fixed Figure 4 energy, azimuth, and invariant-mass binning."""
+"""Figure 4 energy, configurable azimuth, and fixed invariant-mass binning."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import numpy as np
 
 ENERGY_EDGES_GEV = np.array([1.10, 1.20, 1.30, 1.40, 1.50], dtype=np.float64)
 PHI_EDGES_RAD = np.linspace(0.0, 2.0 * math.pi, 13, dtype=np.float64)
+PHI_BIN_CHOICES = (8, 12, 16)
 PAIR_NAMES = ("p_pi0", "p_eta", "eta_pi0")
 
 _PAIR_MASS_RANGES_GEV = {
@@ -15,6 +16,13 @@ _PAIR_MASS_RANGES_GEV = {
     "p_eta": (1.4, 1.8),
     "eta_pi0": (0.6, 1.0),
 }
+
+
+def phi_edges_rad(bins: int = 12) -> np.ndarray:
+    """Build supported uniform azimuth bins over the full laboratory circle."""
+    if isinstance(bins, bool) or not isinstance(bins, int) or bins not in PHI_BIN_CHOICES:
+        raise ValueError("phi bins must be 8, 12, or 16")
+    return np.linspace(0.0, 2.0 * math.pi, bins + 1, dtype=np.float64)
 
 
 def validate_edges(edges: np.ndarray) -> np.ndarray:

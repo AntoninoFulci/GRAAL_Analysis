@@ -1,9 +1,9 @@
 # Plotting and Diagnostics
 
 Plotting is an unnumbered consumer of validated stage artifacts. It does not
-reconstruct events, retrain the BDT, or calibrate flux. Three entry points cover
-reconstruction comparisons, Compton-polarization reproduction, and kinematic-
-fit resolution. Shared numerical kinematics live in `plots/core/kinematics.py`;
+reconstruct events, retrain the BDT, or calibrate flux. Entry points cover
+campaign postprocessing, reconstruction comparisons, Compton-polarization
+reproduction, and kinematic-fit resolution. Shared numerical kinematics live in `plots/core/kinematics.py`;
 ROOT access for reconstructed trees lives in
 `plots/core/reconstruction_data.py`.
 
@@ -11,6 +11,7 @@ ROOT access for reconstructed trees lives in
 
 | Entry point | Inputs | Backend | Purpose |
 |---|---|---|---|
+| `scripts.plot_campaign` | completed UV/VIS campaign ROOT files | PyROOT, matplotlib | regenerate canonical profile and common plots |
 | `plots.dalitz` | chi-square and BDT reconstruction ROOT files | PyROOT | Dalitz, meson-mass, raw/fit, and reconstruction-path comparisons |
 | `plots/fig7_compton_polarization.py` | shared Compton constants only | PyROOT | reproduce UV/VIS polarization-transfer curves and persist ROOT objects |
 | `plots.kinfit_resolution` | signal-MC ROOT plus optional fitted BDT data ROOT | uproot, NumPy, matplotlib | compare raw and fitted recoil-mass resolution against MC truth |
@@ -25,14 +26,15 @@ python -m plots.dalitz \
 ```
 
 The files must contain `reco_eta_pi0_chi2` and `reco_eta_pi0_bdt`
-respectively. If `fit_chi2` exists, the adapter uses `eta_fit` and `pi0_fit`
+respectively. If `fit_chi2` exists, the adapter uses `eta_fit`, `pi0_fit`, and `proton_fit`
 for the displayed meson masses and Dalitz axes while retaining raw masses for
 dashed before/after overlays. Without fit branches it consistently falls back
 to raw vectors.
 
 Two proton constructions are intentionally shown:
 
-- `misurato` uses the measured `proton` branch and is independent of photons;
+- `misurato` uses measured `proton` for raw data and `proton_fit` with fitted
+  mesons; the recoil track contributes independent information;
 - `implicito` uses `missing`. Because `eta + missing = beam + target - pi0`,
   this is a missing-mass construction, clean by algebra but not independent
   information.
@@ -115,9 +117,13 @@ Matplotlib runs with the non-interactive `Agg` backend.
   distributions.
 - Figure 7 is an analytic beam/polarization reproduction, not a fit to detector
   data.
-- These diagnostic scripts generally write directly to output files; unlike
-  atomic stage publishers, they do not preserve an old complete plot set if a
-  later figure fails.
+- The campaign postprocessor stages profile and common plot directories before
+  publishing. Run `python -m scripts.plot_campaign --campaign results/NAME` to
+  regenerate plots from existing reconstruction and Stage-07 ROOT files.
+- Campaign plots include paired raw/6C-fit mass shapes for `M(p eta)`,
+  `M(p pi0)`, and `M(eta pi0)`, constrained eta/pi0 masses, and separate ratio
+  and likelihood asymmetry comparisons. Common plots show UV/VIS in the
+  five-row energy grid and separate normalized mass panels.
 
 Tests are in `plots/tests/`: pure kinematics, ROOT adapter behavior, Dalitz
 construction, Compton ROOT objects, and fit-resolution pairing/order checks.

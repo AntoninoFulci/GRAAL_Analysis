@@ -22,8 +22,9 @@ everything falls back to the raw eta/pi0 as before.
 
 Two proton variants are produced, and they are NOT equivalent:
 
-  misurato  — uses the measured `proton` branch: information independent of the
-              photons, and the only variant that can disagree with the beam.
+  misurato  — uses the measured `proton` branch for raw trees and the fitted
+              `proton_fit` with fitted mesons: no mixed raw/fitted vectors.
+              This variant carries recoil-track information.
   implicito — uses `missing`. Note the algebraic identity
                   eta + missing = beam + target - pi0,
               so this variant depends on neither the measured proton nor the

@@ -157,6 +157,26 @@ def _twenty_vis_events():
     return phi, polarization
 
 
+@pytest.mark.parametrize("phi_bins", [8, 12, 16])
+def test_ratio_grid_uses_requested_phi_edges_and_recovers_sigma(phi_bins):
+    edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
+    centers = (edges[:-1] + edges[1:]) / 2.0
+    ratio = 0.30 * np.cos(2.0 * centers)
+    counts_v = np.full(phi_bins, 1000)
+    counts_h = np.rint(1000 * (1.0 - 0.6 * ratio) / (1.0 + 0.6 * ratio)).astype(int)
+    phi = np.concatenate([np.repeat(centers, counts_v), np.repeat(centers, counts_h)])
+    polarization = np.concatenate([np.ones(counts_v.sum(), dtype=int), np.full(counts_h.sum(), 2)])
+    (result,) = extract_ratio_grid(
+        pair="p_pi0", mass_gev=np.full(len(phi), 1.02), phi_rad=phi,
+        beam_energy_gev=np.full(len(phi), 1.15), polarization=polarization,
+        exposures={(811, 17): FluxExposure(811, 17, 1.15, 1.0, 1.0, 0.2, 0.6, 0.6)},
+        phi_edges=edges,
+    )
+    np.testing.assert_array_equal(result.counts_vertical, counts_v)
+    np.testing.assert_array_equal(result.counts_horizontal, counts_h)
+    assert result.point.sigma == pytest.approx(0.30, abs=0.002)
+
+
 @pytest.mark.parametrize(("count", "expected"), [(19, 0), (20, 1)])
 def test_ratio_grid_requires_twenty_selected_events(count, expected):
     phi, polarization = _twenty_vis_events()

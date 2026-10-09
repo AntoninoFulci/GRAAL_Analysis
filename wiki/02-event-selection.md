@@ -10,7 +10,7 @@ The entry point is `02_event_selector/select_events.py`. Its defaults follow
 the numbered data layout:
 
 ```text
-input:   data/02_pre_analyzed/pre_analisi
+input:   data/02_pre_analyzed
 output:  data/03_selected
 threads: all available logical CPUs
 ```
@@ -44,7 +44,7 @@ Run with explicit locations and worker count:
 
 ```bash
 python 02_event_selector/select_events.py \
-  --input-dir data/02_pre_analyzed/pre_analisi \
+  --input-dir data/02_pre_analyzed \
   --output-dir data/03_selected \
   --threads 8
 ```

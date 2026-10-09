@@ -7,7 +7,7 @@ optional background corrections, builds covariance matrices, and writes ROOT
 and PDF products. It does not modify Stage 05 reconstruction files.
 
 Direct Stage-07 runs default to `data/00_external/flux_calibrated.root`; the
-full launcher passes `results/<mode>/common/flux_calibrated.root`. Both use
+full launcher passes `results/<campaign>/common/flux_calibrated.root`. Both use
 `config/run_manifest.csv` to select target and beam profile.
 
 ```mermaid
@@ -16,7 +16,7 @@ flowchart TB
     X["flux_calibrated.root<br/>POL1/POL2/BREM by run<br/>+ run_manifest.csv"]
     A["Adapters and validation"]
     B["Select profile energy range<br/>POL1/POL2 strata"]
-    K["Project p-pi0, p-eta, eta-pi0<br/>profile energy x 10 mass x 12 phi bins"]
+    K["Project p-pi0, p-eta, eta-pi0<br/>profile energy x 10 mass x 8/12/16 phi bins"]
     R["Normalized-ratio estimator"]
     L["Conditional-likelihood estimator"]
     C["Optional 3D sideband correction"]
@@ -57,7 +57,7 @@ Equivalent ordered workflow:
 `flux_calibrated.root` is loaded from `--flux-file`; `--run-manifest` supplies
 target and beam classification. Direct CLI defaults select target `P`, beam
 type `UV`, and energy range 1.10–1.50 GeV. The full launcher passes
-`results/<mode>/common/flux_calibrated.root` and selects UV at 1.10–1.50 GeV
+`results/<campaign>/common/flux_calibrated.root` and selects UV at 1.10–1.50 GeV
 or VIS at 0.9313–1.10 GeV. Legacy schema-v2 CSV input remains supported by the
 loader. ROOT mappings are:
 
@@ -108,14 +108,18 @@ those events so the omission is explicit.
 | Axis | Binning |
 |---|---|
 | photon energy | UV: `[1.10, 1.20, 1.30, 1.40, 1.50]`; VIS: `[0.9313, 1.10]` GeV |
-| azimuth | 12 uniform bins on `[0, 2 pi]` |
+| azimuth | 8, 12, or 16 uniform bins on `[0, 2 pi]`, default 12 |
 | subsystem | `p_pi0`, `p_eta`, `eta_pi0` |
 | invariant mass | 10 bins from pair threshold to `Wmax(1.5 GeV) - spectator mass` |
 
 Intervals are lower-inclusive and upper-exclusive, except the final bin also
-includes its upper edge. The CLI currently enforces exactly 12 azimuth bins
-and 10 mass bins; its options expose the contract but do not permit an
-alternative nominal grid.
+includes its upper edge. The extraction and full launcher accept
+`--phi-bins {8,12,16}`, defaulting to 12; mass binning remains fixed at 10.
+One launch produces one phi binning, shared by nominal, comparison, sideband,
+bootstrap, and azimuthal control calculations. The likelihood uses individual
+event azimuths and is independent of the ratio binning. ROOT results record
+`binning/phi_edges` and `phi_bins` in provenance; composition rejects different
+UV/VIS phi binning. Legacy results without phi metadata imply 12 bins.
 
 ## Extraction Workflow
 

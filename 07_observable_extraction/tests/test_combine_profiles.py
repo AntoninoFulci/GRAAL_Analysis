@@ -21,7 +21,7 @@ def test_combined_cli_defaults_use_production_layout():
         "results/production/vis/beam_asymmetry/beam_asymmetry.root"
     )
     assert args.published_csv == combine_profiles.AJAKA_REFERENCE
-    assert args.output_dir == Path("results/production/combined")
+    assert args.output_dir == Path("results/production/common/plots")
 
 
 def test_ajaka_reference_is_versioned_and_compatibility_copy_matches():
@@ -123,7 +123,7 @@ def test_combined_cli_rejects_empty_profile_root(tmp_path, monkeypatch):
         )
 
 
-def _write_profile_root(path, points, energy_edges, provenance):
+def _write_profile_root(path, points, energy_edges, provenance, phi_edges=None):
     write_root_output(
         path,
         RootOutputPayload(
@@ -134,8 +134,28 @@ def _write_profile_root(path, points, energy_edges, provenance):
             systematic_covariances={},
             ratio_objects=(),
             provenance=provenance,
+            **({"phi_edges": phi_edges} if phi_edges is not None else {}),
         ),
     )
+
+
+def test_combined_cli_rejects_mismatched_phi_binning_before_writing(tmp_path):
+    uv_points = _points()
+    vis_points = tuple(
+        replace(item, point=replace(item.point, energy_bin=0,
+                                    energy_low_gev=0.9313, energy_high_gev=1.10))
+        for item in uv_points
+    )
+    uv_root, vis_root = tmp_path / "uv.root", tmp_path / "vis.root"
+    _write_profile_root(uv_root, uv_points, (1.10, 1.20, 1.30, 1.40, 1.50),
+                        "profile=uv", np.linspace(0.0, 2.0 * np.pi, 9))
+    _write_profile_root(vis_root, vis_points, (0.9313, 1.10),
+                        "profile=vis", np.linspace(0.0, 2.0 * np.pi, 17))
+    output = tmp_path / "combined"
+    with pytest.raises(RuntimeError, match="phi binning"):
+        combine_profiles.main(["--uv-root", str(uv_root), "--vis-root", str(vis_root),
+                               "--output-dir", str(output)])
+    assert not output.exists()
 
 
 def _stub_combined_writers(monkeypatch):

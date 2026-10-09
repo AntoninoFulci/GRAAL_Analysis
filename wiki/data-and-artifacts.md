@@ -98,22 +98,36 @@ polarization. See [Calibration](06-calibration).
 
 ### Full-campaign layout
 
-`python scripts/run_pipeline.py --mode test_data` writes
-`results/test_data/`; production writes `results/production/`. Both use this
-ownership boundary:
+`python scripts/run_pipeline.py --mode test_data` replaces `results/test_data/`;
+production creates a new `results/<campaign>/`. Intermediates stay outside
+campaign results:
 
 ```text
-results/<mode>/
+data/02_pre_analyzed/pre_analisi_*.root       production h80 input
+data/03_selected/{uv,vis}/                   selected h85
+data/04_mc/{uv,vis}/                         channel MC
+data/05_bdt/{uv,vis}/                        beam, features, model bundle
+test_data/02_pre_analyzed/pre_analisi_*.root  disposable h80 input
+test_data/{03_selected,04_mc,05_bdt}/{uv,vis}/
+```
+
+Production items have adjacent cache manifests and can be reused for at most
+ten days after recorded completion if inputs, source, and payloads match.
+Test artifacts are overwritten every run and never gain cache eligibility.
+Campaign results use this boundary:
+
+```text
+results/<campaign>/
 |-- common/flux_calibrated.root
-|-- uv/{selected,mc,bdt,reco,beam_asymmetry}/
-|-- vis/{selected,mc,bdt,reco,beam_asymmetry}/
-|-- combined/
+|-- common/plots/
+|-- uv/{reco,beam_asymmetry,plots}/
+|-- vis/{reco,beam_asymmetry,plots}/
+|-- pipeline_artifacts.json
 `-- pipeline_commands.log
 ```
 
-Only final Stage-07 point products are composed under `combined/`. Selected
-events, MC, BDT bundles, reconstructions, and asymmetry ROOT files stay
-profile-local. Ajaka digitization is tracked at
+Final Stage-07 point products and mass shapes are composed under
+`common/plots/`. Ajaka digitization is tracked at
 `07_observable_extraction/references/ajaka2008_figure4_digitized.csv`, not a
 generated or ignored local fixture.
 
@@ -137,8 +151,6 @@ the experiment's storage system together with command line, source revision,
 input identities, and environment information. Git only protects tracked
 contracts and the explicitly versioned small/model artifacts.
 
-Atomic publication is stage-specific: event selection and signal-MC
-preparation stage complete directories before replacement; calibration and
-observable ROOT output use temporary sibling files. Reconstruction and most
-plotting entry points write ROOT/PDF outputs directly. Never infer atomicity
-from a file extension.
+Launcher staging validates selection, individual MC channels, and entire BDT
+bundles before publication. Campaign postprocessing stages plot directories.
+Direct standalone stage calls remain operator-managed.

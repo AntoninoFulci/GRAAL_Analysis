@@ -4,20 +4,32 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import importlib
+import json
 import os
 import shlex
 import subprocess
 import time
+from datetime import datetime, timezone
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import sys
+import tempfile
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from calibration.run_manifest import validate_manifest
 from graal_common.physics.beam_profiles import get_beam_profile
 from graal_common.physics.channels import CHANNEL_NAMES, get_channel
+from scripts import artifact_manifest as cache
+from scripts.artifact_manifest import validate_preanalysis
+from graal_common.io.filesystem import atomic_output_directory
+from observable_extraction.core.binning import PHI_BIN_CHOICES, phi_edges_rad
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -62,6 +74,7 @@ class ModeConfig:
 class PipelinePaths:
     repo_root: Path
     preanalysis_dir: Path
+    data_root: Path
     output_root: Path
     manifest: Path
     raw_flux: Path
@@ -74,7 +87,7 @@ class PipelinePaths:
 
     @property
     def combined_dir(self) -> Path:
-        return self.output_root / "combined"
+        return self.output_root / "common/plots"
 
     @property
     def command_log(self) -> Path:
@@ -84,6 +97,18 @@ class PipelinePaths:
         if profile not in PROFILE_PATTERNS:
             raise PipelineError(f"unknown beam profile: {profile}")
         return self.output_root / profile
+
+    def selected_dir(self, profile: str) -> Path:
+        self.profile_root(profile)
+        return self.data_root / "03_selected" / profile
+
+    def mc_dir(self, profile: str) -> Path:
+        self.profile_root(profile)
+        return self.data_root / "04_mc" / profile
+
+    def bdt_dir(self, profile: str) -> Path:
+        self.profile_root(profile)
+        return self.data_root / "05_bdt" / profile
 
 
 @dataclass(frozen=True)
@@ -100,9 +125,9 @@ class Stage:
 def mode_config(mode: str, repo_root: Path = REPO_ROOT) -> ModeConfig:
     repo_root = Path(repo_root).resolve()
     values = {
-        "test_data": ("test_data/pre_analyzed", "results/test_data", 100_000),
+        "test_data": ("test_data/02_pre_analyzed", "results/test_data", 100_000),
         "production": (
-            "data/02_pre_analyzed/pre_analisi",
+            "data/02_pre_analyzed",
             "results/production",
             1_000_000,
         ),
@@ -126,11 +151,12 @@ def build_paths(
     output = (
         config.default_output
         if output_override is None
-        else Path(output_override).expanduser().resolve()
+        else Path(output_override).expanduser().absolute()
     )
     return PipelinePaths(
         repo_root=config.repo_root,
         preanalysis_dir=config.preanalysis_dir,
+        data_root=config.repo_root / ("data" if config.name == "production" else "test_data"),
         output_root=output,
         manifest=config.repo_root / "config/run_manifest.csv",
         raw_flux=config.repo_root / "data/00_external/flux.root",
@@ -186,6 +212,7 @@ def preflight(
     import_module: Callable[[str], object] = importlib.import_module,
     which: Callable[[str], str | None] = shutil.which,
     manifest_validator: Callable[[Path], object] = validate_manifest,
+    preanalysis_validator: Callable[[Sequence[Path]], None] = validate_preanalysis,
     python_version: tuple[int, int] = sys.version_info[:2],
 ) -> PreflightResult:
     if python_version < (3, 10):
@@ -200,10 +227,20 @@ def preflight(
             f"pre-analysis directory not found: {paths.preanalysis_dir}"
         )
     for profile, pattern in PROFILE_PATTERNS.items():
-        if not any(path.is_file() for path in paths.preanalysis_dir.glob(pattern)):
+        files = sorted(path for path in paths.preanalysis_dir.glob(pattern) if path.is_file())
+        if not files:
             raise PipelineError(
                 f"{profile.upper()} pre-analysis files not found: {pattern}"
             )
+        try:
+            preanalysis_validator(files)
+        except Exception as exc:
+            raise PipelineError(f"{profile.upper()} pre-analysis invalid: {exc}") from exc
+        if config.name == "production":
+            now = datetime.now(timezone.utc).timestamp()
+            for path in files:
+                if now - path.stat().st_mtime > 10 * 86400:
+                    print(f"WARNING: pre-analysis input older than 10 days: {path}")
     for path in required_repository_files(paths):
         if not path.is_file():
             raise PipelineError(f"required file not found: {path}")
@@ -212,7 +249,7 @@ def preflight(
             raise PipelineError(
                 f"output root is not a directory: {paths.output_root}"
             )
-        if any(paths.output_root.iterdir()):
+        if config.name == "production" and any(paths.output_root.iterdir()):
             raise PipelineError(f"output root is not empty: {paths.output_root}")
     writable = _writable_ancestor(paths.output_root)
     if not writable.is_dir() or not os.access(writable, os.W_OK):
@@ -282,12 +319,13 @@ def _profile_stages(
     paths: PipelinePaths,
     preflight_result: PreflightResult,
     python: str,
+    phi_bins: int,
 ) -> list[Stage]:
     profile = get_beam_profile(profile_name)
     root = paths.profile_root(profile_name)
-    selected = root / "selected"
-    mc_dir = root / "mc"
-    bdt_dir = root / "bdt"
+    selected = paths.selected_dir(profile_name)
+    mc_dir = paths.mc_dir(profile_name)
+    bdt_dir = paths.bdt_dir(profile_name)
     model_dir = bdt_dir / "artifacts/stage1"
     chi2_reco = root / "reco/reco_eta_pi0_chi2.root"
     bdt_reco = root / "reco/reco_eta_pi0_bdt.root"
@@ -443,8 +481,12 @@ def _profile_stages(
                     paths.manifest,
                     "--output-dir",
                     asymmetry,
+                    "--plots-dir",
+                    root / "plots",
                     "--estimator",
                     "both",
+                    "--phi-bins",
+                    phi_bins,
                     "--bootstrap-replicas",
                     "0",
                 ),
@@ -460,35 +502,31 @@ def build_pipeline_plan(
     preflight_result: PreflightResult,
     *,
     python_executable: str = sys.executable,
+    phi_bins: int = 12,
 ) -> tuple[Stage, ...]:
+    phi_edges_rad(phi_bins)
     stages = _common_stages(python_executable, paths)
     stages.extend(
         _profile_stages(
-            "uv", UV_CHANNELS, config, paths, preflight_result, python_executable
+            "uv", UV_CHANNELS, config, paths, preflight_result, python_executable, phi_bins
         )
     )
     stages.extend(
         _profile_stages(
-            "vis", VIS_CHANNELS, config, paths, preflight_result, python_executable
+            "vis", VIS_CHANNELS, config, paths, preflight_result, python_executable, phi_bins
         )
     )
     stages.append(
         Stage(
-            "combined:plots",
+            "campaign:plots",
             _argv(
                 python_executable,
                 "-m",
-                "observable_extraction.combine_profiles",
-                "--uv-root",
-                paths.profile_root("uv")
-                / "beam_asymmetry/beam_asymmetry.root",
-                "--vis-root",
-                paths.profile_root("vis")
-                / "beam_asymmetry/beam_asymmetry.root",
+                "scripts.plot_campaign",
+                "--campaign",
+                paths.output_root,
                 "--published-csv",
                 paths.ajaka_reference,
-                "--output-dir",
-                paths.combined_dir,
             ),
         )
     )
@@ -517,10 +555,41 @@ def prepare_output_dirs(paths: PipelinePaths) -> None:
         )
     for path in (
         paths.output_root / "common",
-        paths.profile_root("uv") / "mc",
-        paths.profile_root("vis") / "mc",
+        paths.output_root / "uv/reco",
+        paths.output_root / "vis/reco",
     ):
         path.mkdir(parents=True, exist_ok=True)
+
+
+def validate_test_output(paths: PipelinePaths) -> None:
+    expected_parent = (paths.repo_root / "results").resolve()
+    if (paths.repo_root / "results").is_symlink():
+        raise PipelineError("test output results parent must not be a symlink")
+    if paths.output_root.parent.resolve() != expected_parent or paths.output_root.is_symlink() or not paths.output_root.name.startswith("test_") or len(paths.output_root.name) <= 5:
+        raise PipelineError("test output must be results/test_<campaign>")
+
+
+def validate_production_output(paths: PipelinePaths) -> None:
+    results = paths.repo_root / "results"
+    if (results.is_symlink() or paths.output_root.is_symlink() or
+            paths.output_root.parent.resolve() != results.resolve() or
+            paths.output_root.name.startswith("test_")):
+        raise PipelineError("production output must be results/<campaign> without symlinked results paths")
+
+
+@contextmanager
+def pipeline_lock(repo_root: Path):
+    lock_path = Path(repo_root) / "results/.pipeline.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise PipelineError(f"pipeline lock is held: {lock_path}") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _log_stage(path: Path, stage: Stage, exit_code: int, duration: float) -> None:
@@ -529,6 +598,65 @@ def _log_stage(path: Path, stage: Stage, exit_code: int, duration: float) -> Non
             f"{stage.name}\texit={exit_code}\tduration={duration:.3f}s\t"
             f"command={shlex.join(stage.argv)}\n"
         )
+
+
+def _log_decision(path: Path, name: str, action: str, reason: str) -> None:
+    line = f"{name}\t{action}\treason={reason}\n"
+    print(line.strip())
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(line)
+
+
+def run_cached_stages(
+    stages: Sequence[Stage],
+    paths: PipelinePaths,
+    item: cache.CacheItem,
+    destination: Path,
+    validate: Callable[[Path], None],
+    *,
+    production: bool,
+    force: bool = False,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> dict:
+    """Run a cache unit against staging, then publish validated output."""
+    if production and not force:
+        reusable, reason = cache.cache_status(item, lambda: validate(destination))
+        if reusable:
+            _log_decision(paths.command_log, item.name, "SKIP", reason)
+            return {"name": item.name, "action": "SKIP", "reason": reason, "manifest": str(item.manifest), "signature": item.signature}
+    else:
+        reason = "force" if force else "test data always rebuilds"
+    _log_decision(paths.command_log, item.name, "RUN", reason)
+
+    def execute_at(staged: Path) -> None:
+        rewritten = tuple(
+            Stage(stage.name, tuple(arg.replace(str(destination), str(staged)) for arg in stage.argv))
+            for stage in stages
+        )
+        execute_plan(rewritten, paths, runner=runner)
+        validate(staged)
+
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.suffix == ".root":
+            fd, temporary = tempfile.mkstemp(prefix=f".{destination.stem}.", suffix=".root", dir=destination.parent)
+            os.close(fd)
+            staged = Path(temporary)
+            try:
+                execute_at(staged)
+                staged.replace(destination)
+            finally:
+                staged.unlink(missing_ok=True)
+        else:
+            with atomic_output_directory(destination) as staged:
+                execute_at(staged)
+        if production:
+            cache.record_cache(item, lambda: validate(destination))
+    except PipelineError:
+        raise
+    except Exception as exc:
+        raise PipelineError(f"artifact {item.name} failed: {exc}") from exc
+    return {"name": item.name, "action": "RUN", "reason": reason, "manifest": str(item.manifest) if production else None, "signature": item.signature if production else None}
 
 
 def execute_plan(
@@ -557,6 +685,187 @@ def execute_plan(
             )
 
 
+def _source_files(paths: PipelinePaths, component: str) -> tuple[Path, ...]:
+    shared = paths.repo_root / "00_common"
+    own = paths.repo_root / component
+    files = tuple(path for base in (shared, own) for path in base.rglob("*.py") if "tests" not in path.parts)
+    if component == "03_mc_simulation":
+        files += (*own.rglob("*.C"), *own.rglob("*.h"))
+    return tuple(files)
+
+
+def _revision(repo_root: Path) -> str:
+    result = subprocess.run(
+        ("git", "rev-parse", "HEAD"), cwd=repo_root, capture_output=True, text=True, check=False
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _write_campaign_artifacts(paths: PipelinePaths, outcomes: list[dict]) -> None:
+    preanalysis = {
+        profile: cache.inventory(sorted(paths.preanalysis_dir.glob(pattern)))
+        for profile, pattern in PROFILE_PATTERNS.items()
+    }
+    target = paths.output_root / "pipeline_artifacts.json"
+    target.write_text(
+        json.dumps({"source_revision": _revision(paths.repo_root), "preanalysis": preanalysis, "cache": outcomes}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def execute_cached_plan(
+    stages: Sequence[Stage],
+    config: ModeConfig,
+    paths: PipelinePaths,
+    *,
+    force_selected: bool = False,
+    force_mc: bool = False,
+    force_bdt: bool = False,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> None:
+    production = config.name == "production"
+    outcomes: list[dict] = []
+    stage_list = list(stages)
+    index = 0
+    while index < len(stage_list):
+        stage = stage_list[index]
+        parts = stage.name.split(":")
+        profile = parts[0]
+        if profile in PROFILE_PATTERNS and len(parts) >= 2 and parts[1] == "select":
+            destination = paths.selected_dir(profile)
+            inputs = tuple(sorted(paths.preanalysis_dir.glob(PROFILE_PATTERNS[profile])))
+            item = cache.CacheItem(
+                f"selected:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
+                {"inputs": cache.inventory(inputs), "options": stage.argv, "source": cache.source_fingerprint(_source_files(paths, "02_event_selector"))},
+            )
+            outcome = run_cached_stages((stage,), paths, item, destination,
+                                        lambda directory, source=inputs: cache.validate_selected(directory, source),
+                                        production=production, force=force_selected, runner=runner)
+        elif profile in PROFILE_PATTERNS and len(parts) == 3 and parts[1] == "generate":
+            channel = parts[2]
+            destination = paths.mc_dir(profile) / get_channel(channel).mc_filename
+            item = cache.CacheItem(
+                f"mc:{profile}:{channel}", destination.with_suffix(".manifest.json"), (destination,),
+                {"options": stage.argv, "source": cache.source_fingerprint((
+                    *tuple(path for path in (paths.repo_root / "00_common").rglob("*.py") if "tests" not in path.parts),
+                    paths.repo_root / "03_mc_simulation/generators" / f"generate_{channel}_dataset.C",
+                    *tuple((paths.repo_root / "03_mc_simulation/generators").rglob("*.h")),
+                ))},
+            )
+            outcome = run_cached_stages((stage,), paths, item, destination,
+                                        lambda path, name=channel: cache.validate_mc(path, name),
+                                        production=production, force=force_mc, runner=runner)
+        elif profile in PROFILE_PATTERNS and len(parts) >= 2 and parts[1] == "beam_spectrum":
+            group = tuple(stage_list[index:index + 3])
+            if [entry.name for entry in group] != [f"{profile}:beam_spectrum", f"{profile}:features", f"{profile}:train"]:
+                raise PipelineError(f"incomplete {profile} BDT stage group")
+            destination = paths.bdt_dir(profile)
+            selected_identity = cache.inventory((paths.selected_dir(profile),))
+            channels = UV_CHANNELS if profile == "uv" else VIS_CHANNELS
+            mc_identity = cache.inventory(tuple(paths.mc_dir(profile) / get_channel(name).mc_filename for name in channels))
+            item = cache.CacheItem(
+                f"bdt:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
+                {"selected": selected_identity, "mc": mc_identity, "options": [entry.argv for entry in group],
+                 "hyperparams": cache.source_fingerprint((paths.hyperparams,)),
+                 "source": cache.source_fingerprint(_source_files(paths, "04_bdt_training"))},
+            )
+            outcome = run_cached_stages(group, paths, item, destination,
+                                        lambda directory, name=profile: cache.validate_bdt(directory, name),
+                                        production=production, force=force_bdt, runner=runner)
+            index += 2
+        else:
+            _log_decision(paths.command_log, stage.name, "RUN", "campaign stage" if production else "test data always rebuilds")
+            execute_plan((stage,), paths, runner=runner)
+            index += 1
+            continue
+        outcomes.append(outcome)
+        if production:
+            _write_campaign_artifacts(paths, outcomes)
+        index += 1
+
+
+def _replace_test_output(paths: PipelinePaths) -> None:
+    validate_test_output(paths)
+    if paths.output_root.exists():
+        shutil.rmtree(paths.output_root)
+
+
+def print_run_summary(
+    config: ModeConfig,
+    paths: PipelinePaths,
+    args: argparse.Namespace,
+    stages: Sequence[Stage],
+) -> None:
+    """Show the validated campaign configuration before touching its outputs."""
+    def relative(path: Path) -> str:
+        return str(path.relative_to(config.repo_root))
+
+    rows = [
+        ("Modalità", config.name),
+        ("Repository", str(config.repo_root)),
+        ("Input h80", relative(paths.preanalysis_dir)),
+        ("Risultati", relative(paths.output_root)),
+        ("Flux input", relative(paths.raw_flux)),
+        ("Run manifest", relative(paths.manifest)),
+        ("Iperparametri BDT", relative(paths.hyperparams)),
+        ("Riferimento AJAKA", relative(paths.ajaka_reference)),
+        ("Eventi MC/canale", str(config.mc_events)),
+    ]
+    for profile, channels in (("uv", UV_CHANNELS), ("vis", VIS_CHANNELS)):
+        energy_min, energy_max = get_beam_profile(profile).energy_range_gev
+        rows.extend((
+            (f"{profile.upper()} h80", ", ".join(
+                path.name for path in sorted(paths.preanalysis_dir.glob(PROFILE_PATTERNS[profile]))
+                if path.is_file()
+            )),
+            (f"{profile.upper()} energia", f"{energy_min:g}-{energy_max:g} GeV"),
+            (f"{profile.upper()} canali MC", ", ".join(channels)),
+            (f"{profile.upper()} selected", relative(paths.selected_dir(profile))),
+            (f"{profile.upper()} MC", relative(paths.mc_dir(profile))),
+            (f"{profile.upper()} BDT", relative(paths.bdt_dir(profile))),
+        ))
+    rows.extend((
+        ("Estrazione", f"ratio + likelihood; phi bins {args.phi_bins}; bootstrap 0"),
+        ("Plot", "UV, VIS e confronto combinato"),
+    ))
+    if config.name == "production":
+        rows.extend((
+            ("Cache", "selected, MC, BDT: riuso se validi entro 10 giorni; decisione RUN/SKIP durante esecuzione"),
+            ("Forzatura", ", ".join(
+                f"force-{name}={'sì' if getattr(args, f'force_{name}') else 'no'}"
+                for name in ("selected", "mc", "bdt")
+            )),
+            ("Scrittura", "intermedi persistenti in data/; risultati in nuova campagna"),
+        ))
+    else:
+        rows.extend((
+            ("Cache", "disattivata; selected, MC e BDT sempre rigenerati"),
+            ("Flag force", "ignorati in test_data"),
+            ("Sovrascrittura", "intermedi in test_data/ e intera directory risultati indicata"),
+        ))
+    rows.append(("Stage previsti", str(len(stages))))
+    rows.extend((f"{index:02d}", stage.name) for index, stage in enumerate(stages, 1))
+
+    label_width = max(len("Campo"), *(len(label) for label, _ in rows))
+    value_width = max(len("Valore"), *(len(value) for _, value in rows))
+    border = f"+-{'-' * (label_width + 2)}-+-{'-' * (value_width + 2)}-+"
+    print("\nRiepilogo pipeline")
+    print(border)
+    print(f"| {'Campo':<{label_width}} | {'Valore':<{value_width}} |")
+    print(border)
+    for label, value in rows:
+        print(f"| {label:<{label_width}} | {value:<{value_width}} |")
+    print(border, flush=True)
+
+
+def confirm_run() -> bool:
+    try:
+        answer = input("Avviare la pipeline? [s/N]: ")
+    except EOFError:
+        return False
+    return answer.strip().casefold() in {"s", "si", "sì", "y", "yes"}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -567,16 +876,37 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="empty or absent campaign output root",
     )
+    parser.add_argument("--force-selected", action="store_true", help="rebuild production selection")
+    parser.add_argument("--force-mc", action="store_true", help="regenerate production MC")
+    parser.add_argument("--force-bdt", action="store_true", help="retrain production BDT")
+    parser.add_argument("--phi-bins", type=int, choices=PHI_BIN_CHOICES, default=12,
+                        help="azimuth bins for UV/VIS ratio fits (default: 12)")
     return parser
 
 
 def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
     config = mode_config(args.mode, repo_root)
     paths = build_paths(config, args.output_dir)
-    checked = preflight(config, paths)
-    prepare_output_dirs(paths)
-    stages = build_pipeline_plan(config, paths, checked)
-    execute_plan(stages, paths)
+    if config.name == "test_data":
+        validate_test_output(paths)
+    else:
+        validate_production_output(paths)
+    with pipeline_lock(config.repo_root):
+        checked = preflight(config, paths)
+        stages = build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins)
+        print_run_summary(config, paths, args, stages)
+        if not confirm_run():
+            print("Pipeline annullata.")
+            return 0
+        if config.name == "test_data":
+            _replace_test_output(paths)
+        prepare_output_dirs(paths)
+        execute_cached_plan(
+            stages, config, paths,
+            force_selected=args.force_selected,
+            force_mc=args.force_mc,
+            force_bdt=args.force_bdt,
+        )
     print(f"\nPipeline complete: {paths.output_root}")
     return 0
 

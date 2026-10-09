@@ -202,6 +202,7 @@ def extract_ratio_grid(
     polarization: np.ndarray,
     exposures: Mapping[tuple[int, int], FluxExposure],
     energy_edges: np.ndarray = ENERGY_EDGES_GEV,
+    phi_edges: np.ndarray = PHI_EDGES_RAD,
     min_events: int = 20,
 ) -> tuple[RatioBinResult, ...]:
     mass_gev = np.asarray(mass_gev, dtype=np.float64)
@@ -214,6 +215,7 @@ def extract_ratio_grid(
     if np.any(~np.isfinite(mass_gev)) or np.any(~np.isfinite(phi_rad)):
         raise ValueError("mass and phi arrays must be finite")
     energy_edges = validate_edges(energy_edges)
+    phi_edges = validate_edges(phi_edges)
     if not isinstance(min_events, int) or min_events < 0:
         raise ValueError("min_events must be a non-negative integer")
 
@@ -267,14 +269,14 @@ def extract_ratio_grid(
             ):
                 continue
             counts_v, _ = np.histogram(
-                phi_rad[selected & (polarization == 1)], bins=PHI_EDGES_RAD
+                phi_rad[selected & (polarization == 1)], bins=phi_edges
             )
             counts_h, _ = np.histogram(
-                phi_rad[selected & (polarization == 2)], bins=PHI_EDGES_RAD
+                phi_rad[selected & (polarization == 2)], bins=phi_edges
             )
             try:
                 fit = fit_ratio(
-                    0.5 * (PHI_EDGES_RAD[:-1] + PHI_EDGES_RAD[1:]),
+                    0.5 * (phi_edges[:-1] + phi_edges[1:]),
                     counts_v,
                     counts_h,
                     flux_v,

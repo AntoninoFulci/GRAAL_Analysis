@@ -58,7 +58,7 @@ def test_setup_help_describes_local_and_farm_modes():
     assert "--mode local" in result.stdout
     assert "--mode farm" in result.stdout
     assert "--raw-target" in result.stdout
-    assert "--pre-target" in result.stdout
+    assert "--pre-target" not in result.stdout
     assert "--python" in result.stdout
 
 
@@ -99,13 +99,11 @@ def test_local_setup_builds_environment_and_empty_data_layout(tmp_path):
     )
 
 
-def test_farm_setup_creates_idempotent_data_links(tmp_path):
+def test_farm_setup_links_raw_and_keeps_preanalysis_directory(tmp_path):
     repo = _sandbox_repo(tmp_path)
     python = _fake_python(tmp_path)
     raw_target = tmp_path / "farm/graal_data"
-    pre_target = tmp_path / "farm/pre_analisi"
     raw_target.mkdir(parents=True)
-    pre_target.mkdir(parents=True)
     log = tmp_path / "pip.log"
     env = os.environ.copy()
     env["SETUP_TEST_LOG"] = str(log)
@@ -117,8 +115,6 @@ def test_farm_setup_creates_idempotent_data_links(tmp_path):
         str(python),
         "--raw-target",
         str(raw_target),
-        "--pre-target",
-        str(pre_target),
     ]
 
     first = subprocess.run(command, cwd=tmp_path, env=env, text=True, capture_output=True)
@@ -127,20 +123,18 @@ def test_farm_setup_creates_idempotent_data_links(tmp_path):
     assert first.returncode == 0, first.stdout + first.stderr
     assert second.returncode == 0, second.stdout + second.stderr
     raw_link = repo / "data/01_raw/graal_data"
-    pre_link = repo / "data/02_pre_analyzed/pre_analisi"
+    pre_dir = repo / "data/02_pre_analyzed"
     assert raw_link.is_symlink()
-    assert pre_link.is_symlink()
+    assert pre_dir.is_dir()
+    assert not pre_dir.is_symlink()
     assert raw_link.resolve() == raw_target.resolve()
-    assert pre_link.resolve() == pre_target.resolve()
 
 
 def test_farm_setup_refuses_to_replace_existing_data_path(tmp_path):
     repo = _sandbox_repo(tmp_path)
     python = _fake_python(tmp_path)
     raw_target = tmp_path / "farm/graal_data"
-    pre_target = tmp_path / "farm/pre_analisi"
     raw_target.mkdir(parents=True)
-    pre_target.mkdir(parents=True)
     conflicting = repo / "data/01_raw/graal_data"
     conflicting.mkdir(parents=True)
     marker = conflicting / "keep.txt"
@@ -157,8 +151,6 @@ def test_farm_setup_refuses_to_replace_existing_data_path(tmp_path):
             str(python),
             "--raw-target",
             str(raw_target),
-            "--pre-target",
-            str(pre_target),
         ],
         cwd=tmp_path,
         env=env,

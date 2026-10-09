@@ -26,7 +26,7 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Preselect events for the two-meson reconstruction"
     )
-    p.add_argument("--input-dir", default="data/02_pre_analyzed/pre_analisi",
+    p.add_argument("--input-dir", default="data/02_pre_analyzed",
                    help="folder with the pre_*.root files")
     p.add_argument("--output-dir", default="data/03_selected",
                    help="folder for the preselected files")

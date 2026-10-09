@@ -45,7 +45,7 @@ def test_cli_defaults_follow_numbered_data_layout(monkeypatch):
 
     args = select_events.parse_args()
 
-    assert args.input_dir == "data/02_pre_analyzed/pre_analisi"
+    assert args.input_dir == "data/02_pre_analyzed"
     assert args.output_dir == "data/03_selected"
     assert args.pattern == "pre_*.root"
     assert args.threads >= 1

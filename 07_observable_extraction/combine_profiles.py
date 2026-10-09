@@ -51,12 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PRODUCTION_ROOT / "combined",
+        default=PRODUCTION_ROOT / "common/plots",
     )
     return parser
 
 
-def _validate_profile_root(profile_name: str, path: Path, points) -> None:
+def _validate_profile_root(profile_name: str, path: Path, points):
     label = profile_name.upper()
     profile = get_beam_profile(profile_name)
     contract = read_output_contract(path)
@@ -107,6 +107,7 @@ def _validate_profile_root(profile_name: str, path: Path, points) -> None:
                 f"[{point.energy_low_gev}, {point.energy_high_gev}] does not "
                 f"match bin {energy_bin}: {path}"
             )
+    return contract
 
 
 def run(args: argparse.Namespace) -> int:
@@ -116,8 +117,13 @@ def run(args: argparse.Namespace) -> int:
     vis_points = read_output_points(args.vis_root)
     if not vis_points:
         raise RuntimeError(f"VIS ROOT file has no points: {args.vis_root}")
-    _validate_profile_root("uv", args.uv_root, uv_points)
-    _validate_profile_root("vis", args.vis_root, vis_points)
+    uv_contract = _validate_profile_root("uv", args.uv_root, uv_points)
+    vis_contract = _validate_profile_root("vis", args.vis_root, vis_points)
+    if len(uv_contract.phi_edges_rad) != len(vis_contract.phi_edges_rad) or any(
+        not math.isclose(uv, vis, rel_tol=0.0, abs_tol=1e-12)
+        for uv, vis in zip(uv_contract.phi_edges_rad, vis_contract.phi_edges_rad)
+    ):
+        raise RuntimeError("UV/VIS ROOT phi binning does not match")
 
     points_by_profile = {"uv": uv_points, "vis": vis_points}
     ratio_by_profile = {

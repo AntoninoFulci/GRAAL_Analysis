@@ -51,24 +51,23 @@ Use a non-default compatible interpreter when needed:
 
 ## Farm Setup
 
-Farm mode creates the same environment and adds safe symbolic links to
-external detector data:
+Farm mode creates the same environment and a checked link to raw detector data:
 
 ```bash
 ./scripts/setup.sh --mode farm \
   --python /path/to/python3.10 \
-  --raw-target /farm/path/graal_data \
-  --pre-target /farm/path/pre_analisi
+  --raw-target /farm/path/graal_data
 
 source .venv/bin/activate
 ```
 
-The targets must already be directories. Setup creates:
+The raw target must already be a directory. Setup creates:
 
 - `data/01_raw/graal_data` -> the supplied raw-data target;
-- `data/02_pre_analyzed/pre_analisi` -> the supplied pre-analysis target.
+- `data/02_pre_analyzed/` as an ordinary directory. Copy farm
+  `pre_analisi_*.root` files directly into it.
 
-Rerunning the command with the same targets is safe. Setup refuses a broken
+Rerunning the command with the same target is safe. Setup refuses a broken
 link, a link to another target, or an existing non-link path; it never replaces
 data silently.
 
