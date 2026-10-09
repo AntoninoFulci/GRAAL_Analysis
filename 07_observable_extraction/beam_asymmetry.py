@@ -18,6 +18,7 @@ from observable_extraction.core.binning import (
     PHI_EDGES_RAD,
     PHI_BIN_CHOICES,
     phi_edges_rad,
+    phi_bin_divisor,
     PAIR_NAMES,
     pair_mass_edges,
 )
@@ -431,7 +432,9 @@ def _extract_sample(
                             phi=phi_centers[used],
                             value=item.fit.ratio[used],
                             error=item.fit.ratio_error[used],
-                            sigma=item.point.sigma,
+                            # The observed-ratio curve uses the raw amplitude,
+                            # not the finite-bin-corrected physical Sigma.
+                            sigma=item.fit.sigma,
                         )
                     )
         if estimator in {"likelihood", "both"}:
@@ -831,6 +834,8 @@ def run(args: argparse.Namespace) -> int:
             f"estimator={args.estimator}\n"
             f"profile={profile.name}\n"
             f"phi_bins={args.phi_bins}\n"
+            "phi_bin_correction=ratio_only_rounded\n"
+            f"phi_bin_divisor={phi_bin_divisor(phi_edges)}\n"
             "POL1=vertical\nPOL2=horizontal\nBREM=independent-control\n"
             f"background={'sideband-corrected' if background_fractions else 'uncorrected'}\n"
             f"signal_mc_hard_sideband_leakage={background_leakage}\n"

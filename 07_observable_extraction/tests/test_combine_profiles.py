@@ -158,6 +158,24 @@ def test_combined_cli_rejects_mismatched_phi_binning_before_writing(tmp_path):
     assert not output.exists()
 
 
+def test_combined_cli_rejects_mixing_corrected_and_legacy_sigma(tmp_path):
+    uv_points = _points()
+    vis_points = tuple(
+        replace(item, point=replace(item.point, energy_bin=0,
+                                    energy_low_gev=0.9313, energy_high_gev=1.10))
+        for item in uv_points
+    )
+    uv_root, vis_root = tmp_path / "uv.root", tmp_path / "vis.root"
+    _write_profile_root(uv_root, uv_points, (1.10, 1.20, 1.30, 1.40, 1.50),
+                        "profile=uv\nphi_bin_divisor=0.9549")
+    _write_profile_root(vis_root, vis_points, (0.9313, 1.10), "profile=vis")
+    output = tmp_path / "combined"
+    with pytest.raises(RuntimeError, match="phi-bin correction"):
+        combine_profiles.main(["--uv-root", str(uv_root), "--vis-root", str(vis_root),
+                               "--output-dir", str(output)])
+    assert not output.exists()
+
+
 def _stub_combined_writers(monkeypatch):
     monkeypatch.setattr(combine_profiles, "load_published_points", lambda _path: ())
     for name in (

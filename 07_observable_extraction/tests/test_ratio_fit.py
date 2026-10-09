@@ -148,7 +148,7 @@ def test_grid_uses_all_exposure_strata_not_only_strata_with_events():
     assert result.flux_horizontal == pytest.approx(flux_h)
     assert result.polarization_vertical == pytest.approx(pol_v)
     assert result.polarization_horizontal == pytest.approx(pol_h)
-    assert result.point.sigma == pytest.approx(0.25, abs=0.01)
+    assert result.point.sigma == pytest.approx(0.25 / 0.9549, abs=0.01)
 
 
 def _twenty_vis_events():
@@ -157,8 +157,8 @@ def _twenty_vis_events():
     return phi, polarization
 
 
-@pytest.mark.parametrize("phi_bins", [8, 12, 16])
-def test_ratio_grid_uses_requested_phi_edges_and_recovers_sigma(phi_bins):
+@pytest.mark.parametrize("phi_bins,divisor", [(8, 0.9003), (12, 0.9549), (16, 0.9745)])
+def test_ratio_grid_corrects_sigma_and_error_with_requested_rounded_divisor(phi_bins, divisor):
     edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
     centers = (edges[:-1] + edges[1:]) / 2.0
     ratio = 0.30 * np.cos(2.0 * centers)
@@ -174,7 +174,62 @@ def test_ratio_grid_uses_requested_phi_edges_and_recovers_sigma(phi_bins):
     )
     np.testing.assert_array_equal(result.counts_vertical, counts_v)
     np.testing.assert_array_equal(result.counts_horizontal, counts_h)
-    assert result.point.sigma == pytest.approx(0.30, abs=0.002)
+    assert result.fit.sigma == pytest.approx(0.30, abs=0.002)
+    assert result.point.sigma == pytest.approx(result.fit.sigma / divisor, abs=1e-14)
+    assert result.point.stat_low == pytest.approx(result.fit.sigma_error / divisor, abs=1e-14)
+    assert result.point.stat_high == result.point.stat_low
+    assert result.point.diagnostics == result.fit.diagnostics
+
+
+@pytest.mark.parametrize("phi_bins", [8, 12, 16])
+def test_ratio_grid_removes_analytic_finite_bin_attenuation(phi_bins):
+    edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
+    centers = (edges[:-1] + edges[1:]) / 2.0
+    mean_cosine = (np.sin(2.0 * edges[1:]) - np.sin(2.0 * edges[:-1])) / (2.0 * np.diff(edges))
+    # Integrate the two polarized yields independently, with unequal flux and P.
+    counts_v = np.rint(1.2 * 10000 * (1.0 + 0.6 * 0.30 * mean_cosine)).astype(int)
+    counts_h = np.rint(0.9 * 10000 * (1.0 - 0.55 * 0.30 * mean_cosine)).astype(int)
+    phi = np.concatenate([np.repeat(centers, counts_v), np.repeat(centers, counts_h)])
+    polarization = np.concatenate([np.ones(counts_v.sum(), dtype=int), np.full(counts_h.sum(), 2)])
+    (result,) = extract_ratio_grid(
+        pair="p_pi0", mass_gev=np.full(len(phi), 1.02), phi_rad=phi,
+        beam_energy_gev=np.full(len(phi), 1.15), polarization=polarization,
+        exposures={(811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)},
+        phi_edges=edges,
+    )
+    assert result.point.sigma == pytest.approx(0.30, abs=1e-4)
+
+
+def test_grid_fallback_corrects_sine_diagnostic_in_sigma_units():
+    desired = 0.12 + 0.30 * np.cos(2.0 * PHI_CENTERS) - 0.16 * np.sin(2.0 * PHI_CENTERS)
+    n_v, n_h = _counts_from_ratio(desired, flux_v=1.0, flux_h=1.0,
+                                 pol_v=0.6, pol_h=0.6, scale=10000)
+    phi = np.concatenate([np.repeat(PHI_CENTERS, n_v.astype(int)),
+                          np.repeat(PHI_CENTERS, n_h.astype(int))])
+    polarization = np.concatenate([np.ones(int(n_v.sum()), dtype=int),
+                                   np.full(int(n_h.sum()), 2)])
+    (result,) = extract_ratio_grid(
+        pair="p_pi0", mass_gev=np.full(len(phi), 1.02), phi_rad=phi,
+        beam_energy_gev=np.full(len(phi), 1.15), polarization=polarization,
+        exposures={(811, 17): FluxExposure(811, 17, 1.15, 1.0, 1.0, 0.2, 0.6, 0.6)},
+    )
+    assert result.fit.diagnostics.used_fallback
+    assert result.point.diagnostics.s2 == pytest.approx(result.fit.diagnostics.s2 / 0.9549)
+    assert result.point.diagnostics.c0 == result.fit.diagnostics.c0
+    assert result.point.diagnostics.chi2 == result.fit.diagnostics.chi2
+    assert result.point.diagnostics.p_value == result.fit.diagnostics.p_value
+
+
+@pytest.mark.parametrize("edges", [
+    np.linspace(0.0, 2.0 * np.pi, 11),
+    np.linspace(0.0, np.pi, 9),
+    np.array([0.0, 0.5, 1.5, 2.0, 3.0, 3.5, 4.5, 5.0, 2.0 * np.pi]),
+])
+def test_ratio_grid_rejects_edges_without_supported_finite_bin_correction(edges):
+    with pytest.raises(ValueError, match="phi"):
+        extract_ratio_grid(pair="p_pi0", mass_gev=np.array([]), phi_rad=np.array([]),
+                           beam_energy_gev=np.array([]), polarization=np.array([]),
+                           exposures={}, phi_edges=edges)
 
 
 @pytest.mark.parametrize(("count", "expected"), [(19, 0), (20, 1)])

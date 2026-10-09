@@ -121,6 +121,15 @@ event azimuths and is independent of the ratio binning. ROOT results record
 `binning/phi_edges` and `phi_bins` in provenance; composition rejects different
 UV/VIS phi binning. Legacy results without phi metadata imply 12 bins.
 
+The ratio estimator also applies the approved finite-bin divisors:
+8 → `0.9003`, 12 → `0.9549`, 16 → `0.9745`, to Sigma and its statistical
+error. This happens before sideband correction and covariance construction.
+Conditional likelihood is unscaled. Azimuthal fit curves retain the raw
+amplitude. `sigma_uncorrected` means before background correction, after the
+finite-bin correction. Provenance records the divisor; UV/VIS composition
+rejects corrected/uncorrected mixtures. Old ROOT files remain unchanged.
+See [estimator details](07-beam-asymmetry-estimators.md).
+
 ## Extraction Workflow
 
 `07_observable_extraction/beam_asymmetry.py` owns orchestration. Its default

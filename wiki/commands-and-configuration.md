@@ -67,7 +67,10 @@ attempted events per required channel and defaults to `results/test_data/`;
 `production` generates 1000000 and defaults to `results/production/`.
 `--phi-bins` defaults to 12 and selects one ratio-fit binning for both profiles
 per campaign. Conditional likelihood remains unbinned. ROOT outputs record
-the phi edges, and UV/VIS composition requires matching binning.
+the phi edges, and UV/VIS composition requires matching binning. Ratio Sigma
+and its error use the fixed divisors 0.9003/0.9549/0.9745 for 8/12/16 bins;
+provenance records the divisor, and corrected/uncorrected profiles cannot be
+combined. See [estimator conventions](07-beam-asymmetry-estimators.md).
 The launcher prints a validated run summary and asks `Avviare la pipeline? [s/N]:`
 before creating or replacing campaign output. Only `s`, `si`, `sì`,
 `y`, or `yes` starts work; Enter, another answer, or EOF cancels. The table

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Mapping
 
@@ -12,6 +12,7 @@ from scipy.stats import chi2 as chi2_distribution
 from observable_extraction.core.binning import (
     ENERGY_EDGES_GEV,
     PHI_EDGES_RAD,
+    phi_bin_divisor,
     energy_bin_index,
     pair_mass_edges,
     validate_edges,
@@ -38,6 +39,8 @@ class RatioFitResult:
 
 @dataclass(frozen=True)
 class RatioBinResult:
+    """Physical corrected point and original center-fit amplitude/diagnostics."""
+
     point: SigmaPoint
     fit: RatioFitResult
     counts_vertical: np.ndarray
@@ -216,6 +219,7 @@ def extract_ratio_grid(
         raise ValueError("mass and phi arrays must be finite")
     energy_edges = validate_edges(energy_edges)
     phi_edges = validate_edges(phi_edges)
+    divisor = phi_bin_divisor(phi_edges)
     if not isinstance(min_events, int) or min_events < 0:
         raise ValueError("min_events must be a non-negative integer")
 
@@ -295,10 +299,16 @@ def extract_ratio_grid(
                 mass_low_gev=float(mass_low),
                 mass_high_gev=float(mass_high),
                 mass_mean_gev=float(np.mean(mass_gev[selected])),
-                sigma=fit.sigma,
-                stat_low=fit.sigma_error,
-                stat_high=fit.sigma_error,
-                diagnostics=fit.diagnostics,
+                # Apply once at the raw-fit -> physical-point boundary so all
+                # samples, sidebands and resampled studies use the same units.
+                sigma=fit.sigma / divisor,
+                stat_low=fit.sigma_error / divisor,
+                stat_high=fit.sigma_error / divisor,
+                diagnostics=replace(
+                    fit.diagnostics,
+                    s2=(fit.diagnostics.s2 / divisor
+                        if fit.diagnostics.s2 is not None else None),
+                ),
             )
             results.append(
                 RatioBinResult(

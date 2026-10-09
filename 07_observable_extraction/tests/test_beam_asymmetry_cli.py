@@ -10,6 +10,7 @@ from observable_extraction.core.binning import ENERGY_EDGES_GEV, PHI_EDGES_RAD
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import EventArrays
 from observable_extraction.io.root_output import OutputPoint
+from observable_extraction.io.root_input import read_output_contract, read_output_points
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
 from observable_extraction.core.ratio_fit import RatioBinResult, RatioFitResult
 from observable_extraction.core.background import BackgroundEstimate
@@ -73,9 +74,9 @@ def _synthetic_events(sigma=0.30, beam_energy_gev=1.15, phi_bins=12):
     )
 
 
-@pytest.mark.parametrize("phi_bins", [8, 12, 16])
-def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
-    tmp_path, monkeypatch, phi_bins
+@pytest.mark.parametrize("phi_bins,divisor", [(8, 0.9003), (12, 0.9549), (16, 0.9745)])
+def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
+    tmp_path, monkeypatch, phi_bins, divisor
 ):
     events = _synthetic_events(beam_energy_gev=1.0, phi_bins=phi_bins)
     exposures = {
@@ -130,8 +131,6 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
     try:
         tree = source.Get("sigma_points")
         assert tree.GetEntries() == 6
-        sigmas = [float(entry.sigma) for entry in tree]
-        assert all(abs(value - 0.30) < 0.05 for value in sigmas)
         covariance = source.Get("covariance/systematic/polarization_scale_3pct")
         assert covariance
         assert covariance.GetBinContent(1, 1) > 0.0
@@ -153,6 +152,15 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
         (mass_key,) = tuple(ratios.GetListOfKeys())
         graph = ratios.Get(mass_key.GetName()).Get("ratio")
         assert graph.GetN() == phi_bins
+        # The curve fits the observed ratio; only the published Sigma is corrected.
+        fit = ratios.Get(mass_key.GetName()).Get("fit")
+        tree.GetEntry(0)
+        assert float(tree.sigma) == pytest.approx(fit.GetParameter(0) / divisor)
+        assert float(tree.sigma_uncorrected) == float(tree.sigma)
+        assert f"phi_bin_divisor={divisor}" in source.Get("provenance").GetTitle()
+        assert "phi_bin_correction=ratio_only_rounded" in source.Get("provenance").GetTitle()
+        statistical = source.Get("covariance/statistical")
+        assert statistical.GetBinContent(1, 1) == pytest.approx(float(tree.stat_low) ** 2)
         # All synthetic events have exactly four photons: selecting exactly four
         # must give the same result with the same phi binning.
         multiplicity = source.Get("covariance/systematic/photon_multiplicity")
@@ -161,8 +169,29 @@ def test_standalone_workflow_writes_root_pdf_and_recovers_injected_sigma(
             assert multiplicity.GetBinContent(index, index) == pytest.approx(0.0, abs=1e-15)
     finally:
         source.Close()
-    from observable_extraction.io.root_input import read_output_contract
+    points = read_output_points(output / "beam_asymmetry.root")
+    assert [item.point.sigma for item in points if item.estimator == "ratio"] == pytest.approx(
+        [0.30 / divisor] * 3, abs=0.01,
+    )
+    assert [item.point.sigma for item in points if item.estimator == "likelihood"] == pytest.approx(
+        [0.30] * 3, abs=0.04,
+    )
     assert len(read_output_contract(output / "beam_asymmetry.root").phi_edges_rad) == phi_bins + 1
+
+
+def test_finite_bin_correction_leaves_unbinned_likelihood_unchanged():
+    events = _synthetic_events()
+    exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)}
+    outputs = []
+    for bins in (8, 12, 16):
+        bundle = beam_asymmetry._extract_sample(
+            sample_name="raw_bdt", events=events, exposures=exposures, estimator="both",
+            retain_ratio_objects=False, energy_edges=ENERGY_EDGES_GEV,
+            phi_edges=np.linspace(0.0, 2.0 * np.pi, bins + 1),
+        )
+        outputs.append(tuple(item.point for item in bundle.points if item.estimator == "likelihood"))
+    assert outputs[0]
+    assert outputs[0] == outputs[1] == outputs[2]
 
 
 def test_background_correction_keeps_uncorrected_value_and_propagates_error():

@@ -124,6 +124,9 @@ def run(args: argparse.Namespace) -> int:
         for uv, vis in zip(uv_contract.phi_edges_rad, vis_contract.phi_edges_rad)
     ):
         raise RuntimeError("UV/VIS ROOT phi binning does not match")
+    if not math.isclose(uv_contract.phi_bin_divisor, vis_contract.phi_bin_divisor,
+                        rel_tol=0.0, abs_tol=1e-12):
+        raise RuntimeError("UV/VIS ROOT phi-bin correction does not match")
 
     points_by_profile = {"uv": uv_points, "vis": vis_points}
     ratio_by_profile = {

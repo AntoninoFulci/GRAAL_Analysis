@@ -56,8 +56,27 @@ R(\phi)=
 With the repository's vertical/horizontal convention, the nominal model is
 
 ```math
-R(\phi)=\Sigma\cos(2\phi).
+R(\phi)=A_\phi\cos(2\phi).
 ```
+
+The center-fit amplitude `A_phi` is attenuated by averaging over a finite
+azimuth bin. The reported physical `Sigma` is `A_phi / d`, using exactly the
+approved rounded divisors:
+
+| phi bins | divisor `d` |
+|---|---:|
+| 8 | 0.9003 |
+| 12 (default) | 0.9549 |
+| 16 | 0.9745 |
+
+The statistical error is divided by the same divisor. These are rounded
+values of `sin(Delta_phi)/Delta_phi` for uniform bins over `[0, 2 pi]`;
+the formula is not evaluated at runtime. This assumes approximately constant
+acceptance within each bin and common acceptance for both polarizations.
+See [Zachariou et al., PRC 91, 055202 (2015), Eqs. (15)-(17)](https://arxiv.org/pdf/1503.05435)
+and the [verification note](../docs/research/2026-10-09-finite-phi-bin-correction.md).
+The name "Hannick" was supplied by the user; its attribution is unverified.
+No finite-bin rescaling is applied to the event-level conditional likelihood.
 
 Count errors are propagated assuming independent Poisson variances
 `Var(N_V)=N_V` and `Var(N_H)=N_H`. If `D=P_H y_V+P_V y_H`, the derivatives
@@ -88,14 +107,19 @@ error, `chi2`, degrees of freedom, and p-value.
 When the nominal p-value is below `0.01`, the bin is refitted with
 
 ```math
-R(\phi)=c_0+\Sigma\cos(2\phi)+s_2\sin(2\phi).
+R(\phi)=c_0+A_\phi\cos(2\phi)+s_{2,\mathrm{fit}}\sin(2\phi).
 ```
 
 This diagnostic fit requires at least four usable phi bins. It reports
 `used_fallback`, `c0`, `s2`, and the refitted diagnostics. `c0` or `s2` is
 flagged when its magnitude exceeds three standard deviations. The returned
-Sigma is the cosine coefficient of this expanded model, and fallback points
-use square markers in Figure 4.
+Sigma is the cosine coefficient divided by `d`. The sine diagnostic stored
+with the physical point is also divided by `d`, so its systematic covariance
+has physical Sigma units. `c0`, chi-square, p-value, and significance flags
+are unchanged. Fallback points use square markers in Figure 4. Raw fit
+amplitudes and diagnostics remain available in `RatioBinResult.fit`; ROOT
+azimuthal curves retain the raw cosine amplitude so they fit the displayed
+observed ratios.
 
 Invalid count shape, non-finite or negative counts, non-positive flux,
 polarization outside `(0,1]`, too few usable bins, or a rank-deficient design

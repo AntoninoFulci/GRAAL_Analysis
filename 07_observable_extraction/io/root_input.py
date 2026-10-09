@@ -9,7 +9,7 @@ from pathlib import Path
 import ROOT
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
-from observable_extraction.core.binning import PHI_EDGES_RAD
+from observable_extraction.core.binning import PHI_EDGES_RAD, phi_bin_divisor
 from observable_extraction.io.root_output import OutputPoint
 
 
@@ -20,6 +20,7 @@ class RootOutputContract:
     profile: str | None
     energy_edges_gev: tuple[float, ...]
     phi_edges_rad: tuple[float, ...] = tuple(PHI_EDGES_RAD)
+    phi_bin_divisor: float = 1.0
 
 
 def _id_maps(text: str, path: Path) -> dict[str, dict[int, str]]:
@@ -80,6 +81,7 @@ def read_output_contract(path: Path) -> RootOutputContract:
 
         provenance = source.Get("provenance")
         profile = None
+        divisor_values = []
         if provenance:
             if not provenance.InheritsFrom("TNamed"):
                 raise RuntimeError(f"{path}: malformed provenance")
@@ -94,6 +96,11 @@ def read_output_contract(path: Path) -> RootOutputContract:
                 raise RuntimeError(f"{path}: malformed profile provenance")
             if profile_values:
                 profile = profile_values[0]
+            divisor_values = [
+                line.partition("=")[2].strip()
+                for line in provenance.GetTitle().splitlines()
+                if line.startswith("phi_bin_divisor=")
+            ]
         vector = source.Get("binning/phi_edges")
         # Legacy Stage-07 outputs enforced exactly 12 phi bins.
         phi_edges = tuple(PHI_EDGES_RAD)
@@ -107,8 +114,23 @@ def read_output_contract(path: Path) -> RootOutputContract:
                 or any(high <= low for low, high in zip(phi_edges[:-1], phi_edges[1:]))
             ):
                 raise RuntimeError(f"{path}: invalid binning/phi_edges")
-        return RootOutputContract(profile=profile, energy_edges_gev=edges,
-                                  phi_edges_rad=phi_edges)
+        # Absent metadata identifies older, uncorrected center-fit outputs.
+        divisor = 1.0
+        if divisor_values:
+            try:
+                if len(divisor_values) != 1:
+                    raise ValueError("duplicate divisor")
+                divisor = float(divisor_values[0])
+                if not math.isfinite(divisor) or not math.isclose(
+                    divisor, phi_bin_divisor(phi_edges), rel_tol=0.0, abs_tol=1e-12
+                ):
+                    raise ValueError("divisor does not match phi edges")
+            except ValueError as exc:
+                raise RuntimeError(f"{path}: invalid phi_bin_divisor provenance") from exc
+        return RootOutputContract(
+            profile=profile, energy_edges_gev=edges,
+            phi_edges_rad=phi_edges, phi_bin_divisor=divisor,
+        )
     finally:
         source.Close()
 

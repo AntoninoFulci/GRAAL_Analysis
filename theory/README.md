@@ -81,7 +81,10 @@ four photon-energy, ten invariant-mass, and twelve azimuth bins and says that
 the beam asymmetry was extracted with a `cos(2φ)` dependence following its
 Ref. [14]. It does **not** specify whether the fit used bin centers or
 bin-averaged cosine values. The separate prediction below therefore follows
-the **nominal Stage 07 center-fit convention**, not a claimed exact Ajaka fit.
+the **raw Stage 07 center-fit convention**, not a claimed exact Ajaka fit.
+Stage 07 now converts this raw amplitude to its published ratio Sigma using
+the approved 8/12/16-bin divisors; see the
+[finite-bin convention](../docs/research/2026-10-09-finite-phi-bin-correction.md).
 
 ## Measured-flux panel-5 comparison
 
@@ -111,6 +114,11 @@ counts and thus its significance are undefined without target/acceptance.
 Neither curve includes detector acceptance or omitted coherent amplitudes.
 
 `prediction.json` records both `sigma` (continuous) and `sigma_phi_fit`,
+where `sigma_phi_fit` remains the raw center-fit amplitude, before the
+finite-bin correction applied to newly extracted experimental ratio points.
+Do not identify it with the corrected experimental Sigma without matching
+that convention; for the 12-bin transfer, the approved divisor is `0.9549`.
+The JSON also records
 ROOT/manifest paths and SHA-256 hashes, selection counts, flux totals,
 effective polarizations, model parameters, and numerical settings. In this
 calibration, 1,021 of 1,426 manifest P/UV runs have complete triplets; 14,294

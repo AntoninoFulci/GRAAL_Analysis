@@ -9,6 +9,12 @@ import numpy as np
 ENERGY_EDGES_GEV = np.array([1.10, 1.20, 1.30, 1.40, 1.50], dtype=np.float64)
 PHI_EDGES_RAD = np.linspace(0.0, 2.0 * math.pi, 13, dtype=np.float64)
 PHI_BIN_CHOICES = (8, 12, 16)
+# Approved rounded finite-bin divisors for a center-evaluated cos(2 phi) fit.
+# Sigma and its error are divided by these fixed values, not a computed sinc.
+# Uniform full-circle bins and common, approximately constant within-bin
+# acceptance are assumed; see Zachariou et al., PRC 91, 055202 (2015),
+# Eqs. (15)-(17), and docs/research/2026-10-09-finite-phi-bin-correction.md.
+PHI_BIN_DIVISORS = {8: 0.9003, 12: 0.9549, 16: 0.9745}
 PAIR_NAMES = ("p_pi0", "p_eta", "eta_pi0")
 
 _PAIR_MASS_RANGES_GEV = {
@@ -32,6 +38,16 @@ def validate_edges(edges: np.ndarray) -> np.ndarray:
     if np.any(~np.isfinite(edges)) or np.any(np.diff(edges) <= 0.0):
         raise ValueError("bin edges must be finite and strictly increasing")
     return edges
+
+
+def phi_bin_divisor(edges: np.ndarray) -> float:
+    """Return the approved divisor only for supported uniform full-circle bins."""
+    edges = validate_edges(edges)
+    bins = len(edges) - 1
+    expected = phi_edges_rad(bins)
+    if not np.allclose(edges, expected, rtol=0.0, atol=1e-12):
+        raise ValueError("phi-bin correction requires uniform bins covering [0, 2 pi]")
+    return PHI_BIN_DIVISORS[bins]
 
 
 def bin_index(value: float, edges: np.ndarray) -> int | None:

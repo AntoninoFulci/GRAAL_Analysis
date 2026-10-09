@@ -34,6 +34,16 @@ matching UV/VIS phi edges. Legacy ROOT files without phi metadata are read
 as the previously enforced 12-bin case. For comparisons, launch separate
 production campaigns, for example `results/phi8` and `results/phi16`.
 
+Ratio Sigma and its statistical error are automatically divided by the fixed
+approved values `0.9003`, `0.9549`, or `0.9745` for 8, 12, or 16 bins,
+respectively, including the default 12-bin case. Azimuthal curves keep the
+raw fit amplitude; likelihood remains unscaled. ROOT provenance records
+`phi_bin_correction=ratio_only_rounded` and `phi_bin_divisor`. Composition
+also requires matching correction conventions: rerun extraction before
+combining a newly corrected profile with an old uncorrected one. Reading or
+replotting older campaigns does not apply a new correction. See the
+[scientific verification and acceptance assumptions](../research/2026-10-09-finite-phi-bin-correction.md).
+
 Production requires a new empty campaign directory. No timestamp is added to
 its name. Omit `--output-dir` to use `results/production/`, also only if empty.
 After preflight, the launcher prints a table with inputs, paths, MC settings,

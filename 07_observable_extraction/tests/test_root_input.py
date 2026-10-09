@@ -76,6 +76,29 @@ def test_legacy_root_without_phi_edges_is_read_as_twelve_bins(tmp_path):
     source.Close()
     contract = read_output_contract(output)
     np.testing.assert_allclose(contract.phi_edges_rad, np.linspace(0.0, 2.0 * np.pi, 13))
+    assert contract.phi_bin_divisor == 1.0
+
+
+def test_contract_reads_applied_phi_bin_divisor(tmp_path):
+    output = tmp_path / "corrected.root"
+    _write(output)
+    source = ROOT.TFile(str(output), "UPDATE")
+    source.Delete("provenance;*")
+    ROOT.TNamed("provenance", "profile=uv\nphi_bin_divisor=0.9549").Write()
+    source.Close()
+    assert read_output_contract(output).phi_bin_divisor == 0.9549
+
+
+@pytest.mark.parametrize("value", ["nan", "0", "-1", "0.9003", "bad", "0.9549\nphi_bin_divisor=0.9549"])
+def test_contract_rejects_invalid_or_inconsistent_phi_bin_divisor(tmp_path, value):
+    output = tmp_path / "bad_correction.root"
+    _write(output)
+    source = ROOT.TFile(str(output), "UPDATE")
+    source.Delete("provenance;*")
+    ROOT.TNamed("provenance", f"phi_bin_divisor={value}").Write()
+    source.Close()
+    with pytest.raises(RuntimeError, match="phi_bin_divisor"):
+        read_output_contract(output)
 
 
 @pytest.mark.parametrize("values", [[0.0, 1.0, 0.5], [0.0, float("nan")], [0.0]])

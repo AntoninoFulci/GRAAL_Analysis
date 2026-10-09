@@ -53,6 +53,9 @@ python scripts/run_pipeline.py --mode production
 
 Both modes accept `--phi-bins 8|12|16` (default: `12`). Each launch produces
 one binning for UV/VIS ratio fits, preserving the campaign output layout.
+Ratio Sigma and its error use the fixed finite-bin divisors `0.9003`,
+`0.9549`, and `0.9745`, respectively; likelihood remains unscaled. See the
+[scientific verification and convention](docs/research/2026-10-09-finite-phi-bin-correction.md).
 
 Calibration runs once. Production reuses validated selection, MC, and BDT
 artifacts in `data/` for up to ten days; `test_data` rebuilds its parallel
