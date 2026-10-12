@@ -41,6 +41,22 @@ dependencies and the editable project, prepares `data/`, and validates runtime
 imports. Copy `pre_analisi_*.root` files directly into `data/02_pre_analyzed/`.
 Setup never replaces an existing data path or mismatched link.
 
+For persistent packages outside a venv, use the farm's base Python:
+
+```bash
+./scripts/setup.sh --mode farm \
+  --python /path/to/pyroot-compatible-python \
+  --raw-target /farm/path/graal_data --install user
+```
+
+This uses `pip install --user` for dependencies and the editable repository.
+It leaves any existing `.venv` alone. No activation or reinstall is needed for
+each session: load ROOT and use the same base interpreter. User packages are
+shared with other projects for that Python major/minor version; changing that
+version requires installing again. A selected venv or disabled user site is
+refused. A Python marked externally managed may also refuse `--user`; use a
+farm-managed Python that supports user installs, or the default venv mode.
+
 ## Run
 
 The supported full launcher begins from pre-analysis `h80` ROOT files. Test
@@ -53,6 +69,8 @@ python scripts/run_pipeline.py --mode production
 
 Both modes accept `--phi-bins 8|12|16` (default: `12`). Each launch produces
 one binning for UV/VIS ratio fits, preserving the campaign output layout.
+To change binning using a completed campaign's reconstruction and calibrated
+flux, follow [extraction-only commands](docs/runbooks/full-pipeline.md#change-phi-binning-without-rerunning-earlier-stages).
 Ratio Sigma and its error use the fixed finite-bin divisors `0.9003`,
 `0.9549`, and `0.9745`, respectively; likelihood remains unscaled. See the
 [scientific verification and convention](docs/research/2026-10-09-finite-phi-bin-correction.md).

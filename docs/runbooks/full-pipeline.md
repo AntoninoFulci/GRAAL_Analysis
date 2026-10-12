@@ -14,6 +14,13 @@ Farm setup links only raw detector data:
 source .venv/bin/activate
 ```
 
+To install outside a venv, add `--install user` and use the selected base
+Python directly, without activating `.venv`. Dependencies persist in the user
+site for that Python major/minor version. Load the same ROOT environment in
+each new session. Reinstall once if the Python major/minor version changes.
+User installs share packages with other projects; the farm Python must allow
+`pip install --user` and have user site packages enabled.
+
 Setup creates `data/02_pre_analyzed/` without moving, replacing, or linking its
 contents. `data/00_external/flux.root`, `config/run_manifest.csv`, and checked-in
 Stage-1 hyperparameters remain required.
@@ -31,8 +38,11 @@ layout. The choice controls the ratio fits and their azimuthal controls;
 the conditional likelihood remains unbinned. Stage-07 ROOT files store
 `binning/phi_edges` and `phi_bins` in provenance. Combined plots require
 matching UV/VIS phi edges. Legacy ROOT files without phi metadata are read
-as the previously enforced 12-bin case. For comparisons, launch separate
-production campaigns, for example `results/phi8` and `results/phi16`.
+as the previously enforced 12-bin case. For comparisons, use separate output
+directories, for example `results/phi8` and `results/phi16`. To reuse completed
+reconstructions, use the extraction-only commands below; the full launcher
+always reruns calibration and reconstruction, even when its upstream caches
+are valid.
 
 Ratio Sigma and its statistical error are automatically divided by the fixed
 approved values `0.9003`, `0.9549`, or `0.9745` for 8, 12, or 16 bins,
@@ -74,6 +84,59 @@ data/05_bdt/{uv,vis}/artifacts/stage1/
 Adjacent `*.manifest.json` files record cache signatures, completion time, and
 output identity. Selected, MC, and BDT output is validated in staging before
 publication. A failed stage leaves its previous artifact in place.
+
+## Change phi binning without rerunning earlier stages
+
+Run from the repository root after loading ROOT. Set `GRAAL_PYTHON` to the
+same interpreter used during setup, and replace `results/production` with
+the completed source campaign. Keep its original run manifest available at
+`config/run_manifest.csv`.
+
+These commands run Stage 07 for UV and VIS with 8 and 16 bins, then regenerate
+campaign plots. Selection, MC, BDT training, flux calibration, and
+reconstruction are reused. Likelihood is recalculated together with ratio,
+but remains unbinned. Outputs follow the standard campaign layout; references
+to source ROOT files use symlinks, so retain the source campaign. Existing
+`results/phi8` or `results/phi16` directories are refused by `mkdir`.
+
+```bash
+GRAAL_PYTHON=/path/to/pyroot-compatible-python
+(
+  set -e
+  SOURCE_CAMPAIGN=$(cd results/production && pwd -P)
+  for input in common/flux_calibrated.root \
+      uv/reco/reco_eta_pi0_chi2.root uv/reco/reco_eta_pi0_bdt.root \
+      vis/reco/reco_eta_pi0_chi2.root vis/reco/reco_eta_pi0_bdt.root; do
+    test -r "$SOURCE_CAMPAIGN/$input" || { echo "Missing input: $input" >&2; exit 1; }
+  done
+  for bins in 8 16; do
+    OUT="$PWD/results/phi$bins"
+    mkdir "$OUT"
+    mkdir "$OUT/common"
+    ln -s "$SOURCE_CAMPAIGN/common/flux_calibrated.root" "$OUT/common/flux_calibrated.root"
+    for profile in uv vis; do
+      mkdir "$OUT/$profile"
+      ln -s "$SOURCE_CAMPAIGN/$profile/reco" "$OUT/$profile/reco"
+      "$GRAAL_PYTHON" 07_observable_extraction/beam_asymmetry.py \
+        --profile "$profile" --phi-bins "$bins" \
+        --raw "$OUT/$profile/reco/reco_eta_pi0_chi2.root" \
+        --raw-bdt "$OUT/$profile/reco/reco_eta_pi0_bdt.root" \
+        --raw-bdt-fit "$OUT/$profile/reco/reco_eta_pi0_bdt.root" \
+        --flux-file "$OUT/common/flux_calibrated.root" \
+        --run-manifest config/run_manifest.csv \
+        --output-dir "$OUT/$profile/beam_asymmetry" \
+        --plots-dir "$OUT/$profile/plots" \
+        --estimator both --bootstrap-replicas 0
+    done
+    "$GRAAL_PYTHON" -m scripts.plot_campaign --campaign "$OUT"
+  done
+)
+```
+
+These derived campaigns have Stage-07 binning provenance but no full-launcher
+`pipeline_artifacts.json` or `pipeline_commands.log`, since earlier stages
+were not run. If extraction fails, partial new outputs remain for inspection;
+choose fresh destination names before repeating.
 
 ## Disposable test campaign
 

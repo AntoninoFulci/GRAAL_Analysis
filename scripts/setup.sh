@@ -5,14 +5,16 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  ./scripts/setup.sh --mode local [--python PATH]
-  ./scripts/setup.sh --mode farm --raw-target DIR [--python PATH]
+  ./scripts/setup.sh --mode local [--python PATH] [--install venv|user]
+  ./scripts/setup.sh --mode farm --raw-target DIR [--python PATH] [--install venv|user]
 
 Options:
   --mode local       Set up Python environment and local data directories.
   --mode farm        Link raw data; place h80 files in data/02_pre_analyzed/ manually.
   --raw-target DIR   Existing farm directory containing acquisition-period folders.
   --python PATH      Base Python interpreter (default: python3).
+  --install venv     Install into repository .venv (default).
+  --install user     Install into user site packages, outside any venv.
   --help             Show this help.
 EOF
 }
@@ -23,6 +25,7 @@ REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd -P)
 MODE=""
 PYTHON_BIN="python3"
 RAW_TARGET=""
+INSTALL_MODE="venv"
 
 require_value() {
     local option=$1 value=${2:-}
@@ -49,6 +52,11 @@ while [[ $# -gt 0 ]]; do
             RAW_TARGET=$2
             shift 2
             ;;
+        --install)
+            require_value "$1" "${2:-}"
+            INSTALL_MODE=$2
+            shift 2
+            ;;
         --help|-h)
             usage
             exit 0
@@ -62,6 +70,10 @@ done
 
 if [[ ${MODE} != "local" && ${MODE} != "farm" ]]; then
     echo "ERROR: --mode must be local or farm" >&2
+    exit 2
+fi
+if [[ ${INSTALL_MODE} != "venv" && ${INSTALL_MODE} != "user" ]]; then
+    echo "ERROR: --install must be venv or user" >&2
     exit 2
 fi
 
@@ -86,29 +98,39 @@ if ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(sys.version_info < (3, 10)
     echo "ERROR: Python 3.10 or newer is required" >&2
     exit 1
 fi
+if [[ ${INSTALL_MODE} == "user" ]] && ! "${PYTHON_BIN}" -c \
+    'import site, sys; raise SystemExit(not (sys.prefix == sys.base_prefix and site.ENABLE_USER_SITE))'; then
+    echo "ERROR: --install user requires Python outside a virtual environment with user site packages enabled" >&2
+    exit 1
+fi
 if ! "${PYTHON_BIN}" -c 'import ROOT'; then
     echo "ERROR: selected Python cannot import ROOT: ${PYTHON_BIN}" >&2
     exit 1
 fi
 
-VENV_DIR="${REPO_ROOT}/.venv"
-if [[ -e ${VENV_DIR} && ! -x ${VENV_DIR}/bin/python ]]; then
-    echo "ERROR: existing .venv is incomplete: ${VENV_DIR}" >&2
-    exit 1
-fi
-if [[ ! -e ${VENV_DIR} ]]; then
-    "${PYTHON_BIN}" -m venv --system-site-packages "${VENV_DIR}"
+INSTALL_PYTHON="${PYTHON_BIN}"
+PIP_OPTIONS=()
+if [[ ${INSTALL_MODE} == "venv" ]]; then
+    VENV_DIR="${REPO_ROOT}/.venv"
+    if [[ -e ${VENV_DIR} && ! -x ${VENV_DIR}/bin/python ]]; then
+        echo "ERROR: existing .venv is incomplete: ${VENV_DIR}" >&2
+        exit 1
+    fi
+    if [[ ! -e ${VENV_DIR} ]]; then
+        "${PYTHON_BIN}" -m venv --system-site-packages "${VENV_DIR}"
+    fi
+    INSTALL_PYTHON="${VENV_DIR}/bin/python"
+    if ! "${INSTALL_PYTHON}" -c 'import ROOT'; then
+        echo "ERROR: .venv cannot import ROOT" >&2
+        exit 1
+    fi
+    "${INSTALL_PYTHON}" -m pip install --upgrade pip
+else
+    PIP_OPTIONS=(--user)
 fi
 
-VENV_PYTHON="${VENV_DIR}/bin/python"
-if ! "${VENV_PYTHON}" -c 'import ROOT'; then
-    echo "ERROR: .venv cannot import ROOT" >&2
-    exit 1
-fi
-
-"${VENV_PYTHON}" -m pip install --upgrade pip
-"${VENV_PYTHON}" -m pip install -r "${REPO_ROOT}/04_bdt_training/requirements.txt"
-"${VENV_PYTHON}" -m pip install -e "${REPO_ROOT}"
+"${INSTALL_PYTHON}" -m pip install "${PIP_OPTIONS[@]}" -r "${REPO_ROOT}/04_bdt_training/requirements.txt"
+"${INSTALL_PYTHON}" -m pip install "${PIP_OPTIONS[@]}" -e "${REPO_ROOT}"
 
 mkdir -p \
     "${REPO_ROOT}/data/00_external" \
@@ -152,13 +174,17 @@ if [[ ${MODE} == "farm" ]]; then
     ensure_directory_link "${REPO_ROOT}/data/01_raw/graal_data" "${RAW_TARGET}"
 fi
 
-"${VENV_PYTHON}" -c \
-    'import ROOT, graal_common, event_selector, mc_simulation, bdt_training, reconstruction, calibration, observable_extraction, plots'
+"${INSTALL_PYTHON}" -c \
+    'import ROOT, numpy, uproot, awkward, xgboost, sklearn, matplotlib, tqdm, graal_common, event_selector, mc_simulation, bdt_training, reconstruction, calibration, observable_extraction, plots'
 
 if [[ ! -f ${REPO_ROOT}/data/00_external/flux.root ]]; then
     echo "WARNING: data/00_external/flux.root is not present"
 fi
 
-echo "Setup complete (${MODE})."
-echo "Activate environment: source ${VENV_DIR}/bin/activate"
-echo "Calibration help: ${VENV_PYTHON} ${REPO_ROOT}/06_calibration/build_strip_energy_flux.py --help"
+echo "Setup complete (${MODE}, install=${INSTALL_MODE})."
+if [[ ${INSTALL_MODE} == "venv" ]]; then
+    echo "Activate environment: source ${VENV_DIR}/bin/activate"
+else
+    echo "No venv activation needed. Run with: ${INSTALL_PYTHON}"
+fi
+echo "Calibration help: ${INSTALL_PYTHON} ${REPO_ROOT}/06_calibration/build_strip_energy_flux.py --help"

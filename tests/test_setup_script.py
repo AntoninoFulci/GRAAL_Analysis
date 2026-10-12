@@ -37,6 +37,9 @@ if [[ "${1:-}" == "-m" && "${2:-}" == "pip" ]]; then
     exit 0
 fi
 if [[ "${1:-}" == "-c" ]]; then
+    if [[ "$2" == *"site.ENABLE_USER_SITE"* ]]; then
+        exit "${SETUP_TEST_USER_SITE_STATUS:-0}"
+    fi
     exit 0
 fi
 exit 91
@@ -161,3 +164,49 @@ def test_farm_setup_refuses_to_replace_existing_data_path(tmp_path):
     assert result.returncode == 1
     assert "path exists" in result.stderr
     assert marker.read_text() == "do not delete"
+
+
+def test_user_setup_installs_outside_venv_and_can_be_repeated(tmp_path):
+    repo = _sandbox_repo(tmp_path)
+    python = _fake_python(tmp_path)
+    log = tmp_path / "pip.log"
+    env = os.environ.copy()
+    env["SETUP_TEST_LOG"] = str(log)
+    command = [
+        str(repo / "scripts/setup.sh"),
+        "--mode", "local", "--python", str(python), "--install", "user",
+    ]
+
+    for _ in range(2):
+        result = subprocess.run(command, cwd=tmp_path, env=env, text=True, capture_output=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    assert not (repo / ".venv").exists()
+    assert (repo / "data/02_pre_analyzed").is_dir()
+    commands = log.read_text().splitlines()
+    assert len(commands) == 4
+    assert all("--user" in command for command in commands)
+    assert any(f"-r {repo}/04_bdt_training/requirements.txt" in command for command in commands)
+    assert any(f"-e {repo}" in command for command in commands)
+    assert "bin/activate" not in result.stdout
+    assert f"{python} {repo}/06_calibration/build_strip_energy_flux.py --help" in result.stdout
+
+
+def test_user_setup_refuses_interpreter_without_visible_user_site(tmp_path):
+    repo = _sandbox_repo(tmp_path)
+    python = _fake_python(tmp_path)
+    log = tmp_path / "pip.log"
+    env = os.environ.copy()
+    env["SETUP_TEST_LOG"] = str(log)
+    env["SETUP_TEST_USER_SITE_STATUS"] = "1"
+
+    result = subprocess.run(
+        [str(repo / "scripts/setup.sh"), "--mode", "local", "--python", str(python),
+         "--install", "user"],
+        cwd=tmp_path, env=env, text=True, capture_output=True,
+    )
+
+    assert result.returncode == 1
+    assert "outside a virtual environment" in result.stderr
+    assert not log.exists()
+    assert not (repo / ".venv").exists()

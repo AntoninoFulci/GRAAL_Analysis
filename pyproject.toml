@@ -9,10 +9,8 @@ build-backend = "setuptools.build_meta"
 name = "graal-analysis"
 version = "0.1.0"
 description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
-# Tied to the Python that PyROOT is built against on the analysis farm (3.10.12).
-# PyROOT only imports from the interpreter ROOT was compiled for, so that
-# interpreter sets the floor — not our preference. The code itself needs nothing
-# newer: modern annotations are all behind `from __future__ import annotations`.
+# The code requires Python >=3.10; select an interpreter compatible with the
+# installed PyROOT build. New farm installations need not keep Python 3.10.12.
 requires-python = ">=3.10"
 dependencies = []
 
