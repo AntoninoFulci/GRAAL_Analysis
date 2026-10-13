@@ -38,7 +38,7 @@ def _write_reconstruction(path: Path, tree_name: str, *, fit: bool) -> None:
     source.Close()
 
 
-def _write_asymmetry(path: Path, profile: str) -> None:
+def _write_asymmetry(path: Path, profile: str, *, fit: bool = True) -> None:
     source_points = _points()
     if profile == "vis":
         source_points = tuple(replace(item, point=replace(item.point, energy_bin=0,
@@ -46,7 +46,7 @@ def _write_asymmetry(path: Path, profile: str) -> None:
                               for item in source_points if item.point.energy_bin == 0)
     points = tuple(replace(item, sample=sample, estimator=estimator)
                    for item in source_points
-                   for sample in ("raw_bdt", "raw_bdt_fit")
+                   for sample in (("raw_bdt", "raw_bdt_fit") if fit else ("raw", "raw_bdt"))
                    for estimator in ("ratio", "likelihood"))
     edges = (0.9313, 1.10) if profile == "vis" else (1.10, 1.20, 1.30, 1.40, 1.50)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,7 +74,7 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path):
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE)
+        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, with_kinematic_fit=True)
     assert not any("Deleting canvas with same name" in str(item.message) for item in caught)
 
     assert all(path.read_bytes() == contents for path, contents in original.items())
@@ -139,3 +139,76 @@ def test_postprocessing_rejects_corrupt_legacy_pdf(tmp_path):
     output.mkdir()
     with pytest.raises(ValueError, match="systematic_summary.pdf"):
         plot_campaign._copy_stage7_pdfs(root, output)
+
+
+def test_no_fit_campaign_generates_raw_plots_and_removes_stale_fit_pdfs(tmp_path):
+    import json
+    campaign = tmp_path / "baseline"
+    for profile in ("uv", "vis"):
+        root = campaign / profile
+        for tree in ("reco_eta_pi0_chi2", "reco_eta_pi0_bdt"):
+            path = root / "reco" / f"{tree}.root"
+            _write_reconstruction(path, tree, fit=False)
+            source = ROOT.TFile(str(path), "UPDATE")
+            ROOT.TNamed("reconstruction_provenance", json.dumps({"do_fit": False})).Write()
+            source.Close()
+        _write_asymmetry(root / "beam_asymmetry/beam_asymmetry.root", profile, fit=False)
+        for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+            (root / "beam_asymmetry" / name).write_bytes(b"%PDF-1.4\n")
+        old = root / "plots"
+        old.mkdir()
+        (old / "comparison_raw_fit_ratio.pdf").write_bytes(b"%PDF-old")
+        (old / "comparison_reconstruction_samples.pdf").write_bytes(b"%PDF-stale fit comparison")
+    plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE)
+    for profile in ("uv", "vis"):
+        output = campaign / profile / "plots"
+        assert (output / "dalitz_confronto.pdf").is_file()
+        assert (output / "figure4_experimental.pdf").is_file()
+        assert not list(output.glob("*raw_fit*"))
+        assert b"stale fit" not in (output / "comparison_reconstruction_samples.pdf").read_bytes()
+    assert not list((campaign / "common/plots").glob("*raw_fit*"))
+    assert not list((campaign / "common/plots").glob("mass_uv_vis*"))
+
+
+def test_default_postprocessing_rejects_archived_fit_campaign(tmp_path):
+    _write_asymmetry(tmp_path / "uv/beam_asymmetry/beam_asymmetry.root", "uv")
+    with pytest.raises(ValueError, match="kinematic-fit|kinematic fit"):
+        plot_campaign._read_profile(tmp_path, "uv")
+
+
+def test_postprocessing_prefers_current_stage7_diagnostics(tmp_path):
+    root = tmp_path / "uv"
+    (root / "plots").mkdir(parents=True)
+    (root / "beam_asymmetry").mkdir()
+    for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+        (root / "plots" / name).write_bytes(b"%PDF-old-fit-campaign")
+        (root / "beam_asymmetry" / name).write_bytes(b"%PDF-current-no-fit")
+    output = tmp_path / "out"
+    output.mkdir()
+    plot_campaign._copy_stage7_pdfs(root, output)
+    assert (output / "systematic_summary.pdf").read_bytes() == b"%PDF-current-no-fit"
+
+
+def test_postprocessing_refuses_diagnostics_older_than_current_extraction(tmp_path):
+    import os
+    root = tmp_path / "uv"
+    (root / "plots").mkdir(parents=True)
+    (root / "beam_asymmetry").mkdir()
+    for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+        path = root / "plots" / name
+        path.write_bytes(b"%PDF-old-fit-campaign")
+        os.utime(path, (1, 1))
+    (root / "beam_asymmetry/beam_asymmetry.root").touch()
+    output = tmp_path / "out"
+    output.mkdir()
+    with pytest.raises(FileNotFoundError, match="systematic_summary.pdf"):
+        plot_campaign._copy_stage7_pdfs(root, output)
+
+
+def test_standalone_dalitz_rejects_uncertified_raw_tree(tmp_path):
+    chi2 = tmp_path / "chi2.root"
+    bdt = tmp_path / "bdt.root"
+    _write_reconstruction(chi2, "reco_eta_pi0_chi2", fit=False)
+    _write_reconstruction(bdt, "reco_eta_pi0_bdt", fit=False)
+    with pytest.raises(ValueError, match="provenance"):
+        plot_campaign.dalitz.main(["--chi2", str(chi2), "--bdt", str(bdt), "--out-dir", str(tmp_path / "out")])

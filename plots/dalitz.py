@@ -38,6 +38,8 @@ Run:
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
+from reconstruction.runtime.provenance import validate_no_fit
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -204,6 +206,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bdt", type=Path, required=True,
                    help="output di reconstruct_eta_pi0_bdt")
     p.add_argument("--out-dir", type=Path, default=Path("results/plots"))
+    p.add_argument("--with-kinematic-fit", action="store_true",
+                   help="explicitly plot archived fitted vectors and overlays")
     args = p.parse_args(argv)
 
     ROOT.gROOT.SetBatch(True)
@@ -213,13 +217,16 @@ def main(argv: list[str] | None = None) -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     print("Lettura degli alberi ricostruiti:")
-    fc, tc = reconstruction_data.open_tree(args.chi2, CHI2_TREE)
-    fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE)
-
-    chi2 = reconstruction_data.collect(tc)
-    bdt = reconstruction_data.collect(tb)
-    fc.Close()
-    fb.Close()
+    with ExitStack() as inputs:
+        fc, tc = reconstruction_data.open_tree(args.chi2, CHI2_TREE)
+        inputs.callback(fc.Close)
+        fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE)
+        inputs.callback(fb.Close)
+        if not args.with_kinematic_fit:
+            validate_no_fit(fc, tc)
+            validate_no_fit(fb, tb)
+        chi2 = reconstruction_data.collect(tc, forbid_fit=not args.with_kinematic_fit)
+        bdt = reconstruction_data.collect(tb, forbid_fit=not args.with_kinematic_fit)
 
     hists = {}
     for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):

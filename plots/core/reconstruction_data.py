@@ -88,10 +88,12 @@ def has_fit(tree) -> bool:
     }
 
 
-def collect(tree, *, require_fit: bool = False) -> ReconstructionArrays:
+def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> ReconstructionArrays:
     """Collect paired raw/fit plot inputs without mixing recoil-vector modes."""
     branches = {branch.GetName() for branch in tree.GetListOfBranches()}
     tree_has_fit = "fit_chi2" in branches
+    if forbid_fit and any("fit" in name for name in branches):
+        raise ValueError("no-fit plots cannot use a historically fit-selected tree")
     if require_fit and not tree_has_fit:
         raise ValueError("reconstructed tree has no kinematic-fit branches")
     if tree_has_fit:

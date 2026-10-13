@@ -11,6 +11,7 @@ import numpy as np
 import ROOT
 
 from observable_extraction.core.models import FluxExposure
+from reconstruction.runtime.provenance import validate_no_fit
 
 
 def _vector(value) -> np.ndarray:
@@ -56,6 +57,7 @@ def read_reconstructed(
     tree_name: str,
     *,
     vector_mode: str,
+    require_no_fit: bool = False,
 ) -> EventArrays:
     if vector_mode not in {"raw", "fit"}:
         raise ValueError("vector_mode must be 'raw' or 'fit'")
@@ -67,6 +69,10 @@ def read_reconstructed(
         tree = source.Get(tree_name)
         if not tree or not tree.InheritsFrom("TTree"):
             raise RuntimeError(f"missing TTree {tree_name!r} in {path}")
+        if require_no_fit:
+            if vector_mode != "raw":
+                raise ValueError("no-fit baseline requires raw vectors")
+            validate_no_fit(source, tree)
         branches = {branch.GetName() for branch in tree.GetListOfBranches()}
         required = {
             "RunNumber", "Xstrip", "Polarization", "beam", "eta", "pi0",

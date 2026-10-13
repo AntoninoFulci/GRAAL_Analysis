@@ -299,7 +299,12 @@ def test_plan_trains_and_reconstructs_with_profile_local_artifacts(tmp_path):
         assert str(paths.mc_dir(profile)) in _stage(stages, f"{profile}:mc_status").argv
         assert str(paths.bdt_dir(profile) / "features_stage1.npz") in _stage(stages, f"{profile}:features").argv
         assert ("--profile", profile) == bdt.argv[-2:]
-        assert extract.argv.count(str(reco)) == 2
+        assert extract.argv.count(str(reco)) == 1
+        assert "--raw-bdt-fit" not in extract.argv
+        assert "--no-fit" in bdt.argv
+        chi2 = _stage(stages, f"{profile}:reconstruct_chi2")
+        assert "--no-fit" in chi2.argv
+        assert chi2.argv[-2:] == ("--profile", profile)
         assert str(root / "reco/reco_eta_pi0_chi2.root") in extract.argv
 
 

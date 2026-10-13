@@ -145,3 +145,10 @@ def test_vis_energy_range_keeps_exact_boundaries_after_exposure_filtering():
     )
 
     assert selected.beam_energy_gev.tolist() == pytest.approx([0.9313, 1.10])
+
+
+def test_baseline_reader_rejects_historical_fit_selected_raw(tmp_path):
+    path = tmp_path / "historical.root"
+    _write_reconstructed(path)
+    with pytest.raises(ValueError, match="no-fit|provenance"):
+        read_reconstructed(path, "reco", vector_mode="raw", require_no_fit=True)

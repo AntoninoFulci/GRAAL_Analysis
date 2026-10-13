@@ -144,6 +144,7 @@ def root_adapter(monkeypatch, tmp_path):
         return tree
 
     root = SimpleNamespace(
+        TNamed=lambda *args: SimpleNamespace(Write=lambda: None),
         TFile=_File,
         TTree=make_tree,
         TLorentzVector=_LorentzVector,

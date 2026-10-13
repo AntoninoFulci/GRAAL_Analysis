@@ -49,9 +49,13 @@ def add_common_reconstruction_arguments(
         "partner; <= 0 disables the cut (default 0.06)",
     )
     if fit_options_exposed:
-        parser.add_argument(
+        fit_group = parser.add_mutually_exclusive_group()
+        fit_group.add_argument("--with-kinematic-fit", dest="no_fit", action="store_false",
+                               help="explicitly enable archived kinematic-fit analysis")
+        fit_group.add_argument(
             "--no-fit",
             action="store_true",
+            default=True,
             help="disable the kinematic fit; fall back to the missing-mass "
             "cut for selection",
         )

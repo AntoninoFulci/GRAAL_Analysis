@@ -27,6 +27,10 @@ same events and the gate stays the only difference between them.
 from __future__ import annotations
 
 import os
+import json
+import subprocess
+import sys
+from collections import Counter, defaultdict
 from array import array
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +41,7 @@ import ROOT
 
 from graal_common.physics import pairing as pr
 from graal_common.io import trees
+from reconstruction.runtime.provenance import KEY, file_identities
 from reconstruction.core import reco_physics as rp
 from reconstruction.core.event_logic import (
     EventInput,
@@ -92,11 +97,12 @@ class RecoConfig:
     # Kinematic fit. When on, its confidence-level cut replaces the missing-mass
     # cut (the fit's 4-momentum constraint subsumes it); when off, the
     # missing-mass cut above applies. See kinematic_fit.
-    do_fit: bool = True
+    do_fit: bool = False
     fit_cl: float = 0.01
     fit_cov: FitCovariance = field(default_factory=FitCovariance)
     fit_reaction: FitReactionModel = PROTON_TARGET_REACTION
     energy_range_gev: tuple[float, float] | None = None
+    model_dir: Path | None = None
 
 
 def _as_array(v) -> np.ndarray:
@@ -150,8 +156,19 @@ def run_reconstruction(
             raise ValueError(
                 "reconstruction energy range must be finite and increasing"
             )
+    # Snapshot executable inputs before processing; later edits must not relabel this run.
+    repo = Path(__file__).resolve().parents[2]
+    revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                              capture_output=True, text=True, check=False)
+    source_files = file_identities(
+        p for base in (repo / "05_reconstruction", repo / "00_common")
+        for p in base.rglob("*.py") if "tests" not in p.parts)
+    model_inputs = file_identities(cfg.model_dir / name for name in
+        ("bdt_stage1.json", "stage1_threshold.txt", "stage1_provenance.json")) if cfg.model_dir else []
     chain = _build_chain(Path(cfg.input_dir), cfg.input_tree)
     n_entries = chain.GetEntries()
+    inputs = file_identities(Path(cfg.input_dir).glob("*.root"))
+    counts = defaultdict(Counter)
     print(f"Total events in chain: {n_entries}")
 
     cfg.output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +264,8 @@ def run_reconstruction(
             pairing_fn=pr.best_pairing,
             fit_fn=fit_event,
         )
+        if isinstance(decision, RejectionReason):
+            counts[(event.run_number, event.polarization)][decision.value] += 1
         if decision is RejectionReason.CHI_SQUARE:
             return
         if decision is RejectionReason.IMPOSSIBLE_ENERGY:
@@ -259,6 +278,7 @@ def run_reconstruction(
             n_fit_cut += 1
             return
 
+        counts[(event.run_number, event.polarization)]["written"] += 1
         reconstructed: ReconstructedEvent = decision
         raw_photons = reconstructed.photons
 
@@ -324,6 +344,8 @@ def run_reconstruction(
         for ok, event, score in zip(keep, buf, scores):
             if ok:
                 _reconstruct_and_fill(event, score)
+            else:
+                counts[(event.run_number, event.polarization)]["bdt_gate"] += 1
 
         buf.clear()
 
@@ -331,6 +353,8 @@ def run_reconstruction(
 
     for iev in range(n_entries):
         chain.GetEntry(iev)
+        counter = counts[(int(chain.RunNumber), int(chain.Polarization))]
+        counter["input"] += 1
 
         if iev % 100000 == 0:
             print(f"Event {iev}/{n_entries}")
@@ -340,10 +364,12 @@ def run_reconstruction(
             energy = float(chain.beam.E())
             if energy < low or energy > high:
                 n_outside_energy += 1
+                counter["outside_energy"] += 1
                 continue
 
         # Pairing uses the first four reconstructed photons.
         if chain.gammas.size() < 4:
+            counter["fewer_than_four_photons"] += 1
             continue
 
         # Require exactly one reconstructed proton (the recoil in gamma p ->
@@ -352,6 +378,7 @@ def run_reconstruction(
         # docstring for why a fictitious zero-proton is not used instead.
         if chain.protons.size() != 1:
             n_no_proton += 1
+            counter["not_one_proton"] += 1
             continue
 
         photons = np.vstack([_as_array(chain.gammas[k]) for k in range(4)])
@@ -382,6 +409,28 @@ def run_reconstruction(
     fout.cd()
     tout.Write("", ROOT.TObject.kOverwrite)  # reuse the key, avoid extra ;N cycles
     n_written = tout.GetEntries()
+    metadata = {
+        "schema": 1, "do_fit": cfg.do_fit, "channel": channel.name,
+        "input_tree": getattr(chain, "GetName", lambda: cfg.input_tree)(),
+        "output_tree": cfg.output_tree, "inputs": inputs,
+        "source_revision": revision.stdout.strip(),
+        "source_files": source_files,
+        "command": sys.argv,
+        "versions": {"python": sys.version, "numpy": np.__version__},
+        "selection": {
+            "chi2_cut": cfg.chi2_cut, "chi2_resolution_relative": rp.CHI2_RESOLUTION,
+            "missing_mass_window_gev": cfg.missing_mass_window if not cfg.do_fit else None,
+            "partner_mass_gev": cfg.partner_mass,
+            "energy_range_gev": cfg.energy_range_gev,
+            "photons": "first_four_of_at_least_four", "protons": "exactly_one",
+            "fit_cl": cfg.fit_cl if cfg.do_fit else None,
+            "bdt_threshold": gate.threshold if gate is not None else None,
+        },
+        "model_inputs": model_inputs,
+        "counts_by_run_state": [dict(run=run, polarization=pol, **counter)
+                                for (run, pol), counter in sorted(counts.items())],
+    }
+    ROOT.TNamed(KEY, json.dumps(metadata, sort_keys=True)).Write()
     fout.Close()
 
     print("====================================")

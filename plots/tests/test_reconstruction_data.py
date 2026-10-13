@@ -165,3 +165,9 @@ def test_open_tree_rejects_missing_file(tmp_path):
         FileNotFoundError, match=f"file ricostruito non trovato: {path}"
     ):
         reconstruction_data.open_tree(path, "events")
+
+
+def test_no_fit_plot_contract_rejects_fitted_tree():
+    tree = _Tree([_event(fitted=True)], branches=("fit_chi2", "eta_fit", "pi0_fit", "proton_fit"))
+    with pytest.raises(ValueError, match="no-fit"):
+        reconstruction_data.collect(tree, forbid_fit=True)

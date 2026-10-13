@@ -48,6 +48,7 @@ def main():
         output_tree="reco_eta_pi0_bdt",
         fit_options_exposed=True,
     )
+    cfg.model_dir = args.model_dir
     if profile is not None:
         cfg.energy_range_gev = profile.energy_range_gev
     run_reconstruction(cfg, ETA_PI0, gate=gate)

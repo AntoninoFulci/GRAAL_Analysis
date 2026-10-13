@@ -261,3 +261,16 @@ def test_accepted_fit_preserves_fit_arguments_and_vectors():
     assert result.fit_chi2 == 6.0
     assert result.fit_ndf == 6
     assert result.fit_converged is True
+
+
+def test_no_fit_recovers_event_rejected_by_historical_fitter():
+    energy = (rp.M_PROTON**2 / (rp.M_PROTON - 0.3) - rp.M_PROTON + 1.5) / 2
+    event = _event(beam_energy=energy)
+    failed = FitResult(np.zeros((4, 4)), np.zeros(4), 100.0, 6, False, np.ones(16))
+    historical = reconstruct_event(event, rp.ETA_PI0, _config(do_fit=True),
+                                   pairing_fn=_pairing_with(1.0), fit_fn=lambda *a, **kw: failed)
+    assert historical is RejectionReason.FIT
+    baseline = reconstruct_event(event, rp.ETA_PI0, _config(missing_mass_window=0.06),
+                                 pairing_fn=_pairing_with(1.0), fit_fn=_fit_must_not_run)
+    assert isinstance(baseline, ReconstructedEvent)
+    assert baseline.fit_converged is None

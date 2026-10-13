@@ -20,6 +20,7 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     args = beam_asymmetry.build_parser().parse_args([])
 
     assert args.nominal_sample == "raw_bdt"
+    assert args.raw_bdt_fit is None
     assert args.estimator == "both"
     assert args.profile == "uv"
     assert args.flux_file == Path("data/00_external/flux_calibrated.root")
@@ -101,7 +102,7 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
     monkeypatch.setattr(
         beam_asymmetry,
         "read_reconstructed",
-        lambda _path, _tree, vector_mode: events,
+        lambda _path, _tree, vector_mode, **kwargs: events,
     )
     output = tmp_path / "beam_asymmetry"
 
@@ -141,6 +142,8 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
         ]
         assert stored_edges == pytest.approx([0.9313, 1.10])
         assert "profile=vis" in source.Get("provenance").GetTitle()
+        assert "raw_vs_kinematic_fit=disabled" in source.Get("provenance").GetTitle()
+        assert not source.Get("covariance/systematic/raw_vs_kinematic_fit")
         assert f"phi_bins={phi_bins}" in source.Get("provenance").GetTitle()
         phi_edges = source.Get("binning/phi_edges")
         assert phi_edges.GetNrows() == phi_bins + 1
@@ -246,7 +249,7 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
     monkeypatch.setattr(
         beam_asymmetry,
         "read_reconstructed",
-        lambda _path, _tree, vector_mode: _synthetic_events(),
+        lambda _path, _tree, vector_mode, **kwargs: _synthetic_events(),
     )
 
     with pytest.raises(ValueError, match="supplied together"):

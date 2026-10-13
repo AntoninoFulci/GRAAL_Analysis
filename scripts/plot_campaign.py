@@ -20,6 +20,7 @@ from observable_extraction.plotting.diagnostics import (
 from observable_extraction.plotting.figure4 import profile_energy_rows, combined_energy_rows, write_profile_figure4_pdf
 from plots import dalitz, mass_comparison
 from plots.core import reconstruction_data
+from reconstruction.runtime.provenance import validate_no_fit
 
 
 STAGE7_PDFS = (
@@ -33,10 +34,14 @@ REQUIRED_STAGE7_PDFS = (
 
 
 def _copy_stage7_pdfs(root: Path, output: Path) -> None:
+    extraction = root / "beam_asymmetry/beam_asymmetry.root"
+    extracted_at = extraction.stat().st_mtime_ns if extraction.exists() else None
     for filename in STAGE7_PDFS:
         found = False
-        for origin in (root / "plots" / filename, root / "beam_asymmetry" / filename):
+        for origin in (root / "beam_asymmetry" / filename, root / "plots" / filename):
             if origin.is_file():
+                if extracted_at is not None and origin.stat().st_mtime_ns < extracted_at:
+                    continue
                 with origin.open("rb") as stream:
                     if stream.read(5) != b"%PDF-":
                         raise ValueError(f"invalid Stage-07 PDF {origin}")
@@ -47,21 +52,30 @@ def _copy_stage7_pdfs(root: Path, output: Path) -> None:
             raise FileNotFoundError(f"missing Stage-07 diagnostic {filename} in {root}")
 
 
-def _read_profile(campaign: Path, profile: str):
+def _read_profile(campaign: Path, profile: str, *, with_kinematic_fit: bool = False):
     root = campaign / profile
     asymmetry = root / "beam_asymmetry/beam_asymmetry.root"
     points = read_output_points(asymmetry)
     if not points:
         raise ValueError(f"{asymmetry} has no asymmetry points")
     combine_profiles._validate_profile_root(profile, asymmetry, points)
+    if not with_kinematic_fit and any(point.sample == "raw_bdt_fit" for point in points):
+        raise ValueError("archived kinematic-fit campaign requires --with-kinematic-fit")
     bdt = root / "reco/reco_eta_pi0_bdt.root"
     source, tree = reconstruction_data.open_tree(bdt, dalitz.BDT_TREE)
     try:
-        arrays = reconstruction_data.collect(tree, require_fit=True)
+        fit_mode = with_kinematic_fit
+        if not fit_mode:
+            validate_no_fit(source, tree)
+        arrays = reconstruction_data.collect(tree, require_fit=fit_mode, forbid_fit=not fit_mode)
     finally:
         source.Close()
     source, tree = reconstruction_data.open_tree(root / "reco/reco_eta_pi0_chi2.root", dalitz.CHI2_TREE)
-    source.Close()
+    try:
+        if not fit_mode:
+            validate_no_fit(source, tree)
+    finally:
+        source.Close()
     return points, arrays
 
 
@@ -74,8 +88,10 @@ def _render_profile(campaign: Path, profile: str, payload, output: Path) -> None
         "--chi2", str(root / "reco/reco_eta_pi0_chi2.root"),
         "--bdt", str(root / "reco/reco_eta_pi0_bdt.root"),
         "--out-dir", str(output),
+        *(["--with-kinematic-fit"] if arrays.has_fit else []),
     ])
-    mass_comparison.write_profile_masses(arrays, output, profile)
+    if arrays.has_fit:
+        mass_comparison.write_profile_masses(arrays, output, profile)
     rows = profile_energy_rows(profile)
     mapping = {profile: points}
     write_profile_figure4_pdf(output / "figure4_experimental.pdf", mapping, rows)
@@ -85,8 +101,9 @@ def _render_profile(campaign: Path, profile: str, payload, output: Path) -> None
     write_profile_fit_diagnostics_pdf(output / "fit_diagnostics.pdf",
                                       {profile: tuple(point for point in points if point.sample == "raw_bdt" and point.estimator == "ratio")},
                                       rows)
-    for estimator in ("ratio", "likelihood"):
-        write_raw_fit_comparison_pdf(output / f"comparison_raw_fit_{estimator}.pdf", mapping, rows, estimator=estimator)
+    if arrays.has_fit:
+        for estimator in ("ratio", "likelihood"):
+            write_raw_fit_comparison_pdf(output / f"comparison_raw_fit_{estimator}.pdf", mapping, rows, estimator=estimator)
 
 
 def _render_common(campaign: Path, payloads: dict, output: Path, reference: Path) -> None:
@@ -96,6 +113,8 @@ def _render_common(campaign: Path, payloads: dict, output: Path, reference: Path
         published_csv=reference,
         output_dir=output,
     ))
+    if not all(value[1].has_fit for value in payloads.values()):
+        return
     mass_comparison.write_common_masses({profile: value[1] for profile, value in payloads.items()}, output)
     mapping = {profile: value[0] for profile, value in payloads.items()}
     for estimator in ("ratio", "likelihood"):
@@ -103,9 +122,11 @@ def _render_common(campaign: Path, payloads: dict, output: Path, reference: Path
                                      mapping, combined_energy_rows(), estimator=estimator)
 
 
-def render_campaign(campaign: Path, reference: Path) -> None:
+def render_campaign(campaign: Path, reference: Path, *, with_kinematic_fit: bool = False) -> None:
     campaign = Path(campaign).expanduser().resolve()
-    payloads = {profile: _read_profile(campaign, profile) for profile in ("uv", "vis")}
+    payloads = {profile: (_read_profile(campaign, profile, with_kinematic_fit=True)
+                          if with_kinematic_fit else _read_profile(campaign, profile))
+                for profile in ("uv", "vis")}
     with ExitStack() as stack:
         outputs = {
             profile: stack.enter_context(atomic_output_directory(campaign / profile / "plots"))
@@ -120,13 +141,15 @@ def render_campaign(campaign: Path, reference: Path) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", required=True, type=Path)
+    parser.add_argument("--with-kinematic-fit", action="store_true",
+                        help="explicitly regenerate archived 6C plots")
     parser.add_argument("--published-csv", type=Path, default=combine_profiles.AJAKA_REFERENCE)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    render_campaign(args.campaign, args.published_csv)
+    render_campaign(args.campaign, args.published_csv, with_kinematic_fit=args.with_kinematic_fit)
     return 0
 
 

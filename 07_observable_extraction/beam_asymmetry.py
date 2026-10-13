@@ -117,7 +117,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--raw-bdt-fit",
         type=Path,
-        default=Path("results/reco/reco_eta_pi0_bdt_fit.root"),
+        default=None,
+        help="explicit opt-in for archived 6C comparison; disabled by default",
     )
     parser.add_argument("--sideband", type=Path)
     parser.add_argument("--signal-mc", type=Path)
@@ -155,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _sample_path(args: argparse.Namespace, sample: str) -> Path:
+def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
     return {
         "raw": args.raw,
         "raw_bdt": args.raw_bdt,
@@ -668,6 +669,9 @@ def _photon_multiplicity_component(
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.nominal_sample == "raw_bdt_fit" and args.raw_bdt_fit is None:
+        raise ValueError("fitted nominal sample requires explicit --raw-bdt-fit")
+    no_fit = args.raw_bdt_fit is None
     phi_edges = phi_edges_rad(args.phi_bins)
     if args.mass_bins != 10:
         raise ValueError("nominal extraction requires 10 mass bins")
@@ -680,6 +684,7 @@ def run(args: argparse.Namespace) -> int:
         _sample_path(args, args.nominal_sample),
         sample.tree,
         vector_mode=sample.vector_mode,
+        require_no_fit=no_fit,
     )
     exposures = load_exposures(
         args.flux_file,
@@ -742,6 +747,8 @@ def run(args: argparse.Namespace) -> int:
         if sample_name == args.nominal_sample:
             continue
         path = _sample_path(args, sample_name)
+        if path is None:
+            continue
         if not path.is_file():
             print(
                 f"warning: optional comparison sample missing: {sample_name} ({path})",
@@ -749,7 +756,7 @@ def run(args: argparse.Namespace) -> int:
             )
             continue
         comparison_events = select_sigma_events(
-            read_reconstructed(path, contract.tree, vector_mode=contract.vector_mode),
+            read_reconstructed(path, contract.tree, vector_mode=contract.vector_mode, require_no_fit=no_fit),
             exposures,
             energy_range=profile.energy_range_gev,
             drop_missing=True,
@@ -830,6 +837,7 @@ def run(args: argparse.Namespace) -> int:
         systematic_covariances=systematic_covariances,
         ratio_objects=nominal.ratio_objects,
         provenance=(
+            f"raw_vs_kinematic_fit={'disabled' if no_fit else 'enabled'}\n"
             f"sample={args.nominal_sample}\n"
             f"estimator={args.estimator}\n"
             f"profile={profile.name}\n"

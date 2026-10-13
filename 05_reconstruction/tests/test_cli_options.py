@@ -107,7 +107,7 @@ def test_common_options_keep_fit_flags_out_of_non_fit_cli():
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == 0.938272
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is True
+    assert cfg.do_fit is False
     assert cfg.fit_cl == 0.01
 
 

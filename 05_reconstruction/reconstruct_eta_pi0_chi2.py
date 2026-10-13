@@ -7,6 +7,8 @@ and a pi0 by minimising chi2 over pairings derived from the eta-pi0 hypothesis.
 Run:
     python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
 """
+from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+
 import argparse
 from pathlib import Path
 
@@ -27,6 +29,7 @@ def main():
         "mass the cut centres on (default proton)",
         fit_options_exposed=True,
     )
+    p.add_argument("--profile", choices=BEAM_PROFILES, default=None)
     args = p.parse_args()
 
     cfg = reco_config_from_args(
@@ -34,6 +37,8 @@ def main():
         output_tree="reco_eta_pi0_chi2",
         fit_options_exposed=True,
     )
+    if args.profile is not None:
+        cfg.energy_range_gev = get_beam_profile(args.profile).energy_range_gev
     run_reconstruction(cfg, ETA_PI0, gate=None)
 
 

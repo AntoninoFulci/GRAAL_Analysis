@@ -85,7 +85,7 @@ def test_eta_pi0_chi2_defaults_build_expected_configuration(monkeypatch):
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is True
+    assert cfg.do_fit is False
     assert cfg.fit_cl == 0.01
     assert observed["channel"] is rp.ETA_PI0
     assert observed["gate"] is None
@@ -136,7 +136,7 @@ def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeyp
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is True
+    assert cfg.do_fit is False
     assert cfg.fit_cl == 0.01
     assert gate.checked is rp.ETA_PI0.hypothesis
     assert gate.checked_profile is None
@@ -224,7 +224,7 @@ def test_2pi0_defaults_build_expected_configuration(monkeypatch):
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is True
+    assert cfg.do_fit is False
     assert cfg.fit_cl == 0.01
     assert observed["channel"] is rp.TWO_PI0
     assert observed["gate"] is None

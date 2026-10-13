@@ -25,6 +25,47 @@ Setup creates `data/02_pre_analyzed/` without moving, replacing, or linking its
 contents. `data/00_external/flux.root`, `config/run_manifest.csv`, and checked-in
 Stage-1 hyperparameters remain required.
 
+## Baseline without kinematic fit (13 October 2026)
+
+The launcher and direct reconstruction CLIs default to **no 6C fit**. Both
+pairing and BDT+pairing use the same profile energy range, first four photons
+of events with at least four photons, and exactly one measured proton.
+Approved selections: pairing chi2 < 10, relative mass resolution 0.08,
+missing mass within 0.06 GeV of the proton mass. The missing-mass cut is active
+without 6C; no confidence-level selection is applied. Azimuthal ratio and
+likelihood fits that extract Sigma remain active.
+
+Start a fresh campaign from selected `h85` (or selected legacy `h80`) inputs.
+Raw branches from an old fit-selected ROOT file are **not** a no-fit baseline.
+New reconstruction ROOT files contain `reconstruction_provenance`: `do_fit`,
+input SHA-256 hashes, source revision and hashes, effective cuts, model inputs,
+and input/accepted/rejected counts per run and polarization. No-fit extraction
+and campaign plotting reject missing provenance or historical fitted branches.
+The raw/6C systematic is absent, with `raw_vs_kinematic_fit=disabled` recorded
+in extraction provenance; absence is not a measured zero uncertainty.
+
+For existing selected files in a different local layout, pass paths explicitly:
+
+```bash
+python -m reconstruction.reconstruct_eta_pi0_chi2 --no-fit --profile uv \
+  --input-dir /path/to/selected/uv \
+  --output-file results/new-no-fit/uv/reco/reco_eta_pi0_chi2.root
+python -m reconstruction.reconstruct_eta_pi0_bdt --no-fit --profile uv \
+  --input-dir /path/to/selected/uv --model-dir /path/to/uv/artifacts/stage1 \
+  --output-file results/new-no-fit/uv/reco/reco_eta_pi0_bdt.root
+```
+
+Repeat for VIS with its own model and `--profile vis`. Existing valid selected,
+MC, and BDT caches keep their contracts: disabling 6C only changes downstream
+reconstruction, extraction and plotting. Reconstruction is always rerun by the
+launcher. Baseline plots use raw vectors with no 6C overlays, mass comparisons,
+or `comparison_raw_fit_*` products.
+
+Historical analysis stays available only by explicit opt-in:
+`--with-kinematic-fit` on reconstruction, Dalitz and campaign plotting, and
+an explicit `--raw-bdt-fit FILE` on extraction. These switches describe an
+archival workflow, not the baseline. Preserve old ROOT/PDF products separately.
+
 ## Production campaign
 
 ```bash
@@ -89,7 +130,7 @@ publication. A failed stage leaves its previous artifact in place.
 
 Run from the repository root after loading ROOT. Set `GRAAL_PYTHON` to the
 same interpreter used during setup, and replace `results/production` with
-the completed source campaign. Keep its original run manifest available at
+the completed **no-fit** source campaign. Keep its original run manifest available at
 `config/run_manifest.csv`.
 
 These commands run Stage 07 for UV and VIS with 8 and 16 bins, then regenerate
@@ -121,7 +162,6 @@ GRAAL_PYTHON=/path/to/pyroot-compatible-python
         --profile "$profile" --phi-bins "$bins" \
         --raw "$OUT/$profile/reco/reco_eta_pi0_chi2.root" \
         --raw-bdt "$OUT/$profile/reco/reco_eta_pi0_bdt.root" \
-        --raw-bdt-fit "$OUT/$profile/reco/reco_eta_pi0_bdt.root" \
         --flux-file "$OUT/common/flux_calibrated.root" \
         --run-manifest config/run_manifest.csv \
         --output-dir "$OUT/$profile/beam_asymmetry" \
