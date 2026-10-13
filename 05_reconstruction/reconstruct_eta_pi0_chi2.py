@@ -8,6 +8,7 @@ Run:
     python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
 """
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
 
 import argparse
 from pathlib import Path
@@ -30,6 +31,7 @@ def main():
         fit_options_exposed=True,
     )
     p.add_argument("--profile", choices=BEAM_PROFILES, default=None)
+    add_energy_arguments(p)
     args = p.parse_args()
 
     cfg = reco_config_from_args(
@@ -37,8 +39,10 @@ def main():
         output_tree="reco_eta_pi0_chi2",
         fit_options_exposed=True,
     )
-    if args.profile is not None:
-        cfg.energy_range_gev = get_beam_profile(args.profile).energy_range_gev
+    grid = energy_binning_from_args(args, args.profile)
+    if grid is not None:
+        cfg.energy_range_gev = grid.energy_range_gev
+        cfg.beam_profile = args.profile
     run_reconstruction(cfg, ETA_PI0, gate=None)
 
 

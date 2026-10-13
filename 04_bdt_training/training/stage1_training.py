@@ -74,20 +74,37 @@ def _find_best_threshold(
     return best_thr
 
 
+def training_indices(dataset: Stage1Dataset, *, val_fraction: float, seed: int):
+    """The same partition contract for fitting and repeated hyperparameter search."""
+    y, w = dataset.y, dataset.w
+    if dataset.rows is None:
+        # Legacy training retains its development-only 80/20 contract.
+        return train_test_split(
+            np.arange(len(y)), test_size=val_fraction,
+            random_state=seed, stratify=y,
+        )
+
+    from bdt_training.dataset.stage1_dataset import _validate_dataset
+    _validate_dataset(dataset)
+    if dataset.rows.split is None:
+        raise ValueError("identified training requires a persisted grouped split")
+    train = dataset.rows.split == 0
+    validation = dataset.rows.split == 1
+    for mask in (train, validation):
+        if any(not np.any(mask & (y == label) & (w > 0)) for label in (0, 1)):
+            raise ValueError("train and validation require positive weights in both classes")
+    return np.flatnonzero(train), np.flatnonzero(validation)
+
+
 def fit_stage1(dataset: Stage1Dataset, config: TrainingConfig) -> TrainingResult:
     """Fit and evaluate stage-1 without filesystem or plotting side effects."""
+    train, validation = training_indices(dataset, val_fraction=config.val_fraction, seed=config.seed)
     X = dataset.X.astype(np.float32)
     y = dataset.y.astype(np.float32)
     w = dataset.w.astype(np.float32)
-
-    X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
-        X,
-        y,
-        w,
-        test_size=config.val_fraction,
-        random_state=config.seed,
-        stratify=y,
-    )
+    X_tr, X_val = X[train], X[validation]
+    y_tr, y_val = y[train], y[validation]
+    w_tr, w_val = w[train], w[validation]
 
     callbacks = []
     if config.verbose:

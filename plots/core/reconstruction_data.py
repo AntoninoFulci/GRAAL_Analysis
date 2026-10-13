@@ -32,6 +32,11 @@ class ReconstructionArrays:
     has_fit: bool
     pair_masses_raw: Mapping[str, np.ndarray]
     pair_masses_fit: Mapping[str, np.ndarray]
+    pair_mass_squared: Mapping[str, Mapping[str, np.ndarray]]
+    identity_residual: Mapping[str, np.ndarray]
+    beam_energy: np.ndarray
+    w: np.ndarray
+    run_numbers: np.ndarray | None
 
     def as_dict(self) -> dict[str, np.ndarray | bool]:
         """Return legacy dictionary shape used by older plotting callers."""
@@ -57,7 +62,7 @@ def as_array(vector) -> np.ndarray:
     )
 
 
-def open_tree(path: Path, tree_name: str):
+def open_tree(path: Path, tree_name: str, *, allow_empty: bool = False):
     """Open reconstructed ROOT tree, failing loudly when input is unusable."""
     if not path.exists():
         raise FileNotFoundError(f"file ricostruito non trovato: {path}")
@@ -69,12 +74,14 @@ def open_tree(path: Path, tree_name: str):
     tree = root_file.Get(tree_name)
     if not tree:
         keys = [key.GetName() for key in root_file.GetListOfKeys()]
+        root_file.Close()
         raise RuntimeError(
             f"albero '{tree_name}' non trovato in {path}; trovati: {keys}"
         )
 
     entry_count = tree.GetEntries()
-    if entry_count == 0:
+    if entry_count == 0 and not allow_empty:
+        root_file.Close()
         raise RuntimeError(f"l'albero '{tree_name}' in {path} e' vuoto")
 
     print(f"  {path.name}: {entry_count} eventi")
@@ -106,6 +113,9 @@ def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> Rec
     over_limit, eta_over_beam = [], []
     pair_raw = {name: [] for name in ("p_eta", "p_pi0", "eta_pi0")}
     pair_fit = {name: [] for name in pair_raw}
+    pair_s = {mode: {name: [] for name in pair_raw} for mode in ("meas", "miss")}
+    residual = {mode: [] for mode in pair_s}
+    beam_energy, w, runs = [], [], []
 
     for event in tree:
         eta_raw = as_array(event.eta)
@@ -117,6 +127,16 @@ def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> Rec
         beam = as_array(event.beam)
         target = as_array(event.target)
         missing = beam + target - eta - pi0 if tree_has_fit else as_array(event.missing)
+
+        for mode, recoil in (("meas", proton), ("miss", missing)):
+            squares = kin.dalitz_invariants(recoil, eta, pi0)
+            for name, value in squares.items():
+                pair_s[mode][name].append(value)
+            residual[mode].append(kin.dalitz_residual(squares, beam + target))
+        beam_energy.append(beam[3])
+        w.append(kin.sqrt_s(beam, target))
+        if "RunNumber" in branches:
+            runs.append(int(event.RunNumber))
 
         mep_meas.append(kin.invariant_mass(eta, proton))
         mpp_meas.append(kin.invariant_mass(pi0, proton))
@@ -151,6 +171,12 @@ def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> Rec
         has_fit=tree_has_fit,
         pair_masses_raw={name: np.array(values) for name, values in pair_raw.items()},
         pair_masses_fit={name: np.array(values) for name, values in pair_fit.items()},
+        pair_mass_squared={mode: {name: np.array(values) for name, values in pairs.items()}
+                           for mode, pairs in pair_s.items()},
+        identity_residual={mode: np.array(values) for mode, values in residual.items()},
+        beam_energy=np.array(beam_energy),
+        w=np.array(w),
+        run_numbers=np.array(runs, dtype=np.int64) if "RunNumber" in branches else None,
     )
 
 

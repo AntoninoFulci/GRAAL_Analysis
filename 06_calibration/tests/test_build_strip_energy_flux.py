@@ -1,5 +1,6 @@
 from array import array
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -207,7 +208,7 @@ def test_cli_writes_only_root_file_in_requested_directory(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert output.is_file()
-    assert [path.name for path in output.parent.iterdir()] == [output.name]
+    assert {path.name for path in output.parent.iterdir()} == {output.name, "flux_calibrated.qa.json"}
 
 
 def test_cli_defaults_to_external_output_directory(monkeypatch):
@@ -249,6 +250,57 @@ def test_atomic_root_write_preserves_previous_file_on_failure(tmp_path, monkeypa
 
     assert output.read_text() == "previous"
     assert sorted(path.name for path in tmp_path.iterdir()) == [output.name]
+
+
+def _calibration_args(pre, flux, manifest, output):
+    return SimpleNamespace(
+        preanalysis_dir=pre, flux=flux, manifest=manifest,
+        output_dir=output.parent, min_events_per_strip=1, max_mad_gev=0.005,
+        monotonic_tolerance_gev=0.002, binning=[], threads=1,
+        samples_per_run_strip=256, progress_every_events=0,
+    )
+
+
+def test_calibration_qa_includes_nested_h80_inputs(tmp_path):
+    pre, flux, manifest, output = make_complete_fixture(tmp_path)
+    nested = pre / "period"
+    nested.mkdir()
+    for path in pre.glob("*.root"):
+        path.rename(nested / path.name)
+
+    assert cli.run(_calibration_args(pre, flux, manifest, output)) == 0
+
+    qa = json.loads(output.with_suffix(".qa.json").read_text())
+    assert [row[0] for row in qa["inputs"]["h80"]] == [
+        str(path.resolve()) for path in sorted(nested.glob("*.root"))
+    ]
+
+
+@pytest.mark.parametrize("changed_input", ["manifest", "nested_h80"])
+def test_input_change_preserves_previous_calibration(tmp_path, monkeypatch, changed_input):
+    pre, flux, manifest, output = make_complete_fixture(tmp_path)
+    nested = pre / "period"
+    nested.mkdir()
+    h80 = nested / "pre_7.root"
+    (pre / h80.name).rename(h80)
+    output.write_bytes(b"previous calibrated file")
+    qa_path = output.with_suffix(".qa.json")
+    qa_path.write_bytes(b"previous QA")
+    original = cli.write_calibrated_flux_root
+
+    def changing_writer(*args, **kwargs):
+        result = original(*args, **kwargs)
+        path = manifest if changed_input == "manifest" else h80
+        with path.open("ab") as stream:
+            stream.write(b"\n")
+        return result
+
+    monkeypatch.setattr(cli, "write_calibrated_flux_root", changing_writer)
+    with pytest.raises(StripEnergyFluxError, match="input identity changed"):
+        cli.run(_calibration_args(pre, flux, manifest, output))
+
+    assert output.read_bytes() == b"previous calibrated file"
+    assert qa_path.read_bytes() == b"previous QA"
 
 
 def test_cli_writes_pol4_calibrated_root_and_ignores_calcerr(tmp_path):
@@ -830,6 +882,7 @@ def test_cli_custom_binning_does_not_add_output_files(tmp_path):
     assert output.is_file()
     assert sorted(path.name for path in output.parent.iterdir() if path != pre) == [
         "flux.root",
+        "flux_calibrated.qa.json",
         output.name,
         "run_manifest.csv",
     ]

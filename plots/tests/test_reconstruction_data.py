@@ -171,3 +171,23 @@ def test_no_fit_plot_contract_rejects_fitted_tree():
     tree = _Tree([_event(fitted=True)], branches=("fit_chi2", "eta_fit", "pi0_fit", "proton_fit"))
     with pytest.raises(ValueError, match="no-fit"):
         reconstruction_data.collect(tree, forbid_fit=True)
+
+
+def test_collect_keeps_signed_invariants_and_nominal_identity_residual():
+    event = _event()
+    event.missing = _Vector(3., 0., 0., 0.95)
+    arrays = reconstruction_data.collect(_Tree([event]))
+    assert arrays.pair_mass_squared['meas']['p_eta'] == pytest.approx([1.49**2])
+    assert arrays.pair_mass_squared['miss']['p_eta'] == pytest.approx([-6.75])
+    assert arrays.beam_energy == pytest.approx([1.5])
+    assert arrays.identity_residual['meas'] == pytest.approx([
+        1.49**2 + 1.08**2 + .69**2 - (2.44**2 - 1.5**2)
+        - .938272**2 - .547862**2 - .134977**2])
+    assert arrays.run_numbers is None
+
+
+def test_collect_empty_preserves_diagnostic_shapes():
+    arrays = reconstruction_data.collect(_Tree([]))
+    assert arrays.beam_energy.shape == (0,)
+    assert arrays.identity_residual['meas'].shape == (0,)
+    assert arrays.pair_mass_squared['miss']['p_eta'].shape == (0,)

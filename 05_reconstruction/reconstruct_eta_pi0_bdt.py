@@ -12,6 +12,7 @@ import argparse
 from pathlib import Path
 
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
 from reconstruction.runtime.cli_options import (
     add_common_reconstruction_arguments,
     reco_config_from_args,
@@ -33,6 +34,7 @@ def main():
     p.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR,
                    help="folder with bdt_stage1.json and stage1_threshold.txt")
     p.add_argument("--profile", choices=BEAM_PROFILES, default=None)
+    add_energy_arguments(p)
     args = p.parse_args()
 
     gate = Stage1Gate.load(args.model_dir)
@@ -40,8 +42,9 @@ def main():
     # It would score a model trained on any other final state just as happily.
     gate.check_hypothesis(ETA_PI0.hypothesis)
     profile = get_beam_profile(args.profile) if args.profile else None
+    grid = energy_binning_from_args(args, args.profile)
     if profile is not None:
-        gate.check_profile(profile)
+        gate.check_profile(profile, energy_range_gev=grid.energy_range_gev)
 
     cfg = reco_config_from_args(
         args,
@@ -50,7 +53,8 @@ def main():
     )
     cfg.model_dir = args.model_dir
     if profile is not None:
-        cfg.energy_range_gev = profile.energy_range_gev
+        cfg.energy_range_gev = grid.energy_range_gev
+        cfg.beam_profile = args.profile
     run_reconstruction(cfg, ETA_PI0, gate=gate)
 
 

@@ -89,11 +89,12 @@ output options.
 ```bash
 python 06_calibration/build_run_manifest.py --help
 python 06_calibration/build_strip_energy_flux.py --help
-python 07_observable_extraction/beam_asymmetry.py --help
+python 08_observable_extraction/beam_asymmetry.py --help
 python plots/dalitz.py --help
 ```
 
-Calibration is step 06. Observable extraction follows as step 07. Plotting is
+Calibration is step 06. Optional flux studies are step 07; observable extraction
+follows as step 08. Plotting is
 an unnumbered consumer of completed analysis outputs and writes generated files
 under ignored `results/` paths.
 
@@ -102,3 +103,5 @@ under ignored `results/` paths.
 ```bash
 pytest -q
 ```
+
+Optional [stage 07 flux studies](docs/runbooks/missing-flux.md) audit missing flux and compare experimental reconstructions. Observable extraction source now lives in `08_observable_extraction/`; its Python package remains `observable_extraction`. Refresh the editable installation after updating.

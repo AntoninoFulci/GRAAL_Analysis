@@ -13,9 +13,10 @@ import re
 import sys
 import tempfile
 import time
-from typing import NamedTuple, Sequence
+from typing import Callable, NamedTuple, Sequence
 
 from calibration.run_manifest import ManifestError, validate_manifest
+from calibration.calibration_qa import sha256_file, write_calibration_qa
 from calibration.strip_energy_flux import (
     AJAKA_CROSS_SECTION,
     AJAKA_SIGMA,
@@ -1147,6 +1148,10 @@ def _input_paths(args: argparse.Namespace) -> dict[str, str]:
 
 
 def _validate_output_location(args: argparse.Namespace) -> None:
+    sidecar = (args.output_dir / "flux_calibrated.qa.json").resolve()
+    for source in (args.manifest, args.flux):
+        if sidecar == Path(source).resolve():
+            raise StripEnergyFluxError(f"QA output path overlaps input path: {source}")
     output_path = args.output_dir / "flux_calibrated.root"
     lexical_output = Path(os.path.abspath(output_path))
     resolved_output = output_path.resolve(strict=False)
@@ -1175,6 +1180,8 @@ def _write_calibrated_flux_root_atomic(
     output_path: Path,
     calibration_cells,
     calibration_energy_bins,
+    *,
+    before_publish: Callable[[], None] | None = None,
 ):
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1192,10 +1199,21 @@ def _write_calibrated_flux_root_atomic(
             calibration_cells,
             calibration_energy_bins,
         )
+        if before_publish is not None:
+            before_publish()
         temporary.replace(output_path)
         return qa
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _h80_input_identity(directory: Path) -> list[tuple[str, int, int]]:
+    """Record the recursive file inventory consumed by both h80 scans."""
+    return [
+        (str(path.resolve()), path.stat().st_size, path.stat().st_mtime_ns)
+        for path in sorted(directory.rglob("*.root"))
+        if path.is_file()
+    ]
 
 
 def build_qa_payload(
@@ -1277,6 +1295,8 @@ def run(args: argparse.Namespace) -> int:
         f"flux={args.flux}; output={output_path}"
     )
     _validate_output_location(args)
+    input_identity = {"manifest": sha256_file(args.manifest), "raw_flux": sha256_file(args.flux)}
+    h80_identity = _h80_input_identity(args.preanalysis_dir)
     if args.min_events_per_strip < 1:
         raise StripEnergyFluxError("min-events-per-strip must be at least 1")
     if not isfinite(args.max_mad_gev) or args.max_mad_gev < 0:
@@ -1602,13 +1622,36 @@ def run(args: argparse.Namespace) -> int:
         progress.log(f"completed with invalid QA: {len(qa['errors'])} errors")
         return 1
 
+    def validate_input_identity() -> None:
+        current = {"manifest": sha256_file(args.manifest), "raw_flux": sha256_file(args.flux)}
+        if input_identity != current:
+            raise StripEnergyFluxError("calibration input identity changed during scan")
+        if h80_identity != _h80_input_identity(args.preanalysis_dir):
+            raise StripEnergyFluxError("pre-analysis input identity changed during scan")
+
     progress.log(f"writing calibrated ROOT: {output_path}")
     calibrated_root_qa = _write_calibrated_flux_root_atomic(
         args.flux,
         output_path,
         calibration_cells,
         calibration_energy_bins,
+        before_publish=validate_input_identity,
     )
+    observed = {(int(row["run_number"]), _POLARIZATION_SUFFIX[row["polarization"]]): row
+                for row in calibrated_root_qa["calibration_coverage"]}
+    coverage = []
+    for record in records:
+        for state in _FLUX_SUFFIXES:
+            cell = observed.get((record.run_number, state))
+            coverage.append(dict(run_number=record.run_number, state=state,
+                                 h80_present=cell is not None,
+                                 accepted=bool(cell and cell["accepted"]),
+                                 reason=("accepted" if cell and cell["accepted"] else
+                                         "insufficient_coverage" if cell else "not_covered"),
+                                 strip_coverage=cell))
+    write_calibration_qa(output_path.with_suffix(".qa.json"), output_path,
+                         inputs={**input_identity, "h80": h80_identity}, coverage=coverage,
+                         diagnostics={"pre_write": qa, "writer": calibrated_root_qa})
     if calibrated_root_qa["skipped_without_calibration"]:
         warning = (
             "flux histograms skipped without run/polarization calibration: "

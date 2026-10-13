@@ -90,9 +90,9 @@ angles with run/strip-dependent flux exposure and polarization information.
 Two estimator families are implemented: a normalized-ratio fit and a
 conditional likelihood over exposure strata. Background correction and
 systematic covariance are applied after the nominal per-bin estimate. See
-[Beam-asymmetry estimators](07-beam-asymmetry-estimators),
-[Background correction](07-background-correction), and
-[Systematics and outputs](07-systematics-and-outputs).
+[Beam-asymmetry estimators](08-beam-asymmetry-estimators),
+[Background correction](08-background-correction), and
+[Systematics and outputs](08-systematics-and-outputs).
 
 This documentation describes the implemented method and does not claim a
 physics result or quote an extracted value of $\Sigma$.
@@ -102,6 +102,6 @@ physics result or quote an extracted value of $\Sigma$.
 - Constants, hypotheses, and channels: `00_common/physics/channels.py`
 - Pairing mathematics: `00_common/physics/pairing.py`
 - Reconstruction event logic: `05_reconstruction/core/event_logic.py`
-- Observable models: `07_observable_extraction/core/models.py`
+- Observable models: `08_observable_extraction/core/models.py`
 - Registry tests: `00_common/tests/test_channels.py`
 - Cross-stage schema tests: `tests/test_stage1_contracts.py`

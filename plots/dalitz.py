@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Dalitz plot M(eta p) vs M(pi0 p), plus the meson invariant masses.
 
-Three families of figure:
+Figure families:
   dalitz_*    M(eta p) vs M(pi0 p), colz — the resonance view
   massa_*     M(eta) and M(pi0) on their own
   masse_2d_*  those same two masses against each other, colz — where the gate
               shows up as the blob tightening onto the truth crossing
+  dalitz_s_*  signed pair invariant squares in GeV², filled directly
+  residuo_*   event-wise departure from the nominal on-shell Dalitz identity
+  *_unit_area copies normalized including under/overflow; fraction per bin
 
 
 Compares the two reconstructions — plain chi2 against the BDT-gated one — which
@@ -13,12 +16,14 @@ is the whole reason both exist. Everything kinematic comes from
 plots.core.kinematics; plots.core.reconstruction_data reads ROOT, while this module fills
 histograms and draws.
 
-When a tree carries the kinematic-fit branches (`eta_fit`/`pi0_fit`/`fit_chi2`,
+Only with --with-kinematic-fit, when a tree carries fitted branches (`eta_fit`/`pi0_fit`/`fit_chi2`,
 written by the reconstruction when the fit is on), the eta/pi0 masses and the
 Dalitz axes built from them switch to the fitted 4-vectors, and the massa_*
 figures gain a dashed "raw" overlay of the pre-fit mass in the same color —
 before/after, same sample. A pre-fit reco file has none of those branches and
 everything falls back to the raw eta/pi0 as before.
+The default requires certified no-fit provenance. ROOT stores that provenance,
+input hashes, sample populations, units and a histogram dictionary as TNamed JSON.
 
 Two proton variants are produced, and they are NOT equivalent:
 
@@ -39,7 +44,8 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack
-from reconstruction.runtime.provenance import validate_no_fit
+import json
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -48,6 +54,7 @@ import ROOT
 
 from plots.core import kinematics as kin
 from plots.core import reconstruction_data
+from plots.core import dalitz_metadata
 
 CHI2_TREE = "reco_eta_pi0_chi2"
 BDT_TREE = "reco_eta_pi0_bdt"
@@ -84,6 +91,76 @@ def _dalitz_hist(name: str, title: str, x: np.ndarray, y: np.ndarray) -> ROOT.TH
     for xi, yi in zip(x, y):
         h.Fill(xi, yi)
     return h
+
+
+def _dalitz_squared_hist(name, title, x, y):
+    """Fill signed s directly; this is yield per bin, not a transformed density."""
+    h = ROOT.TH2D(name, f"{title};s_{{p#eta}}  [GeV^{{2}}];s_{{p#pi^{{0}}}}  [GeV^{{2}}]",
+                  _DALITZ_BINS, _DALITZ_MIN**2, _DALITZ_MAX**2,
+                  _DALITZ_BINS, _DALITZ_MIN**2, _DALITZ_MAX**2)
+    for xi, yi in zip(x, y):
+        h.Fill(xi, yi)
+    return h
+
+
+def _histogram_summary(h):
+    """Count corner flow cells once, and retain axes for ROOT-only readers."""
+    total = (h.Integral(0, h.GetNbinsX()+1, 0, h.GetNbinsY()+1)
+             if h.GetDimension() == 2 else h.Integral(0, h.GetNbinsX()+1))
+    axes = [h.GetXaxis()] + ([h.GetYaxis()] if h.GetDimension() == 2 else [])
+    return {'entries': h.GetEntries(), 'all_bins': total, 'visible_bins': h.Integral(),
+            'flow_bins': total - h.Integral(),
+            'axes': [{'title': a.GetTitle(), 'bins': a.GetNbins(),
+                      'edges': [a.GetBinLowEdge(i) for i in range(1, a.GetNbins()+2)]}
+                     for a in axes]}
+
+
+def _unit_area(h):
+    clone = h.Clone(h.GetName() + '_unit_area')
+    clone.SetDirectory(0)
+    clone.Sumw2()
+    total = _histogram_summary(h)['all_bins']
+    if total:
+        clone.Scale(1. / total)
+    label = ('area unitaria (under/overflow inclusi)' if total
+             else 'campione vuoto (normalizzazione n/d)')
+    clone.SetTitle(h.GetTitle() + ' - ' + label)
+    axis = clone.GetZaxis() if clone.GetDimension() == 2 else clone.GetYaxis()
+    axis.SetTitle('frazione / bin')
+    return clone
+
+
+def _draw_diagnostics(hists, out_dir):
+    for prefix in ('dalitz_s', 'residuo'):
+        names = [f'{prefix}_{tag}_{mode}' for mode in ('misurato', 'implicito')
+                 for tag in ('chi2', 'bdt')]
+        for suffix in ('', '_unit_area') if prefix == 'dalitz_s' else ('',):
+            stem = prefix + '_confronto' + suffix
+            c = ROOT.TCanvas('c_' + stem, stem, 1500, 1000)
+            c.Divide(2, 2)
+            # Same color scale makes the two normalized samples comparable.
+            maximum = max(hists[name + suffix].GetMaximum() for name in names)
+            for i, name in enumerate(names, 1):
+                c.cd(i)
+                ROOT.gPad.SetRightMargin(0.17)
+                h = hists[name + suffix]
+                h.GetZaxis().SetTitleOffset(1.0)
+                h.SetMinimum(0.)
+                h.SetMaximum(maximum * (1.1 if prefix == 'residuo' else 1.0) if maximum > 0 else 1.)
+                h.Draw('colz' if prefix == 'dalitz_s' else 'hist')
+            _save(c, out_dir, stem)
+    for meson in ('eta', 'pi0'):
+        stem = f'massa_{meson}_confronto_unit_area'
+        c = ROOT.TCanvas('c_' + stem, stem, 900, 700)
+        hc, hb = (hists[f'massa_{meson}_{tag}_unit_area'] for tag in ('chi2', 'bdt'))
+        hc.SetMaximum(max(hc.GetMaximum(), hb.GetMaximum(), 0.01) * 1.15)
+        hc.Draw('hist')
+        hb.Draw('hist same')
+        leg = ROOT.TLegend(0.60, 0.72, 0.90, 0.87)
+        leg.AddEntry(hc, 'solo chi2', 'l')
+        leg.AddEntry(hb, 'gate BDT', 'l')
+        leg.Draw()
+        _save(c, out_dir, stem)
 
 
 def _mass_hist(name: str, title: str, x: np.ndarray, lo: float, hi: float) -> ROOT.TH1F:
@@ -165,6 +242,8 @@ def _draw_raw_mass_comparison(
     hb = _mass_hist(
         bdt_name, "gate BDT + chi2", bdt_raw, lo, hi
     )
+    hb.GetXaxis().SetTitle(f"M({label})  [GeV]")
+    hb.GetYaxis().SetTitle("eventi")
     hists[chi2_name] = hc
     hists[bdt_name] = hb
 
@@ -182,6 +261,7 @@ def _draw_raw_mass_comparison(
     hc.SetFillColorAlpha(ROOT.kGray, 0.4)
     hb.SetLineColor(ROOT.kAzure + 1)
     hb.SetLineWidth(2)
+    hc.SetMaximum(max(hc.GetMaximum(), hb.GetMaximum(), 1.) * 1.15)
     hc.Draw("hist")
     hb.Draw("hist same")
 
@@ -206,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bdt", type=Path, required=True,
                    help="output di reconstruct_eta_pi0_bdt")
     p.add_argument("--out-dir", type=Path, default=Path("results/plots"))
+    p.add_argument("--profile", choices=("uv", "vis"), help="sample label; no additional energy cut")
+    p.add_argument("--run-manifest", type=Path, default=dalitz_metadata.DEFAULT_MANIFEST)
     p.add_argument("--with-kinematic-fit", action="store_true",
                    help="explicitly plot archived fitted vectors and overlays")
     args = p.parse_args(argv)
@@ -218,15 +300,27 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Lettura degli alberi ricostruiti:")
     with ExitStack() as inputs:
-        fc, tc = reconstruction_data.open_tree(args.chi2, CHI2_TREE)
+        fc, tc = reconstruction_data.open_tree(args.chi2, CHI2_TREE, allow_empty=True)
         inputs.callback(fc.Close)
-        fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE)
+        fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE, allow_empty=True)
         inputs.callback(fb.Close)
-        if not args.with_kinematic_fit:
-            validate_no_fit(fc, tc)
-            validate_no_fit(fb, tb)
+        provenance = {tag: dalitz_metadata.read_provenance(source, tree, allow_fit=args.with_kinematic_fit)
+                      for tag, source, tree in (("chi2", fc, tc), ("bdt", fb, tb))}
+        comparison = dalitz_metadata.compare_selections(
+            provenance['chi2'], provenance['bdt'], allow_fit=args.with_kinematic_fit)
         chi2 = reconstruction_data.collect(tc, forbid_fit=not args.with_kinematic_fit)
         bdt = reconstruction_data.collect(tb, forbid_fit=not args.with_kinematic_fit)
+
+    samples = {'chi2': chi2, 'bdt': bdt}
+    for tag, data in samples.items():
+        arrays = [data.eta_mass, data.pi0_mass, data.eta_mass_raw, data.pi0_mass_raw,
+                  data.beam_energy, data.w, *data.identity_residual.values(),
+                  *(a for pairs in data.pair_mass_squared.values() for a in pairs.values())]
+        if any(not np.all(np.isfinite(a)) for a in arrays):
+            raise ValueError(f'non-finite Dalitz input in {tag}; no events silently removed')
+    metadata = dalitz_metadata.build_metadata(
+        args, samples, provenance, comparison, ['python', '-m', 'plots.dalitz',
+                                               *(argv if argv is not None else sys.argv[1:])])
 
     hists = {}
     for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
@@ -236,6 +330,14 @@ def main(argv: list[str] | None = None) -> int:
                 name, f"{lab}  -  protone {vlab}",
                 getattr(data, f"mep_{var}"), getattr(data, f"mpp_{var}"),
             )
+            name_s = f'dalitz_s_{tag}_{vlab}'
+            squares = data.pair_mass_squared[var]
+            hists[name_s] = _dalitz_squared_hist(
+                name_s, f'{lab} - protone {vlab}', squares['p_eta'], squares['p_pi0'])
+            name_r = f'residuo_{tag}_{vlab}'
+            hists[name_r] = _mass_hist(
+                name_r, f'{lab} - protone {vlab};#Sigma s - W^{{2}} - #Sigma m_{{nom}}^{{2}} [GeV^{{2}}];eventi',
+                data.identity_residual[var], -2., 2.)
 
     hists["massa_eta_chi2"] = _mass_hist(
         "massa_eta_chi2", "solo chi2", chi2.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
@@ -269,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in [k for k in hists if k.startswith("dalitz_")]:
         c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
         c.SetRightMargin(0.13)
+        hists[name].GetZaxis().SetTitle('eventi / bin')
         hists[name].Draw("colz")
         _save(c, args.out_dir, name)
 
@@ -317,6 +420,9 @@ def main(argv: list[str] | None = None) -> int:
         hc.SetFillColorAlpha(ROOT.kGray, 0.4)
         hb.SetLineColor(ROOT.kAzure + 1)
         hb.SetLineWidth(2)
+        hb.GetXaxis().SetTitle(f"M({label})  [GeV]")
+        hb.GetYaxis().SetTitle("eventi")
+        hc.SetMaximum(max(hc.GetMaximum(), hb.GetMaximum(), 1.) * 1.15)
         hc.Draw("hist")
         hb.Draw("hist same")
 
@@ -356,10 +462,31 @@ def main(argv: list[str] | None = None) -> int:
             meson, truth, chi2, bdt, args.out_dir, hists
         )
 
-    # --- the histograms themselves, so they can be restyled without re-looping ---
+    for name, h in list(hists.items()):
+        if name.startswith('massa_'):
+            label = '#eta' if name.startswith('massa_eta_') else '#pi^{0}'
+            h.GetXaxis().SetTitle(f'M({label})  [GeV]')
+            h.GetYaxis().SetTitle('eventi')
+        elif h.GetDimension() == 2:
+            h.GetZaxis().SetTitle('eventi / bin')
+        hists[name + '_unit_area'] = _unit_area(h)
+    _draw_diagnostics(hists, args.out_dir)
+
+    # --- ROOT-only readers receive full provenance and a histogram dictionary ---
     fout = ROOT.TFile(str(args.out_dir / "istogrammi.root"), "RECREATE")
+    if not fout or fout.IsZombie():
+        raise OSError(f'cannot create ROOT output in {args.out_dir}')
     for h in hists.values():
         h.Write()
+    dictionary = {}
+    for name, histogram in hists.items():
+        summary = _histogram_summary(histogram)
+        normalized = name.endswith('_unit_area')
+        summary['normalization'] = 'unit_area_including_flows' if normalized else 'yield'
+        summary['normalization_defined'] = bool(summary['all_bins']) if normalized else True
+        dictionary[name] = summary
+    ROOT.TNamed('dalitz_metadata', json.dumps(metadata, sort_keys=True, allow_nan=False)).Write()
+    ROOT.TNamed('histogram_dictionary', json.dumps(dictionary, sort_keys=True, allow_nan=False)).Write()
     fout.Close()
 
     print("\n====================================")
@@ -367,12 +494,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  eventi         chi2 {len(chi2.eta_mass):7d}   BDT {len(bdt.eta_mass):7d}")
     print(f"  fit cinematico chi2 {'si' if chi2.has_fit else 'no':>7}   "
           f"BDT {'si' if bdt.has_fit else 'no':>7}")
-    print(f"  M(eta p) oltre il limite cinematico (soprattutto risoluzione al bordo Dalitz):"
-          f"  chi2 {100 * chi2.over_limit.mean():.1f}%   BDT {100 * bdt.over_limit.mean():.1f}%")
+    def percentage(values):
+        return f'{100 * np.mean(values):.1f}%' if len(values) else 'n/d (vuoto)'
+
+    print(f"  M(eta p) > W_event - m_pi0 (diagnostica ricostruzione):"
+          f"  chi2 {percentage(chi2.over_limit)}   BDT {percentage(bdt.over_limit)}")
     print("  (contati, non tagliati)")
 
     # Should be 0 on anything the current reconstruction produced.
-    stale = max(chi2.eta_over_beam.mean(), bdt.eta_over_beam.mean())
+    stale = max((float(np.mean(data.eta_over_beam)) if len(data.eta_over_beam) else 0.)
+                for data in samples.values())
     if stale > 0:
         print("")
         print(f"  ATTENZIONE: {100 * stale:.1f}% degli eventi ha un'eta piu' energetica")

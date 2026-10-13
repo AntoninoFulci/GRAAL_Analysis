@@ -86,7 +86,7 @@ Inspect individual entry points before supplying production inputs:
 ```bash
 python 06_calibration/build_run_manifest.py --help
 python 06_calibration/build_strip_energy_flux.py --help
-python 07_observable_extraction/beam_asymmetry.py --help
+python 08_observable_extraction/beam_asymmetry.py --help
 python plots/dalitz.py --help
 ```
 

@@ -19,7 +19,7 @@ _VERTICAL = np.array([0.0, 1.0, 0.0])
 
 
 def fit_binned_asymmetry(vertical_counts, horizontal_counts, flux_vertical, flux_horizontal, polarization_vertical, polarization_horizontal, phi_edges_rad):
-    """Nominal Stage-07-style inverse-variance cos(2φ) fit at bin centers."""
+    """Nominal Stage-08-style inverse-variance cos(2φ) fit at bin centers."""
     v = np.asarray(vertical_counts, dtype=np.float64)
     h = np.asarray(horizontal_counts, dtype=np.float64)
     edges = np.asarray(phi_edges_rad, dtype=np.float64)

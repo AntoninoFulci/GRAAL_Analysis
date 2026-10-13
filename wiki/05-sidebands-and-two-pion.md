@@ -114,5 +114,5 @@ Relevant tests are `test_cli_contracts.py`,
 `test_prepare_signal_mc_selected.py`, `test_reco_core.py`, and
 `test_reco_physics.py` under `05_reconstruction/tests/`.
 
-See [background correction](07-background-correction),
+See [background correction](08-background-correction),
 [kinematic fit](05-kinematic-fit), and [data and artifacts](data-and-artifacts).

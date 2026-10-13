@@ -41,8 +41,10 @@ flowchart LR
     MANIFEST[Run manifest] --> CAL
     FLUX[External tagger flux] --> CAL
 
-    CHI2 --> OBS[07 Observable extraction]
+    CHI2 --> OBS[08 Observable extraction]
     BDT --> OBS
+    CAL --> STUDY[07 Optional flux studies]
+    STUDY --> AUDIT[Offline audit and experimental artifacts]
     CAL --> OBS
     OBS --> RESULTS[Beam-asymmetry ROOT and PDF products]
 
@@ -96,7 +98,7 @@ flux into configured energy bins, and atomically publishes the configured ROOT
 output. Diagnostics stay in the process log. Standalone runs default to
 `data/00_external/flux_calibrated.root`; the launcher writes shared
 `common/flux_calibrated.root` and passes it with the checked-in run manifest to
-both profile-local Stage-07 extractors.
+both profile-local Stage-08 extractors.
 
 ## Reuse and Failure Boundaries
 
@@ -121,3 +123,5 @@ Local safeguards prevent the most dangerous silent reuse:
 
 For exact schemas, see [Data and artifacts](data-and-artifacts). For recovery
 actions, see [Troubleshooting](troubleshooting).
+
+[Stage 07 flux studies](07-flux-studies) is optional between calibration and stage 08 extraction; `--flux-study off|audit|study` defaults to off.

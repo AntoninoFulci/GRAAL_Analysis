@@ -60,7 +60,14 @@ def train(
     device: str = "cpu",
     nthread: int = -1,
     verbose: bool = True,
+    feature_diagnostics_dir: str | None = None,
 ) -> None:
+    if feature_diagnostics_dir is not None:
+        if Path(feature_diagnostics_dir).resolve() == Path(out_dir).resolve():
+            raise ValueError("feature diagnostics require a separate directory from the model bundle")
+        from bdt_training.training.feature_reporting import export_training_features
+
+        export_training_features([features_path], feature_diagnostics_dir, training_seed=seed)
     dataset = load_stage1_dataset(features_path)
 
     # Which channel these features were built to find, and around which two
@@ -136,6 +143,10 @@ def _cli() -> None:
         "--out-dir", default="04_bdt_training/artifacts/stage1"
     )
     parser.add_argument("--val-fraction", type=float, default=0.2)
+    parser.add_argument(
+        "--feature-diagnostics-dir", default=None,
+        help="Optionally export all 26 features to ROOT/PDF/JSON in a separate new directory; requires PyROOT.",
+    )
     parser.add_argument("--n-estimators", type=int,   default=300)
     parser.add_argument("--max-depth",    type=int,   default=5)
     parser.add_argument("--lr",           type=float, default=0.05)
@@ -191,6 +202,7 @@ def _cli() -> None:
         device=args.device,
         nthread=args.nthread,
         verbose=not args.no_verbose,
+        feature_diagnostics_dir=args.feature_diagnostics_dir,
     )
 
 

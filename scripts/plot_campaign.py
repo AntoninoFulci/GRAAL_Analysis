@@ -10,7 +10,7 @@ import ROOT
 
 from graal_common.io.filesystem import atomic_output_directory
 from observable_extraction import combine_profiles
-from observable_extraction.io.root_input import read_output_points
+from observable_extraction.io.root_input import read_output_points, read_output_contract
 from observable_extraction.plotting.diagnostics import (
     write_point_comparison_pdf,
     write_profile_estimator_comparison_pdf,
@@ -27,6 +27,7 @@ STAGE7_PDFS = (
     "figure4_experimental.pdf", "comparison_reconstruction_samples.pdf",
     "comparison_estimators.pdf", "fit_diagnostics.pdf", "systematic_summary.pdf",
     "background_control.pdf", "false_asymmetry_controls.pdf", "photon_multiplicity.pdf",
+    "period_stability.pdf",
 )
 REQUIRED_STAGE7_PDFS = (
     "systematic_summary.pdf", "false_asymmetry_controls.pdf", "photon_multiplicity.pdf",
@@ -44,12 +45,12 @@ def _copy_stage7_pdfs(root: Path, output: Path) -> None:
                     continue
                 with origin.open("rb") as stream:
                     if stream.read(5) != b"%PDF-":
-                        raise ValueError(f"invalid Stage-07 PDF {origin}")
+                        raise ValueError(f"invalid Stage-08 PDF {origin}")
                 shutil.copy2(origin, output / filename)
                 found = True
                 break
         if not found and filename in REQUIRED_STAGE7_PDFS:
-            raise FileNotFoundError(f"missing Stage-07 diagnostic {filename} in {root}")
+            raise FileNotFoundError(f"missing Stage-08 diagnostic {filename} in {root}")
 
 
 def _read_profile(campaign: Path, profile: str, *, with_kinematic_fit: bool = False):
@@ -88,11 +89,13 @@ def _render_profile(campaign: Path, profile: str, payload, output: Path) -> None
         "--chi2", str(root / "reco/reco_eta_pi0_chi2.root"),
         "--bdt", str(root / "reco/reco_eta_pi0_bdt.root"),
         "--out-dir", str(output),
+        "--profile", profile,
         *(["--with-kinematic-fit"] if arrays.has_fit else []),
     ])
     if arrays.has_fit:
         mass_comparison.write_profile_masses(arrays, output, profile)
-    rows = profile_energy_rows(profile)
+    contract = read_output_contract(root / "beam_asymmetry/beam_asymmetry.root")
+    rows = profile_energy_rows(profile, contract.energy_edges_gev)
     mapping = {profile: points}
     write_profile_figure4_pdf(output / "figure4_experimental.pdf", mapping, rows)
     write_point_comparison_pdf(output / "comparison_reconstruction_samples.pdf",
@@ -119,7 +122,8 @@ def _render_common(campaign: Path, payloads: dict, output: Path, reference: Path
     mapping = {profile: value[0] for profile, value in payloads.items()}
     for estimator in ("ratio", "likelihood"):
         write_raw_fit_comparison_pdf(output / f"comparison_raw_fit_{estimator}.pdf",
-                                     mapping, combined_energy_rows(), estimator=estimator)
+                                     mapping, tuple(row for profile in ("vis", "uv") for row in profile_energy_rows(
+                                         profile, read_output_contract(campaign / profile / "beam_asymmetry/beam_asymmetry.root").energy_edges_gev)), estimator=estimator)
 
 
 def render_campaign(campaign: Path, reference: Path, *, with_kinematic_fit: bool = False) -> None:

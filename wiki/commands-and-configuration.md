@@ -24,7 +24,7 @@ a production job; this page is a map, not a substitute for the parser.
 | sideband reconstruction | `python -m reconstruction.reconstruct_eta_pi0_bdt_sideband ...` | broad sideband ROOT tree |
 | calibration manifest | `python 06_calibration/build_run_manifest.py --help` | run manifest CSV |
 | strip/flux calibration | `python 06_calibration/build_strip_energy_flux.py ...` | exposure CSV/QA/ROOT set |
-| observable extraction | `python 07_observable_extraction/beam_asymmetry.py ...` | asymmetry ROOT/PDF set |
+| observable extraction | `python 08_observable_extraction/beam_asymmetry.py ...` | asymmetry ROOT/PDF set |
 | plots | `python -m plots.dalitz ...` | reconstruction comparison PDFs/ROOT |
 | full verification | `pytest -q` | all configured tests |
 
@@ -70,7 +70,7 @@ per campaign. Conditional likelihood remains unbinned. ROOT outputs record
 the phi edges, and UV/VIS composition requires matching binning. Ratio Sigma
 and its error use the fixed divisors 0.9003/0.9549/0.9745 for 8/12/16 bins;
 provenance records the divisor, and corrected/uncorrected profiles cannot be
-combined. See [estimator conventions](07-beam-asymmetry-estimators.md).
+combined. See [estimator conventions](08-beam-asymmetry-estimators.md).
 The launcher prints a validated run summary and asks `Avviare la pipeline? [s/N]:`
 before creating or replacing campaign output. Only `s`, `si`, `sì`,
 `y`, or `yes` starts work; Enter, another answer, or EOF cancels. The table
@@ -128,7 +128,7 @@ Missing `data/00_external/flux.root` is a warning, not a setup failure.
 
 Exact calibration and observable options are tabulated in
 [Calibration](06-calibration) and
-[Observable Extraction](07-observable-extraction).
+[Observable Extraction](08-observable-extraction).
 
 ## Configuration Sources
 
@@ -149,3 +149,5 @@ Do not create an untracked “master config” that duplicates these values. A
 change belongs in the layer that enforces the invariant, with tests and
 regenerated artifacts where required. Command logs should capture overrides,
 input paths, seeds, source revision, and environment for reproducibility.
+
+[Stage 07 flux studies](07-flux-studies) is optional between calibration and stage 08 extraction; `--flux-study off|audit|study` defaults to off.

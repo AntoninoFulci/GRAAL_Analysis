@@ -36,18 +36,26 @@ accepts a ROOT file expression, normally a glob such as
 | Tagger | `Ncstrip`, `Eg_tag_strip`, `Xstrip` | Beam energy and tagger strip |
 | Event metadata | `Idrun`, `Ipol` | Run and polarization state |
 | Central tracks | `Nass_3`, `Thet_centr_track`, `Phi_centr_track`, `Itipo_track`, `Eclusc_track`, `Dedx_track` | Central photons and charged-particle identification |
-| Forward tracks | `Nparf`, `Theta_trf`, `Phi_trf`, `Index_trf`, `Iass_trf`, `Tof_trf`, `De_trf` | Forward neutral/charged classification and kinematics |
+| Forward tracks | `Nparf`, `N_traf`, `Nparf_strange`, `Theta_trf`, `Phi_trf`, `Index_trf`, `Iass_trf`, `Tof_trf`, `De_trf` | Forward classification, kinematics, and raw diagnostics |
 
-The implementation uses element zero of `Eg_tag_strip` and `Xstrip`; raw input
-is therefore expected to contain at least one valid tagger-strip entry for
-each processed event. The selector does not add a fallback value when that
-assumption is violated.
+The implementation checks `Ncstrip` before reading the tagger payload.
+Events with `Ncstrip == 0` are skipped and counted; they never reuse energy or
+strip values left in ROOT's buffers by a previous event. Counts outside
+`0..128` abort processing before fixed arrays are read. For retained events,
+element zero of `Eg_tag_strip` and `Xstrip` remains the selected tag.
 
 ### Output contract
 
 `PreAnalysis::Loop` creates a ROOT file in `RECREATE` mode and writes one tree
 named `h80`. It reuses the same tree key on write to avoid extra ROOT `;N`
 cycles.
+
+The file also stores `preanalysis_skipped_no_tagger` as a `TParameter<Long64_t>`:
+the total number of input events skipped for `Ncstrip == 0` across the chain.
+The completion log prints `written` and `skipped_no_tagger`. An input with no
+tagged events produces an empty h80 and the full skip count. Existing h80 and
+downstream artifacts must be regenerated to apply this selection; the change
+does not repair files already produced.
 
 | Branch | Logical type | Meaning |
 |---|---|---|
@@ -65,6 +73,37 @@ cycles.
 | `Polarization` | integer | Copy of `Ipol` |
 | `RunNumber` | integer | Copy of `Idrun` |
 | `Xstrip` | float | First tagger-strip coordinate |
+| `Nass_3`, `Nparf`, `N_traf` | `Int_t` | Original central, forward, and association-array counts |
+| `Nparf_strange` | `UChar_t` | Uninterpreted raw scalar; not an approved strange-track definition |
+| `Itipo_track` | `vector<int>` | Original central codes, length `Nass_3`, original order |
+| `Index_trf`, `Iass_trf` | `vector<unsigned char>` | Original indices/association codes, lengths `Nparf` and `N_traf` |
+| `RawSourceFile`, `RawSourceEntry` | `string`, `Long64_t` | Raw filename as opened and file-local, zero-based h70 entry |
+
+The raw diagnostic group is copied through the selector's existing all-branch
+Snapshot and into reconstruction output, including BDT-gated output. The event
+key is `(RawSourceFile, RawSourceEntry, RunNumber)`; add array name and zero-based
+array position to identify a raw track. These positions are not indices into
+filtered `gammas`/`protons` or reordered meson daughters. Keep the input path and
+processing working directory when relocating files identified by relative paths.
+
+`RawTrackContract.h` validates raw leaf types/count leaves, including tagger
+branches, and checks counts before ROOT reads fixed buffers (128 tagger,
+291 central, 90 forward, 90 associations).
+The association lookup retains historical `Index_trf > 0 -> Index_trf - 1` and
+`Index_trf == 0 -> 0` behavior. Zero's physical meaning remains unconfirmed.
+An out-of-range lookup aborts pre-analysis rather than reading stale memory;
+it does not silently discard events or recode a sentinel. Unknown codes remain
+unchanged in diagnostic branches whenever pre-analysis can safely process them.
+
+Reconstruction accepts either the complete typed diagnostic group or a legacy
+dataset without it. Partial, incompatible, or mixed legacy/new groups fail
+before creating reconstruction output. Legacy values are not invented as zero.
+Existing h80/h85 files need regeneration from raw to acquire these branches.
+
+No strange-track cut is active or exposed: its physical definition is pending.
+Any later cut must be explicit, optional, disabled by default, and evaluated
+against the unchanged baseline. See the
+[13 October 2026 audit](../docs/reports/2026-10-13-raw-tracks.md).
 
 Unit handling follows the code exactly. Central track angles are converted to
 radians when constructing four-vectors. `fcharged_theta` and

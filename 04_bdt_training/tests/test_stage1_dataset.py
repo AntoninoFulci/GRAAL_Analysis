@@ -273,3 +273,24 @@ def test_grid_search_accepts_old_format_valid_fixture(tmp_path, monkeypatch):
     best = json.loads((output / "best_hyperparams.json").read_text())
     assert best["auc"] == 0.8
     assert best["n_estimators"] == 5
+
+
+def test_grid_search_fails_when_every_candidate_fails_without_replacing_previous_results(
+    tmp_path, monkeypatch
+):
+    features = tmp_path / "features.npz"
+    _write_old_format(features)
+    output = tmp_path / "model"
+    output.mkdir()
+    previous = output / "best_hyperparams.json"
+    previous.write_text('{"max_depth": 3}\n')
+
+    def failed_train(*_args, **_kwargs):
+        raise RuntimeError("fit failed")
+
+    monkeypatch.setattr(grid_search, "_train_single", failed_train)
+
+    with pytest.raises(RuntimeError, match="no.*configuration|all.*failed"):
+        grid_search.run_search(str(features), str(output), n_iter=1)
+
+    assert previous.read_text() == '{"max_depth": 3}\n'

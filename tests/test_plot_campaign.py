@@ -212,3 +212,63 @@ def test_standalone_dalitz_rejects_uncertified_raw_tree(tmp_path):
     _write_reconstruction(bdt, "reco_eta_pi0_bdt", fit=False)
     with pytest.raises(ValueError, match="provenance"):
         plot_campaign.dalitz.main(["--chi2", str(chi2), "--bdt", str(bdt), "--out-dir", str(tmp_path / "out")])
+
+
+def _certify_dalitz_fixture(path, *, empty=False, chi2_cut=10.):
+    import json
+    source = ROOT.TFile(str(path), 'UPDATE')
+    if empty:
+        key = next(k.GetName() for k in source.GetListOfKeys() if k.GetClassName() == 'TTree')
+        tree = source.Get(key)
+        tree.Reset()
+        tree.Write('', ROOT.TObject.kOverwrite)
+    ROOT.TNamed('reconstruction_provenance', json.dumps({
+        'do_fit': False, 'channel': 'eta_pi0', 'input_tree': 'h85',
+        'inputs': [{'path': 'fixture.root', 'sha256': 'fixture-h85', 'size': 42}],
+        'selection': {'chi2_cut': chi2_cut, 'energy_range_gev': [1.1, 1.5],
+                      'chi2_resolution_relative': .08, 'missing_mass_window_gev': .06,
+                      'partner_mass_gev': .938272, 'photons': 'first_four_of_at_least_four',
+                      'protons': 'exactly_one'},
+    })).Write('', ROOT.TObject.kOverwrite)
+    source.Close()
+
+
+@pytest.mark.parametrize('empty', [False, True])
+def test_dalitz_root_is_self_documented_and_empty_safe(tmp_path, empty, capsys):
+    import json
+    chi2, bdt = tmp_path / 'chi2.root', tmp_path / 'bdt.root'
+    for path, name in ((chi2, 'chi2'), (bdt, 'bdt')):
+        _write_reconstruction(path, f'reco_eta_pi0_{name}', fit=False)
+        _certify_dalitz_fixture(path, empty=empty)
+    output = tmp_path / 'out'
+    ROOT.gROOT.GetListOfCanvases().Delete()
+    plot_campaign.dalitz.main(['--chi2', str(chi2), '--bdt', str(bdt),
+                              '--out-dir', str(output), '--profile', 'uv'])
+    source = ROOT.TFile.Open(str(output / 'istogrammi.root'))
+    metadata = json.loads(source.Get('dalitz_metadata').GetTitle())
+    dictionary = json.loads(source.Get('histogram_dictionary').GetTitle())
+    assert metadata['samples']['chi2']['entries'] == (0 if empty else 1)
+    assert metadata['samples']['chi2']['profile'] == 'uv'
+    assert metadata['samples']['chi2']['input']['sha256']
+    assert metadata['samples']['chi2']['reconstruction_provenance']['do_fit'] is False
+    assert metadata['selection_comparison'] == 'matched_except_bdt_gate'
+    assert metadata['masses_gev'] == {'proton': .938272, 'eta': .547862, 'pi0': .134977}
+    for name in ('dalitz_s_chi2_misurato', 'dalitz_s_bdt_implicito', 'residuo_chi2_misurato'):
+        assert source.Get(name).GetEntries() == (0 if empty else 1)
+        assert dictionary[name]['all_bins'] == (0 if empty else 1)
+    assert source.Get('massa_eta_bdt').GetXaxis().GetTitle()
+    assert source.Get('massa_pi0_bdt_raw_confronto').GetXaxis().GetTitle()
+    assert dictionary['dalitz_s_chi2_misurato_unit_area']['all_bins'] == (0 if empty else 1)
+    assert metadata['samples']['chi2']['observed_energy_range_gev'] == (None if empty else [1.2, 1.2])
+    source.Close()
+    assert (output / 'dalitz_s_confronto_unit_area.pdf').read_bytes().startswith(b'%PDF')
+    assert 'nan%' not in capsys.readouterr().out
+
+
+def test_dalitz_rejects_comparing_different_raw_cuts(tmp_path):
+    chi2, bdt = tmp_path / 'chi2.root', tmp_path / 'bdt.root'
+    for path, name, cut in ((chi2, 'chi2', 10.), (bdt, 'bdt', 20.)):
+        _write_reconstruction(path, f'reco_eta_pi0_{name}', fit=False)
+        _certify_dalitz_fixture(path, chi2_cut=cut)
+    with pytest.raises(ValueError, match='selection'):
+        plot_campaign.dalitz.main(['--chi2', str(chi2), '--bdt', str(bdt), '--out-dir', str(tmp_path/'out')])

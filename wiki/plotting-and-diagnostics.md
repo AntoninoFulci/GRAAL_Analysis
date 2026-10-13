@@ -119,7 +119,7 @@ Matplotlib runs with the non-interactive `Agg` backend.
   data.
 - The campaign postprocessor stages profile and common plot directories before
   publishing. Run `python -m scripts.plot_campaign --campaign results/NAME` to
-  regenerate plots from existing reconstruction and Stage-07 ROOT files.
+  regenerate plots from existing reconstruction and Stage-08 ROOT files.
 - Campaign plots include paired raw/6C-fit mass shapes for `M(p eta)`,
   `M(p pi0)`, and `M(eta pi0)`, constrained eta/pi0 masses, and separate ratio
   and likelihood asymmetry comparisons. Common plots show UV/VIS in the

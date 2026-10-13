@@ -62,7 +62,7 @@ bundle is complete or compatible.
 | nonzero flux without lookup | strip carries exposure but no energy assignment | fix `h80` coverage/strip mapping; do not discard nonzero flux |
 | monotonic direction undetermined or inversion exceeds tolerance | strip-energy lookup is physically inconsistent | inspect affected run/strips and calibration inputs before adjusting any tolerance |
 | negative flux warning | histogram bin was clamped to zero | inspect external flux production and QA list; warning alone does not invalidate output |
-| invalid exposure rows skipped | non-positive selected `POL1`/`POL2` | inspect affected run/strip; Stage 07 excludes them |
+| invalid exposure rows skipped | non-positive selected `POL1`/`POL2` | inspect affected run/strip; Stage 08 excludes them |
 | no flux exposure for energy bin | events exist where no calibrated exposure was selected | reconcile energy range, manifest group, and lookup |
 | not enough populated phi bins | sparse ratio data after valid-error mask | combine more data only through a reviewed binning change; the nominal grid is fixed |
 | diagnostic ratio fit also underpopulated | p-value triggered fallback but fewer than four bins survived | inspect counts/exposures; bin is skipped rather than forcing a fit |

@@ -26,6 +26,7 @@ if __package__ in (None, ""):
 
 from calibration.run_manifest import validate_manifest
 from graal_common.physics.beam_profiles import get_beam_profile
+from graal_common.physics.energy_binning import EnergyBinning, load_energy_config
 from graal_common.physics.channels import CHANNEL_NAMES, get_channel
 from scripts import artifact_manifest as cache
 from scripts.artifact_manifest import validate_preanalysis
@@ -168,7 +169,7 @@ def build_paths(
         ),
         ajaka_reference=(
             config.repo_root
-            / "07_observable_extraction/references/ajaka2008_figure4_digitized.csv"
+            / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
         ),
     )
 
@@ -195,7 +196,7 @@ def required_repository_files(paths: PipelinePaths) -> tuple[Path, ...]:
         paths.hyperparams,
         paths.ajaka_reference,
         paths.repo_root / "06_calibration/build_strip_energy_flux.py",
-        paths.repo_root / "07_observable_extraction/beam_asymmetry.py",
+        paths.repo_root / "08_observable_extraction/beam_asymmetry.py",
         *generators,
     )
 
@@ -323,8 +324,14 @@ def _profile_stages(
     preflight_result: PreflightResult,
     python: str,
     phi_bins: int,
+    energy_binning: EnergyBinning | None = None,
 ) -> list[Stage]:
     profile = get_beam_profile(profile_name)
+    grid = (energy_binning or EnergyBinning(profile.energy_edges_gev)).validate_profile(profile)
+    channels = tuple(name for name in channels
+                     if get_channel(name).production_threshold_gev < grid.energy_range_gev[1])
+    if "eta_pi0" not in channels:
+        raise PipelineError("energy range has no on-shell eta_pi0 MC support")
     root = paths.profile_root(profile_name)
     selected = paths.selected_dir(profile_name)
     mc_dir = paths.mc_dir(profile_name)
@@ -367,8 +374,8 @@ def _profile_stages(
                     root_macro_call(
                         macro,
                         config.mc_events,
-                        profile.energy_range_gev[0],
-                        profile.energy_range_gev[1],
+                        grid.energy_range_gev[0],
+                        grid.energy_range_gev[1],
                         mc_dir / channel.mc_filename,
                     ),
                 ),
@@ -473,7 +480,7 @@ def _profile_stages(
                 f"{profile_name}:extract",
                 _argv(
                     python,
-                    paths.repo_root / "07_observable_extraction/beam_asymmetry.py",
+                    paths.repo_root / "08_observable_extraction/beam_asymmetry.py",
                     "--raw",
                     chi2_reco,
                     "--raw-bdt",
@@ -484,6 +491,7 @@ def _profile_stages(
                     paths.calibrated_flux,
                     "--run-manifest",
                     paths.manifest,
+                    "--by-period",
                     "--output-dir",
                     asymmetry,
                     "--plots-dir",
@@ -498,6 +506,11 @@ def _profile_stages(
             ),
         ]
     )
+    if energy_binning is not None:
+        energy_args = ("--energy-edges", *(str(edge) for edge in grid.edges_gev))
+        consumers = {"beam_spectrum", "features", "reconstruct_chi2", "reconstruct_bdt", "extract"}
+        stages = [Stage(stage.name, stage.argv + energy_args)
+                  if stage.name.split(":")[-1] in consumers else stage for stage in stages]
     return stages
 
 
@@ -508,19 +521,41 @@ def build_pipeline_plan(
     *,
     python_executable: str = sys.executable,
     phi_bins: int = 12,
+    energy_binnings: dict[str, EnergyBinning] | None = None,
+    best_binning: bool = False,
+    flux_study: str = "off",
+    flux_study_metadata: Path | None = None,
 ) -> tuple[Stage, ...]:
+    if flux_study not in ("off", "audit", "study"):
+        raise PipelineError(f"invalid flux study mode: {flux_study}")
+    if flux_study == "off" and flux_study_metadata is not None:
+        raise PipelineError("--flux-study-metadata requires --flux-study audit or study")
     phi_edges_rad(phi_bins)
+    energy_binnings = energy_binnings or {}
     stages = _common_stages(python_executable, paths)
+    if flux_study != "off":
+        module = "audit_flux" if flux_study == "audit" else "study_missing_flux"
+        command = _argv(python_executable, "-m", f"flux_studies.{module}",
+                        "--manifest", paths.manifest, "--raw-flux", paths.raw_flux,
+                        "--calibrated-flux", paths.calibrated_flux,
+                        "--calibration-qa", paths.calibrated_flux.with_suffix(".qa.json"),
+                        "--output-dir", paths.output_root / "missing_flux")
+        if flux_study_metadata is not None:
+            command += _argv("--run-metadata", flux_study_metadata)
+        stages.append(Stage(f"common:flux_{flux_study}", command))
     stages.extend(
         _profile_stages(
-            "uv", UV_CHANNELS, config, paths, preflight_result, python_executable, phi_bins
+            "uv", UV_CHANNELS, config, paths, preflight_result, python_executable, phi_bins, energy_binnings.get("uv")
         )
     )
     stages.extend(
         _profile_stages(
-            "vis", VIS_CHANNELS, config, paths, preflight_result, python_executable, phi_bins
+            "vis", VIS_CHANNELS, config, paths, preflight_result, python_executable, phi_bins, energy_binnings.get("vis")
         )
     )
+    if best_binning:
+        stages = [Stage(stage.name, (*stage.argv, "--best-binning"))
+                  if stage.name.endswith(":extract") else stage for stage in stages]
     stages.append(
         Stage(
             "campaign:plots",
@@ -766,7 +801,12 @@ def execute_cached_plan(
                 raise PipelineError(f"incomplete {profile} BDT stage group")
             destination = paths.bdt_dir(profile)
             selected_identity = cache.inventory((paths.selected_dir(profile),))
-            channels = UV_CHANNELS if profile == "uv" else VIS_CHANNELS
+            channels = tuple(entry.name.split(":")[2] for entry in stage_list
+                             if entry.name.startswith(f"{profile}:generate:"))
+            bounds = None
+            if "--energy-edges" in stage.argv:
+                edges = tuple(map(float, stage.argv[stage.argv.index("--energy-edges") + 1:]))
+                bounds = (edges[0], edges[-1])
             mc_identity = cache.inventory(tuple(paths.mc_dir(profile) / get_channel(name).mc_filename for name in channels))
             item = cache.CacheItem(
                 f"bdt:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
@@ -775,7 +815,7 @@ def execute_cached_plan(
                  "source": cache.source_fingerprint(_source_files(paths, "04_bdt_training"))},
             )
             outcome = run_cached_stages(group, paths, item, destination,
-                                        lambda directory, name=profile: cache.validate_bdt(directory, name),
+                                        lambda directory, name=profile, domain=bounds: cache.validate_bdt(directory, name, energy_range=domain),
                                         production=production, force=force_bdt, runner=runner)
             index += 2
         else:
@@ -898,13 +938,17 @@ def print_run_summary(
         ("Input h80", relative(paths.preanalysis_dir)),
         ("Risultati", relative(paths.output_root)),
         ("Flux input", relative(paths.raw_flux)),
+        ("Studio flussi", getattr(args, "flux_study", "off")),
         ("Run manifest", relative(paths.manifest)),
         ("Iperparametri BDT", relative(paths.hyperparams)),
         ("Riferimento AJAKA", relative(paths.ajaka_reference)),
         ("Eventi MC/canale", str(config.mc_events)),
     ]
     for profile, channels in (("uv", UV_CHANNELS), ("vis", VIS_CHANNELS)):
-        energy_min, energy_max = get_beam_profile(profile).energy_range_gev
+        grid = load_energy_config(getattr(args, "energy_config", None)).get(
+            profile, EnergyBinning(get_beam_profile(profile).energy_edges_gev))
+        energy_min, energy_max = grid.energy_range_gev
+        channels = tuple(name for name in channels if get_channel(name).production_threshold_gev < energy_max)
         rows.extend((
             (f"{profile.upper()} h80", ", ".join(
                 path.name for path in sorted(paths.preanalysis_dir.glob(PROFILE_PATTERNS[profile]))
@@ -917,7 +961,7 @@ def print_run_summary(
             (f"{profile.upper()} BDT", relative(paths.bdt_dir(profile))),
         ))
     rows.extend((
-        ("Estrazione", f"ratio + likelihood; phi bins {args.phi_bins}; bootstrap 0"),
+        ("Estrazione", f"ratio + likelihood; phi bins {'best 8/12/16' if getattr(args, 'best_binning', False) else args.phi_bins}; bootstrap 0"),
         ("Plot", "UV, VIS e confronto combinato"),
     ))
     if config.name == "production":
@@ -963,19 +1007,39 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-bdt", action="store_true", help="retrain production BDT")
     parser.add_argument("--phi-bins", type=int, choices=PHI_BIN_CHOICES, default=12,
                         help="azimuth bins for UV/VIS ratio fits (default: 12)")
+    parser.add_argument("--best-binning", action="store_true",
+                        help="select each ratio point from simultaneous 8/12/16 phi-bin fits")
+    parser.add_argument("--energy-config", type=Path, help="JSON UV/VIS energy grids; default: historical bins")
+    parser.add_argument("--flux-study", choices=("off", "audit", "study"), default="off",
+                        help="optional offline missing-flux stage (default: off)")
+    parser.add_argument("--flux-study-metadata", type=Path,
+                        help="acquisition conditions and independent exposure JSON")
     return parser
 
 
 def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
     config = mode_config(args.mode, repo_root)
     paths = build_paths(config, args.output_dir)
+    flux_mode = getattr(args, "flux_study", "off")
+    flux_metadata = getattr(args, "flux_study_metadata", None)
+    if flux_metadata is not None:
+        if flux_mode == "off":
+            raise PipelineError("--flux-study-metadata requires --flux-study audit or study")
+        from flux_studies.metadata import load_metadata
+        try:
+            load_metadata(flux_metadata, validate_manifest(paths.manifest))
+        except (OSError, ValueError) as exc:
+            raise PipelineError(f"invalid flux study metadata: {exc}") from exc
     if config.name == "test_data":
         validate_test_output(paths)
     else:
         validate_production_output(paths)
     with pipeline_lock(config.repo_root):
         checked = preflight(config, paths)
-        stages = build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins)
+        stages = build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins,
+                                     flux_study=flux_mode, flux_study_metadata=flux_metadata,
+                                     best_binning=getattr(args, "best_binning", False),
+                                     energy_binnings=load_energy_config(getattr(args, "energy_config", None)))
         print_run_summary(config, paths, args, stages)
         print_preflight_warnings(checked)
         if not confirm_run():

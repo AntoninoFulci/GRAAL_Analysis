@@ -74,6 +74,9 @@ class ChannelSample:
     beam_E: np.ndarray   # (N_surv,) tagged photon energy [GeV]
     p_surv: float        # fraction of generated events that survived
     n_gen: int           # generated count, before the acceptance
+    origin_entries: np.ndarray | None = None
+    observed_photons: np.ndarray | None = None
+    observed_beams: np.ndarray | None = None
 
 
 def build_channel_features(
@@ -83,6 +86,8 @@ def build_channel_features(
     rng: np.random.Generator,
     params: LossParams,
     beam_target: BeamSpectrum,
+    *,
+    retain_kinematics: bool = False,
 ) -> ChannelSample:
     """Features for one channel: load, apply the acceptance, shuffle, compute.
 
@@ -111,4 +116,7 @@ def build_channel_features(
         beam_E=beam_E,
         p_surv=float(event_mask.mean()),
         n_gen=n_gen,
+        origin_entries=np.flatnonzero(event_mask),
+        observed_photons=photons_4 if retain_kinematics else None,
+        observed_beams=beam_sel if retain_kinematics else None,
     )

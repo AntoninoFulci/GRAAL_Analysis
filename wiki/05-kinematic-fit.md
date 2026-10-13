@@ -131,4 +131,4 @@ masses, and structured failure reasons.
 
 See [reconstruction](05-reconstruction),
 [chi-square pairing](05-chi-square-pairing), and
-[systematics and outputs](07-systematics-and-outputs).
+[systematics and outputs](08-systematics-and-outputs).

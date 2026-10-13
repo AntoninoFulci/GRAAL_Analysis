@@ -158,3 +158,15 @@ def test_seeded_channel_sampling_preserves_selection_and_photon_order(monkeypatc
     np.testing.assert_array_equal(sample.w_beam, sample.beam_E)
     assert sample.p_surv == 1.0
     assert sample.n_gen == 3
+    np.testing.assert_array_equal(sample.origin_entries, [0, 1, 2])
+
+    # Losing the first original event must not renumber the survivors.
+    monkeypatch.setattr(mc_samples, "sample_surviving_photons",
+                        lambda photons, *_args, **_kwargs: (photons[1:], np.array([False, True, True])))
+    subset = mc_samples.build_channel_features(
+        tree, channel, channel.hypothesis, np.random.default_rng(17),
+        LossParams(), object(), retain_kinematics=True,
+    )
+    np.testing.assert_array_equal(subset.origin_entries, [1, 2])
+    np.testing.assert_array_equal(subset.observed_beams[:, 3], [1.22, 1.33])
+    assert subset.observed_photons.shape == (2, 4, 4)

@@ -150,7 +150,7 @@ def test_bdt_profile_mismatch_stops_before_reconstruction(monkeypatch):
             def check_hypothesis(self, _hypothesis):
                 events.append("hypothesis")
 
-            def check_profile(self, _profile):
+            def check_profile(self, _profile, *, energy_range_gev=None):
                 events.append("profile")
                 raise ValueError("profile mismatch")
 

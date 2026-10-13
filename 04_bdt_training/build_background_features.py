@@ -77,13 +77,14 @@ from graal_common.physics.channels import (
     resolve_hypothesis,
 )
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
 from graal_common.stage1.features import (
     FEATURE_NAMES_S1,
     N_FEATURES_S1,
     compute_stage1_features,
     feature_names,
 )
-from bdt_training.beam_spectrum import BeamSpectrum
+from bdt_training.beam_spectrum import BeamSpectrum, validate_signal_support
 from bdt_training.dataset.channel_weights import ChannelYield, channel_yield, compute_shares
 from bdt_training.dataset.mc_samples import (
     ChannelSample,
@@ -97,6 +98,7 @@ from bdt_training.photon_loss import LossParams
 from bdt_training.dataset.stage1_dataset import (
     Stage1Dataset,
     Stage1DatasetMetadata,
+    Stage1Rows,
     save_stage1_dataset,
 )
 
@@ -120,6 +122,7 @@ def main() -> None:
                              "the measured beam flux, and there is no flux "
                              "without it")
     parser.add_argument("--profile", choices=BEAM_PROFILES, default=None)
+    add_energy_arguments(parser)
     parser.add_argument("--signal-prior", type=float, default=0.5,
                         help="fraction of the total training weight given to the "
                              "signal class (default 0.5, balanced). A CHOICE, not "
@@ -128,7 +131,11 @@ def main() -> None:
     parser.add_argument("--output", default="features_stage1.npz")
     parser.add_argument("--loss-seed", type=int, default=42,
                         help="RNG seed for photon-loss sampling")
+    parser.add_argument("--record-origins", action="store_true",
+                        help="persist parent MC SHA-256/entry for grouped comparisons (requires --profile)")
     args = parser.parse_args()
+    if args.record_origins and args.profile is None:
+        parser.error("--record-origins requires --profile")
 
     if not 0.0 < args.signal_prior < 1.0:
         raise ValueError(
@@ -153,14 +160,15 @@ def main() -> None:
 
     beam_target = BeamSpectrum.load(args.beam_spectrum)
     profile = get_beam_profile(args.profile) if args.profile else None
+    grid = energy_binning_from_args(args, args.profile)
     if profile is not None:
         observed = (float(beam_target.edges[0]), float(beam_target.edges[-1]))
         if not np.allclose(
-            observed, profile.energy_range_gev, atol=1e-12, rtol=0
+            observed, grid.energy_range_gev, atol=1e-12, rtol=0
         ):
             raise ValueError(
                 f"beam spectrum range {observed} does not match profile "
-                f"{profile.name!r} range {profile.energy_range_gev}"
+                f"{profile.name!r} range {grid.energy_range_gev}"
             )
     print(f"beam       : reweighting onto {args.beam_spectrum}")
 
@@ -187,6 +195,8 @@ def main() -> None:
                 f["mc"], channel, hypothesis, rng, params, beam_target
             )
         samples[channel.name] = sample
+        if channel is signal and profile is not None:
+            validate_signal_support(sample.beam_E, sample.w_beam, beam_target)
 
         y = channel_yield(channel, sample.beam_E, sample.w_beam, sample.n_gen)
         if channel is signal:
@@ -196,6 +206,7 @@ def main() -> None:
     shares = compute_shares(yields, args.signal_prior)
 
     all_X, all_y, all_w = [], [], []
+    origins, row_channels = [], []
     for channel in channels:
         sample = samples[channel.name]
         is_signal = channel is signal
@@ -220,6 +231,15 @@ def main() -> None:
         all_X.append(sample.X)
         all_y.append(np.full(len(sample.X), 1 if is_signal else 0, dtype=np.int8))
         all_w.append(w.astype(np.float32))
+        if args.record_origins:
+            import hashlib
+            with (mc_dir / channel.mc_filename).open("rb") as stream:
+                hasher = hashlib.sha256()
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+                digest = hasher.hexdigest()
+            origins.extend(f"{digest}:{entry}" for entry in sample.origin_entries)
+            row_channels.extend([channel.name] * len(sample.X))
 
     X_out = np.concatenate(all_X, axis=0)
     y_out = np.concatenate(all_y, axis=0)
@@ -264,6 +284,11 @@ def main() -> None:
             X=X_out,
             y=y_out,
             w=w_out,
+            rows=(Stage1Rows(
+                origin_id=np.asarray(origins), channel=np.asarray(row_channels),
+                profile=np.full(len(y_out), profile.name),
+                detector_variant=np.full(len(y_out), f"LossParams={params!r};seed={args.loss_seed}"),
+            ) if args.record_origins else None),
             metadata=Stage1DatasetMetadata(
                 feature_names=tuple(feature_names(hypothesis)),
                 signal_channel=signal.name,
@@ -272,10 +297,10 @@ def main() -> None:
                 beam_reweighted=beam_target is not None,
                 beam_profile=profile.name if profile is not None else None,
                 energy_min_gev=(
-                    profile.energy_range_gev[0] if profile is not None else None
+                    grid.energy_range_gev[0] if profile is not None else None
                 ),
                 energy_max_gev=(
-                    profile.energy_range_gev[1] if profile is not None else None
+                    grid.energy_range_gev[1] if profile is not None else None
                 ),
             ),
         ),

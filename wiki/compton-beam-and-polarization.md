@@ -107,5 +107,5 @@ pytest 00_common/tests/test_compton.py \
 ```
 
 See [Plotting and diagnostics](plotting-and-diagnostics) for output ownership
-and [Beam-asymmetry estimators](07-beam-asymmetry-estimators) for downstream
+and [Beam-asymmetry estimators](08-beam-asymmetry-estimators) for downstream
 polarization use.

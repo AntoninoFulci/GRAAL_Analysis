@@ -350,6 +350,33 @@ class TestValidationStatus:
 
 
 class TestFitEvent:
+    @pytest.mark.parametrize("which", ["photons", "proton", "beam"])
+    def test_malformed_vector_shape_has_structured_reason(self, which):
+        photons, proton, beam = _conserving_event()
+        if which == "photons":
+            photons = photons[:3]
+        elif which == "proton":
+            proton = proton[:2]
+        else:
+            beam = beam[:3]
+
+        result = fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP)
+
+        assert not result.converged
+        assert result.failure_reason == "invalid_input"
+        assert result.fitted_cov.shape == (16,)
+        np.testing.assert_array_equal(result.fitted_photons, photons)
+        np.testing.assert_array_equal(result.fitted_proton, proton)
+
+    @pytest.mark.parametrize("max_iter", [0, -1])
+    @pytest.mark.parametrize("use_options", [False, True])
+    def test_nonpositive_iteration_budget_is_rejected(self, max_iter, use_options):
+        photons, proton, beam = _conserving_event()
+        arguments = ({"options": kf.FitOptions(max_iter=max_iter)} if use_options
+                     else {"max_iter": max_iter})
+        with pytest.raises(ValueError, match="max_iter must be positive"):
+            fit_event(photons, proton, beam, PAIRING, ETA_PI0_HYP, **arguments)
+
     def test_nonpositive_photon_energy_is_rejected(self):
         photons, proton, beam = _conserving_event()
         photons[0, 3] = 0.0

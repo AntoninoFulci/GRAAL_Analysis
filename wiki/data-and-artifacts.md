@@ -51,11 +51,11 @@ flowchart LR
 | `reco_eta_pi0_bdt` | Stage 05 | Stage-1-gated eta-pi0 reconstruction, optional fit branches |
 | `reco_eta_pi0_bdt_sideband` | Stage 05 | broad raw-mass BDT control sample without fit branches |
 | `reco_2pi0` | Stage 05 | alternate two-pi0 reconstruction/control |
-| `sigma_points` | Stage 07 | flattened asymmetry points, uncertainties, normalization, fit diagnostics |
+| `sigma_points` | Stage 08 | flattened asymmetry points, uncertainties, normalization, fit diagnostics |
 
 Reconstruction tree contracts are described in
 [Reconstruction](05-reconstruction). Observable ROOT objects and branches are
-listed in [Systematics and Outputs](07-systematics-and-outputs).
+listed in [Systematics and Outputs](08-systematics-and-outputs).
 
 ROOT files may contain multiple key cycles. Readers that require a canonical
 object reject ambiguous or malformed layouts rather than silently choosing a
@@ -91,9 +91,9 @@ cryptographically bind them.
 
 Stage 06 publishes no CSV or JSON side products. Its checks still validate
 run/strip mappings and flux values before atomic ROOT replacement; diagnostics
-are reported through stderr and exit status. Stage 07 consumes this ROOT file
+are reported through stderr and exit status. Stage 08 consumes this ROOT file
 directly. A run is usable only when exactly one `POL1`, `POL2`, and `BREM`
-histogram is present; otherwise Stage 07 skips the entire run for every
+histogram is present; otherwise Stage 08 skips the entire run for every
 polarization. See [Calibration](06-calibration).
 
 ### Full-campaign layout
@@ -126,9 +126,9 @@ results/<campaign>/
 `-- pipeline_commands.log
 ```
 
-Final Stage-07 point products and mass shapes are composed under
+Final Stage-08 point products and mass shapes are composed under
 `common/plots/`. Ajaka digitization is tracked at
-`07_observable_extraction/references/ajaka2008_figure4_digitized.csv`, not a
+`08_observable_extraction/references/ajaka2008_figure4_digitized.csv`, not a
 generated or ignored local fixture.
 
 ## Ownership and Persistence
@@ -138,7 +138,7 @@ generated or ignored local fixture.
 | source, tests, config, wiki | repository contracts | tracked |
 | `04_bdt_training/artifacts/stage1/` | released runtime model and reports | currently tracked |
 | `data/00_external/flux.root` | small external calibration input | explicitly allowed by `.gitignore` |
-| `07_observable_extraction/references/ajaka2008_figure4_digitized.csv` | published comparison data | tracked |
+| `08_observable_extraction/references/ajaka2008_figure4_digitized.csv` | published comparison data | tracked |
 | `data/00_external/flux_calibrated.root` | generated Stage 06 calibration | ignored by Git; replace atomically |
 | other `data/` content | raw, selected, or farm-linked experimental data | ignored |
 | `results/` | generated reconstruction, calibration, plots, observables | ignored |

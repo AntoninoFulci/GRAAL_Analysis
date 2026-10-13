@@ -199,17 +199,25 @@ def fit_event(photons: np.ndarray, proton: np.ndarray, beam: np.ndarray,
               max_iter: int = 10, tol: float = 1e-8,
               options: FitOptions | None = None,
               reaction: FitReactionModel = PROTON_TARGET_REACTION) -> FitResult:
-    """Fit one event onto 4-momentum conservation and the two pair masses."""
+    """Fit one event onto 4-momentum conservation and the two pair masses.
+
+    Invalid vector shapes return ``invalid_input`` with an unavailable (NaN)
+    covariance. The effective iteration budget must be positive.
+    """
     options = options or FitOptions(max_iter=max_iter, constraint_tol=tol)
+    if options.max_iter <= 0:
+        raise ValueError("max_iter must be positive")
+    if photons.shape != (4, 4) or proton.shape != (4,) or beam.shape != (4,):
+        return FitResult(
+            photons.copy(), proton.copy(), 1e12, 6, False, np.full(16, np.nan),
+            failure_reason="invalid_input",
+        )
     m_heavy, m_light = hypothesis.heavy_mass, hypothesis.light_mass
     y = _vectors_to_params(photons, proton, beam)
     V = cov.covariance_diag(y)                         # diagonal, fixed at measured
 
     valid_input = (
-        photons.shape == (4, 4)
-        and proton.shape == (4,)
-        and beam.shape == (4,)
-        and np.all(np.isfinite(photons))
+        np.all(np.isfinite(photons))
         and np.all(np.isfinite(proton))
         and np.all(np.isfinite(beam))
         and np.all(photons[:, 3] > 0.0)

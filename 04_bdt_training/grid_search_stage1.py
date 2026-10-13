@@ -36,7 +36,7 @@ except ImportError as exc:
     raise ImportError("xgboost required: pip install xgboost") from exc
 
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
+from bdt_training.training.stage1_training import training_indices
 
 from bdt_training.dataset.stage1_dataset import load_stage1_dataset
 
@@ -111,9 +111,10 @@ def run_search(
     w: np.ndarray = dataset.w.astype(np.float32)
     print(f"  {len(X)} events  ({(y==1).sum()} signal, {(y==0).sum()} background)")
 
-    X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
-        X, y, w, test_size=val_fraction, random_state=seed, stratify=y
-    )
+    train, validation = training_indices(dataset, val_fraction=val_fraction, seed=seed)
+    X_tr, X_val = X[train], X[validation]
+    y_tr, y_val = y[train], y[validation]
+    w_tr, w_val = w[train], w[validation]
     print(f"  Train: {len(X_tr)}  Val: {len(X_val)}")
 
     all_keys = list(_PARAM_GRID.keys())
@@ -158,6 +159,9 @@ def run_search(
             f"  mcw={cfg['min_child_weight']}  gam={cfg['gamma']}"
             f"  ({elapsed:.0f}s){marker}",
         )
+
+    if not best_cfg:
+        raise RuntimeError("all grid-search configurations failed; no results published")
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)

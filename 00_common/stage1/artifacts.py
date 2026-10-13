@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from graal_common.physics.beam_profiles import get_beam_profile
+from graal_common.physics.energy_binning import EnergyBinning
 
 
 MODEL_FILE = "bdt_stage1.json"
@@ -66,6 +67,7 @@ class Stage1Provenance:
     beam_profile: str | None = None
     energy_min_gev: float | None = None
     energy_max_gev: float | None = None
+    shared_training: dict[str, Any] | None = None
 
     @classmethod
     def from_json(cls, text: str) -> "Stage1Provenance":
@@ -80,7 +82,7 @@ class Stage1Provenance:
         optional = set(_OPTIONAL_PROVENANCE_KEYS)
         actual = set(value)
         missing = required - actual
-        unexpected = actual - required - optional
+        unexpected = actual - required - optional - {"shared_training"}
         if missing:
             raise ValueError(f"missing keys: {', '.join(sorted(missing))}")
         if unexpected:
@@ -125,15 +127,13 @@ class Stage1Provenance:
             if energy_max_gev <= energy_min_gev:
                 raise ValueError("profile energy bounds must be increasing")
             profile = get_beam_profile(beam_profile)
-            expected_bounds = profile.energy_range_gev
-            if (
-                abs(energy_min_gev - expected_bounds[0]) > 1e-12
-                or abs(energy_max_gev - expected_bounds[1]) > 1e-12
-            ):
-                raise ValueError(
-                    f"profile energy bounds {(energy_min_gev, energy_max_gev)} "
-                    f"do not match {profile.name!r} range {expected_bounds}"
-                )
+            EnergyBinning((energy_min_gev, energy_max_gev)).validate_profile(profile)
+
+        shared_training = None
+        if "shared_training" in value:
+            if present_optional:
+                raise ValueError("single-profile and shared training metadata are mutually exclusive")
+            shared_training = _shared_training(value["shared_training"])
 
         return cls(
             signal_channel=signal_channel,
@@ -148,20 +148,11 @@ class Stage1Provenance:
             beam_profile=beam_profile,
             energy_min_gev=energy_min_gev,
             energy_max_gev=energy_max_gev,
+            shared_training=shared_training,
         )
 
     def to_json(self) -> str:
-        values = {
-            "signal_channel": self.signal_channel,
-            "hypothesis": self.hypothesis,
-            "signal_prior": self.signal_prior,
-            "beam_reweighted": self.beam_reweighted,
-            "phase_space_sampling": self.phase_space_sampling,
-            "tagger_resolution_fwhm_gev": self.tagger_resolution_fwhm_gev,
-            "tagger_resolution_sigma_gev": self.tagger_resolution_sigma_gev,
-            "detector_covariance_status": self.detector_covariance_status,
-            "feature_names": self.feature_names,
-        }
+        values = {name: getattr(self, name) for name in _REQUIRED_PROVENANCE_KEYS}
         profile_values = (
             self.beam_profile,
             self.energy_min_gev,
@@ -177,25 +168,56 @@ class Stage1Provenance:
                 energy_min_gev=self.energy_min_gev,
                 energy_max_gev=self.energy_max_gev,
             )
+        if self.shared_training is not None:
+            values["shared_training"] = self.shared_training
         validated = self._from_mapping(values)
-        output = {
-            "signal_channel": validated.signal_channel,
-            "hypothesis": validated.hypothesis,
-            "signal_prior": validated.signal_prior,
-            "beam_reweighted": validated.beam_reweighted,
-            "phase_space_sampling": validated.phase_space_sampling,
-            "tagger_resolution_fwhm_gev": validated.tagger_resolution_fwhm_gev,
-            "tagger_resolution_sigma_gev": validated.tagger_resolution_sigma_gev,
-            "detector_covariance_status": validated.detector_covariance_status,
-            "feature_names": list(validated.feature_names),
-        }
+        output = {name: getattr(validated, name) for name in _REQUIRED_PROVENANCE_KEYS}
         if validated.beam_profile is not None:
             output.update(
                 beam_profile=validated.beam_profile,
                 energy_min_gev=validated.energy_min_gev,
                 energy_max_gev=validated.energy_max_gev,
             )
+        if validated.shared_training is not None:
+            output["shared_training"] = validated.shared_training
         return json.dumps(output, indent=2) + "\n"
+
+
+def _shared_training(value: Any) -> dict:
+    """Versioned diagnostic contract, never a certificate of physics closure."""
+    keys = {"schema_version", "supported_profiles", "profile_mixture", "dataset_sha256",
+            "split_sha256", "training_seed", "threshold_policy", "validation_status"}
+    if not isinstance(value, dict) or set(value) != keys:
+        raise ValueError("shared_training has an incomplete or unsupported schema")
+    if type(value["schema_version"]) is not int or value["schema_version"] != 1:
+        raise ValueError("unsupported shared_training schema_version")
+    domains, mixture = value["supported_profiles"], value["profile_mixture"]
+    if not isinstance(domains, dict) or set(domains) != {"uv", "vis"}:
+        raise ValueError("shared model must declare UV and VIS coverage")
+    if not isinstance(mixture, dict) or set(mixture) != set(domains):
+        raise ValueError("profile mixture must match supported profiles")
+    normalized = {}
+    for name, bounds in domains.items():
+        if not isinstance(bounds, (list, tuple)) or len(bounds) != 2:
+            raise ValueError("shared profile coverage requires two energy bounds")
+        low, high = (_number(v, "energy bound") for v in bounds)
+        EnergyBinning((low, high)).validate_profile(get_beam_profile(name))
+        normalized[name] = [low, high]
+        if not 0 < _number(mixture[name], "profile mixture") < 1:
+            raise ValueError("profile mixture must be positive and less than one")
+    if not math.isclose(sum(mixture.values()), 1., rel_tol=0., abs_tol=1e-12):
+        raise ValueError("profile mixture must sum to one")
+    for field in ("dataset_sha256", "split_sha256"):
+        digest = value[field]
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError(f"{field} must be a SHA-256 digest")
+    if type(value["training_seed"]) is not int or value["training_seed"] < 0:
+        raise ValueError("training_seed must be a nonnegative integer")
+    if value["threshold_policy"] != "weighted_validation_f1_single":
+        raise ValueError("unsupported shared threshold policy")
+    if value["validation_status"] != "diagnostic_only":
+        raise ValueError("shared training does not certify physical validation")
+    return {**value, "supported_profiles": normalized, "profile_mixture": dict(mixture)}
 
 
 def _string(value: Any, name: str) -> str:

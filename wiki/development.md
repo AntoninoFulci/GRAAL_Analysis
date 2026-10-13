@@ -60,7 +60,7 @@ directories to import packages:
 | `04_bdt_training/` | `bdt_training` |
 | `05_reconstruction/` | `reconstruction` |
 | `06_calibration/` | `calibration` |
-| `07_observable_extraction/` | `observable_extraction` |
+| `08_observable_extraction/` | `observable_extraction` |
 | `plots/` | `plots` |
 
 Imports must use these package names, never numeric directory names. Shared
@@ -90,7 +90,7 @@ Typical focused checks:
 ```bash
 pytest 00_common/tests/test_pairing.py tests/test_stage1_contracts.py -q
 pytest 05_reconstruction/tests -q
-pytest 06_calibration/tests 07_observable_extraction/tests -q
+pytest 06_calibration/tests 08_observable_extraction/tests -q
 pytest plots/tests -q
 ```
 

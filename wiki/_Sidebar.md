@@ -33,10 +33,11 @@
   - [6C kinematic fit](05-kinematic-fit)
   - [Sidebands and two-pion paths](05-sidebands-and-two-pion)
 - [06 — Calibration](06-calibration)
-- [07 — Observable extraction](07-observable-extraction)
-  - [Beam-asymmetry estimators](07-beam-asymmetry-estimators)
-  - [Background correction](07-background-correction)
-  - [Systematics and outputs](07-systematics-and-outputs)
+- [07 — Flux studies](07-flux-studies)
+- [08 — Observable extraction](08-observable-extraction)
+  - [Beam-asymmetry estimators](08-beam-asymmetry-estimators)
+  - [Background correction](08-background-correction)
+  - [Systematics and outputs](08-systematics-and-outputs)
 
 ### Reference
 

@@ -222,6 +222,15 @@ def _interval(lower, upper, order, context):
     return low + (nodes + 1)*jacobian, weights*jacobian
 
 
+def _checked_quadrature_result(low, high, settings, context):
+    """Keep the doubled-order value only when every component converged."""
+    tolerance = settings.absolute_tolerance + settings.relative_tolerance*np.abs(high)
+    if np.any(np.abs(high-low) > tolerance):
+        raise ValueError(f"{context}: quadrature convergence failure; "
+                         f"max difference={np.max(np.abs(high-low)):.6g}")
+    return high
+
+
 def _integrate_orders(integrand, bounds, settings, context):
     if not isinstance(settings, QuadratureSettings):
         raise ValueError(f"{context}: requires QuadratureSettings")
@@ -253,11 +262,7 @@ def _integrate_orders(integrand, bounds, settings, context):
         return _quadrature_value(total, context)
 
     low, high = evaluate(1), evaluate(2)
-    tolerance = settings.absolute_tolerance + settings.relative_tolerance*np.abs(high)
-    if np.any(np.abs(high-low) > tolerance):
-        raise ValueError(f"{context}: quadrature convergence failure; "
-                         f"max difference={np.max(np.abs(high-low)):.6g}")
-    return high
+    return _checked_quadrature_result(low, high, settings, context)
 
 
 def _integrate_complex_1d(integrand, lower, upper, *, settings, context):
@@ -293,11 +298,7 @@ def _integrate_complex_2d_array(
         return _quadrature_value(np.einsum("i,j,ij...->...", qw, xw, values), context)
 
     low, high = evaluate(1), evaluate(2)
-    tolerance = settings.absolute_tolerance+settings.relative_tolerance*np.abs(high)
-    if np.any(np.abs(high-low) > tolerance):
-        raise ValueError(f"{context}: quadrature convergence failure; "
-                         f"max difference={np.max(np.abs(high-low)):.6g}")
-    return high
+    return _checked_quadrature_result(low, high, settings, context)
 
 
 # PRC 73, 045209, Table II; the ordering is the six-channel strong-T ordering.

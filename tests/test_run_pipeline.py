@@ -236,6 +236,20 @@ def test_launch_phi_bins_default_and_invalid_choice():
         run_pipeline.build_parser().parse_args(["--mode", "production", "--phi-bins", "10"])
 
 
+def test_best_binning_changes_only_extraction_commands(tmp_path):
+    args = run_pipeline.build_parser().parse_args(["--mode", "production", "--best-binning"])
+    config = run_pipeline.mode_config("production", tmp_path)
+    paths = run_pipeline.build_paths(config)
+    checked = run_pipeline.PreflightResult("/usr/bin/root")
+    before = run_pipeline.build_pipeline_plan(config, paths, checked)
+    after = run_pipeline.build_pipeline_plan(config, paths, checked, best_binning=args.best_binning)
+    for fixed, best in zip(before, after, strict=True):
+        if best.name.endswith(":extract"):
+            assert best.argv == (*fixed.argv, "--best-binning")
+        else:
+            assert best == fixed
+
+
 def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     _config, paths, stages = _plan(tmp_path)
 
@@ -301,6 +315,7 @@ def test_plan_trains_and_reconstructs_with_profile_local_artifacts(tmp_path):
         assert ("--profile", profile) == bdt.argv[-2:]
         assert extract.argv.count(str(reco)) == 1
         assert "--raw-bdt-fit" not in extract.argv
+        assert "--by-period" in extract.argv
         assert "--no-fit" in bdt.argv
         chi2 = _stage(stages, f"{profile}:reconstruct_chi2")
         assert "--no-fit" in chi2.argv
@@ -428,7 +443,7 @@ def test_run_calls_preflight_prepare_plan_and_execute_in_order(tmp_path, monkeyp
     monkeypatch.setattr(
         run_pipeline,
         "build_pipeline_plan",
-        lambda config, paths, preflight_result, *, phi_bins: (
+        lambda config, paths, preflight_result, *, phi_bins, energy_binnings=None, best_binning=False, flux_study="off", flux_study_metadata=None: (
             events.append(("plan", preflight_result.root_executable, phi_bins))
             or (run_pipeline.Stage("only", ("true",)),)
         ),
@@ -605,7 +620,7 @@ def test_two_test_campaign_runs_replace_results_without_touching_production(tmp_
     test_root = tmp_path / "results/test_repeat"
     run_numbers = []
     monkeypatch.setattr(run_pipeline, "preflight", lambda config, paths: run_pipeline.PreflightResult("root"))
-    monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda config, paths, checked, *, phi_bins: ())
+    monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda config, paths, checked, *, phi_bins, energy_binnings=None, best_binning=False, flux_study="off", flux_study_metadata=None: ())
 
     def fake_execute(stages, config, paths, **kwargs):
         run_numbers.append(len(run_numbers) + 1)
@@ -631,7 +646,7 @@ def test_confirmation_refusal_preserves_test_results_and_skips_execution(
     marker = output / "keep.txt"
     marker.write_text("previous campaign")
     monkeypatch.setattr(run_pipeline, "preflight", lambda *_: run_pipeline.PreflightResult("root"))
-    monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda *_, phi_bins: (run_pipeline.Stage("uv:select", ("selector",)),))
+    monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda *_, phi_bins, energy_binnings=None, best_binning=False, flux_study="off", flux_study_metadata=None: (run_pipeline.Stage("uv:select", ("selector",)),))
     monkeypatch.setattr(
         run_pipeline,
         "execute_cached_plan",
@@ -719,7 +734,7 @@ def test_summary_wraps_inside_terminal_width_without_losing_long_paths(
     output = capsys.readouterr().out
     assert all(len(line) <= columns for line in output.splitlines())
     compact = re.sub(r"[\s│╭╮╰╯─┬┴┼├┤]+", "", output)
-    assert "07_observable_extraction/references/ajaka2008_figure4_digitized.csv" in compact
+    assert "08_observable_extraction/references/ajaka2008_figure4_digitized.csv" in compact
 
 
 def test_summary_uses_color_only_when_enabled(tmp_path, monkeypatch, capsys):
@@ -755,7 +770,7 @@ def test_pipeline_documentation_names_current_launcher_and_handoff():
         root / "wiki/commands-and-configuration.md",
         root / "wiki/data-and-artifacts.md",
         root / "wiki/known-limitations.md",
-        root / "wiki/07-observable-extraction.md",
+        root / "wiki/08-observable-extraction.md",
     )
     for path in required:
         text = path.read_text(encoding="utf-8")
@@ -771,7 +786,7 @@ def test_vis_runbook_combines_its_stage7_output():
         Path(__file__).parents[1] / "docs/runbooks/vis-local-analysis.md"
     ).read_text(encoding="utf-8")
     extraction = re.search(
-        r"python 07_observable_extraction/beam_asymmetry\.py \\\n(.*?)\n```",
+        r"python 08_observable_extraction/beam_asymmetry\.py \\\n(.*?)\n```",
         text,
         flags=re.DOTALL,
     )
@@ -787,3 +802,25 @@ def test_vis_runbook_combines_its_stage7_output():
     assert output_dir is not None
     assert vis_root is not None
     assert Path(vis_root.group(1)) == Path(output_dir.group(1)) / "beam_asymmetry.root"
+
+
+def test_flux_audit_is_opt_in_and_after_calibration(tmp_path):
+    config=run_pipeline.mode_config('production',tmp_path)
+    paths=run_pipeline.build_paths(config)
+    checked=run_pipeline.PreflightResult('/usr/bin/root')
+    default=run_pipeline.build_pipeline_plan(config,paths,checked)
+    enabled=run_pipeline.build_pipeline_plan(config,paths,checked,flux_study='audit')
+    assert not any(s.name.startswith('common:flux_') for s in default)
+    assert enabled[0]==default[0]
+    assert enabled[1].name=='common:flux_audit'
+    assert enabled[2:]==default[1:]
+    study=run_pipeline.build_pipeline_plan(config,paths,checked,flux_study='study',flux_study_metadata=tmp_path/'metadata with spaces.json')
+    assert 'flux_studies.study_missing_flux' in study[1].argv
+    assert str(tmp_path/'metadata with spaces.json') in study[1].argv
+    assert _stage(study,'uv:extract')==_stage(default,'uv:extract')
+
+
+def test_flux_study_default_and_invalid_mode():
+    parser=run_pipeline.build_parser()
+    assert parser.parse_args(['--mode','production']).flux_study=='off'
+    with pytest.raises(SystemExit):parser.parse_args(['--mode','production','--flux-study','automatic'])

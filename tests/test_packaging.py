@@ -34,3 +34,10 @@ def test_observable_extraction_importable():
     from observable_extraction.core.models import FluxExposure
 
     assert FluxExposure.__name__ == "FluxExposure"
+
+
+def test_observable_extraction_uses_stage08_directory():
+    from pathlib import Path
+    import observable_extraction
+    root = Path(__file__).resolve().parents[1]
+    assert Path(observable_extraction.__file__).resolve().parent == root / '08_observable_extraction'

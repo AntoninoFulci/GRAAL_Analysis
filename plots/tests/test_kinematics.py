@@ -78,3 +78,21 @@ def test_the_limit_closes_with_sqrt_s():
     W = kin.sqrt_s(beam, target)
     limit = kin.dalitz_limit(W, kin.M_PI0)
     assert kin.M_PI0 + limit == pytest.approx(W)
+
+
+def test_mass_squared_preserves_spacelike_values_and_empty_batches():
+    assert kin.mass_squared(np.array([2., 0., 0., 1.])) == -3.
+    assert kin.mass_squared(np.empty((0, 4))).shape == (0,)
+
+
+@pytest.mark.parametrize("momentum", [0., 0.25])
+def test_dalitz_identity_on_shell_at_threshold_and_above(momentum):
+    p = np.array([momentum, 0., 0., np.hypot(kin.M_PROTON, momentum)])
+    eta = np.array([-momentum, 0., 0., np.hypot(kin.M_ETA, momentum)])
+    pi0 = np.array([0., 0., 0., kin.M_PI0])
+    initial = p + eta + pi0
+    squares = kin.dalitz_invariants(p, eta, pi0)
+    assert kin.dalitz_residual(squares, initial) == pytest.approx(0., abs=2e-15)
+    # Non-conservation must remain visible, never projected onto the identity.
+    shifted = initial + np.array([0., 0., 0., 0.1])
+    assert kin.dalitz_residual(squares, shifted) == pytest.approx(-0.2 * initial[3] - 0.01)

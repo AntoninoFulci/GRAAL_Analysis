@@ -17,7 +17,7 @@ also needs the affected integration tests and the full configured suite.
 | `04_bdt_training/tests/` | loss, weighting, datasets, training, reporting, CLI behavior |
 | `05_reconstruction/tests/` | event logic, Stage-1 gate, fits, runtime adapters, sidebands |
 | `06_calibration/tests/` | manifest, strip lookup, flux integration, ROOT calibration CLI |
-| `07_observable_extraction/tests/` | exposure/event adapters, estimators, background, systematics, output/plots |
+| `08_observable_extraction/tests/` | exposure/event adapters, estimators, background, systematics, output/plots |
 | `plots/tests/` | pure kinematics, ROOT reconstruction adapter, Dalitz, Figure 7, resolution plots |
 
 Pytest runs with `--import-mode=importlib`. The numbered parent directories
@@ -38,7 +38,7 @@ pytest 03_mc_simulation/tests -q
 pytest 04_bdt_training/tests tests/test_stage1_contracts.py -q
 pytest 05_reconstruction/tests -q
 pytest 06_calibration/tests -q
-pytest 07_observable_extraction/tests -q
+pytest 08_observable_extraction/tests -q
 pytest plots/tests -q
 pytest tests/test_wiki.py -q
 ```
@@ -54,7 +54,7 @@ pytest tests/test_repository_layout.py \
 Use a node ID for one case while developing:
 
 ```bash
-pytest 07_observable_extraction/tests/test_background.py::test_signal_leakage_gate_rejects_impure_hard_sideband -q
+pytest 08_observable_extraction/tests/test_background.py::test_signal_leakage_gate_rejects_impure_hard_sideband -q
 ```
 
 Do not stop at a single passing case after a shared-contract change. Pairing,

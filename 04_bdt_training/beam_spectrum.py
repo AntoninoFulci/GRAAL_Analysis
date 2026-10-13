@@ -39,6 +39,7 @@ except ImportError as exc:
 
 from graal_common.io import trees
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
 
 # Wide enough to hold every tagged photon in the data (0.64 to 1.72 measured)
 # with room on both sides, so nothing piles into an edge bin unseen.
@@ -76,6 +77,7 @@ class BeamSpectrum:
     def pdf(self, E: np.ndarray) -> np.ndarray:
         """Density at each energy. Zero outside the measured range."""
         idx = np.digitize(E, self.edges) - 1
+        idx = np.where(E == self.edges[-1], len(self.density) - 1, idx)
         inside = (idx >= 0) & (idx < len(self.density))
         out = np.zeros(len(E), dtype=np.float64)
         out[inside] = self.density[idx[inside]]
@@ -159,10 +161,28 @@ def measure(
 MIN_MC_PER_BIN = 200
 
 
+def validate_signal_support(energies, weights, target: BeamSpectrum) -> None:
+    """Do not stamp a continuous training domain across unsupported bins.
+
+    Positive weights already require MIN_MC_PER_BIN in reweight(). Empty
+    measured bins cannot establish coverage either; gather more data/MC or
+    narrow the requested domain before training a profiled model.
+    """
+    positive = np.isfinite(weights) & (np.asarray(weights) > 0)
+    counts, _ = np.histogram(np.asarray(energies)[positive], bins=target.edges)
+    missing = np.flatnonzero(counts == 0)
+    if len(missing):
+        intervals = [(float(target.edges[i]), float(target.edges[i + 1])) for i in missing]
+        raise ValueError(f"missing positive-weight signal MC support in energy bins {intervals}; "
+                         "regenerate/validate MC and measured spectrum or narrow the domain")
+
+
 def reweight(
     mc_beam_E: np.ndarray,
     target: BeamSpectrum,
     min_mc_per_bin: int = MIN_MC_PER_BIN,
+    *,
+    reference_E: np.ndarray | None = None,
 ) -> np.ndarray:
     """Per-event weights taking an MC sample's beam spectrum onto `target`.
 
@@ -189,10 +209,13 @@ def reweight(
     honest form of that. It drops a sliver of phase space instead of inventing
     signal below threshold.
     """
-    counts, _ = np.histogram(mc_beam_E, bins=target.edges)
+    # A comparison can freeze the estimated MC density on training origins.
+    # Evaluation rows must not change this preprocessing or reliability mask.
+    reference = mc_beam_E if reference_E is None else reference_E
+    counts, _ = np.histogram(reference, bins=target.edges)
     reliable = counts >= min_mc_per_bin
 
-    density = np.where(reliable, _density(mc_beam_E, target.edges), 0.0)
+    density = np.where(reliable, _density(reference, target.edges), 0.0)
     mc = BeamSpectrum(edges=target.edges, density=density)
 
     numerator = target.pdf(mc_beam_E)
@@ -209,13 +232,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                              "preselection tree is there")
     parser.add_argument("--bins", type=int, default=None)
     parser.add_argument("--profile", choices=BEAM_PROFILES, default=None)
+    add_energy_arguments(parser)
     parser.add_argument("--output", default="04_bdt_training/data/beam_spectrum.npz")
     return parser.parse_args(argv)
 
 
 def main() -> None:
     args = parse_args()
+    grid = energy_binning_from_args(args, args.profile)
     range_, bins = settings_for_profile(args.profile, args.bins)
+    if grid is not None:
+        range_ = grid.energy_range_gev
+        bins = default_bins_for_range(range_) if args.bins is None else args.bins
 
     spectrum = measure(args.selected_dir, args.tree, bins, range_)
     spectrum.save(args.output)

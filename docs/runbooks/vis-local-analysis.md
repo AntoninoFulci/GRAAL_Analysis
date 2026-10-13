@@ -114,7 +114,7 @@ written counts. Inspect output tree and assert all stored beam energies satisfy
 ## 6. Extract VIS asymmetries
 
 ```bash
-python 07_observable_extraction/beam_asymmetry.py \
+python 08_observable_extraction/beam_asymmetry.py \
   --raw-bdt test_data/vis/reco/reco_eta_pi0_bdt.root \
   --profile vis \
   --flux-file results/campaign/common/flux_calibrated.root \
@@ -135,7 +135,7 @@ at least 20 selected `POL1 + POL2` events.
 python -m observable_extraction.combine_profiles \
   --uv-root test_data/beam_asymmetry/beam_asymmetry.root \
   --vis-root test_data/vis/beam_asymmetry/beam_asymmetry.root \
-  --published-csv 07_observable_extraction/references/ajaka2008_figure4_digitized.csv \
+  --published-csv 08_observable_extraction/references/ajaka2008_figure4_digitized.csv \
   --output-dir test_data/beam_asymmetry/uv_vis
 ```
 

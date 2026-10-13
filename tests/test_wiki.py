@@ -35,10 +35,11 @@ EXPECTED_PAGES = {
     "05-kinematic-fit.md",
     "05-sidebands-and-two-pion.md",
     "06-calibration.md",
-    "07-observable-extraction.md",
-    "07-beam-asymmetry-estimators.md",
-    "07-background-correction.md",
-    "07-systematics-and-outputs.md",
+    "07-flux-studies.md",
+    "08-observable-extraction.md",
+    "08-beam-asymmetry-estimators.md",
+    "08-background-correction.md",
+    "08-systematics-and-outputs.md",
     "plotting-and-diagnostics.md",
     "data-and-artifacts.md",
     "commands-and-configuration.md",
@@ -53,6 +54,7 @@ PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|FIXME)\b")
 STALE_REFERENCES = ("graal_pipeline", "06_observable_extraction", "06_plots")
 
 REQUIRED_SECTIONS = {
+    "07-flux-studies.md": ("## Inputs and Preconditions", "## Audit and Study Modes", "## Validation", "## Products and Limits"),
     "Home.md": (
         "## Choose Your Path",
         "## Pipeline at a Glance",
@@ -196,25 +198,25 @@ REQUIRED_SECTIONS = {
         "## Flux Products",
         "## QA and Failure Policy",
     ),
-    "07-observable-extraction.md": (
+    "08-observable-extraction.md": (
         "## Inputs and Preconditions",
         "## Extraction Workflow",
         "## Public Products",
         "## First-Pass and Full Modes",
     ),
-    "07-beam-asymmetry-estimators.md": (
+    "08-beam-asymmetry-estimators.md": (
         "## Exposure Strata",
         "## Normalized-Ratio Fit",
         "## Conditional Likelihood",
         "## Physical Domain",
     ),
-    "07-background-correction.md": (
+    "08-background-correction.md": (
         "## Mass Regions",
         "## Sideband Template",
         "## Background Fraction",
         "## Corrected Asymmetry",
     ),
-    "07-systematics-and-outputs.md": (
+    "08-systematics-and-outputs.md": (
         "## Systematic Components",
         "## Bootstrap by Run",
         "## Covariance Combination",

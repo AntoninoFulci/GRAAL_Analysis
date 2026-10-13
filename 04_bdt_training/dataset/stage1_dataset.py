@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from graal_common.physics.beam_profiles import get_beam_profile
+from graal_common.physics.energy_binning import EnergyBinning
 from graal_common.physics.channels import CHANNELS, HYPOTHESES
 from graal_common.stage1.features import N_FEATURES_S1
 
@@ -27,6 +28,21 @@ class Stage1DatasetMetadata:
 
 
 @dataclass(frozen=True)
+class Stage1Rows:
+    """Row provenance. Origin is the parent MC file SHA-256 plus original entry.
+
+    Profile and detector variants deliberately do not form part of the origin.
+    A stored split is train=0, validation=1, test=2, assigned across profiles.
+    """
+
+    origin_id: np.ndarray
+    channel: np.ndarray
+    profile: np.ndarray
+    detector_variant: np.ndarray
+    split: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
 class Stage1Dataset:
     """Arrays and metadata consumed by Stage-1 training commands."""
 
@@ -34,6 +50,7 @@ class Stage1Dataset:
     y: np.ndarray
     w: np.ndarray
     metadata: Stage1DatasetMetadata
+    rows: Stage1Rows | None = None
 
 
 def _validate_dataset(dataset: Stage1Dataset) -> None:
@@ -79,6 +96,30 @@ def _validate_dataset(dataset: Stage1Dataset) -> None:
     if not np.array_equal(labels, np.array([0, 1])):
         raise ValueError("dataset must contain both signal and background labels")
     _validate_profile_metadata(metadata)
+    if dataset.rows is not None:
+        rows = dataset.rows
+        for key in ("origin_id", "channel", "profile", "detector_variant"):
+            value = np.asarray(getattr(rows, key))
+            if value.shape != y.shape or value.dtype.kind not in "US" or np.any(value == ""):
+                raise ValueError(f"{key} must be a nonempty string for every row")
+        if not np.isin(rows.channel, tuple(CHANNELS)).all():
+            raise ValueError("unknown row channel")
+        _, first, inverse = np.unique(rows.origin_id, return_index=True, return_inverse=True)
+        if np.any(rows.channel != rows.channel[first][inverse]):
+            raise ValueError("origin cannot belong to multiple channels")
+        if not np.array_equal(rows.channel == metadata.signal_channel, y == 1):
+            raise ValueError("row channel conflicts with class label")
+        if not np.isin(rows.profile, ("uv", "vis")).all():
+            raise ValueError("unsupported row profile")
+        if metadata.beam_profile is not None and np.any(rows.profile != metadata.beam_profile):
+            raise ValueError("row profile conflicts with dataset profile")
+        if np.any(w < 0) or not np.any(w > 0):
+            raise ValueError("weights must be nonnegative with positive total")
+        if not np.isfinite(X).all():
+            raise ValueError("identified dataset features must be finite")
+        if rows.split is not None:
+            from bdt_training.dataset.grouped_split import audit_group_splits
+            audit_group_splits(rows.origin_id, rows.split)
 
 
 def _validate_profile_metadata(metadata: Stage1DatasetMetadata) -> None:
@@ -101,11 +142,7 @@ def _validate_profile_metadata(metadata: Stage1DatasetMetadata) -> None:
         raise ValueError("profile energy bounds must be finite")
     if bounds[1] <= bounds[0]:
         raise ValueError("profile energy bounds must be increasing")
-    if not np.allclose(bounds, profile.energy_range_gev, atol=1e-12, rtol=0):
-        raise ValueError(
-            f"profile energy bounds {tuple(bounds)} do not match "
-            f"{profile.name!r} range {profile.energy_range_gev}"
-        )
+    EnergyBinning(tuple(bounds)).validate_profile(profile)
 
 
 def _scalar(stored, key: str):
@@ -172,9 +209,23 @@ def load_stage1_dataset(path: str | Path) -> Stage1Dataset:
             y=np.array(stored["y"], copy=True),
             w=np.array(stored["w"], copy=True),
             metadata=metadata,
+            rows=_load_rows(stored),
         )
     _validate_dataset(dataset)
     return dataset
+
+
+def _load_rows(stored) -> Stage1Rows | None:
+    keys = {"origin_id", "channel", "profile", "detector_variant"}
+    present = keys & set(stored.files)
+    if not present and "dataset_schema_version" not in stored:
+        if "split" in stored:
+            raise ValueError("split without origin identity cannot certify independence")
+        return None
+    if present != keys or "dataset_schema_version" not in stored or _scalar(stored, "dataset_schema_version") != 2:
+        raise ValueError("incomplete or unsupported identified dataset schema")
+    return Stage1Rows(**{key: np.array(stored[key], copy=True) for key in keys},
+                      split=np.array(stored["split"], copy=True) if "split" in stored else None)
 
 
 def save_stage1_dataset(path: str | Path, dataset: Stage1Dataset) -> None:
@@ -201,4 +252,10 @@ def save_stage1_dataset(path: str | Path, dataset: Stage1Dataset) -> None:
             energy_min_gev=np.array(metadata.energy_min_gev),
             energy_max_gev=np.array(metadata.energy_max_gev),
         )
+    if dataset.rows is not None:
+        values["dataset_schema_version"] = np.array(2)
+        for key in ("origin_id", "channel", "profile", "detector_variant"):
+            values[key] = getattr(dataset.rows, key)
+        if dataset.rows.split is not None:
+            values["split"] = dataset.rows.split
     np.savez(path, **values)

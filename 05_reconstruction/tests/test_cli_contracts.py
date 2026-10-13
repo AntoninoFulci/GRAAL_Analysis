@@ -99,7 +99,7 @@ class _Gate:
     def check_hypothesis(self, hypothesis):
         self.checked = hypothesis
 
-    def check_profile(self, profile):
+    def check_profile(self, profile, *, energy_range_gev=None):
         self.checked_profile = profile
 
 

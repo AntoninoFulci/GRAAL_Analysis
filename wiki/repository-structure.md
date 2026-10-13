@@ -15,7 +15,8 @@ because Python package identifiers cannot begin with digits.
 | `04_bdt_training/` | Beam spectrum, dataset, weighting, search, training, reporting, and Stage-1 artifacts |
 | `05_reconstruction/` | ROOT-free event/fit core, runtime adapters, and reconstruction entry points |
 | `06_calibration/` | Run-manifest and strip-energy/flux calibration |
-| `07_observable_extraction/` | Estimators, corrections, covariance, I/O, diagnostics, and public observable products |
+| `07_flux_studies/` | Offline flux inventory, method comparison and experimental candidates |
+| `08_observable_extraction/` | Estimators, corrections, covariance, I/O, diagnostics, and public observable products |
 | `plots/` | Reconstruction and beam diagnostic consumers |
 | `config/` | Versioned analysis configuration such as `run_manifest.csv` |
 | `data/` | Local external/raw/intermediate data layout; large scientific inputs are not repository source |
@@ -42,7 +43,8 @@ Editable installation uses these mappings from `pyproject.toml`:
 | `04_bdt_training/` | `bdt_training` |
 | `05_reconstruction/` | `reconstruction` |
 | `06_calibration/` | `calibration` |
-| `07_observable_extraction/` | `observable_extraction` |
+| `07_flux_studies/` | `flux_studies` |
+| `08_observable_extraction/` | `observable_extraction` |
 | `plots/` | `plots` |
 
 Subpackages are listed explicitly so editable installation exposes numerical
@@ -73,3 +75,5 @@ The versioned Stage-1 bundle under `04_bdt_training/artifacts/stage1/` is an
 intentional exception: runtime reconstruction tests and default model loading
 depend on its model, threshold, and provenance. See [Data and artifacts](data-and-artifacts)
 for the complete ownership matrix.
+
+[Stage 07 flux studies](07-flux-studies) is optional between calibration and stage 08 extraction; `--flux-study off|audit|study` defaults to off.

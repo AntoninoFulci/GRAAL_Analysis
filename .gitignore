@@ -27,6 +27,7 @@ __pycache__/
 !/data/00_external/flux.root
 
 /results/
+/results.zip
 
 tmp/
 

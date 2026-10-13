@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Mapping
+import uuid
 
 import numpy as np
 
@@ -273,9 +274,18 @@ def write_figure4_run(output_dir, panels: Mapping[tuple[int, str], Figure4PanelR
             "prediction_rows": len(rows), "residual_rows": len(comparison.residuals),
             "experimental_points_included": experimental_points is not None,
         }), indent=2, allow_nan=False)+"\n", encoding="utf-8")
+        backup = None
         if destination.exists():
-            shutil.rmtree(destination)
-        os.replace(staging, destination)
+            backup = destination.parent / f".{destination.name}.backup-{uuid.uuid4().hex}"
+            os.replace(destination, backup)
+        try:
+            os.replace(staging, destination)
+        except OSError:
+            if backup is not None:
+                os.replace(backup, destination)
+            raise
+        if backup is not None:
+            shutil.rmtree(backup)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise

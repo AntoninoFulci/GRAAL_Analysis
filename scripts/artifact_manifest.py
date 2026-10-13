@@ -162,12 +162,12 @@ def validate_mc(path: Path, channel_name: str) -> None:
     validate_root(path, "mc", required)
 
 
-def validate_bdt(directory: Path, profile: str) -> None:
+def validate_bdt(directory: Path, profile: str, *, energy_range=None) -> None:
     from bdt_training.dataset.stage1_dataset import load_stage1_dataset
     from graal_common.stage1.artifacts import Stage1ArtifactPaths, Stage1Provenance
 
     beam = directory / "beam_spectrum.npz"
-    validate_beam_spectrum(beam, profile)
+    validate_beam_spectrum(beam, profile, energy_range=energy_range)
     dataset = load_stage1_dataset(directory / "features_stage1.npz")
     if dataset.metadata.beam_profile != profile:
         raise ValueError("feature profile mismatch")
@@ -175,6 +175,11 @@ def validate_bdt(directory: Path, profile: str) -> None:
     provenance = Stage1Provenance.from_json(artifacts.provenance.read_text())
     if provenance.beam_profile != profile:
         raise ValueError("model profile mismatch")
+    from graal_common.physics.beam_profiles import get_beam_profile
+    expected = energy_range or get_beam_profile(profile).energy_range_gev
+    for metadata in (dataset.metadata, provenance):
+        if (metadata.energy_min_gev, metadata.energy_max_gev) != tuple(expected):
+            raise ValueError("BDT energy domain mismatch")
     validate_bdt_model(artifacts.model, dataset.X.shape[1])
     threshold = float(artifacts.threshold.read_text())
     if not math.isfinite(threshold) or not 0 <= threshold <= 1:
@@ -193,14 +198,14 @@ def validate_bdt_model(path: Path, feature_count: int) -> None:
         raise ValueError("model feature count mismatch")
 
 
-def validate_beam_spectrum(path: Path, profile: str) -> None:
+def validate_beam_spectrum(path: Path, profile: str, *, energy_range=None) -> None:
     import numpy as np
     from graal_common.physics.beam_profiles import get_beam_profile
 
     with np.load(path, allow_pickle=False) as stored:
         edges = np.asarray(stored["edges"], dtype=float)
         density = np.asarray(stored["density"], dtype=float)
-    expected = get_beam_profile(profile).energy_range_gev
+    expected = energy_range or get_beam_profile(profile).energy_range_gev
     if (edges.ndim != 1 or density.shape != (len(edges) - 1,) or
             len(edges) < 2 or not np.isfinite(edges).all() or
             not np.all(np.diff(edges) > 0) or not np.isfinite(density).all() or

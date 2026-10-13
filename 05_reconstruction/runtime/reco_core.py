@@ -41,7 +41,8 @@ import ROOT
 
 from graal_common.physics import pairing as pr
 from graal_common.io import trees
-from reconstruction.runtime.provenance import KEY, file_identities
+from graal_common.io.raw_tracks import has_raw_tracks, snapshot_raw_tracks, RawTrackWriter
+from reconstruction.runtime.provenance import KEY, file_identities, stage1_domain
 from reconstruction.core import reco_physics as rp
 from reconstruction.core.event_logic import (
     EventInput,
@@ -103,6 +104,7 @@ class RecoConfig:
     fit_reaction: FitReactionModel = PROTON_TARGET_REACTION
     energy_range_gev: tuple[float, float] | None = None
     model_dir: Path | None = None
+    beam_profile: str | None = None
 
 
 def _as_array(v) -> np.ndarray:
@@ -139,8 +141,22 @@ def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
         probe.Close()
 
     chain = ROOT.TChain(tree_name)
+    metadata_states = set()
     for f in root_files:
+        probe = ROOT.TFile.Open(str(input_dir / f))
+        if not probe or probe.IsZombie():
+            raise RuntimeError(f"cannot open {input_dir / f}")
+        try:
+            tree = probe.Get(tree_name)
+            if not tree:
+                raise RuntimeError(f"tree '{tree_name}' not found in {input_dir / f}")
+            metadata_states.add(has_raw_tracks(tree, str(input_dir / f)))
+        finally:
+            probe.Close()
         chain.Add(str(input_dir / f))
+    if len(metadata_states) != 1:
+        raise ValueError("mixed raw-track metadata: regenerate legacy inputs or process them separately")
+    chain.raw_track_metadata_available = metadata_states.pop()
     return chain
 
 
@@ -174,6 +190,8 @@ def run_reconstruction(
     cfg.output_file.parent.mkdir(parents=True, exist_ok=True)
     fout = ROOT.TFile(str(cfg.output_file), "RECREATE")
     tout = ROOT.TTree(cfg.output_tree, cfg.output_tree)
+    raw_track_writer = (RawTrackWriter(tout)
+                        if getattr(chain, "raw_track_metadata_available", False) else None)
 
     chi2 = array("f", [0.0])
     heavy_mass = array("f", [0.0])
@@ -252,7 +270,7 @@ def run_reconstruction(
     print("Starting event loop...")
 
     def _reconstruct_and_fill(
-        event: EventInput, score: float | None = None
+        event: EventInput, score: float | None = None, raw_tracks=None
     ) -> None:
         """Reconstruct one gate-accepted event and write it when retained."""
         nonlocal n_impossible, n_missing_cut, n_fit_cut
@@ -266,16 +284,12 @@ def run_reconstruction(
         )
         if isinstance(decision, RejectionReason):
             counts[(event.run_number, event.polarization)][decision.value] += 1
-        if decision is RejectionReason.CHI_SQUARE:
-            return
-        if decision is RejectionReason.IMPOSSIBLE_ENERGY:
-            n_impossible += 1
-            return
-        if decision is RejectionReason.MISSING_MASS:
-            n_missing_cut += 1
-            return
-        if decision is RejectionReason.FIT:
-            n_fit_cut += 1
+            if decision is RejectionReason.IMPOSSIBLE_ENERGY:
+                n_impossible += 1
+            elif decision is RejectionReason.MISSING_MASS:
+                n_missing_cut += 1
+            elif decision is RejectionReason.FIT:
+                n_fit_cut += 1
             return
 
         counts[(event.run_number, event.polarization)]["written"] += 1
@@ -315,6 +329,8 @@ def run_reconstruction(
         n_photons_input[0] = event.n_photons_input
         if score is not None:
             bdt_score[0] = score
+        if raw_track_writer is not None:
+            raw_track_writer.assign(raw_tracks)
         tout.Fill()
 
     def _flush(buf: list) -> None:
@@ -333,23 +349,23 @@ def run_reconstruction(
             scores: list[float | None] | np.ndarray = [None] * len(buf)
         else:
             scores = gate.scores_many(
-                np.stack([event.photons for event in buf]),
-                np.stack([event.proton for event in buf]),
-                np.stack([event.beam for event in buf]),
+                np.stack([event.photons for event, _ in buf]),
+                np.stack([event.proton for event, _ in buf]),
+                np.stack([event.beam for event, _ in buf]),
             )
             accepted = scores >= gate.threshold
             n_gated_out += int(len(buf) - np.count_nonzero(accepted))
             keep = accepted
 
-        for ok, event, score in zip(keep, buf, scores):
+        for ok, (event, raw_tracks), score in zip(keep, buf, scores):
             if ok:
-                _reconstruct_and_fill(event, score)
+                _reconstruct_and_fill(event, score, raw_tracks)
             else:
                 counts[(event.run_number, event.polarization)]["bdt_gate"] += 1
 
         buf.clear()
 
-    pending: list[EventInput] = []
+    pending: list[tuple[EventInput, dict | None]] = []
 
     for iev in range(n_entries):
         chain.GetEntry(iev)
@@ -390,7 +406,7 @@ def run_reconstruction(
         beam_v = np.array([0.0, 0.0, chain.beam.E(), chain.beam.E()])
 
         pending.append(
-            EventInput(
+            (EventInput(
                 photons=photons,
                 proton=proton_v,
                 neutron=neutron_v,
@@ -399,7 +415,7 @@ def run_reconstruction(
                 polarization=int(chain.Polarization),
                 strip=float(chain.Xstrip),
                 n_photons_input=int(chain.gammas.size()),
-            )
+            ), snapshot_raw_tracks(chain) if raw_track_writer is not None else None)
         )
         if len(pending) >= _GATE_CHUNK:
             _flush(pending)
@@ -413,6 +429,8 @@ def run_reconstruction(
         "schema": 1, "do_fit": cfg.do_fit, "channel": channel.name,
         "input_tree": getattr(chain, "GetName", lambda: cfg.input_tree)(),
         "output_tree": cfg.output_tree, "inputs": inputs,
+        "raw_track_metadata": {"available": raw_track_writer is not None,
+                               "cut": "disabled_pending_definition"},
         "source_revision": revision.stdout.strip(),
         "source_files": source_files,
         "command": sys.argv,
@@ -427,6 +445,8 @@ def run_reconstruction(
             "bdt_threshold": gate.threshold if gate is not None else None,
         },
         "model_inputs": model_inputs,
+        "beam_profile": cfg.beam_profile,
+        "bdt_domain": stage1_domain(gate),
         "counts_by_run_state": [dict(run=run, polarization=pol, **counter)
                                 for (run, pol), counter in sorted(counts.items())],
     }

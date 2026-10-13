@@ -2,15 +2,18 @@
 
 #include "PreAnalysis.h"
 #include "CutManager.h"
+#include "RawTrackContract.h"
 
 #include <TCanvas.h>
 #include <TH2.h>
 #include <TStyle.h>
+#include <TParameter.h>
 
 #include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 #include <Math/Vector4D.h>
 
 #include <TList.h>
@@ -33,6 +36,10 @@ void PreAnalysis::Loop(std::string output_file) {
    int Polarization;
    int RunNumber;
    float tagger_strip;
+   std::string raw_source_file;
+   Long64_t raw_source_entry;
+   vector<int> raw_itipo_track;
+   vector<unsigned char> raw_index_trf, raw_iass_trf;
 
    // Create output file and tree
    TFile *dati = new TFile(output_file.c_str(), "RECREATE");
@@ -88,6 +95,16 @@ void PreAnalysis::Loop(std::string output_file) {
    output_tree->Branch("Polarization", &Polarization, "Polarization/I");
    output_tree->Branch("RunNumber", &RunNumber, "RunNumber/I");
    output_tree->Branch("Xstrip", &tagger_strip, "Xstrip/F");
+   // Diagnostic payload: original values and order, without a physics selection.
+   output_tree->Branch("Nass_3", &Nass_3, "Nass_3/I");
+   output_tree->Branch("Nparf", &Nparf, "Nparf/I");
+   output_tree->Branch("N_traf", &N_traf, "N_traf/I");
+   output_tree->Branch("Nparf_strange", &Nparf_strange, "Nparf_strange/b");
+   output_tree->Branch("Itipo_track", &raw_itipo_track);
+   output_tree->Branch("Index_trf", &raw_index_trf);
+   output_tree->Branch("Iass_trf", &raw_iass_trf);
+   output_tree->Branch("RawSourceFile", &raw_source_file);
+   output_tree->Branch("RawSourceEntry", &raw_source_entry, "RawSourceEntry/L");
 
    // Check to see if we have a chain
    if (fChain == nullptr) {
@@ -97,12 +114,39 @@ void PreAnalysis::Loop(std::string output_file) {
    }
 
    Long64_t nentries = fChain->GetEntriesFast();
+   Long64_t skipped_no_tagger = 0;
+   int raw_schema_tree = -1;
 
    for (Long64_t jentry = 0; jentry < nentries; ++jentry) {
 
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
+      // Read counts before GetEntry can write past the generated fixed arrays.
+      auto *raw_tree = fChain->GetTree();
+      if (raw_schema_tree != fChain->GetTreeNumber()) {
+         graal_raw_tracks::CheckSchema(raw_tree);
+         raw_schema_tree = fChain->GetTreeNumber();
+      }
+      if (raw_tree->GetBranch("Ncstrip")->GetEntry(ientry) <= 0)
+         throw std::runtime_error("Cannot read raw tagger count: Ncstrip");
+      graal_raw_tracks::CheckTaggerCount(Ncstrip);
+      // Empty variable-length branches retain the previous event's buffers.
+      // Reject before reading payloads or using element zero as the beam tag.
+      if (Ncstrip == 0) {
+         ++skipped_no_tagger;
+         continue;
+      }
+      for (const auto *name : {"Nass_3", "Nparf", "N_traf"}) {
+         if (raw_tree->GetBranch(name)->GetEntry(ientry) <= 0)
+            throw std::runtime_error(std::string("Cannot read raw-track count: ") + name);
+      }
+      graal_raw_tracks::CheckCounts(Nass_3, Nparf, N_traf);
       fChain->GetEntry(jentry);
+      raw_source_file = fChain->GetCurrentFile()->GetName();
+      raw_source_entry = ientry; // file-local entry, not the TChain/global entry
+      raw_itipo_track.assign(Itipo_track, Itipo_track + Nass_3);
+      raw_index_trf.assign(Index_trf, Index_trf + Nparf);
+      raw_iass_trf.assign(Iass_trf, Iass_trf + N_traf);
 
       // Clear all vectors at the start of the event
       gammas.clear();
@@ -187,11 +231,7 @@ void PreAnalysis::Loop(std::string output_file) {
          double Theta_trf_rad = Theta_trf[i] / 180. * M_PI;
          double Phi_trf_rad   = Phi_trf[i] / 180. * M_PI;
 
-         int index_trf_ = 0;
-         
-         if (Index_trf[i] != 0) {
-            index_trf_ = Index_trf[i] - 1;    // This because in C++ arrays start from 0, while Fortran started from 1
-         }
+         const int index_trf_ = graal_raw_tracks::LegacyAssociationIndex(Index_trf[i], N_traf);
 
          int index = static_cast<int>(Iass_trf[index_trf_]);
 
@@ -302,7 +342,11 @@ void PreAnalysis::Loop(std::string output_file) {
       output_tree->Fill();
    }
 
+   dati->cd();
    output_tree->Write("", TObject::kOverwrite);  // reuse the key, avoid extra ;N cycles
+   TParameter<Long64_t>("preanalysis_skipped_no_tagger", skipped_no_tagger).Write();
+   std::cout << "PreAnalysis: written=" << output_tree->GetEntries()
+             << " skipped_no_tagger=" << skipped_no_tagger << std::endl;
    dati->Close();
 
 }
@@ -325,6 +369,8 @@ void PreAnalysis(string input = "", string output = "pre_analisi.root") {
       "Eclusc_track", 
       "Dedx_track", 
       "Nparf",      
+      "Nparf_strange",
+      "N_traf",
       "Theta_trf", 
       "Phi_trf", 
       "Index_trf",  

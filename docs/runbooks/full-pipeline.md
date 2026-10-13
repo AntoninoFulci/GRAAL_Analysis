@@ -76,7 +76,7 @@ python scripts/run_pipeline.py --mode production \
 `--phi-bins` accepts `8`, `12`, or `16` and defaults to `12`. Each launch
 produces one azimuth binning, shared by UV and VIS, with the same output
 layout. The choice controls the ratio fits and their azimuthal controls;
-the conditional likelihood remains unbinned. Stage-07 ROOT files store
+the conditional likelihood remains unbinned. Stage-08 ROOT files store
 `binning/phi_edges` and `phi_bins` in provenance. Combined plots require
 matching UV/VIS phi edges. Legacy ROOT files without phi metadata are read
 as the previously enforced 12-bin case. For comparisons, use separate output
@@ -94,6 +94,66 @@ also requires matching correction conventions: rerun extraction before
 combining a newly corrected profile with an old uncorrected one. Reading or
 replotting older campaigns does not apply a new correction. See the
 [scientific verification and acceptance assumptions](../research/2026-10-09-finite-phi-bin-correction.md).
+
+### Adaptive phi binning (temporary opt-in)
+
+Add `--best-binning` to Stage 08 or the full launcher to fit **8, 12 and 16**
+phi bins in one extraction. It overrides `--phi-bins`. Inputs are read and
+selected once per sample/period, and the three fits reuse the same pair
+projections. The unbinned likelihood is evaluated once, without a finite-bin
+correction; `--estimator likelihood --best-binning` is rejected.
+
+Each ratio point (sample, pair, energy bin, mass bin) selects its own binning
+before background corrections, covariance construction and final plots:
+
+1. Exclude unavailable/nonconverged fits and fits with nonpositive ndf.
+2. Prefer acceptable fits (`p >= 0.01`), then nominal fits over diagnostic
+   fallbacks within each quality class.
+3. Minimize `abs(chi2/ndf - 1)`. Exact ties prefer 12, then 8, then 16 bins.
+
+No ranking uses Sigma or its error. If only poor fits remain, retain the best
+available one with its poor-fit diagnostics; if none remain, omit the point.
+The existing correction divides Sigma **and its errors** by 0.9003, 0.9549 or
+0.9745 exactly once. Sidebands and photon-multiplicity controls use the chosen
+nominal binning; bootstrap replicas repeat selection. Conditional fit errors
+alone do not include adaptive-selection uncertainty; the existing suspension
+of final inference remains in effect.
+
+`sigma_points` stores `phi_bins` and `phi_bin_divisor` per point (0 and 1 for
+unbinned likelihood). `binning_candidates/{8,12,16}/sigma_points` preserves
+all estimable candidate ratio points before background correction; nominal
+sample ratio graphs, fitted curves and overlays are stored alongside them.
+Missing candidates are not estimable. `ratio_objects` and `ratio_overlays`
+contain the chosen nominal fits, including fallback constant/sine terms.
+Provenance records `phi_bins=best-binning` and `phi_bin_divisor=per_point`.
+The top-level `binning/phi_edges` is the fixed 12-bin grid for BREM control
+plots only. Both UV and VIS must use best-binning when composing these outputs;
+their per-point choices may differ.
+
+To reuse existing reconstruction ROOT files, run only Stage 08, for example:
+
+```bash
+python -m observable_extraction.beam_asymmetry \
+  --profile uv --best-binning --by-period \
+  --raw results/production/uv/reco/reco_eta_pi0_chi2.root \
+  --raw-bdt results/production/uv/reco/reco_eta_pi0_bdt.root \
+  --flux-file results/production/common/flux_calibrated.root \
+  --run-manifest config/run_manifest.csv \
+  --output-dir results/best-binning/uv/beam_asymmetry
+```
+
+Repeat with `--profile vis` and VIS input/output paths. Use the source
+campaign's energy configuration if nondefault. Then combine with:
+
+```bash
+python -m observable_extraction.combine_profiles \
+  --uv-root results/best-binning/uv/beam_asymmetry/beam_asymmetry.root \
+  --vis-root results/best-binning/vis/beam_asymmetry/beam_asymmetry.root \
+  --output-dir results/best-binning/common/plots
+```
+
+These commands do not rerun selection, training, calibration or reconstruction.
+The full launcher still has its usual upstream behavior.
 
 Production requires a new empty campaign directory. No timestamp is added to
 its name. Omit `--output-dir` to use `results/production/`, also only if empty.
@@ -133,7 +193,7 @@ same interpreter used during setup, and replace `results/production` with
 the completed **no-fit** source campaign. Keep its original run manifest available at
 `config/run_manifest.csv`.
 
-These commands run Stage 07 for UV and VIS with 8 and 16 bins, then regenerate
+These commands run Stage 08 for UV and VIS with 8 and 16 bins, then regenerate
 campaign plots. Selection, MC, BDT training, flux calibration, and
 reconstruction are reused. Likelihood is recalculated together with ratio,
 but remains unbinned. Outputs follow the standard campaign layout; references
@@ -158,7 +218,7 @@ GRAAL_PYTHON=/path/to/pyroot-compatible-python
     for profile in uv vis; do
       mkdir "$OUT/$profile"
       ln -s "$SOURCE_CAMPAIGN/$profile/reco" "$OUT/$profile/reco"
-      "$GRAAL_PYTHON" 07_observable_extraction/beam_asymmetry.py \
+      "$GRAAL_PYTHON" 08_observable_extraction/beam_asymmetry.py \
         --profile "$profile" --phi-bins "$bins" \
         --raw "$OUT/$profile/reco/reco_eta_pi0_chi2.root" \
         --raw-bdt "$OUT/$profile/reco/reco_eta_pi0_bdt.root" \
@@ -173,7 +233,7 @@ GRAAL_PYTHON=/path/to/pyroot-compatible-python
 )
 ```
 
-These derived campaigns have Stage-07 binning provenance but no full-launcher
+These derived campaigns have Stage-08 binning provenance but no full-launcher
 `pipeline_artifacts.json` or `pipeline_commands.log`, since earlier stages
 were not run. If extraction fails, partial new outputs remain for inspection;
 choose fresh destination names before repeating.
@@ -221,10 +281,40 @@ MC, BDT, calibration, reconstruction, or extraction:
 python -m scripts.plot_campaign --campaign results/october-uv-vis
 ```
 
-This validates reconstructed and Stage-07 ROOT inputs before replacing
+This validates reconstructed and Stage-08 ROOT inputs before replacing
 canonical plot directories. Legacy `combined/` and `beam_asymmetry/*.pdf`
 files in older campaigns remain intact. Existing campaign ROOT results are
 never modified by postprocessing.
+
+## Asymmetries by source period
+
+Pipeline Stage 08 enables `--by-period`. The standalone extractor accepts the
+same flag; omitting it retains the historical pooled-only interface.
+The inclusive run universe comes from reconstruction `counts_by_run_state`,
+including runs with zero reconstructed yield. For inputs without this cutflow,
+supply `--run-universe-manifest FILE` with the standard manifest schema.
+Run identities and period labels must agree with `--run-manifest`; UV/VIS and
+P/D are never pooled implicitly. All comparison samples must share this universe.
+
+Outputs in each profile's `beam_asymmetry/` directory:
+
+- `beam_asymmetry.root`: fit on the pooled union of events and exposures.
+- `periods/<source_period>/beam_asymmetry.root`: same estimator and binning.
+- `periods/index.json`: availability, run lists, cutflow, flux exclusions,
+  exposure strata, bin status, input/source hashes, closure and signed nuisance responses.
+- `period_stability.pdf`: disjoint-period estimates at identical bins.
+
+A period with inputs but no estimable bins has an empty `sigma_points` tree,
+`extraction_metadata.status=not_estimable`, and no dummy covariance or Sigma=0.
+Manifest periods outside the input universe are listed as `not_available`.
+Output directories publish atomically after extraction and closure succeed.
+
+Closure re-extracts the disjoint union and checks identical bins, event counts,
+exposure strata and uncorrected Sigma within 1e-8. It does not average period
+Sigmas. Signed polarization-scale responses retain the shared global nuisance;
+other cross-period correlations remain unclassified. Stability plots and stored
+differences are diagnostics, without pulls against an overlapping pooled sample.
+Final uncertainty inference remains suspended under plan 01.
 
 ## Failure checks
 
@@ -232,3 +322,7 @@ Launcher stops on first failed stage. Inspect `pipeline_commands.log` and
 `pipeline_artifacts.json` for production cache decisions. Verify both profile
 ROOT metadata and energy edges, then inspect PDFs under each `plots/` directory.
 Run `python -m pytest -q` for repository checks.
+
+## Optional missing-flux study
+
+Use `--flux-study audit` or `--flux-study study` to run stage 07 after common calibration. Default: `off`. Acquisition metadata use `--flux-study-metadata conditions.json`. Outputs stay in `<campaign>/missing_flux/`; stage 08 extraction continues using measured calibrated flux. See [standalone commands, prerequisites and artifacts](missing-flux.md).

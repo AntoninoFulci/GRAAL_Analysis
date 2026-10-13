@@ -9,7 +9,7 @@ cross sections and beam asymmetry remain **partial theory**. The separate
 without fitting the published strokes. Its numerical and physical comparison
 gates are distinct from passing software tests; no complete reproduced
 Figure 4 claim has yet been established. This package does not import or
-modify Stage 07/08.
+modify Stage 08/08.
 
 ## Reproduce
 
@@ -81,8 +81,8 @@ four photon-energy, ten invariant-mass, and twelve azimuth bins and says that
 the beam asymmetry was extracted with a `cos(2φ)` dependence following its
 Ref. [14]. It does **not** specify whether the fit used bin centers or
 bin-averaged cosine values. The separate prediction below therefore follows
-the **raw Stage 07 center-fit convention**, not a claimed exact Ajaka fit.
-Stage 07 now converts this raw amplitude to its published ratio Sigma using
+the **raw Stage 08 center-fit convention**, not a claimed exact Ajaka fit.
+Stage 08 now converts this raw amplitude to its published ratio Sigma using
 the approved 8/12/16-bin divisors; see the
 [finite-bin convention](../docs/research/2026-10-09-finite-phi-bin-correction.md).
 
@@ -99,7 +99,7 @@ graal-theory pilot-panel5 \
 
 Install the optional `flux` extra (`pip install -e '.[flux]'`) when using a
 minimal theory environment. The ROOT adapter is standalone: it does not import
-Stage 07. It uses proton/UV runs in the manifest only when each has exactly one
+Stage 08. It uses proton/UV runs in the manifest only when each has exactly one
 POL1/POL2/BREM triplet, then selects positive-flux strips in
 \(1.20\leq E_\gamma<1.30\) GeV. UV polarization comes from the same
 inverse-Compton transfer formula and constants as the analysis. Each of the
@@ -107,9 +107,9 @@ equal-width energy slices is evaluated at its combined-flux centroid, with
 V/H photon fluxes and flux-weighted polarizations retained separately. The
 continuous curve weights the intrinsic fully polarized cross sections by
 combined flux. The second curve folds each state's polarization into expected
-12-bin yields, normalizes V/H separately, and fits the Stage 07 ratio to
+12-bin yields, normalizes V/H separately, and fits the Stage 08 ratio to
 `cos(2φ)` at bin centers with inverse-Poisson-variance weights. It does not
-run Stage 07's data-dependent low-p-value fallback; absolute expected event
+run Stage 08's data-dependent low-p-value fallback; absolute expected event
 counts and thus its significance are undefined without target/acceptance.
 Neither curve includes detector acceptance or omitted coherent amplitudes.
 

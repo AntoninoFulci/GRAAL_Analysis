@@ -98,7 +98,7 @@ def write_pilot_panel5(
             "reported_binning": "4 energy x 10 mass x 12 azimuth bins; fit method cites Ajaka 1998",
         },
         "phi_fit_convention": None if prediction.sigma_phi_fit is None else (
-            "Stage 07 nominal inverse-Poisson-variance fit to cos(2phi) at 12 bin centers; "
+            "Stage 08 nominal inverse-Poisson-variance fit to cos(2phi) at 12 bin centers; "
             "no data-dependent fallback; not established as exact Ajaka 2008 convention"
         ),
         "published_points": points,
@@ -162,7 +162,7 @@ def write_pilot_panel5(
     if prediction.sigma_phi_fit is not None:
         axis.plot(
             centers, prediction.sigma_phi_fit, "s--", color="#2ca02c",
-            label="Partial Eq. 43; Stage 07 center fit",
+            label="Partial Eq. 43; Stage 08 center fit",
         )
         populated = np.flatnonzero(np.isfinite(prediction.sigma))
         if len(populated):

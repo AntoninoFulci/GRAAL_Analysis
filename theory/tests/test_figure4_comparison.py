@@ -2,9 +2,12 @@
 
 import csv
 import json
+from pathlib import Path
 
 import numpy as np
+import pytest
 
+from graal_theory import figure4_comparison
 from graal_theory.figure4_comparison import compare_figure4, write_figure4_run
 from graal_theory.figure4_integration import (
     Figure4BinMoment, Figure4CertifiedBin, Figure4PanelResult,
@@ -80,3 +83,47 @@ def test_writer_preserves_all_nominal_bins_and_fingerprints(tmp_path):
     assert rows[0]["source_sha256"] == "a"
     assert (output/"figure4_comparison.pdf").is_file()
     assert len(json.loads((output/"predictions.json").read_text())) == 120
+
+
+@pytest.mark.parametrize("publication_fails", [False, True])
+def test_replacement_preserves_previous_bundle_until_published(tmp_path, monkeypatch, publication_fails):
+    panels = {}
+    for energy in range(4):
+        for pair, low in (("p_pi0", 1.), ("p_eta", 1.4), ("eta_pi0", .6)):
+            interval = (1.1+.1*energy, 1.2+.1*energy)
+            edges = np.linspace(low, low+.4, 11)
+            bins = []
+            for left, right in zip(edges[:-1], edges[1:]):
+                moment = Figure4BinMoment(pair, interval, (left, right), interval,
+                    (left, right), np.array([sum(interval)/2]), .1, 1., .5, .5,
+                    (left+right)/2, 0., "calculated")
+                bins.append(Figure4CertifiedBin(moment, "calculated", (), .003, {}))
+            panels[(energy, pair)] = Figure4PanelResult(pair, interval, edges,
+                tuple(bins), np.eye(10), 4, 8, tuple(range(8)), "direct")
+    destination = tmp_path / "run"
+    destination.mkdir()
+    previous = destination / "previous-result.txt"
+    previous.write_text("previous result")
+    original_replace = figure4_comparison.os.replace
+
+    def fail_publication(source, target):
+        if (publication_fails and Path(target) == destination
+                and not (Path(source)/previous.name).exists()):
+            raise OSError("simulated publication failure")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(figure4_comparison.os, "replace", fail_publication)
+    if publication_fails:
+        with pytest.raises(OSError, match="publication failure"):
+            write_figure4_run(destination, panels, compare_figure4(panels, ()),
+                {"source_sha256": "a", "parameters_sha256": "b", "code_sha256": "c"},
+                replace_existing=True)
+        assert previous.is_file(), "previous bundle was deleted before publication succeeded"
+        assert previous.read_text() == "previous result"
+    else:
+        write_figure4_run(destination, panels, compare_figure4(panels, ()),
+            {"source_sha256": "a", "parameters_sha256": "b", "code_sha256": "c"},
+            replace_existing=True)
+        assert not previous.exists()
+        assert (destination/"predictions.json").is_file()
+    assert list(tmp_path.iterdir()) == [destination]

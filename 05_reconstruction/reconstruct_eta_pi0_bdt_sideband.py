@@ -10,6 +10,8 @@ sidebands remain available downstream.
 import argparse
 from pathlib import Path
 
+from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
 from reconstruction.core.reco_physics import ETA_PI0
 from reconstruction.runtime.cli_options import (
     add_common_reconstruction_arguments,
@@ -40,6 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
         chi2_cut=float("inf"),
         missing_mass_window=0.0,
     )
+    parser.add_argument("--profile", choices=BEAM_PROFILES, default=None)
+    add_energy_arguments(parser)
     return parser
 
 
@@ -52,6 +56,12 @@ def main() -> None:
         output_tree="reco_eta_pi0_bdt_sideband",
         fit_options_exposed=True,
     )
+    grid = energy_binning_from_args(args, args.profile)
+    config.model_dir = args.model_dir
+    if grid is not None:
+        gate.check_profile(get_beam_profile(args.profile), energy_range_gev=grid.energy_range_gev)
+        config.energy_range_gev = grid.energy_range_gev
+        config.beam_profile = args.profile
     run_reconstruction(config, ETA_PI0, gate=gate)
 
 

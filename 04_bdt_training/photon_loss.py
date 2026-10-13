@@ -51,6 +51,18 @@ def p_loss(E: np.ndarray, theta: np.ndarray, params: LossParams) -> np.ndarray:
     return 1.0 - (1.0 - p_thr) * (1.0 - p_acc)
 
 
+def _sample_photon_survival(
+    photon_Es: np.ndarray,
+    photon_thetas: np.ndarray,
+    rng: np.random.Generator,
+    params: LossParams | None,
+) -> np.ndarray:
+    if params is None:
+        params = LossParams()
+    probabilities = p_loss(photon_Es, photon_thetas, params)
+    return rng.random(probabilities.shape) >= probabilities
+
+
 def apply_loss_events(
     photon_Es: np.ndarray,
     photon_thetas: np.ndarray,
@@ -73,13 +85,8 @@ def apply_loss_events(
     Returns:
         Boolean array of shape (N_events,); True = event survives.
     """
-    if params is None:
-        params = LossParams()
-
-    p = p_loss(photon_Es, photon_thetas, params)          # (N, M)
-    survive = rng.random(p.shape) >= p                     # True = photon kept
-    n_surviving = survive.sum(axis=1)                      # (N,)
-    return n_surviving == n_keep
+    survive = _sample_photon_survival(photon_Es, photon_thetas, rng, params)
+    return survive.sum(axis=1) == n_keep
 
 
 def sample_surviving_photons(
@@ -108,13 +115,8 @@ def sample_surviving_photons(
         kept_photons:  (N_good, n_keep, 4)
         event_mask:    (N,) bool — True for events that survived
     """
-    if params is None:
-        params = LossParams()
-
-    p = p_loss(photon_Es, photon_thetas, params)   # (N, M)
-    survive = rng.random(p.shape) >= p             # (N, M) bool
-    n_surviving = survive.sum(axis=1)              # (N,)
-    event_mask = n_surviving == n_keep             # (N,) bool
+    survive = _sample_photon_survival(photon_Es, photon_thetas, rng, params)
+    event_mask = survive.sum(axis=1) == n_keep
 
     good_survive = survive[event_mask]             # (N_good, M)
     good_photons = photons[event_mask]             # (N_good, M, 4)

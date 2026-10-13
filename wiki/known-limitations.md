@@ -65,7 +65,7 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
   covariance is not the default production input. Some richer fit diagnostics
   exist in memory but are not persisted in reconstruction trees.
 - Reconstruction pairs only the first four photons. `n_photons_input` records
-  higher multiplicity, and Stage 07 studies exactly-four versus inclusive, but
+  higher multiplicity, and Stage 08 studies exactly-four versus inclusive, but
   best-quartet resolution is not implemented.
 - Observable energy, phi, and mass bin counts are fixed for the nominal Figure
   4 workflow. CLI options expose phi/mass counts but reject non-nominal values.

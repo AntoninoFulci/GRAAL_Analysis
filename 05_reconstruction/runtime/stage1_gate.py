@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from graal_common.physics.beam_profiles import BeamProfile
+from graal_common.physics.beam_profiles import BeamProfile, UV_PROFILE
 from graal_common.physics.channels import ETA_PI0_HYP, HYPOTHESES, Hypothesis
 from graal_common.stage1.artifacts import (
     MODEL_FILE,
@@ -47,6 +47,7 @@ class Stage1Gate:
         signal_channel: str = "eta_pi0",
         beam_profile: str | None = None,
         energy_range_gev: tuple[float, float] | None = None,
+        supported_profiles: dict[str, list[float]] | None = None,
     ):
         self.model = model
         self.threshold = float(threshold)
@@ -54,6 +55,7 @@ class Stage1Gate:
         self.signal_channel = signal_channel
         self.beam_profile = beam_profile
         self.energy_range_gev = energy_range_gev
+        self.supported_profiles = supported_profiles
 
     @classmethod
     def load(cls, model_dir: Path = DEFAULT_MODEL_DIR) -> "Stage1Gate":
@@ -105,6 +107,8 @@ class Stage1Gate:
             signal_channel,
             provenance.beam_profile,
             energy_range_gev,
+            supported_profiles=(provenance.shared_training["supported_profiles"]
+                                if provenance.shared_training is not None else None),
         )
 
     def check_hypothesis(self, expected: Hypothesis) -> None:
@@ -124,23 +128,30 @@ class Stage1Gate:
                 f"--signal-channel <ch> --hypothesis {expected.name}"
             )
 
-    def check_profile(self, expected: BeamProfile) -> None:
+    def check_profile(self, expected: BeamProfile, *, energy_range_gev=None) -> None:
         """Refuse a model trained for another beam profile or energy range."""
+        requested = expected.energy_range_gev if energy_range_gev is None else tuple(energy_range_gev)
+        if self.supported_profiles is not None:
+            bounds = self.supported_profiles.get(expected.name)
+            if (bounds is None or len(requested) != 2 or not np.isfinite(requested).all()
+                    or not bounds[0] <= requested[0] < requested[1] <= bounds[1]):
+                raise ValueError(f"shared Stage-1 model does not cover profile {expected.name!r} range {requested}")
+            return
         if self.beam_profile is None:
-            if expected.name == "uv":
+            if expected.name == "uv" and requested == UV_PROFILE.energy_range_gev:
                 return
             raise ValueError(
-                "legacy Stage-1 model has no profile metadata and cannot gate VIS"
+                "legacy Stage-1 model has no profile metadata and cannot gate VIS or a custom energy range"
             )
         if self.beam_profile != expected.name:
             raise ValueError(
                 f"Stage-1 model profile {self.beam_profile!r} does not match "
                 f"requested profile {expected.name!r}"
             )
-        if self.energy_range_gev != expected.energy_range_gev:
+        if self.energy_range_gev != requested:
             raise ValueError(
                 f"Stage-1 model energy range {self.energy_range_gev} does not match "
-                f"requested range {expected.energy_range_gev}"
+                f"requested range {requested}"
             )
 
     def scores_many(

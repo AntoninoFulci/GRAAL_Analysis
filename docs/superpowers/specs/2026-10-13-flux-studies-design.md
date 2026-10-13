@@ -1,7 +1,7 @@
 # Stage 07 — audit e studio dei flussi mancanti
 
 Data: 13 ottobre 2026.
-Stato: struttura approvata in conversazione; specifica scritta da revisionare.
+Stato: struttura e specifica scritta approvate in conversazione il 13 ottobre 2026.
 Origine: `docs/plans/2026-10-12-graal/03-flussi-mancanti.md`.
 
 ## Obiettivo e perimetro approvato

@@ -135,3 +135,78 @@ pytest 00_common/tests/test_stage1_artifacts.py \
 
 Related pages: [Stage-1 training](04-bdt-training),
 [Stage-1 gate](05-stage1-gate), and [data and artifacts](data-and-artifacts).
+
+## Full Feature Distributions (ROOT and PDF)
+
+Export an existing validated dataset without training or changing the model:
+
+```bash
+python3 -m bdt_training.plot_training_features \
+  --features test_data/vis/bdt/features_stage1.npz \
+  --out-dir results/training-features-20261013/vis
+```
+
+Supply both UV and VIS NPZs after `--features` to compare them with identical
+bin edges while keeping separate profile directories. At most one dataset per
+profile is accepted; mixed hypotheses are rejected. An absent profile stays
+`unknown`, regardless of the filename. An absent input is an error, not an
+invitation to simulate training data. The output directory must not already
+contain any of the three report files.
+
+The reusable exporter lives in `training/feature_reporting.py`. Training can
+request it explicitly with `--feature-diagnostics-dir <new-directory>` (or the
+`feature_diagnostics_dir` argument to `train`). It runs before fitting and does
+not change the split, model, feature values or threshold. Existing training
+commands keep their dependency requirements: PyROOT and Matplotlib are needed
+only when this diagnostic export is requested. Diagnostic files are separate
+from the runtime model bundle.
+
+Outputs:
+
+- `training_features.root`: all 26 feature distributions, signal/background,
+  weighted/unweighted yield and separately normalized shape;
+- `training_features.pdf`: provenance cover and one page per feature/profile,
+  four panels for weighted/unweighted yield/shape, with flow and NaN totals;
+- `training_features.json`: the same dictionary and audit metadata embedded in
+  ROOT as the JSON title of `TNamed("training_features_metadata", ...)`.
+
+ROOT paths are
+`<profile>/all/<signal|background>/<feature>/<weighted|unweighted>_<yield|shape>`.
+Yields retain `sum(w)`, errors `sqrt(sum(w^2))`, and under/overflow bins. ROOT
+entries count finite feature values, including flows and events with zero
+weight. NaN values are omitted from TH1 and separately counted with their
+`sum(w)` and `sum(w^2)`; infinities and fractional discrete counts fail validation.
+Feature names and order must match the shared hypothesis contract exactly.
+
+Shape copies divide by the total finite weight **including both flow bins**;
+`Integral(0, nbins + 1)` is therefore one. They represent fraction per bin,
+not density per unit x (chi-square has nonuniform bins). Shapes with a
+non-positive total weight are explicitly undefined and are not written.
+Shape errors use a fixed normalization; they do not estimate covariance from
+the shared normalization. Signed weights remain in the yield histograms.
+
+`graal_common.stage1.feature_descriptions` documents formula, physical domain,
+unit, discrete/continuous kind, family and fixed plotting window for every
+column, deriving names from `features.feature_names(hypothesis)`. Counts have
+integer-centered bins. All windows are fixed independently of the data; values
+outside them remain in ROOT flows and PDF audit totals. No data are cut to
+improve plots. Units use c=1; counters, cosines and energy asymmetry are not
+labelled GeV. `eta_pi0_angle` is a **cosine**, while `sum_opening_angles` is in
+radians. Feature `missing_mass` uses `beam + target - proton`, unlike the recoil
+mass used by reconstruction.
+
+Current NPZs do not persist training split indices, per-event MC channel IDs,
+photon-loss settings or the historical feature-code version. The exporter
+reports only recoverable categories; it never regenerates a random split or
+infers event channels. The seed is recorded only when called by the trainer.
+Hashes bind the report to the NPZ and current source files, not retrospectively
+to a historical model. Hypothesis masses describe the current shared feature
+contract; missing historical provenance stays explicit.
+
+Verification:
+
+```bash
+python3 -m pytest -q 04_bdt_training/tests/test_training_feature_root.py \
+  04_bdt_training/tests/test_stage1_reporting.py \
+  04_bdt_training/tests/test_stage1_dataset.py tests/test_stage1_contracts.py
+```
