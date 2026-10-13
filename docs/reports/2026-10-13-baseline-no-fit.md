@@ -4,7 +4,8 @@
 
 Il piano non era implementato: checkout iniziale `3afff75`, launcher ancora
 con campione fitted e CLI con fit attivo. Implementazione nel worktree
-`.work/baseline-no-kinfit`, branch `feat/baseline-no-kinfit`. Grafo esistente
+`.work/baseline-no-kinfit`, branch `feat/baseline-no-kinfit`, poi commit
+`cf2022f` e integrazione fast-forward in `main` il 13 ottobre 2026. Grafo esistente
 interrogato con graphify (vocabolario: reconstruction, fit, raw, pipeline,
 campaign, provenance), poi verificato sui sorgenti correnti.
 
@@ -137,3 +138,17 @@ Dalitz UV; controlli automatici su presenza PDF/ROOT e assenza prodotti 6C.
 Il prerequisito software e la nuova baseline locale sono realizzati. Non si
 certifica con questo lavoro l'accettanza sperimentale, la completezza dei
 flussi, la validità fisica del training legacy o l'intera campagna di produzione.
+
+## Chiusura documentale e integrazione
+
+Commit implementativo `cf2022f`, integrato localmente in `main` tramite
+fast-forward. Checklist del piano 00 e indice aggiornati con prove, tagli
+approvati e limiti. Nessun piano 01–13 avviato. Artefatti della campagna
+mantengono hash e snapshot del codice realmente usato; il commit di chiusura
+non riscrive retroattivamente la loro provenienza.
+
+Verifica dopo integrazione, eseguita dal checkout principale con import locali:
+`python3 -m pytest -q` → **792 passed in 111.24s**, exit 0. Riaperti inoltre
+i quattro ROOT con i lettori integrati: `do_fit=false`, conteggi conservati,
+42 PDF e nessun prodotto raw/fit. Collegamenti locali della documentazione
+verificati; sei voci della checklist completate.
