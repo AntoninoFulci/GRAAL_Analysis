@@ -2,7 +2,7 @@
 
 For h70 conversion, parallel execution and server acceptance tests, see
 [server parallel validation](server-parallel-validation.md). The launcher accepts
-`--cpus N`, `--seed S`, `--preanalysis-dir DIR` and
+`--cpus N`, `--extraction-workers N` (default 1), `--seed S`, `--preanalysis-dir DIR` and
 `--require-current-preanalysis`; standalone h70 conversion uses
 `python -m scripts.run_preanalysis`.
 

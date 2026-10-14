@@ -4,6 +4,8 @@ Run from the checkout root, in the server's allocated CPU environment. Load
 ROOT and its matching Python first. `--cpus 40` is a total CPU budget, not 40
 processes each using 40 threads. Set fewer CPUs if the scheduler assigned fewer.
 The code does not submit farm jobs or reserve machine resources.
+Observable extraction defaults to one process independently of that budget;
+override with `--extraction-workers N`, where `1 <= N <= --cpus`.
 
 ## Environment and automated acceptance
 
@@ -114,6 +116,24 @@ fastest configuration, compare its real-data cutflows and fit/bin availability
 against the one-CPU baseline and inspect resulting diagnostics. Forty CPUs are
 not guaranteed fastest: memory bandwidth, ROOT compression and disk can dominate.
 
+## Measured extraction policy on trimax
+
+On the 40-file UV/VIS smoke campaign, extraction alone was repeated using the
+same reconstructed files from `test_server_bench_cpu40`, without rebuilding
+MC or training. Measured elapsed times:
+
+| Extraction workers | UV | VIS |
+| --- | ---: | ---: |
+| 1 | 42.04 s | 12.54 s |
+| 4 | 45.60 s | 14.44 s |
+| 8 | 47.05 s | 20.07 s |
+
+The launcher therefore defaults extraction to one worker, keeping the requested
+budget for other stages. The standalone extraction CLI still supports
+`--workers N`. Larger production samples may have a different optimum; measure
+before increasing `--extraction-workers`. These timings do not establish an
+optimum for h70 conversion, reconstruction or other stages.
+
 ## Production launch after acceptance
 
 Use new output directories. The h70 driver refuses to replace any existing h80
@@ -127,7 +147,8 @@ python -m scripts.run_preanalysis \
   --raw-dir "$GRAAL_RAW" --output-dir data/02_pre_analyzed_parallel --cpus 40
 python scripts/run_pipeline.py --mode production \
   --preanalysis-dir data/02_pre_analyzed_parallel --require-current-preanalysis \
-  --output-dir results/server_parallel_20261014 --cpus 40 --seed 20261014
+  --output-dir results/server_parallel_20261014 \
+  --cpus 40 --extraction-workers 1 --seed 20261014
 ```
 
 Changing seed policy or command arguments invalidates the corresponding cached
@@ -148,7 +169,8 @@ historical serial stream; compare workers=1 and workers>1 using channel-v1.
   Parent merges disable inherited ROOT implicit multithreading before writing;
   worker count never exceeds the number of available tasks.
 - Observable CLI `--workers N` applies to per-bin fits and bootstrap replicas;
-  callbacks inside replicas use one worker. Launcher bootstrap remains disabled.
+  callbacks inside replicas use one worker. Launcher `--extraction-workers`
+  defaults to one after the server measurements above. Launcher bootstrap remains disabled.
   Enable standalone diagnostic replicas only with an explicit study command and
   unchanged paired-run seed/universe. No final uncertainty choice is implied.
 - Flux study `--workers N` accelerates blocked holdout fits. Predictive replicas

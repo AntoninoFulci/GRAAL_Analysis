@@ -15,7 +15,9 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
   enforced globally. A consumer validates its local inputs but cannot prove
   every upstream command used the intended source revision.
 - Launcher `--cpus` coordinates ROOT/XGBoost threads and process workers;
-  stages remain ordered. `--seed` fixes MC/feature random streams. Farm job
+  stages remain ordered. Extraction defaults to one worker after server
+  measurements; `--extraction-workers` overrides it within the CPU budget.
+  `--seed` fixes MC/feature random streams. Farm job
   scheduling remains external. Launcher bootstrap stays at zero and does not
   perform sideband correction. Flux predictive replicas remain serial.
 - Cached artifacts and campaign plot directories stage before publication.

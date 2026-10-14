@@ -978,7 +978,7 @@ def print_run_summary(
             (f"{profile.upper()} BDT", relative(paths.bdt_dir(profile))),
         ))
     rows.extend((
-        ("Estrazione", f"ratio + likelihood; phi bins {'best 8/12/16' if getattr(args, 'best_binning', False) else args.phi_bins}; bootstrap 0"),
+        ("Estrazione", f"ratio + likelihood; phi bins {'best 8/12/16' if getattr(args, 'best_binning', False) else args.phi_bins}; bootstrap 0; workers {getattr(args, 'extraction_workers', 1)}"),
         ("Plot", "UV, VIS e confronto combinato"),
     ))
     if config.name == "production":
@@ -1020,6 +1020,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="empty or absent campaign output root",
     )
     parser.add_argument("--cpus", type=int, default=available_cpus(), help="total CPU budget for each active stage")
+    parser.add_argument("--extraction-workers", type=lambda value: validate_workers(int(value)), default=1,
+                        help="observable extraction processes (default: 1); must not exceed --cpus")
     parser.add_argument("--seed", type=int, default=42, help="reproducible MC and feature master seed")
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto",
                         help="terminal colors (default: auto); NO_COLOR disables colors in all modes")
@@ -1045,6 +1047,9 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
     if getattr(args, "preanalysis_dir", None) is not None:
         config = replace(config, preanalysis_dir=args.preanalysis_dir.expanduser().resolve())
     cpus = validate_workers(getattr(args, "cpus", 1))
+    extraction_workers = validate_workers(getattr(args, "extraction_workers", 1))
+    if extraction_workers > cpus:
+        raise PipelineError("--extraction-workers must not exceed --cpus")
     paths = build_paths(config, args.output_dir)
     flux_mode = getattr(args, "flux_study", "off")
     flux_metadata = getattr(args, "flux_study_metadata", None)
@@ -1069,7 +1074,8 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
                                      flux_study=flux_mode, flux_study_metadata=flux_metadata,
                                      best_binning=getattr(args, "best_binning", False),
                                      energy_binnings=load_energy_config(getattr(args, "energy_config", None)))
-        stages = configure_resources(stages, cpus=cpus, seed=getattr(args, "seed", 42))
+        stages = configure_resources(stages, cpus=cpus, seed=getattr(args, "seed", 42),
+                                     extraction_workers=extraction_workers)
         console.emit(f"CPU budget: {cpus}; MC/feature master seed: {getattr(args, 'seed', 42)}", "info")
         print_run_summary(config, paths, args, stages)
         print_preflight_warnings(checked)
