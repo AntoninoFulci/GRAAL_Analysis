@@ -1,5 +1,6 @@
 """Raw detector labels survive selection and buffered reconstruction unchanged."""
 from array import array
+import os
 from pathlib import Path
 
 import numpy as np
@@ -218,18 +219,17 @@ def test_audit_bounds_sample_and_counts_unknown_values(tmp_path):
 @pytest.fixture(scope="module")
 def preanalysis_macro():
     repo = Path(__file__).resolve().parents[1]
-    if not (repo / "test_data/raw/1998_uv/run1321.root").exists():
-        pytest.skip("local raw sample unavailable")
+    raw = Path(os.environ.get("GRAAL_RAW_SAMPLE", str(repo / "test_data/raw/1998_uv/run1321.root"))).expanduser()
+    if not raw.is_file():
+        pytest.skip(f"raw sample unavailable: {raw}; set GRAAL_RAW_SAMPLE to run1321.root")
     ROOT.gROOT.LoadMacro(str(repo / "01_pre_analysis/PreAnalysis.C"))
-    ROOT.gInterpreter.ProcessLine(f'BuildCutMap("{repo / "test_data/raw"}", "{repo / "01_pre_analysis/cuts"}");')
+    ROOT.gInterpreter.ProcessLine(f'BuildCutMap("{raw.parent.parent}", "{repo / "01_pre_analysis/cuts"}");')
+    return raw
 
 
 @pytest.mark.parametrize("only_untagged", [False, True])
 def test_raw_h70_round_trip(tmp_path, capfd, only_untagged, preanalysis_macro):
-    repo = Path(__file__).resolve().parents[1]
-    raw = repo / "test_data/raw/1998_uv/run1321.root"
-    if not raw.exists():
-        pytest.skip("local raw sample unavailable")
+    raw = preanalysis_macro
     original = ROOT.TFile.Open(str(raw))
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir()

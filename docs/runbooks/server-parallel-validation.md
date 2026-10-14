@@ -28,6 +28,7 @@ export GRAAL_RAW_SAMPLE="$GRAAL_RAW/1998_uv/run1321.root"
 test -r "$GRAAL_RAW_SAMPLE"
 python -m pytest -q -rs \
   00_common/tests/test_parallel.py \
+  tests/test_raw_track_metadata.py \
   tests/test_parallel_preanalysis.py \
   tests/test_parallel_pipeline.py \
   03_mc_simulation/tests/test_generator_seeds.py \
