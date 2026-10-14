@@ -130,7 +130,30 @@ def validate_preanalysis(paths: Iterable[Path]) -> None:
     if not files:
         raise ValueError("no pre-analysis files")
     for path in files:
-        validate_root(path, "h80", PREANALYSIS_BRANCHES)
+        validate_root(path, "h80", PREANALYSIS_BRANCHES, nonempty=False)
+        import uproot
+        with uproot.open(path) as source:
+            if source['h80'].num_entries == 0:
+                validate_current_preanalysis((path,))
+
+
+def validate_current_preanalysis(paths: Iterable[Path]) -> None:
+    """Require the zero-tagger rejection contract, including valid empty trees."""
+    import uproot
+    files = tuple(paths)
+    if not files:
+        raise ValueError('no current pre-analysis files')
+    required = (*PREANALYSIS_BRANCHES, 'beam', 'protons', 'neutrons',
+                'RawSourceFile', 'RawSourceEntry', 'Nass_3', 'Nparf', 'N_traf',
+                'Nparf_strange', 'Itipo_track', 'Index_trf', 'Iass_trf')
+    for path in files:
+        validate_root(path, 'h80', required, nonempty=False)
+        with uproot.open(path) as source:
+            if 'preanalysis_skipped_no_tagger' not in source:
+                raise ValueError(f'{path}: current tagger-discard marker missing; regenerate h80')
+            marker = source['preanalysis_skipped_no_tagger']
+            if marker.classname not in ('TParameter<Long64_t>', 'TParameter<long long>') or marker.member('fVal') < 0:
+                raise ValueError(f'{path}: invalid tagger-discard counter')
 
 
 def validate_selected(directory: Path, inputs: Iterable[Path]) -> None:

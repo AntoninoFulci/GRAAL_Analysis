@@ -388,7 +388,8 @@ def test_diagnostic_bootstrap_requires_explicit_universe_before_reading_inputs(t
 
 
 @pytest.mark.parametrize("best_binning", [False, True])
-def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_binning):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_binning, workers):
     from dataclasses import replace
     from observable_extraction.io.root_output import ordered_point_keys, point_key_label
 
@@ -404,7 +405,8 @@ def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_bi
         points=points, samples=samples, exposures=exposures,
         run_strata={811: 'uv:1998', 812: 'uv:1998'}, point_keys=labels,
         nominal_sample='raw_bdt', estimator='ratio', replicas=4, seed=8,
-        energy_edges=ENERGY_EDGES_GEV, phi_edges=PHI_EDGES_RAD, best_binning=best_binning)
+        energy_edges=ENERGY_EDGES_GEV, phi_edges=PHI_EDGES_RAD,
+        best_binning=best_binning, workers=workers)
     half = len(points) // 2
     assert not result.failures
     np.testing.assert_array_equal(result.replicas[:, :half], result.replicas[:, half:])

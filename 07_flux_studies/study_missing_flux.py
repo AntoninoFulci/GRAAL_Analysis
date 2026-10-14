@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from collections import defaultdict
 import sys
+from graal_common.parallel import validate_workers
 
 from flux_studies.audit_flux import build_parser, audit_kwargs, input_paths, audit_flux
 from flux_studies.metadata import STATES, GROUP_FIELDS, eligible, compatible
 from flux_studies.reporting import publish_output, write_audit, write_study
 
 
-def run_study(audit, *, mode, n_splits, seed, n_replicas, mask_patterns):
+def run_study(audit, *, mode, n_splits, seed, n_replicas, mask_patterns, workers=1):
+    validate_workers(workers)
     if mode not in ('offline', 'causal') or n_splits < 2 or n_replicas < 2:
         raise ValueError('invalid study mode, folds or replicas')
     if not mask_patterns or any(not p or len(set(p)) != len(p) or any(s not in STATES for s in p) for p in mask_patterns):
@@ -32,7 +34,8 @@ def run_study(audit, *, mode, n_splits, seed, n_replicas, mask_patterns):
         if 'missing_raw' in row['problems']:
             missing[row['run_number']].append(row['state'])
     patterns = tuple(dict.fromkeys([tuple(p) for p in mask_patterns] + [tuple(s for s in STATES if s in states) for states in missing.values()]))
-    evaluation = evaluate_holdouts(audit, mode=mode, n_splits=n_splits, mask_patterns=patterns, seed=seed)
+    evaluation = evaluate_holdouts(audit, mode=mode, n_splits=n_splits, mask_patterns=patterns,
+                                   seed=seed, workers=workers)
     if not evaluation['predictions']:
         result.update(status='insufficient_data', reasons=['no_eligible_holdouts'])
         return result
@@ -87,6 +90,8 @@ def main(argv=None):
     parser.add_argument('--folds', type=int, default=5)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--replicas', type=int, default=200)
+    parser.add_argument('--workers', type=lambda value: validate_workers(int(value)), default=1,
+                        help='processes for blocked holdout fits; predictive replicas stay serial to preserve the seeded draw stream')
     parser.add_argument('--mask-states', action='append', help='comma-separated missing states; repeat for multiple patterns')
     args = parser.parse_args(argv)
     try:
@@ -95,7 +100,8 @@ def main(argv=None):
             raise ValueError('folds/replicas must be >= 2 and seed nonnegative')
         with publish_output(args.output_dir, input_paths(args)) as staged:
             audit = audit_flux(**audit_kwargs(args))
-            study = run_study(audit, mode=args.mode, n_splits=args.folds, seed=args.seed, n_replicas=args.replicas, mask_patterns=patterns)
+            study = run_study(audit, mode=args.mode, n_splits=args.folds, seed=args.seed,
+                              n_replicas=args.replicas, mask_patterns=patterns, workers=args.workers)
             write_audit(staged, audit)
             write_study(staged, audit, study)
         print(f"Flux study: {study['status']}; {study['reasons']}\nOutput: {args.output_dir}")

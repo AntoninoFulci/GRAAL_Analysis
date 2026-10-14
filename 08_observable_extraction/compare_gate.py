@@ -17,6 +17,7 @@ import ROOT
 
 from calibration.run_manifest import validate_manifest
 from graal_common.io.filesystem import atomic_output_directory
+from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.beam_asymmetry import SAMPLES, _extract_sample
 from observable_extraction.calibration.flux_v2 import load_exposures
@@ -68,18 +69,20 @@ def selected_cutflow(pairing, bdt, exposures, periods, energy_edges, *, sample_n
     return rows
 
 
-def _extract(samples, exposures, edges):
+def _extract(samples, exposures, edges, *, workers=1):
+    validate_workers(workers)
     if not exposures:
         return {name: () for name in samples}
     return {name: _extract_sample(sample_name=name, events=events, exposures=exposures,
                                  estimator="both", retain_ratio_objects=False,
-                                 energy_edges=edges, phi_edges=PHI_EDGES_RAD).points
+                                 energy_edges=edges, phi_edges=PHI_EDGES_RAD, workers=workers).points
             for name, events in samples.items()}
 
 
 def bootstrap_comparison(samples, exposures, strata, keys, edges, replicas, seed,
-                         *, sample_names=("pairing", "bdt")):
+                         *, sample_names=("pairing", "bdt"), workers=1):
     """Return diagnostics and raw draws, including an explicit empty-grid result."""
+    validate_workers(workers)
     if not keys:
         return (dict(status="no_common_estimable_bins", replicas=0, seed=seed,
                      available_keys=[], unavailable_keys=[], difference_covariance=None,
@@ -91,7 +94,7 @@ def bootstrap_comparison(samples, exposures, strata, keys, edges, replicas, seed
         counter += 1
         extracted = _extract(replica_samples, replica_exposures, edges)
         lookup = {name: point_map(items) for name, items in extracted.items()}
-        if counter % 10 == 0:
+        if workers == 1 and counter % 10 == 0:
             print(f"paired replica {counter}/{replicas}", flush=True)
         return np.array([lookup[name][key].point.sigma
                          if key in lookup[name] and lookup[name][key].point.diagnostics.converged else np.nan
@@ -99,7 +102,7 @@ def bootstrap_comparison(samples, exposures, strata, keys, edges, replicas, seed
     ensemble = paired_bootstrap_by_run(
         estimate, samples, exposures, run_strata=strata,
         point_keys=[f"{name}:{key}" for name in sample_names for key in keys],
-        replicas=replicas, seed=seed)
+        replicas=replicas, seed=seed, workers=workers)
     diagnostic = paired_difference_summary(ensemble.replicas, keys)
     diagnostic.update(status="diagnostic_only", seed=seed, effective_runs=ensemble.effective_runs,
                       zero_event_runs=ensemble.zero_event_runs, run_strata=strata,
@@ -197,6 +200,7 @@ def _write_figures(path, report):
 
 
 def run(args):
+    workers = validate_workers(getattr(args, "workers", 1))
     if args.output_dir.exists():
         raise FileExistsError(f"preserve existing study; choose a new output directory: {args.output_dir}")
     if args.replicas < 2:
@@ -228,13 +232,13 @@ def run(args):
     selected_subset = subset_audit(samples["pairing"], samples["bdt"])
     print(f"{args.profile}: common exposures {len(exposures)}, selected "
           f"pairing={len(samples['pairing'])}, BDT={len(samples['bdt'])}", flush=True)
-    points = _extract(samples, exposures, edges)
+    points = _extract(samples, exposures, edges, workers=workers)
     rows = align_points(points["pairing"], points["bdt"], edges)
     keys = tuple(row["key"] for row in rows if row["status"] == "both_estimable")
     exposed_runs = {exp.run_number for exp in exposures.values()}
     strata = {run: f"{args.profile}:{periods[run]}" for run in exposed_runs}
     diagnostic, replica_values, replica_keys, run_draws = bootstrap_comparison(
-        samples, exposures, strata, keys, edges, args.replicas, args.seed)
+        samples, exposures, strata, keys, edges, args.replicas, args.seed, workers=workers)
     errors = {}
     if diagnostic["difference_covariance"] is not None:
         errors = dict(zip(diagnostic["available_keys"], np.sqrt(np.maximum(0, np.diag(diagnostic["difference_covariance"])))))
@@ -247,7 +251,7 @@ def run(args):
             per_period[period] = dict(status="no_exposure", rows=[])
             continue
         selected = {name: events.take(np.isin(events.run_number, members)) for name, events in samples.items()}
-        fitted = _extract(selected, exp, edges)
+        fitted = _extract(selected, exp, edges, workers=workers)
         per_period[period] = dict(status="diagnostic_only", rows=align_points(fitted["pairing"], fitted["bdt"], edges))
     report = dict(schema=1, profile=args.profile, command=sys.argv, inputs=input_identities,
                   revision=subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip(),
@@ -283,7 +287,7 @@ def run(args):
     return report
 
 
-def main(argv=None):
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairing", type=Path, required=True)
     parser.add_argument("--bdt", type=Path, required=True)
@@ -293,7 +297,13 @@ def main(argv=None):
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--replicas", type=int, default=64)
     parser.add_argument("--seed", type=int, default=1208)
-    run(parser.parse_args(argv))
+    parser.add_argument("--workers", type=lambda value: validate_workers(int(value)), default=1,
+                        help="processes for independent fits or bootstrap replicas; default: 1")
+    return parser
+
+
+def main(argv=None):
+    run(build_parser().parse_args(argv))
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from typing import Mapping
 
 import numpy as np
 from scipy.stats import chi2 as chi2_distribution
+from graal_common.parallel import ordered_map, validate_workers
 
 from observable_extraction.core.binning import (
     ENERGY_EDGES_GEV,
@@ -225,7 +226,9 @@ def extract_ratio_grid(
     energy_edges: np.ndarray = ENERGY_EDGES_GEV,
     phi_edges: np.ndarray = PHI_EDGES_RAD,
     min_events: int = 20,
+    workers: int = 1,
 ) -> tuple[RatioBinResult, ...]:
+    validate_workers(workers)
     mass_gev = np.asarray(mass_gev, dtype=np.float64)
     phi_rad = np.asarray(phi_rad, dtype=np.float64)
     beam_energy_gev = np.asarray(beam_energy_gev, dtype=np.float64)
@@ -242,7 +245,7 @@ def extract_ratio_grid(
         raise ValueError("min_events must be a non-negative integer")
 
     mass_edges = pair_mass_edges(pair)
-    results = []
+    tasks = []
     for energy_bin, (energy_low, energy_high) in enumerate(
         zip(energy_edges[:-1], energy_edges[1:])
     ):
@@ -296,25 +299,7 @@ def extract_ratio_grid(
             counts_h, _ = np.histogram(
                 phi_rad[selected & (polarization == 2)], bins=phi_edges
             )
-            try:
-                fit = fit_ratio(
-                    0.5 * (phi_edges[:-1] + phi_edges[1:]),
-                    counts_v,
-                    counts_h,
-                    flux_v,
-                    flux_h,
-                    pol_v,
-                    pol_h,
-                )
-            except ValueError:
-                continue
-            # Sparse replicas can yield an unconstrained amplitude outside the
-            # physical SigmaPoint domain, including after finite-bin correction.
-            # Keep this bin unavailable (as for failed fits), never clip it or
-            # abort otherwise valid neighboring bins/the whole paired ensemble.
-            if not math.isfinite(fit.sigma / divisor) or abs(fit.sigma / divisor) > 1.0:
-                continue
-            point = SigmaPoint(
+            point_fields = dict(
                 pair=pair,
                 energy_bin=energy_bin,
                 mass_bin=mass_bin,
@@ -323,27 +308,34 @@ def extract_ratio_grid(
                 mass_low_gev=float(mass_low),
                 mass_high_gev=float(mass_high),
                 mass_mean_gev=float(np.mean(mass_gev[selected])),
-                # Apply once at the raw-fit -> physical-point boundary so all
-                # samples, sidebands and resampled studies use the same units.
-                sigma=fit.sigma / divisor,
-                stat_low=fit.sigma_error / divisor,
-                stat_high=fit.sigma_error / divisor,
-                diagnostics=replace(
-                    fit.diagnostics,
-                    s2=(fit.diagnostics.s2 / divisor
-                        if fit.diagnostics.s2 is not None else None),
-                ),
             )
-            results.append(
-                RatioBinResult(
-                    point,
-                    fit,
-                    counts_v,
-                    counts_h,
-                    flux_v,
-                    flux_h,
-                    pol_v,
-                    pol_h,
-                )
+            tasks.append((point_fields, counts_v, counts_h, flux_v, flux_h, pol_v, pol_h))
+
+    def fit_bin(task):
+        point_fields, counts_v, counts_h, flux_v, flux_h, pol_v, pol_h = task
+        try:
+            fit = fit_ratio(
+                0.5 * (phi_edges[:-1] + phi_edges[1:]),
+                counts_v, counts_h, flux_v, flux_h, pol_v, pol_h,
             )
-    return tuple(results)
+        except ValueError:
+            return None
+        # Keep unphysical sparse fits unavailable, never clip their amplitudes.
+        if not math.isfinite(fit.sigma / divisor) or abs(fit.sigma / divisor) > 1.0:
+            return None
+        point = SigmaPoint(
+            **point_fields,
+            # Apply once at the raw-fit -> physical-point boundary.
+            sigma=fit.sigma / divisor,
+            stat_low=fit.sigma_error / divisor,
+            stat_high=fit.sigma_error / divisor,
+            diagnostics=replace(
+                fit.diagnostics,
+                s2=(fit.diagnostics.s2 / divisor
+                    if fit.diagnostics.s2 is not None else None),
+            ),
+        )
+        return RatioBinResult(point, fit, counts_v, counts_h, flux_v, flux_h, pol_v, pol_h)
+
+    return tuple(result for result in ordered_map(fit_bin, tasks, workers=workers)
+                 if result is not None)

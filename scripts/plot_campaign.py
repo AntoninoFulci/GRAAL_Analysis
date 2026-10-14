@@ -126,7 +126,9 @@ def _render_common(campaign: Path, payloads: dict, output: Path, reference: Path
                                          profile, read_output_contract(campaign / profile / "beam_asymmetry/beam_asymmetry.root").energy_edges_gev)), estimator=estimator)
 
 
-def render_campaign(campaign: Path, reference: Path, *, with_kinematic_fit: bool = False) -> None:
+def render_campaign(campaign: Path, reference: Path, *, with_kinematic_fit: bool = False, workers: int = 1) -> None:
+    from graal_common.parallel import ordered_map, validate_workers
+    validate_workers(workers)
     campaign = Path(campaign).expanduser().resolve()
     payloads = {profile: (_read_profile(campaign, profile, with_kinematic_fit=True)
                           if with_kinematic_fit else _read_profile(campaign, profile))
@@ -137,13 +139,17 @@ def render_campaign(campaign: Path, reference: Path, *, with_kinematic_fit: bool
             for profile in ("uv", "vis")
         }
         common = stack.enter_context(atomic_output_directory(campaign / "common/plots"))
-        for profile in ("uv", "vis"):
-            _render_profile(campaign, profile, payloads[profile], outputs[profile])
-        _render_common(campaign, payloads, common, reference)
+        def render(profile):
+            if profile == "common":
+                _render_common(campaign, payloads, common, reference)
+            else:
+                _render_profile(campaign, profile, payloads[profile], outputs[profile])
+        ordered_map(render, ("uv", "vis", "common"), workers=min(workers, 3))
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workers", type=int, default=1, help="isolated profile/common plot processes (up to 3)")
     parser.add_argument("--campaign", required=True, type=Path)
     parser.add_argument("--with-kinematic-fit", action="store_true",
                         help="explicitly regenerate archived 6C plots")
@@ -153,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    render_campaign(args.campaign, args.published_csv, with_kinematic_fit=args.with_kinematic_fit)
+    render_campaign(args.campaign, args.published_csv, with_kinematic_fit=args.with_kinematic_fit, workers=args.workers)
     return 0
 
 

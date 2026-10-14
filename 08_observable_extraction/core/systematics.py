@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields, replace
 from typing import Callable, Mapping, Sequence
 
 import numpy as np
+from graal_common.parallel import ordered_map, validate_workers
 
 from observable_extraction.core.models import FluxExposure, FitNotEstimableError
 from observable_extraction.io.reconstructed_events import EventArrays
@@ -69,6 +70,7 @@ def paired_bootstrap_by_run(
     point_keys: Sequence[str],
     replicas: int,
     seed: int,
+    workers: int = 1,
 ) -> PairedBootstrapResult:
     """Resample common run blocks within explicit profile/period strata.
 
@@ -77,6 +79,7 @@ def paired_bootstrap_by_run(
     A NaN marks an unestimable point. No row is discarded or redrawn. This is
     a run-clustering diagnostic, not an event/Poisson or detector-bias estimate.
     """
+    validate_workers(workers)
     if replicas < 2:
         raise ValueError("paired bootstrap needs at least two replicas")
     keys = tuple(point_keys)
@@ -101,12 +104,13 @@ def paired_bootstrap_by_run(
         groups.setdefault(run_strata[run], []).append(run)
     rng = np.random.default_rng(seed)
     values = np.full((replicas, len(keys)), np.nan)
-    draws = []
+    # Draw in the parent, in historical RNG order; workers never draw or retry.
+    draws = [tuple(int(run) for group in sorted(groups)
+                   for run in rng.choice(groups[group], size=len(groups[group]), replace=True))
+             for _ in range(replicas)]
     failures = {}
-    for replica in range(replicas):
-        draw = tuple(int(run) for group in sorted(groups)
-                     for run in rng.choice(groups[group], size=len(groups[group]), replace=True))
-        draws.append(draw)
+
+    def evaluate(draw):
         selected = {name: _events_at_indices(events, np.concatenate([indices[name][run] for run in draw]))
                     for name, events in samples.items()}
         multiplicity = dict(zip(*np.unique(draw, return_counts=True)))
@@ -120,14 +124,19 @@ def paired_bootstrap_by_run(
         try:
             estimate = np.asarray(estimator(selected, scaled), dtype=np.float64)
         except FitNotEstimableError as exc:
-            failures[replica] = str(exc)
-            continue
+            return None, str(exc)
         if estimate.shape != (len(keys),):
             raise ValueError("bootstrap estimator dimension does not match point keys")
-        values[replica] = estimate
         missing = np.flatnonzero(~np.isfinite(estimate))
-        if missing.size:
-            failures[replica] = "non-estimable points: " + ", ".join(keys[index] for index in missing)
+        error = ("non-estimable points: " + ", ".join(keys[index] for index in missing)
+                 if missing.size else None)
+        return estimate, error
+
+    for replica, (estimate, error) in enumerate(ordered_map(evaluate, draws, workers=workers)):
+        if estimate is not None:
+            values[replica] = estimate
+        if error is not None:
+            failures[replica] = error
     covariance = standard_error = rank = None
     if not failures:
         covariance = validate_covariance(np.atleast_2d(np.cov(values, rowvar=False, ddof=1)))
@@ -240,13 +249,13 @@ def bootstrap_by_run(
     *,
     replicas: int,
     seed: int,
+    workers: int = 1,
 ) -> BootstrapResult:
+    validate_workers(workers)
     index_draws = bootstrap_run_indices(
         events.run_number, replicas=replicas, seed=seed
     )
-    values = []
-    run_draws = []
-    for indices in index_draws:
+    def evaluate(indices):
         selected_events = _events_at_indices(events, indices)
         drawn_runs = tuple(int(run) for run in np.unique(events.run_number[indices]))
         multiplicities = {
@@ -272,9 +281,10 @@ def bootstrap_by_run(
         )
         if estimate.ndim != 1 or np.any(~np.isfinite(estimate)):
             raise ValueError("bootstrap estimator must return finite 1D values")
-        values.append(estimate)
-        run_draws.append(drawn_runs)
+        return estimate, drawn_runs
 
+    results = ordered_map(evaluate, index_draws, workers=workers)
+    values, run_draws = zip(*results)
     replica_values = np.stack(values)
     mean = np.mean(replica_values, axis=0)
     covariance = (

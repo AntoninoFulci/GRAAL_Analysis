@@ -73,6 +73,8 @@ def _select_file(input_path: Path, output_path: Path) -> None:
             )
         branch_names = [branch.GetName() for branch in tree.GetListOfBranches()]
         n_entries = int(tree.GetEntries())
+        record = input_file.Get("preanalysis_provenance")
+        preanalysis_provenance = str(record.GetTitle()) if record else None
     finally:
         input_file.Close()
     print(f"  Number of events: {n_entries}")
@@ -90,7 +92,7 @@ def _select_file(input_path: Path, output_path: Path) -> None:
     options.fVector2RVec = False
     selected.Snapshot(OUTPUT_TREE, str(output_path), branch_names, options)
 
-    output_file = ROOT.TFile.Open(str(output_path), "READ")
+    output_file = ROOT.TFile.Open(str(output_path), "UPDATE")
     if not output_file or output_file.IsZombie():
         raise RuntimeError(f"cannot validate selected output {output_path}")
     try:
@@ -100,6 +102,9 @@ def _select_file(input_path: Path, output_path: Path) -> None:
                 f"tree '{OUTPUT_TREE}' not found in selected output {output_path}"
             )
         n_selected = int(output_tree.GetEntries())
+        if preanalysis_provenance is not None:
+            output_file.cd()
+            ROOT.TNamed("preanalysis_provenance", preanalysis_provenance).Write("", ROOT.TObject.kOverwrite)
     finally:
         output_file.Close()
     print(f"  Selected events: {n_selected}")

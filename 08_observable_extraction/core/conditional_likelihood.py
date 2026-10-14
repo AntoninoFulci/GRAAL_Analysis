@@ -7,6 +7,7 @@ from typing import Mapping
 
 import numpy as np
 from scipy.optimize import brentq, minimize_scalar
+from graal_common.parallel import ordered_map, validate_workers
 
 from observable_extraction.core.binning import (
     ENERGY_EDGES_GEV,
@@ -215,7 +216,9 @@ def extract_likelihood_grid(
     exposures: Mapping[tuple[int, int], FluxExposure],
     energy_edges: np.ndarray = ENERGY_EDGES_GEV,
     min_events: int = 20,
+    workers: int = 1,
 ) -> tuple[LikelihoodBinResult, ...]:
+    validate_workers(workers)
     mass_gev = np.asarray(mass_gev, dtype=np.float64)
     phi_rad = np.asarray(phi_rad, dtype=np.float64)
     beam_energy_gev = np.asarray(beam_energy_gev, dtype=np.float64)
@@ -230,7 +233,7 @@ def extract_likelihood_grid(
         raise ValueError("min_events must be a non-negative integer")
 
     mass_edges = pair_mass_edges(pair)
-    results = []
+    tasks = []
     for energy_bin, (energy_low, energy_high) in enumerate(
         zip(energy_edges[:-1], energy_edges[1:])
     ):
@@ -252,14 +255,7 @@ def extract_likelihood_grid(
                 polarization[selected] == 2
             ):
                 continue
-            fit = fit_conditional_sigma(
-                phi_rad[selected],
-                polarization[selected],
-                run_number[selected],
-                xstrip[selected],
-                exposures,
-            )
-            point = SigmaPoint(
+            point_fields = dict(
                 pair=pair,
                 energy_bin=energy_bin,
                 mass_bin=mass_bin,
@@ -268,18 +264,23 @@ def extract_likelihood_grid(
                 mass_low_gev=float(mass_low),
                 mass_high_gev=float(mass_high),
                 mass_mean_gev=float(np.mean(mass_gev[selected])),
-                sigma=fit.sigma,
-                stat_low=fit.sigma - fit.interval_low,
-                stat_high=fit.interval_high - fit.sigma,
-                diagnostics=FitDiagnostics(
-                    converged=fit.converged,
-                    chi2=0.0,
-                    ndf=0,
-                    p_value=1.0,
-                    used_fallback=False,
-                ),
             )
-            results.append(
-                LikelihoodBinResult(point, fit, int(np.count_nonzero(selected)))
-            )
-    return tuple(results)
+            tasks.append((point_fields, phi_rad[selected], polarization[selected],
+                          run_number[selected], xstrip[selected]))
+
+    def fit_bin(task):
+        point_fields, phi, states, runs, strips = task
+        fit = fit_conditional_sigma(phi, states, runs, strips, exposures)
+        point = SigmaPoint(
+            **point_fields,
+            sigma=fit.sigma,
+            stat_low=fit.sigma - fit.interval_low,
+            stat_high=fit.interval_high - fit.sigma,
+            diagnostics=FitDiagnostics(
+                converged=fit.converged, chi2=0.0, ndf=0,
+                p_value=1.0, used_fallback=False,
+            ),
+        )
+        return LikelihoodBinResult(point, fit, len(phi))
+
+    return tuple(ordered_map(fit_bin, tasks, workers=workers))

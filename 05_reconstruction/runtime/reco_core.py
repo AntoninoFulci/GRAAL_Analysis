@@ -30,7 +30,6 @@ import os
 import json
 import subprocess
 import sys
-from collections import Counter, defaultdict
 from array import array
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,7 +41,9 @@ import ROOT
 from graal_common.physics import pairing as pr
 from graal_common.io import trees
 from graal_common.io.raw_tracks import has_raw_tracks, snapshot_raw_tracks, RawTrackWriter
-from reconstruction.runtime.provenance import KEY, file_identities, stage1_domain
+from reconstruction.runtime.provenance import (
+    KEY, acquisition_counts, file_identities, input_run_states, stage1_domain,
+)
 from reconstruction.core import reco_physics as rp
 from reconstruction.core.event_logic import (
     EventInput,
@@ -105,6 +106,7 @@ class RecoConfig:
     energy_range_gev: tuple[float, float] | None = None
     model_dir: Path | None = None
     beam_profile: str | None = None
+    workers: int = 1
 
 
 def _as_array(v) -> np.ndarray:
@@ -121,11 +123,12 @@ def _resolve_tree(probe, requested: str, filename: str) -> str:
     return name
 
 
-def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
+def _build_chain(input_dir: Path, input_tree: str, *, files=None) -> ROOT.TChain:
     if not input_dir.is_dir():
         raise FileNotFoundError(f"input directory not found: {input_dir}")
 
-    root_files = sorted(f for f in os.listdir(input_dir) if f.endswith(".root"))
+    root_files = (sorted(f for f in os.listdir(input_dir) if f.endswith(".root"))
+                  if files is None else list(files))
     if not root_files:
         raise FileNotFoundError(f"no .root files in {input_dir}")
 
@@ -142,6 +145,8 @@ def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
 
     chain = ROOT.TChain(tree_name)
     metadata_states = set()
+    input_file_entries = []
+    acquisition_states = []
     for f in root_files:
         probe = ROOT.TFile.Open(str(input_dir / f))
         if not probe or probe.IsZombie():
@@ -151,27 +156,21 @@ def _build_chain(input_dir: Path, input_tree: str) -> ROOT.TChain:
             if not tree:
                 raise RuntimeError(f"tree '{tree_name}' not found in {input_dir / f}")
             metadata_states.add(has_raw_tracks(tree, str(input_dir / f)))
+            input_file_entries.append((str((input_dir / f).resolve()), int(tree.GetEntries())))
+            acquisition_states.extend(input_run_states(probe))
         finally:
             probe.Close()
         chain.Add(str(input_dir / f))
     if len(metadata_states) != 1:
         raise ValueError("mixed raw-track metadata: regenerate legacy inputs or process them separately")
     chain.raw_track_metadata_available = metadata_states.pop()
+    chain.input_file_entries = input_file_entries
+    chain.input_run_states = acquisition_states
     return chain
 
 
-def run_reconstruction(
-    cfg: RecoConfig,
-    channel: rp.Channel,
-    gate: Gate | None = None,
-) -> int:
-    """Reconstruct one channel. Returns the number of events written."""
-    if cfg.energy_range_gev is not None:
-        low, high = cfg.energy_range_gev
-        if not np.isfinite((low, high)).all() or high <= low:
-            raise ValueError(
-                "reconstruction energy range must be finite and increasing"
-            )
+def _snapshot_inputs(cfg: RecoConfig) -> dict:
+    """Capture one authoritative provenance snapshot before dispatching work."""
     # Snapshot executable inputs before processing; later edits must not relabel this run.
     repo = Path(__file__).resolve().parents[2]
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
@@ -181,10 +180,43 @@ def run_reconstruction(
         for p in base.rglob("*.py") if "tests" not in p.parts)
     model_inputs = file_identities(cfg.model_dir / name for name in
         ("bdt_stage1.json", "stage1_threshold.txt", "stage1_provenance.json")) if cfg.model_dir else []
-    chain = _build_chain(Path(cfg.input_dir), cfg.input_tree)
+    return {"source_revision": revision.stdout.strip(), "source_files": source_files,
+            "model_inputs": model_inputs,
+            "inputs": file_identities(Path(cfg.input_dir).glob("*.root")),
+            "command": list(sys.argv)}
+
+
+def run_reconstruction(
+    cfg: RecoConfig,
+    channel: rp.Channel,
+    gate: Gate | None = None,
+) -> int:
+    """Reconstruct in input order; each process owns its ROOT files and buffers.
+
+    ``workers=1`` keeps the serial path. More workers split sorted files into
+    contiguous entry ranges and atomically publish their ordered merge.
+    """
+    if isinstance(cfg.workers, bool) or not isinstance(cfg.workers, int) or cfg.workers <= 0:
+        raise ValueError("workers must be a positive integer")
+    if cfg.energy_range_gev is not None:
+        low, high = cfg.energy_range_gev
+        if not np.isfinite((low, high)).all() or high <= low:
+            raise ValueError("reconstruction energy range must be finite and increasing")
+    if cfg.workers > 1:
+        from reconstruction.runtime.parallel import run_parallel_reconstruction
+        return run_parallel_reconstruction(cfg, channel, gate)
+    return _run_serial(cfg, channel, gate)
+
+
+def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
+                snapshot=None, include_acquisition_counts=True) -> int:
+    snapshot = _snapshot_inputs(cfg) if snapshot is None else snapshot
+    chain = (_build_chain(Path(cfg.input_dir), cfg.input_tree) if input_files is None
+             else _build_chain(Path(cfg.input_dir), cfg.input_tree, files=input_files))
     n_entries = chain.GetEntries()
-    inputs = file_identities(Path(cfg.input_dir).glob("*.root"))
-    counts = defaultdict(Counter)
+    start, stop = (0, n_entries) if entry_range is None else entry_range
+    counts = acquisition_counts(getattr(chain, "input_run_states", ())
+                                if include_acquisition_counts else ())
     print(f"Total events in chain: {n_entries}")
 
     cfg.output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -367,7 +399,7 @@ def run_reconstruction(
 
     pending: list[tuple[EventInput, dict | None]] = []
 
-    for iev in range(n_entries):
+    for iev in range(start, stop):
         chain.GetEntry(iev)
         counter = counts[(int(chain.RunNumber), int(chain.Polarization))]
         counter["input"] += 1
@@ -428,12 +460,10 @@ def run_reconstruction(
     metadata = {
         "schema": 1, "do_fit": cfg.do_fit, "channel": channel.name,
         "input_tree": getattr(chain, "GetName", lambda: cfg.input_tree)(),
-        "output_tree": cfg.output_tree, "inputs": inputs,
+        "output_tree": cfg.output_tree,
         "raw_track_metadata": {"available": raw_track_writer is not None,
                                "cut": "disabled_pending_definition"},
-        "source_revision": revision.stdout.strip(),
-        "source_files": source_files,
-        "command": sys.argv,
+        **snapshot,
         "versions": {"python": sys.version, "numpy": np.__version__},
         "selection": {
             "chi2_cut": cfg.chi2_cut, "chi2_resolution_relative": rp.CHI2_RESOLUTION,
@@ -444,7 +474,6 @@ def run_reconstruction(
             "fit_cl": cfg.fit_cl if cfg.do_fit else None,
             "bdt_threshold": gate.threshold if gate is not None else None,
         },
-        "model_inputs": model_inputs,
         "beam_profile": cfg.beam_profile,
         "bdt_domain": stage1_domain(gate),
         "counts_by_run_state": [dict(run=run, polarization=pol, **counter)

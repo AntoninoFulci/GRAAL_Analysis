@@ -14,7 +14,8 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import shutil
 import sys
@@ -31,6 +32,8 @@ from graal_common.physics.channels import CHANNEL_NAMES, get_channel
 from scripts import artifact_manifest as cache
 from scripts.artifact_manifest import validate_preanalysis
 from graal_common.io.filesystem import atomic_output_directory
+from graal_common.parallel import available_cpus, validate_workers
+from scripts.parallel_pipeline import configure_resources, bounded_runner
 from observable_extraction.core.binning import PHI_BIN_CHOICES, phi_edges_rad
 
 
@@ -761,8 +764,10 @@ def execute_cached_plan(
     force_selected: bool = False,
     force_mc: bool = False,
     force_bdt: bool = False,
+    cpus: int = 1,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> None:
+    validate_workers(cpus)
     production = config.name == "production"
     outcomes: list[dict] = []
     stage_list = list(stages)
@@ -782,19 +787,31 @@ def execute_cached_plan(
                                         lambda directory, source=inputs: cache.validate_selected(directory, source),
                                         production=production, force=force_selected, runner=runner)
         elif profile in PROFILE_PATTERNS and len(parts) == 3 and parts[1] == "generate":
-            channel = parts[2]
-            destination = paths.mc_dir(profile) / get_channel(channel).mc_filename
-            item = cache.CacheItem(
-                f"mc:{profile}:{channel}", destination.with_suffix(".manifest.json"), (destination,),
-                {"options": stage.argv, "source": cache.source_fingerprint((
-                    *tuple(path for path in (paths.repo_root / "00_common").rglob("*.py") if "tests" not in path.parts),
-                    paths.repo_root / "03_mc_simulation/generators" / f"generate_{channel}_dataset.C",
-                    *tuple((paths.repo_root / "03_mc_simulation/generators").rglob("*.h")),
-                ))},
-            )
-            outcome = run_cached_stages((stage,), paths, item, destination,
-                                        lambda path, name=channel: cache.validate_mc(path, name),
-                                        production=production, force=force_mc, runner=runner)
+            group = []
+            while index < len(stage_list) and stage_list[index].name.startswith(f"{profile}:generate:"):
+                group.append(stage_list[index])
+                index += 1
+
+            def generate(entry):
+                channel = entry.name.split(":")[2]
+                destination = paths.mc_dir(profile) / get_channel(channel).mc_filename
+                item = cache.CacheItem(
+                    f"mc:{profile}:{channel}", destination.with_suffix(".manifest.json"), (destination,),
+                    {"options": entry.argv, "source": cache.source_fingerprint((
+                        *tuple(path for path in (paths.repo_root / "00_common").rglob("*.py") if "tests" not in path.parts),
+                        paths.repo_root / "03_mc_simulation/generators" / f"generate_{channel}_dataset.C",
+                        *tuple((paths.repo_root / "03_mc_simulation/generators").rglob("*.h")),
+                    ))},
+                )
+                return run_cached_stages((entry,), paths, item, destination,
+                    lambda path: cache.validate_mc(path, channel),
+                    production=production, force=force_mc, runner=runner)
+
+            with ThreadPoolExecutor(max_workers=min(cpus, len(group))) as pool:
+                outcomes.extend(pool.map(generate, group))
+            if production:
+                _write_campaign_artifacts(paths, outcomes)
+            continue
         elif profile in PROFILE_PATTERNS and len(parts) >= 2 and parts[1] == "beam_spectrum":
             group = tuple(stage_list[index:index + 3])
             if [entry.name for entry in group] != [f"{profile}:beam_spectrum", f"{profile}:features", f"{profile}:train"]:
@@ -1002,6 +1019,10 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="empty or absent campaign output root",
     )
+    parser.add_argument("--cpus", type=int, default=available_cpus(), help="total CPU budget for each active stage")
+    parser.add_argument("--seed", type=int, default=42, help="reproducible MC and feature master seed")
+    parser.add_argument("--preanalysis-dir", type=Path, help="explicit fresh h80 input directory")
+    parser.add_argument("--require-current-preanalysis", action="store_true", help="reject h80 without tagger-discard marker and raw identities")
     parser.add_argument("--force-selected", action="store_true", help="rebuild production selection")
     parser.add_argument("--force-mc", action="store_true", help="regenerate production MC")
     parser.add_argument("--force-bdt", action="store_true", help="retrain production BDT")
@@ -1019,6 +1040,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
     config = mode_config(args.mode, repo_root)
+    if getattr(args, "preanalysis_dir", None) is not None:
+        config = replace(config, preanalysis_dir=args.preanalysis_dir.expanduser().resolve())
+    cpus = validate_workers(getattr(args, "cpus", 1))
     paths = build_paths(config, args.output_dir)
     flux_mode = getattr(args, "flux_study", "off")
     flux_metadata = getattr(args, "flux_study_metadata", None)
@@ -1035,11 +1059,16 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
     else:
         validate_production_output(paths)
     with pipeline_lock(config.repo_root):
+        if getattr(args, "require_current_preanalysis", False):
+            for pattern in PROFILE_PATTERNS.values():
+                cache.validate_current_preanalysis(sorted(paths.preanalysis_dir.glob(pattern)))
         checked = preflight(config, paths)
         stages = build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins,
                                      flux_study=flux_mode, flux_study_metadata=flux_metadata,
                                      best_binning=getattr(args, "best_binning", False),
                                      energy_binnings=load_energy_config(getattr(args, "energy_config", None)))
+        stages = configure_resources(stages, cpus=cpus, seed=getattr(args, "seed", 42))
+        print(f"CPU budget: {cpus}; MC/feature master seed: {getattr(args, 'seed', 42)}")
         print_run_summary(config, paths, args, stages)
         print_preflight_warnings(checked)
         if not confirm_run():
@@ -1053,6 +1082,7 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
             force_selected=args.force_selected,
             force_mc=args.force_mc,
             force_bdt=args.force_bdt,
+            cpus=cpus, runner=bounded_runner,
         )
     print(f"\nPipeline complete: {paths.output_root}")
     return 0

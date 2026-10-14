@@ -25,6 +25,8 @@ class Stage1DatasetMetadata:
     beam_profile: str | None = None
     energy_min_gev: float | None = None
     energy_max_gev: float | None = None
+    loss_seed: int | None = None
+    loss_seed_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,13 @@ def _validate_dataset(dataset: Stage1Dataset) -> None:
     if not np.array_equal(labels, np.array([0, 1])):
         raise ValueError("dataset must contain both signal and background labels")
     _validate_profile_metadata(metadata)
+    if metadata.loss_seed is not None or metadata.loss_seed_policy is not None:
+        if metadata.loss_seed is None or metadata.loss_seed_policy is None:
+            raise ValueError("loss seed and seed policy must be complete or entirely absent")
+        if type(metadata.loss_seed) is not int or not 0 <= metadata.loss_seed < 2**64:
+            raise ValueError("loss_seed must be an integer in [0, 2**64)")
+        if metadata.loss_seed_policy not in ("legacy", "channel-v1"):
+            raise ValueError("unsupported loss seed policy")
     if dataset.rows is not None:
         rows = dataset.rows
         for key in ("origin_id", "channel", "profile", "detector_variant"):
@@ -203,6 +212,10 @@ def load_stage1_dataset(path: str | Path) -> Stage1Dataset:
                 if "energy_max_gev" in stored
                 else None
             ),
+            loss_seed=_scalar(stored, "loss_seed") if "loss_seed" in stored else None,
+            loss_seed_policy=(
+                _scalar(stored, "loss_seed_policy") if "loss_seed_policy" in stored else None
+            ),
         )
         dataset = Stage1Dataset(
             X=np.array(stored["X"], copy=True),
@@ -251,6 +264,11 @@ def save_stage1_dataset(path: str | Path, dataset: Stage1Dataset) -> None:
             beam_profile=np.array(metadata.beam_profile),
             energy_min_gev=np.array(metadata.energy_min_gev),
             energy_max_gev=np.array(metadata.energy_max_gev),
+        )
+    if metadata.loss_seed is not None:
+        values.update(
+            loss_seed=np.array(metadata.loss_seed, dtype=np.uint64),
+            loss_seed_policy=np.array(metadata.loss_seed_policy),
         )
     if dataset.rows is not None:
         values["dataset_schema_version"] = np.array(2)

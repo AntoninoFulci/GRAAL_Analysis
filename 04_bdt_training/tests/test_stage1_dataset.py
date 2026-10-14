@@ -294,3 +294,20 @@ def test_grid_search_fails_when_every_candidate_fails_without_replacing_previous
         grid_search.run_search(str(features), str(output), n_iter=1)
 
     assert previous.read_text() == '{"max_depth": 3}\n'
+
+
+@pytest.mark.parametrize("policy", ["legacy", "channel-v1"])
+def test_dataset_preserves_explicit_loss_seed_policy(tmp_path, policy):
+    dataset = _dataset()
+    dataset = replace(dataset, metadata=replace(dataset.metadata, loss_seed=42, loss_seed_policy=policy))
+    path = tmp_path / "seeded.npz"
+    stage1_dataset.save_stage1_dataset(path, dataset)
+    assert stage1_dataset.load_stage1_dataset(path).metadata == dataset.metadata
+
+
+@pytest.mark.parametrize("seed,policy", [(None, "channel-v1"), (42, None), (-1, "legacy"), (42, "unknown")])
+def test_dataset_rejects_incomplete_or_invalid_loss_seed_policy(tmp_path, seed, policy):
+    dataset = _dataset()
+    dataset = replace(dataset, metadata=replace(dataset.metadata, loss_seed=seed, loss_seed_policy=policy))
+    with pytest.raises(ValueError, match="loss.seed|seed.policy"):
+        stage1_dataset.save_stage1_dataset(tmp_path / "invalid.npz", dataset)

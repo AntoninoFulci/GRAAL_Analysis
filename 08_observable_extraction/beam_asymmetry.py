@@ -18,6 +18,7 @@ from reconstruction.runtime.provenance import file_identities
 
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 from graal_common.io.filesystem import atomic_output_directory
+from graal_common.parallel import validate_workers
 from graal_common.physics.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
 
 from observable_extraction.calibration.flux_v2 import load_exposures
@@ -173,6 +174,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--best-binning", action="store_true",
                         help="fit 8/12/16 phi bins together and select each ratio point by fit quality; overrides --phi-bins")
     parser.add_argument("--mass-bins", type=int, default=10)
+    parser.add_argument("--workers", type=lambda value: validate_workers(int(value)), default=1,
+                        help="processes for independent fits or bootstrap replicas; default: 1")
     parser.add_argument("--bootstrap-replicas", type=int, default=0)
     parser.add_argument("--bootstrap-seed", type=int, default=1208)
     parser.add_argument("--bootstrap-diagnostics-replicas", type=int, default=0,
@@ -416,6 +419,7 @@ def _background_asymmetries(
     energy_edges: np.ndarray,
     phi_edges: np.ndarray = PHI_EDGES_RAD,
     selected_phi_bins: dict | None = None,
+    workers: int = 1,
 ) -> dict[tuple[str, str, int, int], OutputPoint]:
     regions = _sideband_regions(broad_events)
     hard_events = broad_events.take(regions == Region.HARD_SIDEBAND)
@@ -429,6 +433,7 @@ def _background_asymmetries(
         retain_ratio_objects=False,
         energy_edges=energy_edges,
         phi_edges=phi_edges,
+        workers=workers,
         **({"selected_phi_bins": selected_phi_bins} if selected_phi_bins is not None else {}),
     )
     return {
@@ -453,6 +458,7 @@ def _extract_sample(
     phi_edges: np.ndarray = PHI_EDGES_RAD,
     best_binning: bool = False,
     selected_phi_bins: dict | None = None,
+    workers: int = 1,
 ) -> ExtractionBundle:
     """Project once, then fit all requested binnings on the same selected events.
 
@@ -460,6 +466,7 @@ def _extract_sample(
     controls. Missing fixed-bin fits remain missing; never substitute another
     binning silently. Bootstrap replicas instead repeat the best-bin selection.
     """
+    validate_workers(workers)
     projections = project_all_pairs(events.proton, events.eta, events.pi0)
     output_points, ratio_objects, candidates, candidate_objects = [], [], [], []
     if selected_phi_bins is not None:
@@ -478,6 +485,7 @@ def _extract_sample(
                 beam_energy_gev=events.beam_energy_gev,
                 polarization=events.polarization, exposures=exposures,
                 energy_edges=energy_edges, phi_edges=edges,
+                workers=workers,
             )
             for item in results:
                 key = (pair, item.point.energy_bin, item.point.mass_bin)
@@ -506,6 +514,7 @@ def _extract_sample(
                 beam_energy_gev=events.beam_energy_gev,
                 polarization=events.polarization, run_number=events.run_number,
                 xstrip=events.xstrip, exposures=exposures, energy_edges=energy_edges,
+                workers=workers,
             )
             output_points.extend(
                 _likelihood_output_point(
@@ -634,6 +643,7 @@ def _bootstrap_covariance_for_points(
     energy_edges: np.ndarray,
     phi_edges: np.ndarray = PHI_EDGES_RAD,
     best_binning: bool = False,
+    workers: int = 1,
 ) -> np.ndarray | None:
     if replicas == 0:
         return None
@@ -688,6 +698,7 @@ def _bootstrap_covariance_for_points(
         exposures,
         replicas=replicas,
         seed=seed,
+        workers=workers,
     )
     embedded = np.zeros((len(points), len(points)), dtype=np.float64)
     embedded[np.ix_(selected_indices, selected_indices)] = result.covariance
@@ -699,6 +710,7 @@ def _paired_bootstrap_diagnostics(
     *, points, samples, exposures, run_strata, point_keys, nominal_sample,
     estimator, replicas, seed, energy_edges, phi_edges,
     broad_events=None, signal_mc=None, best_binning=False,
+    workers=1,
 ):
     ensemble_samples = dict(samples)
     if broad_events is not None:
@@ -741,7 +753,7 @@ def _paired_bootstrap_diagnostics(
 
     return paired_bootstrap_by_run(
         estimate, ensemble_samples, exposures, run_strata=run_strata,
-        point_keys=point_keys, replicas=replicas, seed=seed)
+        point_keys=point_keys, replicas=replicas, seed=seed, workers=workers)
 
 
 def _validate_diagnostic_universe(samples, run_strata):
@@ -761,6 +773,7 @@ def _photon_multiplicity_component(
     background_by_bin: dict,
     energy_edges: np.ndarray,
     phi_edges: np.ndarray = PHI_EDGES_RAD,
+    workers: int = 1,
 ) -> tuple[np.ndarray | None, int, int]:
     selected_indices = [
         index for index, item in enumerate(points) if item.sample == sample_name
@@ -784,6 +797,7 @@ def _photon_multiplicity_component(
             retain_ratio_objects=False,
             energy_edges=energy_edges,
             phi_edges=phi_edges,
+            workers=workers,
             **({"selected_phi_bins": _selected_phi_bins(points, sample_name)}
                if _selected_phi_bins(points, sample_name) else {}),
         )
@@ -821,6 +835,7 @@ def _photon_multiplicity_component(
 
 def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", metadata=None,
                 campaign=None) -> RootOutputPayload:
+    workers = validate_workers(getattr(args, "workers", 1))
     if args.bootstrap_diagnostics_replicas:
         if args.bootstrap_diagnostics_replicas < 2:
             raise ValueError("diagnostic bootstrap requires at least two replicas")
@@ -834,7 +849,9 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     best_binning = getattr(args, "best_binning", False)
     if best_binning and args.estimator == "likelihood":
         raise ValueError("--best-binning requires ratio or both; likelihood is unbinned")
-    binning_options = {"best_binning": True} if best_binning else {}
+    binning_options = {"workers": workers}
+    if best_binning:
+        binning_options["best_binning"] = True
     phi_edges = phi_edges_rad(12 if best_binning else args.phi_bins)
     phi_provenance = ("phi_bins=best-binning\nphi_bin_divisor=per_point\n"
                       "phi_bin_selection=acceptable_nominal_closest_reduced_chi2_to_one\n"
@@ -917,6 +934,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             args.estimator,
             energy_edges,
             phi_edges,
+            workers=workers,
             **({"selected_phi_bins": _selected_phi_bins(nominal.points, args.nominal_sample)}
                if best_binning else {}),
         )
@@ -1013,6 +1031,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             background_by_bin=background_by_bin,
             energy_edges=energy_edges,
             phi_edges=phi_edges,
+            workers=workers,
         )
     )
     extra_shifts = (
@@ -1267,6 +1286,7 @@ def _validate_energy_inputs(args):
 
 
 def run(args: argparse.Namespace) -> int:
+    validate_workers(getattr(args, "workers", 1))
     _validate_energy_inputs(args)
     if args.by_period:
         _run_periods(args)
@@ -1325,6 +1345,7 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
                                  estimator=args.estimator, retain_ratio_objects=False,
                                  energy_edges=np.asarray(grid.edges_gev),
                                  phi_edges=phi_edges_rad(args.phi_bins),
+                                 workers=getattr(args, "workers", 1),
                                  **({"best_binning": True} if getattr(args, "best_binning", False) else {}))
         reconstructed.update({_point_key(item): item.point.sigma for item in result.points
                               if item.point.diagnostics.converged})

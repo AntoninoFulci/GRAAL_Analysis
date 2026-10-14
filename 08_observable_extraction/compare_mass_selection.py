@@ -15,6 +15,7 @@ import ROOT
 
 from calibration.run_manifest import validate_manifest
 from graal_common.io.filesystem import atomic_output_directory
+from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.beam_asymmetry import SAMPLES
 from observable_extraction.calibration.flux_v2 import load_exposures
@@ -45,19 +46,20 @@ def selection_record(polygon):
                 mass_source="raw eta_mass/pi0_mass branches; certified no-fit reconstruction")
 
 
-def compare_mass_samples(before, exposures, periods, edges, polygon, *, replicas, seed):
+def compare_mass_samples(before, exposures, periods, edges, polygon, *, replicas, seed, workers=1):
     """Apply one mask, retain every exposure, and reuse common run draws."""
+    validate_workers(workers)
     if replicas < 2:
         raise ValueError("at least two paired diagnostic replicas required")
     edges = np.asarray(edges, dtype=float)
     mask = mass_mask(before, polygon)
     samples = dict(before=before, after=before.take(mask))
-    fitted = _extract(samples, exposures, edges)
+    fitted = _extract(samples, exposures, edges, workers=workers)
     rows = align_points(fitted["before"], fitted["after"], edges, sample_names=NAMES)
     keys = [row["key"] for row in rows if row["status"] == "both_estimable"]
     strata = {exp.run_number: periods[exp.run_number] for exp in exposures.values()}
     diagnostic, values, replica_keys, draws = bootstrap_comparison(
-        samples, exposures, strata, keys, edges, replicas, seed, sample_names=NAMES)
+        samples, exposures, strata, keys, edges, replicas, seed, sample_names=NAMES, workers=workers)
     errors = {}
     if diagnostic["difference_covariance"] is not None:
         errors = dict(zip(diagnostic["available_keys"],
@@ -151,6 +153,7 @@ def _mc_retention(path, tree, polygon, energy_range):
 
 
 def run(args):
+    workers = validate_workers(getattr(args, "workers", 1))
     if args.output_dir.exists():
         raise FileExistsError(f"preserve existing study; choose a new output directory: {args.output_dir}")
     paths = [args.input] + ([args.mass_polygon] if args.mass_polygon else [])
@@ -187,7 +190,8 @@ def run(args):
                                   audit=flux_audit, allow_empty=True)
         before = select_sigma_events(events, exposures, energy_range=profile.energy_range_gev, drop_missing=True)
         report, comparison_arrays = compare_mass_samples(
-            before, exposures, periods, profile.energy_edges_gev, polygon, replicas=args.replicas, seed=args.seed)
+            before, exposures, periods, profile.energy_edges_gev, polygon,
+            replicas=args.replicas, seed=args.seed, workers=workers)
         arrays.update(comparison_arrays)
         report.update(flux_audit=flux_audit, reconstruction_cutflow=cutflow,
                       preselection_audit=selection_audit(events, exposures, profile.energy_range_gev),
@@ -220,6 +224,8 @@ def build_parser():
         command.add_argument("--sample", choices=("raw", "raw_bdt"), default="raw_bdt")
         command.add_argument("--profile", choices=("uv", "vis"), required=True)
         command.add_argument("--output-dir", type=Path, required=True)
+        command.add_argument("--workers", type=lambda value: validate_workers(int(value)), default=1,
+                             help="processes for independent fits or bootstrap replicas; default: 1")
         command.add_argument("--mass-polygon", type=Path,
                              help="explicit frozen JSON polygon; omitted = extra cut disabled")
         if name == "compare":

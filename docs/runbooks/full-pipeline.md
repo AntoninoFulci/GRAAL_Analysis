@@ -1,5 +1,11 @@
 # Full UV/VIS pipeline
 
+For h70 conversion, parallel execution and server acceptance tests, see
+[server parallel validation](server-parallel-validation.md). The launcher accepts
+`--cpus N`, `--seed S`, `--preanalysis-dir DIR` and
+`--require-current-preanalysis`; standalone h70 conversion uses
+`python -m scripts.run_preanalysis`.
+
 ## Inputs and setup
 
 Place production `pre_analisi_*.root` files with usable `h80` trees directly in

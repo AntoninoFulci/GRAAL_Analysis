@@ -12,7 +12,7 @@ description = "GRAAL gamma p -> p eta pi0 analysis pipeline"
 # The code requires Python >=3.10; select an interpreter compatible with the
 # installed PyROOT build. New farm installations need not keep Python 3.10.12.
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["joblib>=1.3"]
 
 # The pipeline dirs are numbered so their order is visible on disk, but a
 # Python package name cannot start with a digit. This maps one onto the other.

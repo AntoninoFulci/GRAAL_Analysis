@@ -57,7 +57,8 @@ def _write_asymmetry(path: Path, profile: str, *, fit: bool = True) -> None:
     ))
 
 
-def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path, workers):
     campaign = tmp_path / "results/completed"
     original = {}
     for profile in ("uv", "vis"):
@@ -74,7 +75,7 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path):
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, with_kinematic_fit=True)
+        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, with_kinematic_fit=True, workers=workers)
     assert not any("Deleting canvas with same name" in str(item.message) for item in caught)
 
     assert all(path.read_bytes() == contents for path, contents in original.items())

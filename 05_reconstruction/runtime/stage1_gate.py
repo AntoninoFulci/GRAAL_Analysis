@@ -82,8 +82,12 @@ class Stage1Gate:
 
         import xgboost as xgb
 
-        model = xgb.XGBClassifier()
+        model = xgb.XGBClassifier(n_jobs=1)
         model.load_model(str(artifacts.model))
+        # Saved models may carry their training thread count. Inference runs
+        # inside reconstruction workers, so each model must remain single-threaded.
+        model.set_params(n_jobs=1)
+        model.get_booster().set_param({"nthread": 1})
         threshold = float(artifacts.threshold.read_text().strip())
 
         provenance = Stage1Provenance.from_json(artifacts.provenance.read_text())

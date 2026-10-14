@@ -4,10 +4,47 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter, defaultdict
 from pathlib import Path
 
 
 KEY = "reconstruction_provenance"
+
+
+def input_run_states(source):
+    """Read the optional acquisition run universe, including zero-yield states."""
+    record = source.Get("preanalysis_provenance")
+    if not record:
+        return []
+    try:
+        metadata = json.loads(record.GetTitle())
+        if not isinstance(metadata, dict):
+            raise ValueError("expected an object")
+        states = metadata.get("input_run_states", [])
+        if not isinstance(states, list):
+            raise ValueError("input_run_states must be a list")
+        keys = ("run", "polarization", "input", "skipped_no_tagger")
+        for state in states:
+            if not isinstance(state, dict) or any(
+                    isinstance(state.get(key), bool) or not isinstance(state.get(key), int)
+                    for key in keys):
+                raise ValueError("run-state fields must be integers")
+            if not 0 <= state["skipped_no_tagger"] <= state["input"]:
+                raise ValueError("invalid acquisition counters")
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ValueError("invalid preanalysis provenance input_run_states") from error
+    return states
+
+
+def acquisition_counts(states):
+    """Seed selected cutflow with acquisition counters once per source file."""
+    counts = defaultdict(Counter)
+    for state in states:
+        counts[(state["run"], state["polarization"])].update({
+            "input": 0, "raw_input": state["input"],
+            "skipped_no_tagger": state["skipped_no_tagger"],
+        })
+    return counts
 
 
 def stage1_domain(gate):

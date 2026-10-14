@@ -212,7 +212,9 @@ def test_feature_builder_writes_exact_npz_schema(tmp_path, monkeypatch):
     feature_builder.main()
 
     with np.load(output) as data:
-        assert set(data.files) == DATASET_KEYS
+        assert set(data.files) == DATASET_KEYS | {'loss_seed', 'loss_seed_policy'}
+        assert int(data['loss_seed']) == 42
+        assert str(data['loss_seed_policy']) == 'legacy'
         np.testing.assert_array_equal(
             data["X"],
             np.concatenate(

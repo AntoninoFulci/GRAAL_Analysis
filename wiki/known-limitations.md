@@ -7,19 +7,21 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 ## Execution Model
 
 - `scripts/run_pipeline.py` provides one sequential pre-analysis-to-plots
-  runner. There is no scheduler, DAG executor, stage restart, or automatic
+  runner with bounded MC-channel concurrency and parallel compute stages. There is no scheduler, DAG executor, stage restart, or automatic
   resume. Production output roots must be absent or empty; disposable
   `results/test_<campaign>/` roots are replaced. Selected, MC, and BDT
   production artifacts have launcher-owned ten-day cache manifests.
 - Stage ordering is communicated by directories and file contracts, not
   enforced globally. A consumer validates its local inputs but cannot prove
   every upstream command used the intended source revision.
-- Resource management is per command. ROOT thread counts, training threads,
-  seeds, and farm scheduling are not coordinated centrally. Launcher v1 fixes
-  bootstrap replicas at zero and does not perform sideband correction.
+- Launcher `--cpus` coordinates ROOT/XGBoost threads and process workers;
+  stages remain ordered. `--seed` fixes MC/feature random streams. Farm job
+  scheduling remains external. Launcher bootstrap stays at zero and does not
+  perform sideband correction. Flux predictive replicas remain serial.
 - Cached artifacts and campaign plot directories stage before publication.
-  Reconstruction and direct standalone plotting commands write directly;
-  interruption can leave incomplete campaign outputs.
+  Parallel reconstruction also publishes atomically; serial reconstruction
+  and direct standalone plotting commands write directly. Interruption can
+  leave incomplete campaign outputs.
 - GitHub Wiki publication is not automatic. The repository provides a sync
   script, but a human must run it deliberately with a configured remote.
 
@@ -40,8 +42,9 @@ plots, or reusing an artifact outside the supported eta-pi0 analysis.
 
 - Raw detector data, pre-analysis data, most MC ROOT files, and production flux
   inputs are not downloaded by the repository.
-- Raw farm path is site-specific and supplied to setup. Operators copy h80
-  pre-analysis files into flat `data/02_pre_analyzed/` manually.
+- Raw farm path is site-specific and supplied to setup. The parallel h70
+  driver creates fresh flat h80 directories; select one with launcher
+  `--preanalysis-dir` and validate it with `--require-current-preanalysis`.
 - Large ROOT, NPZ, selected-data, calibration, reconstruction, observable, and
   plot outputs are ignored by Git. Git history is not an artifact archive.
 - There is no built-in remote data acquisition, checksum catalog, object-store

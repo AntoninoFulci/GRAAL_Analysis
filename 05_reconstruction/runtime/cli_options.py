@@ -9,6 +9,13 @@ from reconstruction.runtime.reco_core import AUTO_TREE, RecoConfig
 from reconstruction.core.reco_physics import PARTNER_MASSES, partner_mass
 
 
+def _positive_workers(value: str) -> int:
+    workers = int(value)
+    if workers <= 0:
+        raise argparse.ArgumentTypeError("workers must be a positive integer")
+    return workers
+
+
 def add_common_reconstruction_arguments(
     parser: argparse.ArgumentParser,
     *,
@@ -35,6 +42,8 @@ def add_common_reconstruction_arguments(
         "known preselection tree is there (h85, or the older h80)",
     )
     parser.add_argument("--chi2-cut", type=float, default=10.0)
+    parser.add_argument("--workers", type=_positive_workers, default=1,
+                        help="independent reconstruction processes (default 1)")
     parser.add_argument(
         "--partner",
         choices=sorted(PARTNER_MASSES),
@@ -83,6 +92,7 @@ def reco_config_from_args(
         "chi2_cut": args.chi2_cut,
         "partner_mass": partner_mass(args.partner),
         "missing_mass_window": args.missing_mass_window,
+        "workers": args.workers,
     }
     if fit_options_exposed:
         values["do_fit"] = not args.no_fit

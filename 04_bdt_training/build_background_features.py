@@ -55,12 +55,20 @@ Usage:
         --signal-channel eta_pi0 \\
         --beam-spectrum 04_bdt_training/data/beam_spectrum.npz \\
         --output features_stage1.npz
+
+Parallel preparation requires an explicit independent seed policy:
+    --workers 2 --seed-policy channel-v1 --loss-seed 42
+The same channel-v1 seed produces identical arrays with one or many workers.
+The default legacy policy retains the original serial loss/shuffle RNG stream;
+switching policies changes the stochastic detector realization, not its model.
+Each worker holds one full channel in memory, so size the worker count to RAM.
 """
 
 from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -78,6 +86,7 @@ from graal_common.physics.channels import (
 )
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args
+from graal_common.parallel import ordered_map, validate_workers
 from graal_common.stage1.features import (
     FEATURE_NAMES_S1,
     N_FEATURES_S1,
@@ -101,6 +110,47 @@ from bdt_training.dataset.stage1_dataset import (
     Stage1Rows,
     save_stage1_dataset,
 )
+
+
+def build_channel_samples(
+    channels, mc_dir, hypothesis, params, beam_target, *,
+    loss_seed: int = 42, workers: int = 1, seed_policy: str = "legacy",
+) -> dict[str, ChannelSample]:
+    """Prepare channels in input order, with process-local file handles and RNGs.
+
+    Legacy mode keeps one sequential RNG stream exactly as before. Channel-v1
+    seeds PCG64 through SeedSequence(base seed, SHA-256 channel-name words), so
+    worker count, scheduling, channel order and channel subsets cannot alter a
+    channel's photon loss or shuffle. All channels retain the same physics path.
+    """
+    validate_workers(workers)
+    if seed_policy not in ("legacy", "channel-v1"):
+        raise ValueError(f"unknown seed policy: {seed_policy!r}")
+    if workers > 1 and seed_policy == "legacy":
+        raise ValueError("parallel feature preparation requires --seed-policy channel-v1")
+    if type(loss_seed) is not int or not 0 <= loss_seed < 2**64:
+        raise ValueError("loss_seed must be an integer in [0, 2**64)")
+    mc_dir = Path(mc_dir)
+    channels = list(channels)
+    for channel in channels:
+        path = mc_dir / channel.mc_filename
+        if not path.is_file():
+            raise FileNotFoundError(f"missing MC file for {channel.name!r}: {path}")
+    legacy_rng = np.random.default_rng(loss_seed)
+
+    def prepare(channel):
+        rng = legacy_rng
+        if seed_policy == "channel-v1":
+            digest = hashlib.sha256(channel.name.encode("utf-8")).digest()
+            channel_words = np.frombuffer(digest, dtype="<u4").tolist()
+            rng = np.random.default_rng(np.random.SeedSequence([loss_seed, *channel_words]))
+        with uproot.open(mc_dir / channel.mc_filename) as source:
+            return build_channel_features(
+                source["mc"], channel, hypothesis, rng, params, beam_target,
+            )
+
+    samples = ordered_map(prepare, channels, workers=workers)
+    return {channel.name: sample for channel, sample in zip(channels, samples)}
 
 
 def main() -> None:
@@ -131,6 +181,10 @@ def main() -> None:
     parser.add_argument("--output", default="features_stage1.npz")
     parser.add_argument("--loss-seed", type=int, default=42,
                         help="RNG seed for photon-loss sampling")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Independent channel processes; each holds one full MC channel in memory")
+    parser.add_argument("--seed-policy", choices=("legacy", "channel-v1"), default="legacy",
+                        help="legacy preserves the serial stream; channel-v1 is independent of worker count and channel order")
     parser.add_argument("--record-origins", action="store_true",
                         help="persist parent MC SHA-256/entry for grouped comparisons (requires --profile)")
     args = parser.parse_args()
@@ -177,24 +231,18 @@ def main() -> None:
     print(f"hypothesis : {hypothesis.name}")
     print(f"signal prior: {args.signal_prior:.3f} of the total training weight")
 
-    rng = np.random.default_rng(args.loss_seed)
     params = LossParams()
 
     channels = [signal] + backgrounds
 
-    samples: dict[str, ChannelSample] = {}
+    samples = build_channel_samples(
+        channels, mc_dir, hypothesis, params, beam_target,
+        loss_seed=args.loss_seed, workers=args.workers, seed_policy=args.seed_policy,
+    )
     yields: list[ChannelYield] = []
 
     for channel in channels:
-        path = mc_dir / channel.mc_filename
-        if not path.exists():
-            raise FileNotFoundError(f"missing MC file for {channel.name!r}: {path}")
-
-        with uproot.open(path) as f:
-            sample = build_channel_features(
-                f["mc"], channel, hypothesis, rng, params, beam_target
-            )
-        samples[channel.name] = sample
+        sample = samples[channel.name]
         if channel is signal and profile is not None:
             validate_signal_support(sample.beam_E, sample.w_beam, beam_target)
 
@@ -232,7 +280,6 @@ def main() -> None:
         all_y.append(np.full(len(sample.X), 1 if is_signal else 0, dtype=np.int8))
         all_w.append(w.astype(np.float32))
         if args.record_origins:
-            import hashlib
             with (mc_dir / channel.mc_filename).open("rb") as stream:
                 hasher = hashlib.sha256()
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -287,7 +334,9 @@ def main() -> None:
             rows=(Stage1Rows(
                 origin_id=np.asarray(origins), channel=np.asarray(row_channels),
                 profile=np.full(len(y_out), profile.name),
-                detector_variant=np.full(len(y_out), f"LossParams={params!r};seed={args.loss_seed}"),
+                detector_variant=np.full(
+                    len(y_out), f"LossParams={params!r};seed={args.loss_seed};seed_policy={args.seed_policy}"
+                ),
             ) if args.record_origins else None),
             metadata=Stage1DatasetMetadata(
                 feature_names=tuple(feature_names(hypothesis)),
@@ -302,6 +351,8 @@ def main() -> None:
                 energy_max_gev=(
                     grid.energy_range_gev[1] if profile is not None else None
                 ),
+                loss_seed=args.loss_seed,
+                loss_seed_policy=args.seed_policy,
             ),
         ),
     )

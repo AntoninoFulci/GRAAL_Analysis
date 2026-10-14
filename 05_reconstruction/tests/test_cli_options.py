@@ -111,6 +111,29 @@ def test_common_options_keep_fit_flags_out_of_non_fit_cli():
     assert cfg.fit_cl == 0.01
 
 
+@pytest.mark.parametrize("value", ["0", "-1", "1.5"])
+def test_reconstruction_workers_must_be_positive_integer(value):
+    with _import_with_root_stub("reconstruction.runtime.cli_options") as (cli_options,):
+        parser = argparse.ArgumentParser()
+        cli_options.add_common_reconstruction_arguments(parser,
+            default_output_file=Path("result.root"), partner_help="partner",
+            fit_options_exposed=False)
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--workers", value])
+
+
+def test_reconstruction_workers_default_and_explicit_configuration():
+    with _import_with_root_stub("reconstruction.runtime.cli_options") as (cli_options,):
+        parser = argparse.ArgumentParser()
+        cli_options.add_common_reconstruction_arguments(parser,
+            default_output_file=Path("result.root"), partner_help="partner",
+            fit_options_exposed=False)
+        assert parser.parse_args([]).workers == 1
+        cfg = cli_options.reco_config_from_args(parser.parse_args(["--workers", "40"]),
+            output_tree="reco", fit_options_exposed=False)
+        assert cfg.workers == 40
+
+
 def test_bdt_hypothesis_mismatch_stops_before_reconstruction(monkeypatch):
     with _import_with_root_stub(
         "reconstruction.reconstruct_eta_pi0_bdt"

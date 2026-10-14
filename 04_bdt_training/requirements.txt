@@ -6,3 +6,4 @@ numpy>=2.0
 matplotlib>=3.10
 tqdm>=4.0
 pytest>=8.0
+joblib>=1.3

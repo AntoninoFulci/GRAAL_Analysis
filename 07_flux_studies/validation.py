@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import numpy as np
+from graal_common.parallel import ordered_map, validate_workers
 from flux_studies.metadata import GROUP_FIELDS, STATES, eligible, compatible, acquisition_midpoint, temporal_run_blocks
 from flux_studies.methods import normalize_shape, project_shape, baseline_prediction, fit_ridge
 
@@ -153,40 +154,54 @@ def _training_residuals(audit, runs, group, pattern, state, mode, domain):
     return dict(residuals)
 
 
-def evaluate_holdouts(audit, *, mode, n_splits, mask_patterns, seed, calibrate_uncertainty=True):
+def evaluate_holdouts(audit, *, mode, n_splits, mask_patterns, seed, calibrate_uncertainty=True,
+                      workers=1):
+    validate_workers(workers)
     folds = blocked_folds(audit['metadata'], mode=mode, n_splits=n_splits)
+
+    def evaluate_group(task):
+        fold, pattern, state = task
+        predictions, contexts, excluded = [], {}, []
+        alpha = _choose_alpha(audit, fold['train_runs'], fold['group'], pattern, state, mode)
+        for domain in ('shape', 'absolute'):
+            context_id = (fold['fold_id'], tuple(pattern), state, domain)
+            residuals = (_training_residuals(audit, fold['train_runs'], fold['group'], pattern, state, mode, domain)
+                         if calibrate_uncertainty else {})
+            contexts[context_id] = dict(runs=fold['train_runs'], pattern=pattern,
+                                       mode=mode, domain=domain, alpha=alpha, residuals=residuals)
+            for run in fold['test_runs']:
+                key = (run, state)
+                row = audit['metadata'].get(key)
+                if not _eligible_target(audit, key, fold['group']):
+                    excluded.append(dict(run_number=run, state=state, reason='unusable_truth_or_metadata'))
+                    continue
+                if domain == 'absolute' and row.get('exposure') is None:
+                    continue
+                for method in METHODS:
+                    p = _predict(audit, fold['train_runs'], key, pattern, mode, domain, method, alpha)
+                    # Attach withheld truth after every predictor has returned.
+                    truth = audit['histograms'][key]
+                    truth = normalize_shape(truth) if domain == 'shape' else truth.copy()
+                    single = len(set(p['donor_keys'])) == 1
+                    times = [acquisition_midpoint(audit['metadata'][d]) for d in p['donor_keys']]
+                    midpoint = acquisition_midpoint(row)
+                    p.update(run_number=run, state=state, method=method, domain=domain, truth=truth,
+                             fold_id=fold['fold_id'], mode=mode, mask=tuple(pattern),
+                             target_key=(run, state, mode, fold['fold_id'], tuple(pattern), domain),
+                             training_runs=fold['train_runs'], context_id=context_id,
+                             stratum=('single_donor' if single else 'period_edge' if times and not min(times)<midpoint<max(times) else 'interior'),
+                             multiple_missing=len(pattern)>1)
+                    predictions.append(p)
+        return predictions, contexts, excluded
+
+    tasks = [(fold, pattern, state) for fold in folds for pattern in mask_patterns for state in pattern]
     predictions, contexts, excluded = [], {}, []
-    for fold in folds:
-        for pattern in mask_patterns:
-            for state in pattern:
-                alpha = _choose_alpha(audit, fold['train_runs'], fold['group'], pattern, state, mode)
-                for domain in ('shape', 'absolute'):
-                    context_id = (fold['fold_id'], tuple(pattern), state, domain)
-                    residuals = (_training_residuals(audit, fold['train_runs'], fold['group'], pattern, state, mode, domain)
-                                 if calibrate_uncertainty else {})
-                    contexts[context_id] = dict(audit=audit, runs=fold['train_runs'], pattern=pattern,
-                                               mode=mode, domain=domain, alpha=alpha, residuals=residuals)
-                    for run in fold['test_runs']:
-                        key = (run, state)
-                        row = audit['metadata'].get(key)
-                        if not _eligible_target(audit, key, fold['group']):
-                            excluded.append(dict(run_number=run, state=state, reason='unusable_truth_or_metadata'))
-                            continue
-                        if domain == 'absolute' and row.get('exposure') is None:
-                            continue
-                        for method in METHODS:
-                            p = _predict(audit, fold['train_runs'], key, pattern, mode, domain, method, alpha)
-                            # Attach withheld truth after every predictor has returned.
-                            truth = audit['histograms'][key]
-                            truth = normalize_shape(truth) if domain == 'shape' else truth.copy()
-                            single = len(set(p['donor_keys'])) == 1
-                            times = [acquisition_midpoint(audit['metadata'][d]) for d in p['donor_keys']]
-                            midpoint = acquisition_midpoint(row)
-                            p.update(run_number=run, state=state, method=method, domain=domain, truth=truth,
-                                     fold_id=fold['fold_id'], mode=mode, mask=tuple(pattern),
-                                     target_key=(run, state, mode, fold['fold_id'], tuple(pattern), domain),
-                                     training_runs=fold['train_runs'], context_id=context_id,
-                                     stratum=('single_donor' if single else 'period_edge' if times and not min(times)<midpoint<max(times) else 'interior'),
-                                     multiple_missing=len(pattern)>1)
-                            predictions.append(p)
+    for group_predictions, group_contexts, group_excluded in ordered_map(evaluate_group, tasks, workers=workers):
+        predictions.extend(group_predictions)
+        excluded.extend(group_excluded)
+        # Replica generation keys shared exposure draws by audit identity. Never
+        # retain the process-local copies returned by independent holdout jobs.
+        for context in group_contexts.values():
+            context['audit'] = audit
+        contexts.update(group_contexts)
     return dict(predictions=predictions, folds=folds, excluded=excluded, contexts=contexts, seed=seed)

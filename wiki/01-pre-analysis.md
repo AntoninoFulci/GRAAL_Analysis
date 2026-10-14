@@ -214,3 +214,12 @@ pytest tests/test_wiki.py tests/test_event_selector.py -q
 
 See [detector cuts](01-detector-cuts) for the dispatch rules and
 [data and artifacts](data-and-artifacts) for the complete artifact lineage.
+
+## Parallel server execution
+
+`python -m scripts.run_preanalysis --raw-dir /path/to/raw --output-dir data/new_h80 --cpus 40`
+runs independent raw files in isolated ROOT processes and merges by acquisition
+folder. Destination must be new. Every merged h80 stores the summed tagger
+discard count and acquisition run/state counters in `preanalysis_provenance`.
+Selection preserves these counters, and reconstruction retains zero-yield run
+states. See [server validation](../docs/runbooks/server-parallel-validation.md).

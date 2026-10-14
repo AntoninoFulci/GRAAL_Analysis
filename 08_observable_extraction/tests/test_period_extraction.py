@@ -70,7 +70,8 @@ def test_flux_audit_records_missing_state_and_all_missing_is_representable(tmp_p
 
 
 @pytest.mark.parametrize("best_binning", [False, True])
-def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_path, monkeypatch, best_binning):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_path, monkeypatch, best_binning, workers):
     # This test mocks input ROOT I/O; real energy-domain guards have dedicated tests.
     monkeypatch.setattr(beam_asymmetry, "_validate_energy_inputs", lambda args: None)
     nominal = tmp_path / 'nominal.root'
@@ -104,6 +105,7 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         '--by-period', '--raw-bdt', str(nominal), '--raw', str(tmp_path / 'absent.root'),
         '--flux-file', str(flux), '--run-manifest', str(manifest), '--output-dir', str(output),
         '--estimator', 'ratio',
+        '--workers', str(workers),
         *(['--best-binning'] if best_binning else []),
     ]) == 0
     index = json.loads((output / 'periods/index.json').read_text())

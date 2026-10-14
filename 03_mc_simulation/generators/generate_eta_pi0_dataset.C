@@ -7,6 +7,7 @@
 #include <TMath.h>
 #include "smearing.h"
 #include "beam_window.h"
+#include "generator_runtime.h"
 
 // ================================================================
 // Monte Carlo generator for the gamma p -> p eta pi0 reaction,
@@ -23,7 +24,9 @@
 void generate_eta_pi0_dataset(int Nevents = 1000000,
                               double requested_min_gev = -1.0,
                               double requested_max_gev = 1.75,
-                              const char *output_path = "eta_pi0_mc.root") {
+                              const char *output_path = "eta_pi0_mc.root",
+                              unsigned int seed = 0) {
+    if (Nevents <= 0) throw std::invalid_argument("Nevents must be positive");
 
     double mp   = 0.938272;
     double meta = 0.547862;
@@ -33,9 +36,13 @@ void generate_eta_pi0_dataset(int Nevents = 1000000,
         threshold, requested_min_gev, requested_max_gev
     );
 
-    TRandom3 rng(0);
+    const unsigned int effective_seed = ResolveGeneratorSeed(seed);
+    TRandom3 rng(effective_seed);
+    GeneratorRandomScope random_scope(&rng);
+    TDirectory::TContext directory_scope;
 
-    TFile *fout = new TFile(output_path, "RECREATE");
+    TFile fout(output_path, "RECREATE");
+    if (fout.IsZombie()) throw std::runtime_error("cannot create generator output");
     TTree *tree = new TTree("mc", "eta pi0 MC events (true + smeared)");
 
     TLorentzVector beam, target;
@@ -134,11 +141,15 @@ void generate_eta_pi0_dataset(int Nevents = 1000000,
         // Proton: 4% momentum, 3 deg theta, 2 deg phi
         proton = SmearProton(proton, rng, 0.04, 3 * TMath::DegToRad(), 2 * TMath::DegToRad());
 
-        tree->Fill();
+        if (tree->Fill() < 0) throw std::runtime_error("failed to write generator event");
     }
 
-    tree->Write("", TObject::kOverwrite);  // reuse the key, avoid extra ;N cycles
-    fout->Close();
+    // Reuse the key, avoiding extra ;N cycles.
+    if (tree->Write("", TObject::kOverwrite) <= 0)
+        throw std::runtime_error("failed to write generator tree");
+    WriteGeneratorMetadata(fout, "generate_eta_pi0_dataset", seed, effective_seed,
+                           Nevents, tree->GetEntries(), beam_window.low, beam_window.high);
+    fout.Close();
 
     printf("Generated %d events with smearing\n", Nevents);
 }
