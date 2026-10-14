@@ -167,6 +167,32 @@ After preflight, the launcher prints a table with inputs, paths, MC settings,
 cache policy, force flags, and the ordered stages. A separate warning table
 lists production `h80` files older than ten days. Tables wrap within the
 terminal width; colors appear on compatible terminals unless `NO_COLOR` is set.
+The same color policy applies to stage headers, cache decisions and streamed
+Python/ROOT output: cyan for information, green for completion, yellow for
+warnings, red for errors, and dim text for commands and cache skips. Unlabelled
+stage output remains plain; words such as "error" inside metrics do not mark a
+line as an error. Stdout and stderr stay separate, and Python stages flush their
+output immediately. Native stages retain their own flushing behavior.
+
+`--color auto` (the default) enables colors separately on each compatible
+terminal stream, including an interactive SSH terminal. Redirected streams stay
+plain. Use `--color always` to keep colors through `tee`, or `--color never` to
+disable them. Presence of `NO_COLOR`, even empty, disables colors in every mode.
+The saved `pipeline_commands.log` always stays plain; a `tee` capture with
+`--color always` contains ANSI color codes.
+
+```bash
+# Color on the terminal; plain captured output with the default auto policy.
+python scripts/run_pipeline.py --mode test_data --color auto
+
+# Keep colors through tee; view the captured ANSI colors with less -R.
+python scripts/run_pipeline.py --mode test_data --color always 2>&1 | tee pipeline.log
+less -R pipeline.log
+
+# Disable colors for the entire launch.
+NO_COLOR=1 python scripts/run_pipeline.py --mode test_data
+```
+
 Answer `s` (or `si`, `sì`, `y`, `yes`) to start. Enter, any other answer,
 or EOF cancels before output creation or replacement. Batch launchers must
 provide an explicit answer.

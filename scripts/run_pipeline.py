@@ -30,6 +30,7 @@ from graal_common.physics.beam_profiles import get_beam_profile
 from graal_common.physics.energy_binning import EnergyBinning, load_energy_config
 from graal_common.physics.channels import CHANNEL_NAMES, get_channel
 from scripts import artifact_manifest as cache
+from scripts import pipeline_logging as console
 from scripts.artifact_manifest import validate_preanalysis
 from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import available_cpus, validate_workers
@@ -645,7 +646,7 @@ def _log_stage(path: Path, stage: Stage, exit_code: int, duration: float) -> Non
 
 def _log_decision(path: Path, name: str, action: str, reason: str) -> None:
     line = f"{name}\t{action}\treason={reason}\n"
-    print(line.strip())
+    console.emit(line.strip(), "detail" if action == "SKIP" else "info")
     with path.open("a", encoding="utf-8") as stream:
         stream.write(line)
 
@@ -710,8 +711,8 @@ def execute_plan(
     monotonic: Callable[[], float] = time.monotonic,
 ) -> None:
     for index, stage in enumerate(stages, start=1):
-        print(f"\n[{index}/{len(stages)}] {stage.name}")
-        print(f"$ {shlex.join(stage.argv)}")
+        console.emit(f"\n[{index}/{len(stages)}] {stage.name}", "info")
+        console.emit(f"$ {shlex.join(stage.argv)}", "detail")
         started = monotonic()
         result = runner(
             stage.argv,
@@ -721,7 +722,10 @@ def execute_plan(
         )
         duration = monotonic() - started
         _log_stage(paths.command_log, stage, result.returncode, duration)
-        print(f"[{stage.name}] exit={result.returncode} duration={duration:.1f}s")
+        console.emit(
+            f"[{stage.name}] exit={result.returncode} duration={duration:.1f}s",
+            "success" if result.returncode == 0 else "error",
+        )
         if result.returncode != 0:
             raise PipelineError(
                 f"stage {stage.name} failed with exit {result.returncode}"
@@ -853,11 +857,7 @@ def _replace_test_output(paths: PipelinePaths) -> None:
 
 
 def _use_color() -> bool:
-    return (
-        sys.stdout.isatty()
-        and "NO_COLOR" not in os.environ
-        and os.environ.get("TERM") != "dumb"
-    )
+    return console.use_color()
 
 
 def _print_table(title: str, rows: Sequence[tuple[str, str]], *, warning: bool = False) -> None:
@@ -1021,6 +1021,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--cpus", type=int, default=available_cpus(), help="total CPU budget for each active stage")
     parser.add_argument("--seed", type=int, default=42, help="reproducible MC and feature master seed")
+    parser.add_argument("--color", choices=("auto", "always", "never"), default="auto",
+                        help="terminal colors (default: auto); NO_COLOR disables colors in all modes")
     parser.add_argument("--preanalysis-dir", type=Path, help="explicit fresh h80 input directory")
     parser.add_argument("--require-current-preanalysis", action="store_true", help="reject h80 without tagger-discard marker and raw identities")
     parser.add_argument("--force-selected", action="store_true", help="rebuild production selection")
@@ -1068,11 +1070,11 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
                                      best_binning=getattr(args, "best_binning", False),
                                      energy_binnings=load_energy_config(getattr(args, "energy_config", None)))
         stages = configure_resources(stages, cpus=cpus, seed=getattr(args, "seed", 42))
-        print(f"CPU budget: {cpus}; MC/feature master seed: {getattr(args, 'seed', 42)}")
+        console.emit(f"CPU budget: {cpus}; MC/feature master seed: {getattr(args, 'seed', 42)}", "info")
         print_run_summary(config, paths, args, stages)
         print_preflight_warnings(checked)
         if not confirm_run():
-            print("Pipeline annullata.")
+            console.emit("Pipeline annullata.", "warning")
             return 0
         if config.name == "test_data":
             _replace_test_output(paths)
@@ -1084,19 +1086,21 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
             force_bdt=args.force_bdt,
             cpus=cpus, runner=bounded_runner,
         )
-    print(f"\nPipeline complete: {paths.output_root}")
+    console.emit(f"\nPipeline complete: {paths.output_root}", "success")
     return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    try:
-        return run(build_parser().parse_args(argv))
-    except KeyboardInterrupt:
-        print("ERROR: pipeline interrupted", file=sys.stderr)
-        return 130
-    except PipelineError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+    args = build_parser().parse_args(argv)
+    with console.color_mode(args.color):
+        try:
+            return run(args)
+        except KeyboardInterrupt:
+            console.emit("ERROR: pipeline interrupted", "error", stream=sys.stderr)
+            return 130
+        except PipelineError as exc:
+            console.emit(f"ERROR: {exc}", "error", stream=sys.stderr)
+            return 1
 
 
 if __name__ == "__main__":

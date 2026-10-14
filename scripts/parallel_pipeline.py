@@ -4,9 +4,9 @@ from __future__ import annotations
 from dataclasses import replace
 import hashlib
 import os
-import subprocess
 
 from graal_common.parallel import thread_environment, validate_workers
+from scripts.pipeline_logging import run_streamed
 
 
 def configure_resources(stages, *, cpus: int, seed: int):
@@ -35,4 +35,4 @@ def configure_resources(stages, *, cpus: int, seed: int):
 
 def bounded_runner(argv, **kwargs):
     """Native stages opt into their explicit budget; all other pools default1."""
-    return subprocess.run(argv, env={**os.environ, **thread_environment(1)}, **kwargs)
+    return run_streamed(argv, env={**os.environ, **thread_environment(1)}, **kwargs)
