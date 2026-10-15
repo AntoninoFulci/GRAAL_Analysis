@@ -141,7 +141,7 @@ def test_repeated_merges_release_owned_output_before_reopening(tmp_path, monkeyp
     real_merger = ROOT.TFileMerger
     mergers = []
 
-    class FailedMerge:
+    class CheckedMerger:
         def __init__(self, merger):
             self.merger = merger
 
@@ -149,13 +149,14 @@ def test_repeated_merges_release_owned_output_before_reopening(tmp_path, monkeyp
             return getattr(self.merger, name)
 
         def Merge(self):
-            return False
+            assert not self.merger.HasCompressionChange(), 'ROOT would recompress all tree baskets'
+            return False if fail_merge else self.merger.Merge()
 
     def track_merger(*args):
         assert not ROOT.IsImplicitMTEnabled(), "merge must not inherit a ROOT thread pool"
         merger = real_merger(*args)
         mergers.append(merger)
-        return FailedMerge(merger) if fail_merge else merger
+        return CheckedMerger(merger)
 
     monkeypatch.setattr(ROOT, "TFileMerger", track_merger)
     try:

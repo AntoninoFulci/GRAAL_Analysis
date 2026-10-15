@@ -168,6 +168,10 @@ historical serial stream; compare workers=1 and workers>1 using channel-v1.
   into entry ranges. Outputs merge in deterministic source/range order.
   Parent merges disable inherited ROOT implicit multithreading before writing;
   worker count never exceeds the number of available tasks.
+  Merged files preserve the first input's ROOT compression setting. ROOT treats
+  implicit setting `1` and explicit ZLIB setting `101` as different; using the
+  merger default would unnecessarily rewrite and recompress every tree basket.
+  Regression checks require no compression change for matching input shards.
 - Observable CLI `--workers N` applies to per-bin fits and bootstrap replicas;
   callbacks inside replicas use one worker. Launcher `--extraction-workers`
   defaults to one after the server measurements above. Launcher bootstrap remains disabled.

@@ -58,6 +58,7 @@ def _merge_shards(paths, destination, output_tree, execution, input_run_states):
         ROOT.DisableImplicitMT()
     counts = acquisition_counts(input_run_states)
     metadata = None
+    compression = None
     for path in paths:
         source = ROOT.TFile.Open(str(path), "READ")
         if not source or source.IsZombie():
@@ -66,6 +67,7 @@ def _merge_shards(paths, destination, output_tree, execution, input_run_states):
             current = json.loads(source.Get(KEY).GetTitle())
             if metadata is None:
                 metadata = current
+                compression = source.GetCompressionSettings()
             for record in current["counts_by_run_state"]:
                 counts[(record["run"], record["polarization"])].update(
                     {key: value for key, value in record.items()
@@ -73,7 +75,11 @@ def _merge_shards(paths, destination, output_tree, execution, input_run_states):
         finally:
             source.Close()
     merger = ROOT.TFileMerger(False, False)
-    if not merger.OutputFile(str(destination), "RECREATE"):
+    # Preserve the input setting so ROOT can copy compressed baskets directly.
+    output_args = (str(destination), "RECREATE")
+    if compression is not None:
+        output_args += (compression,)
+    if not merger.OutputFile(*output_args):
         raise OSError(f"cannot create merged reconstruction: {destination}")
     try:
         for path in paths:

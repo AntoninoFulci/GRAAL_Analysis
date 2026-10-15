@@ -72,7 +72,20 @@ def _merge(output, records, provenance):
     # This writer owns a serial merge; inherited basket flushing is unsafe.
     ROOT.DisableImplicitMT()
     merger = ROOT.TFileMerger(False)
-    if not merger.OutputFile(str(output), 'RECREATE'):
+    output_args = (str(output), 'RECREATE')
+    if records:
+        first = ROOT.TFile.Open(records[0]['shard'], 'READ')
+        if not first:
+            raise RuntimeError(f'Cannot open {records[0]["shard"]}')
+        try:
+            if first.IsZombie():
+                raise RuntimeError(f'Cannot open {records[0]["shard"]}')
+            # ROOT treats default settings 1 and explicit ZLIB 101 as different,
+            # causing a full tree rewrite unless the input setting is preserved.
+            output_args += (first.GetCompressionSettings(),)
+        finally:
+            first.Close()
+    if not merger.OutputFile(*output_args):
         raise RuntimeError(f'Cannot create {output}')
     try:
         for record in records:

@@ -9,6 +9,43 @@ import awkward as ak
 from scripts import run_preanalysis
 
 
+def test_merge_preserves_compression_to_avoid_recompressing_every_event(tmp_path, monkeypatch):
+    from array import array
+
+    shard = tmp_path / 'part.root'
+    source = ROOT.TFile(str(shard), 'RECREATE')
+    compression = source.GetCompressionSettings()
+    tree = ROOT.TTree('h80', 'h80')
+    value = array('i', [7])
+    tree.Branch('value', value, 'value/I')
+    tree.Fill()
+    tree.Write()
+    source.Close()
+    native_merger = ROOT.TFileMerger
+
+    class CheckedMerger:
+        def __init__(self, *args):
+            self.native = native_merger(*args)
+
+        def __getattr__(self, name):
+            return getattr(self.native, name)
+
+        def Merge(self):
+            assert not self.native.HasCompressionChange(), 'ROOT would recompress all tree baskets'
+            return self.native.Merge()
+
+    monkeypatch.setattr(ROOT, 'TFileMerger', CheckedMerger)
+    output = tmp_path / 'merged.root'
+    run_preanalysis._merge(output, [{'shard': str(shard), 'written': 1, 'skipped_no_tagger': 2}], {})
+    result = ROOT.TFile.Open(str(output))
+    try:
+        assert result.GetCompressionSettings() == compression
+        assert result.Get('h80').GetEntries() == 1
+        assert result.Get('preanalysis_skipped_no_tagger').GetVal() == 2
+    finally:
+        result.Close()
+
+
 def test_merge_disables_inherited_root_pool(tmp_path, monkeypatch):
     class CheckedMerger:
         def __init__(self, *args):
