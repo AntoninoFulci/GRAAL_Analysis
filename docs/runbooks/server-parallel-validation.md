@@ -134,6 +134,53 @@ budget for other stages. The standalone extraction CLI still supports
 before increasing `--extraction-workers`. These timings do not establish an
 optimum for h70 conversion, reconstruction or other stages.
 
+## Verified trimax smoke run, 2026-10-15
+
+Code revision `b52c920` was tested with Python 3.14.8 and ROOT 6.40.04.
+The fixed input comprised 20 real raw files from each of `1998_uv` and
+`1999_vis`. These are smoke measurements, not full-production estimates.
+Benchmarks ran consecutively, before the validation workloads started.
+
+| Stage | Configuration | Elapsed | Sampled peak aggregate PSS |
+| --- | --- | ---: | ---: |
+| h70 to h80, before compression fix | 40 CPUs | 402.14 s | 16.99 GiB |
+| h70 to h80, preserving compression | 40 CPUs | 94.05 s | 18.04 GiB |
+| h80 to campaign plots, preserving compression | 40 CPUs, extraction workers 1 | 197.36 s | 9.01 GiB |
+
+Preserving compression reduced h70 elapsed time by 4.28 times at the same
+40-CPU budget. This compares two versions at 40 CPUs; it is not a measurement
+of the fixed version's one-to-40-CPU scaling. PSS was sampled across descendants
+from Linux `/proc/*/smaps_rollup`; summed RSS would double-count shared pages.
+
+The server suite passed all 1152 tests in 503.76 s, with no skips and one known
+empty-legend warning in `test_gate_comparison.py`. All 49 h80 branches matched
+the serial reference exactly across 25,779,739 rows; both runs discarded
+2,186,783 events without a tagger. Reconstructed rows, after alignment by raw
+identity, and calibrated flux arrays also matched exactly. Reconstruction
+counts were UV chi2 2735 / BDT 2217 and VIS chi2 1284 / BDT 608.
+
+The first observable comparison stopped at a likelihood Sigma difference of
+`1.52e-8`, exceeding its initial `atol=1e-8` plus `rtol=1e-6`. A single-bin
+replay reproduced both stored fits from their native row orders; canonical raw
+identity order produced identical complete fits, including profile intervals
+and NLL. This isolates floating-point summation/optimizer roundoff from event
+or selection changes. The failed check and replay remain in the report.
+
+The documented comparison policy uses `rtol=1e-6, atol=1e-8` generally,
+`atol=1e-7` for Sigma, uncorrected Sigma and total systematic error, and
+`rtol=0, atol=1e-6` for dimensionless correlations. Identities, counts, cutflows,
+bin inventories and discrete fit diagnostics must match exactly. Against the
+serial campaign, maximum Sigma difference was `5.74e-8`, total covariance
+difference `9.24e-9`, and correlation difference `1.92e-7`. Every nonzero matrix
+difference is retained rather than describing covariances as bitwise equal.
+
+Server artifacts are under
+`results/server-validation-20261015-JB5LgN/fast-merge/`: `acceptance.json`
+(consolidated final result), `tests/pytest.log`,
+`data/results.json` (exact h80 checks), `numerical-diagnostic.json`,
+`fit-order-repro.json`, and `accepted-comparison/results.json` (campaign
+comparison). The original strict comparison is preserved in `data.log`.
+
 ## Production launch after acceptance
 
 Use new output directories. The h70 driver refuses to replace any existing h80
@@ -179,6 +226,6 @@ historical serial stream; compare workers=1 and workers>1 using channel-v1.
   unchanged paired-run seed/universe. No final uncertainty choice is implied.
 - Flux study `--workers N` accelerates blocked holdout fits. Predictive replicas
   remain serial to preserve their conditional RNG stream and shared nuisance draws.
-- No server performance claim has been made from local tests. Scientific
+- Server timings above apply only to the tested smoke subset. Scientific
   prerequisites for polygon cuts, strange tracks, charged backgrounds and final
   uncertainty inference remain unchanged.
