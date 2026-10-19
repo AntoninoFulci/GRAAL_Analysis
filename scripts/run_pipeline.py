@@ -26,6 +26,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from calibration.run_manifest import validate_manifest
+from calibration.run_quality import load_run_quality
 from graal_common.physics.beam_profiles import get_beam_profile
 from graal_common.physics.energy_binning import EnergyBinning, load_energy_config
 from graal_common.physics.channels import CHANNEL_NAMES, get_channel
@@ -196,6 +197,7 @@ def required_repository_files(paths: PipelinePaths) -> tuple[Path, ...]:
     )
     return (
         paths.manifest,
+        paths.repo_root / "config/run_quality_exclusions.json",
         paths.raw_flux,
         paths.hyperparams,
         paths.ajaka_reference,
@@ -270,6 +272,10 @@ def preflight(
     root_executable = which("root")
     if root_executable is None:
         raise PipelineError("root executable not found on PATH")
+    try:
+        load_run_quality(paths.repo_root / "config/run_quality_exclusions.json")
+    except (ValueError, OSError) as exc:
+        raise PipelineError(f"invalid run quality policy: {exc}") from exc
     try:
         manifest_validator(paths.manifest)
     except Exception as exc:
@@ -736,6 +742,9 @@ def _source_files(paths: PipelinePaths, component: str) -> tuple[Path, ...]:
     shared = paths.repo_root / "00_common"
     own = paths.repo_root / component
     files = tuple(path for base in (shared, own) for path in base.rglob("*.py") if "tests" not in path.parts)
+    if component == "08_observable_extraction":
+        files += (paths.repo_root / "config/run_quality_exclusions.json",
+                  paths.repo_root / "06_calibration/run_quality.py")
     if component == "03_mc_simulation":
         files += (*own.rglob("*.C"), *own.rglob("*.h"))
     return tuple(files)
@@ -755,7 +764,9 @@ def _write_campaign_artifacts(paths: PipelinePaths, outcomes: list[dict]) -> Non
     }
     target = paths.output_root / "pipeline_artifacts.json"
     target.write_text(
-        json.dumps({"source_revision": _revision(paths.repo_root), "preanalysis": preanalysis, "cache": outcomes}, indent=2) + "\n",
+        json.dumps({"source_revision": _revision(paths.repo_root), "preanalysis": preanalysis,
+                    "run_quality": load_run_quality(paths.repo_root / "config/run_quality_exclusions.json"),
+                    "cache": outcomes}, indent=2) + "\n",
         encoding="utf-8",
     )
 

@@ -20,6 +20,7 @@ from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.beam_asymmetry import SAMPLES, _extract_sample
+from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import PAIR_NAMES, PHI_EDGES_RAD
 from observable_extraction.core.gate_comparison import (
@@ -210,6 +211,7 @@ def run(args):
     repo = Path(__file__).resolve().parents[1]
     code_paths = [p for directory in ("00_common", "05_reconstruction", "06_calibration", "08_observable_extraction")
                   for p in (repo / directory).rglob("*.py") if "tests" not in p.parts]
+    code_paths.append(DEFAULT_RUN_QUALITY_PATH)
     source_before = file_identities(code_paths)
     input_identities = file_identities([args.pairing, args.bdt, args.flux_file, args.run_manifest])
     a, meta_a = _read(args.pairing, SAMPLES["raw"].tree)
@@ -222,7 +224,7 @@ def run(args):
     groups = partition_runs(validate_manifest(args.run_manifest), runs,
                             target=profile.target, beam_type=profile.beam_type)
     periods = {run: period for period, members in groups.items() for run in members}
-    flux_audit = {}
+    flux_audit = {"_run_quality": load_run_quality()}
     exposures = load_exposures(args.flux_file, manifest_path=args.run_manifest, run_numbers=runs,
                               polarization_model=profile.polarization, target=profile.target,
                               beam_type=profile.beam_type, energy_range=profile.energy_range_gev,
@@ -263,7 +265,7 @@ def run(args):
                   selection_audit={name: selection_audit(events, exposures, profile.energy_range_gev)
                                    for name, events in (("pairing", a), ("bdt", b))},
                   cutflow=selected_cutflow(samples["pairing"], samples["bdt"], exposures, periods, edges),
-                  flux_audit=flux_audit, exposure=exposure_summary(exposures),
+                  run_quality=flux_audit["_run_quality"], flux_audit=flux_audit, exposure=exposure_summary(exposures),
                   excluded_runs_without_exposure=sorted(runs - exposed_runs),
                   phi_counts=_phi_retention(samples, edges), rows=rows,
                   coverage=dict(Counter(row["status"] for row in rows)), periods=per_period, bootstrap=diagnostic,

@@ -4,6 +4,8 @@ import re
 
 import numpy as np
 
+from calibration.run_quality import excluded_run_numbers
+
 
 def partition_runs(records, input_runs, *, target, beam_type):
     by_run = {}
@@ -33,8 +35,9 @@ def selection_audit(events, exposures, energy_range):
     brem = events.polarization == 0
     exposed = np.array([(int(run), int(strip)) in exposures
                         for run, strip in zip(events.run_number, events.xstrip)], dtype=bool)
-    selected = energy & sigma & exposed
-    control = energy & brem & exposed
+    quality = np.isin(events.run_number, sorted(excluded_run_numbers()))
+    selected = energy & sigma & exposed & ~quality
+    control = energy & brem & exposed & ~quality
     return dict(
         input=len(events), selected=int(selected.sum()), brem=int(control.sum()),
         vertical=int(np.count_nonzero(selected & (events.polarization == 1))),
@@ -42,7 +45,9 @@ def selection_audit(events, exposures, energy_range):
         excluded=int(np.count_nonzero(~(selected | control))),
         outside_energy=int(np.count_nonzero(~energy)),
         other_state=int(np.count_nonzero(energy & ~(sigma | brem))),
-        missing_exposure=int(np.count_nonzero(energy & (sigma | brem) & ~exposed)),
+        quality_excluded=int(np.count_nonzero(quality)),
+        quality_excluded_runs=sorted(set(map(int, events.run_number[quality]))),
+        missing_exposure=int(np.count_nonzero(energy & (sigma | brem) & ~exposed & ~quality)),
         input_states={str(int(state)): int(np.count_nonzero(events.polarization == state))
                       for state in np.unique(events.polarization)},
     )

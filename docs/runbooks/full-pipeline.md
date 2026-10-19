@@ -136,6 +136,12 @@ The top-level `binning/phi_edges` is the fixed 12-bin grid for BREM control
 plots only. Both UV and VIS must use best-binning when composing these outputs;
 their per-point choices may differ.
 
+Figure-4 plots encode the stored phi binning with circles (8), squares (12)
+and triangles (16). Hollow markers identify diagnostic fallback fits without
+changing the binning shape. The shared legend sits below the panels; matching
+Ajaka reference points use red hollow diamonds in that same legend. Legacy
+points without phi-bin metadata retain a generic circle and analysis label.
+
 To reuse existing reconstruction ROOT files, run only Stage 08, for example:
 
 ```bash

@@ -17,6 +17,7 @@ import sys
 from typing import Callable
 
 from calibration.run_manifest import validate_manifest
+from calibration.run_quality import load_run_quality
 from calibration.strip_energy_flux import (
     FLUX_SCHEMA_VERSION,
     STRIP_EXPOSURE_FIELDS,
@@ -54,6 +55,10 @@ def load_exposures(
     audit: dict | None = None,
     allow_empty: bool = False,
 ) -> dict[tuple[int, int], FluxExposure]:
+    quality = load_run_quality()
+    excluded = {item["run"]: item for item in quality["excluded_runs"]}
+    if audit is not None:
+        audit["_run_quality"] = quality
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"strip exposure file not found: {path}")
@@ -79,6 +84,7 @@ def load_exposures(
             run_numbers=requested_runs,
             audit=audit,
             allow_empty=allow_empty,
+            quality_exclusions=excluded,
         )
 
     exposures: dict[tuple[int, int], FluxExposure] = {}
@@ -109,6 +115,10 @@ def load_exposures(
                     f"{path}:{line_number}: invalid run/strip/energy"
                 ) from exc
             if requested_runs is not None and run_number not in requested_runs:
+                continue
+            if run_number in excluded:
+                if audit is not None:
+                    audit[str(run_number)] = _quality_audit(excluded[run_number])
                 continue
             if manifest is not None:
                 record = manifest.get(run_number)
@@ -151,6 +161,9 @@ def load_exposures(
         )
     if audit is not None:
         for run in sorted(requested_runs or {key[0] for key in exposures}):
+            if run in excluded:
+                audit[str(run)] = _quality_audit(excluded[run])
+                continue
             count = sum(key[0] == run for key in exposures)
             audit[str(run)] = dict(status="valid" if count else "no_valid_exposure",
                                    problems=[], valid_strata=count)
@@ -159,6 +172,11 @@ def load_exposures(
             f"no selected {target}/{beam_type} exposures in energy range"
         )
     return exposures
+
+
+def _quality_audit(record):
+    return dict(status="quality_excluded", problems=[record["reason"]],
+                evidence=record["evidence"], valid_strata=0)
 
 
 def _load_root_exposures(
@@ -170,6 +188,7 @@ def _load_root_exposures(
     beam_type: str,
     energy_range: tuple[float, float],
     run_numbers: Iterable[int] | None,
+    quality_exclusions: dict,
     audit: dict | None = None,
     allow_empty: bool = False,
 ) -> dict[tuple[int, int], FluxExposure]:
@@ -204,6 +223,10 @@ def _load_root_exposures(
         skipped_polarization_domain = 0
         low, high = energy_range
         for run_number in sorted(selected_runs):
+            if run_number in quality_exclusions:
+                if audit is not None:
+                    audit[str(run_number)] = _quality_audit(quality_exclusions[run_number])
+                continue
             run_keys = keys.get(run_number, {})
             problems = tuple(
                 f"missing {state}"

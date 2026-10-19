@@ -1,0 +1,184 @@
+{
+  "schema_version": 2,
+  "scope": "whole_run",
+  "selection_basis": "inspected_development_data",
+  "criterion": {
+    "lower_ratio": 0.01,
+    "upper_ratio": 100.0,
+    "reference": "period_state_median_positive_finite_flux_per_event"
+  },
+  "evidence_sources": {
+    "config/run_manifest.csv": "64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160",
+    "data/00_external/flux_calibrated.root": "963651b87ab20a80285c969c2b338bfc9736da2c5b2963431a718040c01a6516",
+    "test_data/pre_analyzed/pre_analisi_1998_uv.root": "9f99ac60ce49c6b3c8c51a49f3d9ae727baf06f86ef910dc80319e6463874525",
+    "test_data/pre_analyzed/pre_analisi_1999_vis.root": "117855c1dc0553189b06612d5ee0c0695369545c07fb9b3db97dcf1ec1c53a52",
+    "results/calibrated-flux-neighbors-20261019/counts.csv": "cfde2110ab840c10d77acf7627841c79aba6627306b82f48407a00b6e8989b20",
+    "results/hybrid-flux-model-search-20261019/block_1/predictions.csv": "18b40ac353c3945204876942dcd6f1d8ff2f5f1e35a000d0e3d5745db87093fe"
+  },
+  "excluded_runs": [
+    {
+      "run": 1322,
+      "period": "1998_uv",
+      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "evidence": [
+        {
+          "state": "BREM",
+          "flux_integral": 2567590011.0,
+          "event_count": 1881,
+          "flux_per_event": 1365013.2966507177,
+          "period_state_median": 202.5064828669976,
+          "ratio_to_period_state_median": 6740.590608880569
+        },
+        {
+          "state": "POL1",
+          "flux_integral": 537987.7859999997,
+          "event_count": 422964,
+          "flux_per_event": 1.271946988396175,
+          "period_state_median": 6527.590379402251,
+          "ratio_to_period_state_median": 0.00019485704746575268
+        }
+      ],
+      "decision_basis": "flux_per_event_factor_100"
+    },
+    {
+      "run": 1441,
+      "period": "1998_uv",
+      "reason": "Explicit user-directed whole-run exclusion after inspecting BREM errors in the prior development benchmark. The benchmark test partition has been inspected and is development data; this is not a factor-100 flux-per-event criterion.",
+      "decision_basis": "user_requested_development_benchmark_errors",
+      "evidence": [
+        {
+          "state": "BREM",
+          "source": "results/hybrid-flux-model-search-20261019/block_1/predictions.csv",
+          "method": "linear",
+          "role": "test",
+          "event_count": 2177,
+          "true_integral": 203587.96799999996,
+          "predicted_integral": 362396.1492831619,
+          "relative_integral_error": 0.7800469882540504,
+          "relative_l1": 0.7800469882540503,
+          "shape_l1": 0.16736369705992465
+        }
+      ]
+    },
+    {
+      "run": 1454,
+      "period": "1998_uv",
+      "reason": "Explicit user-directed whole-run exclusion after inspecting BREM errors in the prior development benchmark. The benchmark test partition has been inspected and is development data; this is not a factor-100 flux-per-event criterion.",
+      "decision_basis": "user_requested_development_benchmark_errors",
+      "evidence": [
+        {
+          "state": "BREM",
+          "source": "results/hybrid-flux-model-search-20261019/block_1/predictions.csv",
+          "method": "linear",
+          "role": "test",
+          "event_count": 3457,
+          "true_integral": 477606.9669999996,
+          "predicted_integral": 784575.1132334018,
+          "relative_integral_error": 0.6427212487321243,
+          "relative_l1": 0.6427212487321242,
+          "shape_l1": 0.12515299027995666
+        }
+      ]
+    },
+    {
+      "run": 1482,
+      "period": "1998_uv",
+      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "evidence": [
+        {
+          "state": "BREM",
+          "flux_integral": 2100584264.0,
+          "event_count": 5953,
+          "flux_per_event": 352861.45876028895,
+          "period_state_median": 202.5064828669976,
+          "ratio_to_period_state_median": 1742.469938565086
+        }
+      ],
+      "decision_basis": "flux_per_event_factor_100"
+    },
+    {
+      "run": 1970,
+      "period": "1999_vis",
+      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "evidence": [
+        {
+          "state": "BREM",
+          "flux_integral": 1429296463.5,
+          "event_count": 19256,
+          "flux_per_event": 74226.03154860823,
+          "period_state_median": 63.565377623977604,
+          "ratio_to_period_state_median": 1167.711643084919
+        },
+        {
+          "state": "POL1",
+          "flux_integral": 615620.5020000001,
+          "event_count": 361490,
+          "flux_per_event": 1.703008387507262,
+          "period_state_median": 3162.698089184898,
+          "ratio_to_period_state_median": 0.0005384669479931825
+        }
+      ],
+      "decision_basis": "flux_per_event_factor_100"
+    },
+    {
+      "run": 1988,
+      "period": "1999_vis",
+      "reason": "Explicit user-directed whole-run exclusion after inspecting BREM errors in the prior development benchmark. The benchmark test partition has been inspected and is development data; this is not a factor-100 flux-per-event criterion.",
+      "decision_basis": "user_requested_development_benchmark_errors",
+      "evidence": [
+        {
+          "state": "BREM",
+          "source": "results/hybrid-flux-model-search-20261019/block_1/predictions.csv",
+          "method": "linear",
+          "role": "test",
+          "event_count": 16195,
+          "true_integral": 962090.192,
+          "predicted_integral": 3573548.7463244246,
+          "relative_integral_error": 2.7143593979434564,
+          "relative_l1": 2.714359397943457,
+          "shape_l1": 0.13614701907639082
+        }
+      ]
+    },
+    {
+      "run": 2055,
+      "period": "1999_vis",
+      "reason": "Explicit user-directed whole-run exclusion after inspecting BREM errors in the prior development benchmark. The benchmark test partition has been inspected and is development data; this is not a factor-100 flux-per-event criterion.",
+      "decision_basis": "user_requested_development_benchmark_errors",
+      "evidence": [
+        {
+          "state": "BREM",
+          "source": "results/hybrid-flux-model-search-20261019/block_1/predictions.csv",
+          "method": "linear",
+          "role": "test",
+          "event_count": 14604,
+          "true_integral": 672428.5930000001,
+          "predicted_integral": 1922400.106245825,
+          "relative_integral_error": 1.858891079674574,
+          "relative_l1": 1.8588910796745737,
+          "shape_l1": 0.10184204403465809
+        }
+      ]
+    },
+    {
+      "run": 2064,
+      "period": "1999_vis",
+      "reason": "Explicit user-directed whole-run exclusion after inspecting BREM errors in the prior development benchmark. The benchmark test partition has been inspected and is development data; this is not a factor-100 flux-per-event criterion.",
+      "decision_basis": "user_requested_development_benchmark_errors",
+      "evidence": [
+        {
+          "state": "BREM",
+          "source": "results/hybrid-flux-model-search-20261019/block_1/predictions.csv",
+          "method": "linear",
+          "role": "test",
+          "event_count": 1693,
+          "true_integral": 856018.889,
+          "predicted_integral": 2099827.7640778413,
+          "relative_integral_error": 1.4530156881594718,
+          "relative_l1": 1.4530156881594714,
+          "shape_l1": 0.11763764989290895
+        }
+      ]
+    }
+  ]
+}

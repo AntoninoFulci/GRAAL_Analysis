@@ -24,6 +24,18 @@ PAIR_LABELS = {
 }
 
 
+def _legend_below(figure, axes, *, ncols=4):
+    """Collect every panel's labels and reserve space below the axes."""
+    entries = {}
+    for axis in np.asarray(axes).flat:
+        handles, labels = axis.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            entries.setdefault(label, handle)
+    if entries:
+        figure.legend(entries.values(), entries.keys(), loc="outside lower center",
+                      ncol=min(ncols, len(entries)), fontsize=9)
+
+
 def build_raw_fit_comparison(
     points_by_profile: Mapping[str, Sequence[OutputPoint]],
     rows: Sequence[EnergyRow],
@@ -69,8 +81,7 @@ def build_raw_fit_comparison(
                 axis.set_ylabel("$\\Sigma$\n" + f"{row.profile.upper()} {row.low_gev:.4g}–{row.high_gev:.4g} GeV")
             if row_index == len(rows) - 1:
                 axis.set_xlabel(r"$M$ [GeV]")
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    figure.legend(handles, labels, loc="outside upper center", ncol=2)
+    _legend_below(figure, axes)
     return figure, axes
 
 
@@ -113,15 +124,7 @@ def write_period_stability_pdf(path, points_by_period, rows, *, sample, estimato
             axis.set_xlabel('M [GeV]')
             axis.set_ylabel(r'$\Sigma$')
             axis.grid(alpha=.2)
-    handles, labels = [], []
-    for axis in axes.flat:
-        h, lab = axis.get_legend_handles_labels()
-        for handle, label in zip(h, lab):
-            if label not in labels:
-                handles.append(handle)
-                labels.append(label)
-    if handles:
-        figure.legend(handles, labels, loc='outside lower center', ncol=min(4, len(labels)))
+    _legend_below(figure, axes)
     figure.suptitle('Period stability — conditional/propagated errors; final inference suspended\n'
                     'Shared global nuisances correlated; no pooled comparison or significance test')
     _save(path, figure)
@@ -182,13 +185,11 @@ def build_profile_estimator_comparison(
                 axis.set_title(PAIR_LABELS[pair])
             if column == 0:
                 axis.set_ylabel(
-                    rf"$\Sigma$\n{row.low_gev:.4g}--{row.high_gev:.4g} GeV"
+                    "$\\Sigma$\n" + f"{row.low_gev:.4g}–{row.high_gev:.4g} GeV"
                 )
             if row_index == len(rows) - 1:
                 axis.set_xlabel(r"$M$ [GeV]")
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    if handles:
-        figure.legend(handles, labels, loc="outside upper center", ncol=2)
+    _legend_below(figure, axes)
     return figure, axes
 
 
@@ -305,9 +306,10 @@ def write_point_comparison_pdf(
         )
         return
     groups = sorted({getattr(item, group_by) for item in points})
-    figure, axes = plt.subplots(1, 3, figsize=(12.5, 3.8), sharey=True)
+    figure, axes = plt.subplots(1, 3, figsize=(12.5, 4.5), sharey=True,
+                                constrained_layout=True)
     for axis, pair in zip(axes, PAIR_ORDER):
-        for group in groups:
+        for group_index, group in enumerate(groups):
             selected = [
                 item
                 for item in points
@@ -330,17 +332,15 @@ def write_point_comparison_pdf(
                     [item.point.stat_high for item in selected],
                 ]
             )
-            axis.errorbar(x, y, yerr=yerr, marker="o", linestyle="none", label=group)
+            axis.errorbar(x, y, yerr=yerr, marker="o", linestyle="none", label=group,
+                          color=f"C{group_index % 10}")
         axis.axhline(0.0, color="0.65", linewidth=0.8)
         axis.set_title(PAIR_LABELS[pair])
         axis.set_xlabel(r"$M$ [GeV/$c^2$]")
         axis.set_ylim(-1.0, 1.0)
         axis.grid(alpha=0.2)
     axes[0].set_ylabel(r"Beam asymmetry $\Sigma$")
-    handles, labels = axes[-1].get_legend_handles_labels()
-    if handles:
-        figure.legend(handles, labels, loc="upper center", ncol=max(1, len(groups)))
-        figure.subplots_adjust(top=0.80)
+    _legend_below(figure, axes)
     figure.suptitle(f"Comparison by {group_by}\n" + uncertainty_bar_label(points), fontsize=10)
     _save(path, figure)
 
@@ -365,7 +365,7 @@ def write_systematic_summary_pdf(
 ) -> None:
     """Plot the provisional component sizes and explicit availability ledger."""
     if inventory is None:
-        figure, axis = plt.subplots(figsize=(10.5, 4.5))
+        figure, axis = plt.subplots(figsize=(10.5, 4.5), constrained_layout=True)
     else:
         import textwrap
         figure, (axis, table_axis) = plt.subplots(2, 1, figsize=(13, 11), constrained_layout=True)
@@ -389,7 +389,7 @@ def write_systematic_summary_pdf(
     axis.set_ylabel(r"systematic uncertainty on $\Sigma$")
     axis.grid(alpha=0.2)
     if covariances:
-        axis.legend(fontsize="small")
+        _legend_below(figure, [axis], ncols=2)
     else:
         axis.text(0.5, 0.5, "No systematic components", ha="center", va="center")
     _save(path, figure)
@@ -402,7 +402,7 @@ def write_background_control_pdf(
     signal_leakage: float,
 ) -> None:
     """Plot fitted signal-region background fraction by photon-energy bin."""
-    figure, axis = plt.subplots(figsize=(7.0, 4.2))
+    figure, axis = plt.subplots(figsize=(7.0, 4.2), constrained_layout=True)
     bins = sorted(fractions)
     if bins:
         values = [fractions[index].fraction for index in bins]
@@ -426,7 +426,8 @@ def write_false_asymmetry_controls_pdf(
 ) -> None:
     """Store BREM azimuth controls; no BREM event enters Sigma extraction."""
     phi_edges = validate_edges(phi_edges)
-    figure, axes = plt.subplots(1, 3, figsize=(12.0, 3.7), sharey=True)
+    figure, axes = plt.subplots(1, 3, figsize=(12.0, 3.7), sharey=True,
+                                constrained_layout=True)
     for axis, pair in zip(axes, PAIR_ORDER):
         phi = np.asarray(brem_phi_by_pair.get(pair, []), dtype=np.float64)
         if phi.size:
@@ -455,7 +456,7 @@ def write_photon_multiplicity_pdf(
 ) -> None:
     """Report exactly-four selection shift and unresolved best-quartet state."""
     shifts = np.asarray(shifts, dtype=np.float64)
-    figure, axis = plt.subplots(figsize=(9.0, 4.2))
+    figure, axis = plt.subplots(figsize=(9.0, 4.2), constrained_layout=True)
     if shifts.size:
         axis.plot(np.arange(len(shifts)), shifts, marker="o", linestyle="none")
         axis.axhline(0.0, color="0.6", linewidth=0.8)

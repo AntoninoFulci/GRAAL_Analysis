@@ -1,6 +1,8 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
+import matplotlib.pyplot as plt
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
 from observable_extraction.io.root_output import OutputPoint
@@ -12,6 +14,7 @@ from observable_extraction.plotting.figure4 import (
     build_profile_figure4_comparison,
     combined_energy_rows,
     load_published_points,
+    profile_energy_rows,
     write_figure4_comparison_pdf,
     write_figure4_pdf,
 )
@@ -238,3 +241,56 @@ def test_figure4_separates_asymmetric_bars_from_systematic_band():
     figure, _ = build_figure4([corrected])
     assert 'classification pending' in figure._suptitle.get_text()
     figure.clf()
+
+
+def test_best_binning_shapes_preserve_points_errors_and_fallback_status():
+    base = _points()[0]
+    points = [replace(base, phi_bins=count, point=replace(
+        base.point, mass_bin=index, mass_low_gev=.7 + index * .1,
+        mass_high_gev=.8 + index * .1, mass_mean_gev=.75 + index * .1,
+        diagnostics=replace(base.point.diagnostics, used_fallback=index == 1)))
+        for index, count in enumerate((8, 12, 16))]
+    figure, axes = build_profile_figure4({'uv': points}, profile_energy_rows('uv')[:1])
+    try:
+        containers = axes[0, 0].containers
+        assert [item.lines[0].get_marker() for item in containers] == ['o', 's', '^']
+        assert [item.lines[0].get_markerfacecolor() for item in containers] == ['black', 'none', 'black']
+        for index, container in enumerate(containers):
+            np.testing.assert_allclose(container.lines[0].get_xdata(orig=False), [.75 + index * .1])
+            np.testing.assert_allclose(container.lines[2][0].get_segments()[0][:, 1],
+                                       [base.point.sigma - .05, base.point.sigma + .06])
+        assert [text.get_text() for text in figure.legends[0].get_texts()] == [
+            'Questa analisi: 8 bin φ', 'Questa analisi: 12 bin φ',
+            'Questa analisi: 16 bin φ', 'Fit fallback (simbolo vuoto)']
+    finally:
+        plt.close(figure)
+
+
+@pytest.mark.parametrize('rows', [
+    profile_energy_rows('uv')[:1],
+    combined_energy_rows(),
+    profile_energy_rows('vis', [.9313, 1.01565, 1.1])
+    + profile_energy_rows('uv', np.linspace(1.1, 1.5, 9)),
+])
+def test_binning_and_reference_share_one_legend_clear_of_titles_and_axes(rows):
+    points = tuple(replace(item, phi_bins=(8, 12, 16)[index % 3],
+                           point=replace(item.point, diagnostics=replace(
+                               item.point.diagnostics, used_fallback=True)))
+                   for index, item in enumerate(_points()))
+    figure, axes = build_profile_figure4_comparison(
+        {'uv': points, 'vis': points}, [PublishedPoint('p_pi0', 0, .75, .1, .1, .1)], rows)
+    try:
+        figure.canvas.draw()
+        renderer = figure.canvas.get_renderer()
+        assert len(figure.legends) == 1
+        legend = figure.legends[0]
+        bounds = legend.get_window_extent(renderer)
+        assert figure.bbox.contains(bounds.x0, bounds.y0)
+        assert figure.bbox.contains(bounds.x1, bounds.y1)
+        assert not bounds.overlaps(figure._suptitle.get_window_extent(renderer))
+        assert all(not bounds.overlaps(axis.get_tightbbox(renderer)) for axis in axes.flat)
+        has_reference = any(row.profile == 'uv' and row.low_gev == 1.1
+                            and row.high_gev == 1.2 for row in rows)
+        assert ('Ajaka et al. (2008)' in [text.get_text() for text in legend.get_texts()]) == has_reference
+    finally:
+        plt.close(figure)

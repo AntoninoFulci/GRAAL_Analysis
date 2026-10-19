@@ -14,6 +14,7 @@ from typing import Sequence
 import numpy as np
 
 from calibration.run_manifest import validate_manifest
+from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from reconstruction.runtime.provenance import file_identities
 
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
@@ -853,6 +854,9 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     if best_binning:
         binning_options["best_binning"] = True
     phi_edges = phi_edges_rad(12 if best_binning else args.phi_bins)
+    quality = load_run_quality()
+    quality_excluded_runs = {item["run"] for item in quality["excluded_runs"]}
+    quality_provenance = f"run_quality={json.dumps(quality, sort_keys=True)}\n"
     phi_provenance = ("phi_bins=best-binning\nphi_bin_divisor=per_point\n"
                       "phi_bin_selection=acceptable_nominal_closest_reduced_chi2_to_one\n"
                       "phi_bin_candidates=8,12,16\n" if best_binning else
@@ -1013,7 +1017,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             uncertainty_metadata=dict(final_inference="suspended", status="not_estimable"),
             provenance=(f"profile={profile.name}\nperiod={period}\nstatus=not_estimable\n"
                         f"energy_edges_gev={json.dumps(grid.edges_gev)}\n"
-                        f"{phi_provenance}"
+                        f"{phi_provenance}{quality_provenance}"
                         "phi_bin_correction=ratio_only_rounded\nfinal_inference=suspended"),
         )
         write_root_output(args.output_dir / "beam_asymmetry.root", payload)
@@ -1092,7 +1096,8 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         records = validate_manifest(args.bootstrap_universe_manifest)
         if any(record.target != profile.target or record.beam_type != profile.beam_type for record in records):
             raise ValueError("bootstrap universe must contain only the selected target/profile")
-        run_strata = {record.run_number: f"{profile.name}:{record.source_period}" for record in records}
+        run_strata = {record.run_number: f"{profile.name}:{record.source_period}" for record in records
+                      if record.run_number not in quality_excluded_runs}
         if metadata is not None:
             run_strata = {run: stratum for run, stratum in run_strata.items()
                           if run in metadata["run_universe"]}
@@ -1167,7 +1172,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             f"profile={profile.name}\n"
             f"energy_edges_gev={json.dumps(grid.edges_gev)}\n"
             f"period={period}\n"
-            f"{phi_provenance}"
+            f"{phi_provenance}{quality_provenance}"
             "phi_bin_correction=ratio_only_rounded\n"
             "POL1=vertical\nPOL2=horizontal\nBREM=independent-control\n"
             f"background={'sideband-corrected' if background_fractions else 'uncorrected'}\n"
@@ -1300,6 +1305,7 @@ def run(args: argparse.Namespace) -> int:
 def _period_metadata(period, runs, samples, exposures, flux_audit, cutflows, profile, grid):
     return dict(
         period=period, status="estimable", run_universe=sorted(runs),
+        run_quality=flux_audit["_run_quality"],
         exposed_runs=sorted({key[0] for key in exposures}),
         missing_exposure_runs=sorted(set(runs) - {key[0] for key in exposures}),
         samples={name: selection_audit(events, exposures, grid.energy_range_gev)
@@ -1425,18 +1431,20 @@ def _run_periods(args):
         if set(map(int, inputs[broad_key].run_number)) - runs:
             raise ValueError("sideband input runs outside inclusive universe")
         paths.extend([args.sideband, args.signal_mc])
-    flux_audit = {}
+    flux_audit = {"_run_quality": load_run_quality()}
     exposures = load_exposures(args.flux_file, manifest_path=args.run_manifest, run_numbers=runs,
                               polarization_model=profile.polarization, target=profile.target,
                               beam_type=profile.beam_type, energy_range=grid.energy_range_gev,
                               audit=flux_audit, allow_empty=True)
     if {key[0] for key in exposures} - runs:
         raise ValueError("exposures outside inclusive run universe")
+    paths.append(DEFAULT_RUN_QUALITY_PATH)
     identities = file_identities(set(paths))
     campaign = str(args.output_dir.resolve())
     all_periods = sorted({record.source_period for record in records
                           if record.target == profile.target and record.beam_type == profile.beam_type})
     index = dict(schema_version=1, profile=profile.name, final_inference="suspended",
+                 run_quality=flux_audit["_run_quality"],
                  universe_source="explicit_manifest" if explicit is not None else "reconstruction_cutflow",
                  inputs=identities, versions=dict(python=sys.version, numpy=np.__version__),
                  command_options={name: str(value) if isinstance(value, Path) else value for name, value in vars(args).items()},

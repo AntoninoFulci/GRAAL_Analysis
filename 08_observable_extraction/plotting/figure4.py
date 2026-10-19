@@ -25,6 +25,31 @@ PAIR_COLUMNS = (
     ("eta_pi0", r"$\eta\pi^0$"),
 )
 
+PHI_BIN_MARKERS = {8: "o", 12: "s", 16: "^"}
+
+
+def _analysis_legend_handles(points):
+    bins = sorted({item.phi_bins for item in points if item.phi_bins in PHI_BIN_MARKERS})
+    handles = [Line2D([], [], marker=PHI_BIN_MARKERS[count], color="black",
+                      linestyle="none", label=f"Questa analisi: {count} bin φ")
+               for count in bins]
+    if any(item.phi_bins not in PHI_BIN_MARKERS for item in points):
+        handles.append(Line2D([], [], marker="o", color="black", linestyle="none",
+                              label="Questa analisi"))
+    if any(item.point.diagnostics.used_fallback for item in points):
+        handles.append(Line2D([], [], marker="o", color="black", linestyle="none",
+                              markerfacecolor="none", label="Fit fallback (simbolo vuoto)"))
+    return handles
+
+
+def _figure_legend(figure, handles):
+    # Keep one legend in a dedicated bottom margin, separate from the suptitle.
+    for legend in list(figure.legends):
+        legend.remove()
+    if handles:
+        figure.legend(handles=handles, loc="outside lower center",
+                      ncol=min(4, len(handles)), fontsize=9)
+
 
 @dataclass(frozen=True)
 class PublishedPoint:
@@ -147,12 +172,7 @@ def build_profile_figure4(
                         [item.point.stat_high for item in selected],
                     ]
                 )
-                markers = [
-                    "s" if item.point.diagnostics.used_fallback else "o"
-                    for item in selected
-                ]
-                for index, marker in enumerate(markers):
-                    item = selected[index]
+                for index, item in enumerate(selected):
                     if item.systematic_total > 0.0:
                         axis.add_patch(Rectangle(
                             (item.point.mass_low_gev, y[index] - item.systematic_total),
@@ -164,8 +184,9 @@ def build_profile_figure4(
                         x[index],
                         y[index],
                         yerr=yerr[:, index:index + 1],
-                        fmt=marker,
+                        fmt=PHI_BIN_MARKERS.get(item.phi_bins, "o"),
                         color="black",
+                        markerfacecolor="none" if item.point.diagnostics.used_fallback else "black",
                         capsize=2,
                     )
             axis.axhline(0.0, color="0.75", linewidth=0.8)
@@ -177,6 +198,7 @@ def build_profile_figure4(
                 axis.set_ylabel(_energy_label(row))
             if row_index == len(rows) - 1:
                 axis.set_xlabel(r"$M$ [GeV]")
+    _figure_legend(figure, _analysis_legend_handles(plotted))
     return figure, axes
 
 
@@ -208,6 +230,7 @@ def build_profile_figure4_comparison(
         sample=sample,
         estimator=estimator,
     )
+    has_reference = False
     for row_index, row in enumerate(rows):
         if row.profile != "uv":
             continue
@@ -227,6 +250,7 @@ def build_profile_figure4_comparison(
             )
             if not selected:
                 continue
+            has_reference = True
             axes[row_index, column].errorbar(
                 [point.mass_gev for point in selected],
                 [point.sigma for point in selected],
@@ -244,22 +268,12 @@ def build_profile_figure4_comparison(
                 capsize=2,
                 label="Ajaka et al. (2008)",
             )
-    figure.legend(
-        handles=(
-            Line2D([], [], marker="o", color="black", linestyle="none"),
-            Line2D(
-                [],
-                [],
-                marker="D",
-                color="#d62728",
-                markerfacecolor="white",
-                linestyle="none",
-            ),
-        ),
-        labels=("Questa analisi", "Ajaka et al. (2008)"),
-        loc="outside upper center",
-        ncol=2,
-    )
+    handles = list(figure.legends[0].legend_handles) if figure.legends else []
+    if has_reference:
+        handles.append(Line2D([], [], marker="D", color="#d62728",
+                              markerfacecolor="white", linestyle="none",
+                              label="Ajaka et al. (2008)"))
+    _figure_legend(figure, handles)
     return figure, axes
 
 

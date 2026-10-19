@@ -50,6 +50,8 @@ def _valid_preflight_tree(tmp_path: Path):
     paths = run_pipeline.build_paths(config)
     for path in run_pipeline.required_repository_files(paths):
         _touch(path)
+    from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
+    (tmp_path / "config/run_quality_exclusions.json").write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
     for profile in ("uv", "vis"):
         root = paths.preanalysis_dir / f"pre_analisi_1998_{profile}.root"
         root.parent.mkdir(parents=True, exist_ok=True)
@@ -550,6 +552,10 @@ def test_cached_stage_skips_valid_output_and_force_rebuilds(tmp_path):
 
 
 def test_production_selection_reuses_across_campaigns_and_force_rebuilds(tmp_path):
+    from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
+    policy = tmp_path / "config/run_quality_exclusions.json"
+    policy.parent.mkdir()
+    policy.write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
     config = run_pipeline.mode_config("production", tmp_path)
     inputs = []
     for profile in ("uv", "vis"):

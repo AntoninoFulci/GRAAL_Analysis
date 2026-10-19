@@ -18,6 +18,7 @@ from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.beam_asymmetry import SAMPLES
+from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.compare_gate import (
     _read, _extract, _phi_retention, _write_figures, bootstrap_comparison,
@@ -158,7 +159,7 @@ def run(args):
         raise FileExistsError(f"preserve existing study; choose a new output directory: {args.output_dir}")
     paths = [args.input] + ([args.mass_polygon] if args.mass_polygon else [])
     if args.command == "compare":
-        paths += [args.flux_file, args.run_manifest]
+        paths += [args.flux_file, args.run_manifest, DEFAULT_RUN_QUALITY_PATH]
         paths += [p for p in (args.signal_mc, args.background_mc) if p is not None]
     identities = file_identities(paths)
     polygon = MassPolygon.read(args.mass_polygon) if args.mass_polygon is not None else None
@@ -183,7 +184,7 @@ def run(args):
         groups = partition_runs(validate_manifest(args.run_manifest), runs,
                                 target=profile.target, beam_type=profile.beam_type)
         periods = {run: period for period, members in groups.items() for run in members}
-        flux_audit = {}
+        flux_audit = {"_run_quality": load_run_quality()}
         exposures = load_exposures(args.flux_file, manifest_path=args.run_manifest, run_numbers=runs,
                                   polarization_model=profile.polarization, target=profile.target,
                                   beam_type=profile.beam_type, energy_range=profile.energy_range_gev,
@@ -193,7 +194,7 @@ def run(args):
             before, exposures, periods, profile.energy_edges_gev, polygon,
             replicas=args.replicas, seed=args.seed, workers=workers)
         arrays.update(comparison_arrays)
-        report.update(flux_audit=flux_audit, reconstruction_cutflow=cutflow,
+        report.update(run_quality=flux_audit["_run_quality"], flux_audit=flux_audit, reconstruction_cutflow=cutflow,
                       preselection_audit=selection_audit(events, exposures, profile.energy_range_gev),
                       excluded_runs_without_exposure=sorted(runs - set(report["exposure_universe"])),
                       mc_retention={name: _mc_retention(path, SAMPLES[args.sample].tree, polygon, profile.energy_range_gev)

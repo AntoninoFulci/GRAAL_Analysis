@@ -11,6 +11,7 @@ from typing import Mapping
 import numpy as np
 import ROOT
 
+from calibration.run_quality import excluded_run_numbers
 from observable_extraction.core.models import FluxExposure
 from reconstruction.runtime.provenance import validate_no_fit
 
@@ -166,7 +167,8 @@ def _select_by_polarization(
     if not np.isfinite((low, high)).all() or high <= low:
         raise ValueError("energy range must be finite and increasing")
     base = (
-        np.isin(events.polarization, accepted_polarizations)
+        ~np.isin(events.run_number, sorted(excluded_run_numbers()))
+        & np.isin(events.polarization, accepted_polarizations)
         & (events.beam_energy_gev >= low)
         & (events.beam_energy_gev <= high)
     )
