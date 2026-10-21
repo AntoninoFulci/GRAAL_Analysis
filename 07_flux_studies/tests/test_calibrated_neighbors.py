@@ -90,12 +90,12 @@ def test_zero_truth_shape_is_not_invented():
 
 
 def test_inner_selection_uses_all_three_blocked_folds():
-    from flux_studies.neighbor_validation import _choose_alpha
+    from flux_studies.neighbor_validation import _tune_family, _inner_folds
     rows = records(60)[::3]
     blocks = {r['run']: (r['run'] - 1) // 3 for r in rows}
-    alpha, curve = _choose_alpha(rows, blocks)
-    assert alpha is not None
-    assert all(len(item.get('fold_counts', {})) == 3 for item in curve)
+    metadata = _tune_family('kernel_ridge', _inner_folds(rows, blocks), seed=0)
+    assert metadata['selected']['hybrid'] is not None
+    assert all(len(item['folds']) == 3 for item in metadata['candidates'])
 
 
 def test_cli_detects_input_change_during_computation(tmp_path, monkeypatch):

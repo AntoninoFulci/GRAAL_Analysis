@@ -47,7 +47,7 @@ case "$stage" in
             --calibrated-flux "$campaign_dir/common/flux_calibrated.root" \
             --counts-cache "$study_dir/prepared/h80_counts.json" \
             --run-quality "$study_dir/prepared/run_quality_exclusions.json" \
-            --representation native_strip --models ridge kernel_ridge extra_trees mlp cnn1d \
+            --representation native_strip --models extra_trees kernel_ridge \
             --block-size 3 --seed 42 --output-dir "$study_dir/block3"
         "$python_bin" -u -m flux_studies.native_diagnostics "$study_dir/block3"
         ;;

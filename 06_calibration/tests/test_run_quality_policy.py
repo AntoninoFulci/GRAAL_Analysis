@@ -10,7 +10,7 @@ import pytest
 def test_default_policy_has_reasoned_atomic_exclusions_and_content_identity():
     from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality, excluded_run_numbers
     policy = load_run_quality()
-    assert excluded_run_numbers() == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064}
+    assert excluded_run_numbers() == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064, 2607, 2804, 3585, 3776}
     assert policy['sha256'] == hashlib.sha256(DEFAULT_RUN_QUALITY_PATH.read_bytes()).hexdigest()
     assert all(item['reason'] and item['evidence'] for item in policy['excluded_runs'])
 
@@ -46,7 +46,7 @@ def test_diagnostic_criterion_is_period_state_relative_and_never_changes_policy(
     findings = diagnose_flux_per_event(rows)
     assert {row['run'] for row in findings} == {6, 7}
     assert findings[0]['period_state_median'] == 10
-    assert excluded_run_numbers() == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064}
+    assert excluded_run_numbers() == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064, 2607, 2804, 3585, 3776}
     assert diagnose_flux_per_event(rows, reference_medians={('p', 'POL1'): 100., ('other', 'BREM'): 1e8})[0]['run'] == 7
 
 

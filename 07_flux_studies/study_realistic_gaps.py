@@ -12,7 +12,7 @@ from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from flux_studies.audit_flux import audit_flux
 from flux_studies.calibrated_data import count_h80, load_calibrated_dataset
 from flux_studies.neighbor_validation import evaluate_neighbors, predict_missing_neighbors
-from flux_studies.realistic_gaps import gap_inventory, realistic_split
+from flux_studies.realistic_gaps import gap_inventory, realistic_split, recovery_targets
 from flux_studies.reporting import publish_output, write_json, write_csv
 from flux_studies.study_calibrated_neighbors import _write_benchmark
 
@@ -147,12 +147,12 @@ def main(argv=None):
             from threadpoolctl import threadpool_limits
             with threadpool_limits(limits=1):
                 study = evaluate_neighbors(dataset['records'], block_size=1, seed=args.seed,
-                                           models=('ridge', 'kernel_ridge', 'extra_trees'),
+                                           models=('extra_trees', 'kernel_ridge'),
                                            split_plan=design['split_plan'])
                 study = restrict_test_states(study, design['test_masks'])
                 study['block_size'] = 'realistic'
-                targets = [{k: r[k] for k in ('run', 'state', 'period', 'group', 'position', 'count')}
-                           for r in inventory['missing'] if r['status'] == 'candidate']
+                targets = recovery_targets(inventory, excluded_runs={
+                    r['run'] for r in dataset['run_quality']['excluded_runs']})
                 candidates = predict_missing_neighbors(dataset['records'], targets,
                                                        models=('extra_trees', 'kernel_ridge'), seed=args.seed)
             print('Running paired observable closure with frozen selections...', flush=True)

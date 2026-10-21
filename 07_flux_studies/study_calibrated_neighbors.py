@@ -41,11 +41,6 @@ def _summary(study):
             row[name + '_mean'] = float(np.mean(values)) if values else None
             row[name + '_median'] = float(np.median(values)) if values else None
         metrics.append(row)
-    paired = defaultdict(dict)
-    for p in study['predictions']:
-        if p['role'] == 'test' and p['method'] in ('linear', 'ridge') and p['relative_l1'] is not None:
-            paired[(p['period'], p['run'], p['state'])][p['method']] = p['relative_l1']
-    pairs = [p for p in paired.values() if len(p) == 2]
     by_method = defaultdict(dict)
     for p in study['predictions']:
         if p['role'] == 'test' and p.get('relative_l1') is not None:
@@ -73,10 +68,6 @@ def _summary(study):
                                     reference_median_relative_l1=float(np.median(baseline))))
     return dict(block_size=study['block_size'], status=study['status'], metrics=metrics,
                 comparisons=comparisons,
-                paired=dict(n=len(pairs),
-                            ridge_better_fraction=float(np.mean([p['ridge'] < p['linear'] for p in pairs])) if pairs else None,
-                            linear_mean_relative_l1=float(np.mean([p['linear'] for p in pairs])) if pairs else None,
-                            ridge_mean_relative_l1=float(np.mean([p['ridge'] for p in pairs])) if pairs else None),
                 exclusions=study['exclusions'])
 
 
@@ -132,8 +123,8 @@ def main(argv=None):
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--block-size', type=int, action='append')
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--models', nargs='+', choices=('ridge', 'kernel_ridge', 'extra_trees', 'mlp', 'cnn1d'),
-                        default=['ridge', 'kernel_ridge', 'extra_trees'])
+    parser.add_argument('--models', nargs='+', choices=('extra_trees', 'kernel_ridge'),
+                        default=['extra_trees', 'kernel_ridge'])
     args = parser.parse_args(argv)
     try:
         if args.output_dir.exists():
@@ -175,7 +166,7 @@ def main(argv=None):
                                                models=tuple(args.models),
                                                split_runs_by_period=dataset.get('split_runs_by_period'))
                     studies.append(study)
-                    print(_summary(study)['paired'], flush=True)
+                    print(_summary(study)['comparisons'], flush=True)
             print('Writing complete overlays and diagnostics...', flush=True)
             _write_benchmark(directory, dataset, studies, sources=sources)
         print(f'Output: {args.output_dir}', flush=True)

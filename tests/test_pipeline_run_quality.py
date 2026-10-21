@@ -34,4 +34,4 @@ def test_campaign_inventory_records_quality_policy_identity(tmp_path):
     run_pipeline._write_campaign_artifacts(paths, [])
     inventory = json.loads((paths.output_root / 'pipeline_artifacts.json').read_text())
     assert inventory['run_quality']['sha256'] == load_run_quality(policy)['sha256']
-    assert {record['run'] for record in inventory['run_quality']['excluded_runs']} == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064}
+    assert {record['run'] for record in inventory['run_quality']['excluded_runs']} == {1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064, 2607, 2804, 3585, 3776}

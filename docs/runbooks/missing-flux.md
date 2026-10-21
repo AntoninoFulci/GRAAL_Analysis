@@ -1,6 +1,6 @@
 # Missing-flux audit and experimental study
 
-## Full-statistics farm campaign and anomalous-run recovery
+## Full-statistics farm campaign and whole-run exclusions
 
 The [19 October farm campaign](../reports/2026-10-19-farm-flux-recovery.md)
 uses a separate source snapshot and environment, with the complete proton h80
@@ -16,8 +16,8 @@ python -m flux_studies.prepare_native_recovery \
 This requires every proton period in the manifest. It freezes inclusive counts,
 input identity, full-campaign factor-100 findings, a derived quality policy and
 realistic missing-state masks. Existing exclusions persist; newly diagnosed
-factor-100 runs and previous factor-100 exclusions are hidden in all states and
-become experimental recovery requests. Their measured flux is never truth.
+factor-100 runs and previous exclusions are removed from all states, including
+recovery targets. Old inventories cannot reintroduce excluded runs.
 The shared production policy is not rewritten.
 
 Pass `--counts-cache prepared/h80_counts.json`,
@@ -80,10 +80,10 @@ energy bins over 0.5--2.0 GeV, seed 42, one- and three-run masking blocks.
 Adjacent held-out blocks can create gaps longer than the nominal block size.
 
 Train/validation/test are run-disjoint; inner training-only blocked tuning
-selects parameters for Ridge, RBF Kernel Ridge and Extra Trees. Each family has
+selects parameters for RBF Kernel Ridge and Extra Trees. Each family has
 direct and hybrid predictions plus fixed-reference controls; the hybrid uses
 the positive ML shape scaled to the event-normalized interpolation integral.
-Use `--models ridge kernel_ridge extra_trees` (default: all three) to choose
+Use `--models extra_trees kernel_ridge` (default: both) to choose
 families. Validation residuals calibrate exploratory bands; held-out truth
 never enters predictions or model selection. These periods were inspected in
 the preceding pilot, so this is development evaluation, not independent
@@ -95,10 +95,11 @@ See the [hybrid/model-search results](../reports/2026-10-19-hybrid-flux-model-se
 for cleaned-data comparisons, parameter grids, coverage and complete atlases.
 
 The shared v2 policy `config/run_quality_exclusions.json` excludes whole runs
-1322, 1441, 1454, 1482, 1970, 1988, 2055 and 2064. For 1322, 1482 and 1970,
+1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064, 2607, 2804, 3585 and 3776.
+For 1322, 1482, 1970, 2607, 2804, 3585 and 3776,
 at least one state's measured flux per inclusive event is
 outside [0.01, 100] times its period/state median. The evidence and source
-hashes are frozen from the pilot; diagnostics do not silently add exclusions.
+hashes are frozen from the full campaign; diagnostics do not silently add global exclusions.
 The other five runs are explicit user exclusions after inspecting prior BREM
 prediction errors, with distinct `decision_basis` and frozen benchmark evidence;
 they are not claimed to satisfy the factor-100 criterion.
@@ -244,12 +245,13 @@ audit for that diagnosis. Synthetic propagation into Σ is separate future work.
 The standalone native study now propagates reconstructed flux through the
 existing Σ estimators, without changing production inputs or the launcher.
 It reuses the validated local inclusive h80 count cache and the frozen realistic
-mask design. PyTorch is optional for the rest of the analysis; install it in an
-isolated environment based on the ROOT-compatible interpreter:
+mask design. The active models are Extra Trees and Kernel Ridge, with linear
+interpolation as reference. Neural models and their optional PyTorch dependency
+were removed after the full-campaign comparison. Use a ROOT-compatible
+environment with the analysis dependencies installed:
 
 ```bash
 python3 -m venv --system-site-packages .venv-flux
-.venv-flux/bin/python -m pip install -r 07_flux_studies/requirements-neural.txt
 MPLCONFIGDIR=/tmp/graal-mpl XDG_CACHE_HOME=/tmp/graal-cache \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
 .venv-flux/bin/python -m flux_studies.study_native_recovery \
@@ -265,7 +267,7 @@ native strip audit must pass before training. Predictions and independent
 strip-to-energy axes are saved separately.
 
 Outputs include native and energy spectrum overlays, full model grids and
-learning curves, aligned flux replicas, conditional observable covariance,
+fit diagnostics, aligned flux replicas, conditional observable covariance,
 and comparisons without recovery, with recovery and with known flux (oracle).
 The statistical-plus-flux precision and paired RMSE proxy are diagnostics;
 failed replica denominators remain visible. Independent bias/coverage and
@@ -273,7 +275,60 @@ missing-state energy calibration are still prerequisites for production.
 
 For an independent masking geometry within the same development periods, the
 existing `study_calibrated_neighbors` CLI accepts `--representation native_strip`
-and `--models ridge kernel_ridge extra_trees mlp cnn1d --block-size 3`.
+and `--models extra_trees kernel_ridge --block-size 3`.
 This is a complementary stress test, not independent experimental confirmation.
 See [the native recovery report](../reports/2026-10-19-native-flux-recovery.md)
 for definitions, results and exact reproducible commands.
+
+
+## Supported recovery event budget (20 October 2026)
+
+`python -m flux_studies.recovery_budget --study RESULTS --reco UV.root VIS.root
+--output-dir NEW_OUTPUT` reads the frozen inventory, full inclusive h80 counts
+and candidate support. It reapplies the current whole-run exclusions and counts
+only runs whose **every missing state** is supported for Extra Trees. Support
+means tested donor offsets and counts within the measured range; it is not
+production acceptance. It verifies inclusive counts against reconstruction
+cutflows, actual tree entries against written counts, and uses UV/VIS-specific
+energy windows. Duplicate coverage and inconsistent counts are errors.
+
+Outputs include the per-run ledger, per-period totals, input hashes and
+reconstructed counts. The current full-campaign budget is 221 potential runs,
+201,937,998 inclusive h80 events and 22,191 polarized reconstructed events in
+the analysis energy windows. Zero reconstructed-flux runs are authorized for
+production until independent energy calibration, uncertainty coverage and
+observable validation pass. Existing production outputs must be regenerated
+with the updated source snapshot to apply all twelve global exclusions.
+
+## Progressive acceptance scan
+
+The [20 October protocol](../reports/2026-10-20-flux-acceptance-scan.md) freezes
+five nested inference-only policies, ten blocked development repetitions and
+an outer run-block reservation. Use `flux_studies.acceptance_experiment prepare`
+to record input hashes and partitions before fitting. Its `trial` subcommand
+fits the retained model grids, generates aligned replicas, freezes decisions
+and runs the whole-run observable closure for each policy.
+
+Development closure receives an explicit analysis-run universe excluding
+the outer reservation from events **and** exposures. The fixed no-recovery
+baseline excludes every masked run. Recovered and oracle samples include the
+same accepted runs. Entirely unpredicted masked targets remain in the missing
+universe and are rejected; they never silently return as measured references.
+
+`flux_studies.acceptance_report --protocol PROTOCOL --trials TRIAL_DIRS ...
+--output-dir NEW_OUTPUT` validates the exact frozen trial indices, seeds,
+block sizes and policy identities. Missing trials cannot reduce the required
+denominator. Confirmation requires the complete feasible development
+selection and locks its exact file hash before reading held-out data.
+
+Farm entry points: `scripts/submit_farm_acceptance_scan.sh STUDY_DIR` submits
+an array of ten jobs at four cores each, followed by selection and conditional
+confirmation. It requires a successful isolated smoke-trial artifact.
+`scripts/run_farm_acceptance_scan.sh` verifies source hashes before each stage.
+Never submit the array while a previous study's tasks would exceed the user's
+aggregate 40-core allowance. Snapshot, protocol, environment and job IDs must
+be preserved in the study directory.
+
+The collector reports conditional diagnostics, not independent experimental
+certification. No feasible policy is a valid result. It must not trigger
+automatic loosening or production adoption.

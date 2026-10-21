@@ -1,2 +1,0 @@
-# Reproducible local neural benchmark; existing analysis/ROOT environment required.
-torch==2.14.1

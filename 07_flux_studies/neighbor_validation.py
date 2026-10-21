@@ -9,7 +9,6 @@ from flux_studies.neighbor_models import DEFAULTS, FAMILIES, GRIDS, fit_model, h
 BASELINES = ('nearest', 'linear_unscaled', 'linear')
 METHODS = BASELINES + tuple(f'{family}{suffix}' for family in FAMILIES
                             for suffix in ('', '_hybrid', '_default', '_default_hybrid'))
-ALPHAS = tuple(p['alpha'] for p in GRIDS['ridge'])
 
 
 def split_runs(runs, *, block_size, seed):
@@ -139,26 +138,12 @@ def _tune_family(family, folds, *, seed):
         best = min(eligible, key=lambda c: (c[kind]['relative_l1'],
                    -c['parameters'].get('alpha', 0))) if eligible else None
         selected[kind] = best['parameters'].copy() if best else None
-    from flux_studies.neural_models import FIXED_PARAMETERS
     return dict(candidates=candidates, selected=selected, default=DEFAULTS[family].copy(),
                 folds=[audit for _, _, audit in folds],
-                fixed_parameters=(FIXED_PARAMETERS.copy() if family in ('mlp', 'cnn1d') else
-                                  {'n_estimators': 64, 'n_jobs': 1, 'random_state': seed}
+                fixed_parameters=({'n_estimators': 64, 'n_jobs': 1, 'random_state': seed}
                                   if family == 'extra_trees' else
                                   {'kernel': 'rbf', 'standardized': True} if family == 'kernel_ridge'
                                   else {'standardized': True}))
-
-
-def _alpha_curve(metadata):
-    return [dict(alpha=c['parameters']['alpha'], error=c['direct']['relative_l1'],
-                 n=c['direct']['n'], fold_counts={f['fold']: f['direct']['n'] for f in c['folds']})
-            for c in metadata['candidates'] if c['direct']['n']]
-
-
-def _choose_alpha(train, blocks):
-    metadata = _tune_family('ridge', _inner_folds(train, blocks), seed=0)
-    parameters = metadata['selected']['direct']
-    return (parameters['alpha'] if parameters else None), _alpha_curve(metadata)
 
 
 def score_prediction(truth, prediction):
@@ -321,7 +306,7 @@ def predict_missing_neighbors(records, targets, *, models=('extra_trees', 'kerne
 
 
 def evaluate_neighbors(records, *, block_size, seed, split_runs_by_period=None,
-                       models=('ridge',), split_plan=None):
+                       models=FAMILIES, split_plan=None):
     """Evaluate using original eligible runs for splits, retained records for fits.
 
     ``split_runs_by_period`` must describe eligibility before quality exclusion.
@@ -356,9 +341,7 @@ def evaluate_neighbors(records, *, block_size, seed, split_runs_by_period=None,
         examples = _examples(train, train, blocks, hide_block=True)
         folds = _inner_folds(train, blocks)
         model_metadata = {family: _tune_family(family, folds, seed=seed) for family in models}
-        ridge = model_metadata.get('ridge')
-        alpha = ridge['selected']['direct']['alpha'] if ridge and ridge['selected']['direct'] else None
-        fit = dict(group=group, alpha=alpha, tuning=_alpha_curve(ridge) if ridge else [],
+        fit = dict(group=group,
                    n_training=len(examples), models=model_metadata,
                    training_examples=_example_audit(examples, blocks), intervals={},
                    model_status='ok' if any(m['selected']['direct'] for m in model_metadata.values())

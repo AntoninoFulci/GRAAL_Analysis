@@ -7,10 +7,16 @@ from flux_studies.neighbor_validation import neighbor_example
 STATES = ('POL1', 'POL2', 'BREM')
 
 
-def gap_inventory(manifest, audit, counts, records, *, excluded_runs, recover_runs=()):
-    recover_runs = set(recover_runs)
-    if not recover_runs <= set(excluded_runs):
-        raise ValueError('recovered quality runs must be excluded from measured references')
+def recovery_targets(inventory, *, excluded_runs):
+    """Read genuine missing targets; an old inventory cannot override exclusions."""
+    return [{**{k: r[k] for k in ('run', 'state', 'period', 'position', 'count')},
+             'group': tuple(r['group'])}
+            for r in inventory['missing']
+            if r['status'] == 'candidate' and r['run'] not in excluded_runs
+            and r.get('missing_reason', 'missing_calibrated') == 'missing_calibrated']
+
+
+def gap_inventory(manifest, audit, counts, records, *, excluded_runs):
     records = [r for r in records if r['run'] not in excluded_runs]
     periods = defaultdict(list)
     for row in manifest:
@@ -22,8 +28,7 @@ def gap_inventory(manifest, audit, counts, records, *, excluded_runs, recover_ru
         period_rows.sort(key=lambda r: r.run_number)
         incomplete = []
         for position, row in enumerate(period_rows):
-            recovering = row.run_number in recover_runs
-            absent = [state for state in STATES if recovering or not entries[(row.run_number, state)]['calibrated_keys']]
+            absent = [state for state in STATES if not entries[(row.run_number, state)]['calibrated_keys']]
             if not absent:
                 continue
             states = []
@@ -32,11 +37,11 @@ def gap_inventory(manifest, audit, counts, records, *, excluded_runs, recover_ru
                               group=(period, row.target, row.beam_type, state),
                               position=position * 15., count=counts.get((row.run_number, state), 0))
                 example = neighbor_example(target, records) if target['count'] > 0 else None
-                status = ('quality_excluded' if row.run_number in excluded_runs and not recovering else
+                status = ('quality_excluded' if row.run_number in excluded_runs else
                           'missing_h80_count' if target['count'] <= 0 else
                           'no_two_sided_donors' if example is None else 'candidate')
                 result = {**target, 'status': status,
-                          'missing_reason': 'quality_excluded_as_missing' if recovering else 'missing_calibrated',
+                          'missing_reason': 'missing_calibrated',
                           'donors': example['donors'] if example else [],
                           'gap': example['gap'] if example else None,
                           'raw_problems': [p for p in entries[(row.run_number, state)]['problems']

@@ -8,7 +8,7 @@ from flux_studies import study_calibrated_neighbors as cli
 
 
 @pytest.mark.parametrize('audit_status, expected', [('verified', 0), ('failed', 1)])
-def test_native_cli_requires_audit_and_accepts_neural_families(tmp_path, monkeypatch, audit_status, expected):
+def test_native_cli_requires_audit_and_accepts_retained_families(tmp_path, monkeypatch, audit_status, expected):
     source = tmp_path / 'source'
     source.write_text('input')
     monkeypatch.setattr(cli, 'count_h80', lambda paths: ({}, []))
@@ -20,7 +20,7 @@ def test_native_cli_requires_audit_and_accepts_neural_families(tmp_path, monkeyp
     monkeypatch.setattr(audit, 'audit_native_strips', lambda *args, **kwargs: dict(status=audit_status))
     fits = []
     def evaluate(*args, **kwargs):
-        assert kwargs['models'] == ('mlp', 'cnn1d')
+        assert kwargs['models'] == ('extra_trees', 'kernel_ridge')
         fits.append(True)
         return dict(predictions=[], exclusions=[], fits=[], splits={}, block_size=3, status='insufficient_data')
     monkeypatch.setattr(cli, 'evaluate_neighbors', evaluate)
@@ -28,7 +28,7 @@ def test_native_cli_requires_audit_and_accepts_neural_families(tmp_path, monkeyp
     output = tmp_path / 'output'
     result = cli.main(['--manifest', str(source), '--calibrated-flux', str(source),
         '--h80', str(source), '--output-dir', str(output), '--block-size', '3',
-        '--representation', 'native_strip', '--raw-flux', str(source), '--models', 'mlp', 'cnn1d'])
+        '--representation', 'native_strip', '--raw-flux', str(source), '--models', 'extra_trees', 'kernel_ridge'])
     assert result == expected
     assert len(fits) == (1 if expected == 0 else 0)
     assert (output / 'strip_audit.json').exists() == (expected == 0)

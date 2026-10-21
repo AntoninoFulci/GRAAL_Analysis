@@ -10,9 +10,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from flux_studies.reporting import write_json
 
-COLORS = dict(nearest='#777777', linear_unscaled='#8e44ad', linear='#d97706', ridge='#1261a0')
+COLORS = dict(nearest='#777777', linear_unscaled='#8e44ad', linear='#d97706', extra_trees_hybrid='#1261a0')
 LABELS = dict(nearest='Nearest / events', linear_unscaled='Interpolation without counts',
-              linear='Two neighbors / events', ridge='Ridge ML / events')
+              linear='Two neighbors / events', extra_trees_hybrid='Extra Trees hybrid / events')
 
 
 def _save(pdf, fig, png=None):
@@ -150,7 +150,7 @@ def plot_benchmark(directory, dataset, study):
         for y in (.68, .95):
             axes[1, 1].axhline(y, color='gray', linestyle='--', linewidth=.7)
         for ax in (axes[0, 1], axes[1, 0], axes[1, 1]):
-            ax.set_xticks(range(len(COLORS)), ['Nearest', 'Unscaled', 'Linear', 'Ridge'], rotation=15)
+            ax.set_xticks(range(len(COLORS)), ['Nearest', 'Unscaled', 'Linear', 'Trees hybrid'], rotation=15)
         fig.suptitle(f'Development held-out performance | block size {study["block_size"]}')
         _save(pdf, fig, directory / 'performance.png')
 
@@ -158,18 +158,18 @@ def plot_benchmark(directory, dataset, study):
         paired = []
         for rows in by_target.values():
             methods = {p['method']: p for p in rows}
-            if all(m in methods and methods[m]['relative_l1'] is not None for m in ('linear', 'ridge')):
+            if all(m in methods and methods[m]['relative_l1'] is not None for m in ('linear', 'extra_trees_hybrid')):
                 paired.append(methods)
         if paired:
             linear = [r['linear']['relative_l1'] for r in paired]
-            ridge = [r['ridge']['relative_l1'] for r in paired]
+            ridge = [r['extra_trees_hybrid']['relative_l1'] for r in paired]
             axes[0].scatter(linear, ridge, s=13, alpha=.65)
             maximum = max(linear + ridge)
             axes[0].plot([0, maximum], [0, maximum], 'k--', linewidth=.7)
-        axes[0].set(xlabel='Interpolation relative L1', ylabel='Ridge relative L1', title=f'Paired test targets: {len(paired)}')
+        axes[0].set(xlabel='Interpolation relative L1', ylabel='Extra Trees hybrid relative L1', title=f'Paired test targets: {len(paired)}')
         axes[0].set_xscale('symlog', linthresh=.1)
         axes[0].set_yscale('symlog', linthresh=.1)
-        for method in ('linear', 'ridge'):
+        for method in ('linear', 'extra_trees_hybrid'):
             rows = [p for p in test if p['method'] == method and p['relative_l1'] is not None]
             axes[1].scatter([p['count'] for p in rows], [p['relative_l1'] for p in rows],
                             s=12, alpha=.6, color=COLORS[method], label=method)
@@ -187,7 +187,7 @@ def plot_benchmark(directory, dataset, study):
             for state in ('POL1', 'POL2', 'BREM'):
                 fig, axes = plt.subplots(2, 2, figsize=(12, 7), sharex='col')
                 has_rows = False
-                for col, method in enumerate(('linear', 'ridge')):
+                for col, method in enumerate(('linear', 'extra_trees_hybrid')):
                     rows = sorted([p for p in test if p['period'] == period and p['state'] == state
                                    and p['method'] == method and p['true_integral'] > 0], key=lambda p: p['run'])
                     if not rows:
@@ -213,20 +213,21 @@ def plot_benchmark(directory, dataset, study):
 
         fig, axes = plt.subplots(1, 2, figsize=(12, 4))
         for fit in study['fits']:
-            if fit['tuning']:
-                axes[0].plot([t['alpha'] for t in fit['tuning']], [t['error'] for t in fit['tuning']],
+            candidates = fit.get('models', {}).get('extra_trees', {}).get('candidates', [])
+            if candidates:
+                axes[0].plot(range(len(candidates)), [c['hybrid']['relative_l1'] for c in candidates],
                              '.-', label=f'{fit["group"][0]} {fit["group"][-1]}')
-        axes[0].set(xscale='log', xlabel='Ridge alpha', ylabel='Inner hold-out relative L1', title='Training-only regularization selection')
+        axes[0].set(xlabel='Extra Trees grid candidate', ylabel='Inner hold-out relative L1', title='Training-only model selection')
         if axes[0].lines:
             axes[0].legend(fontsize=7)
-        for method in ('linear', 'ridge'):
+        for method in ('linear', 'extra_trees_hybrid'):
             errors = []
             for role in ('train', 'validation', 'test'):
                 values = [p['relative_l1'] for p in study['predictions'] if p['method'] == method
                           and p['role'] == role and p['relative_l1'] is not None]
                 errors.append(float(np.mean(values)) if values else np.nan)
             axes[1].plot(['train*', 'validation', 'test'], errors, '.-', color=COLORS[method], label=method)
-        axes[1].set(ylabel='Mean relative L1', title='*Ridge train error is in-sample')
+        axes[1].set(ylabel='Mean relative L1', title='*ML train error is in-sample')
         axes[1].legend()
         fig.suptitle('Fit diagnostics; development holdout never used for parameter selection')
         _save(pdf, fig, directory / 'training.png')

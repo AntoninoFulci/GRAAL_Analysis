@@ -109,11 +109,11 @@ def test_audit_detects_moved_content_and_wrong_raw_strip_axis(tmp_path):
     assert result['periods']['1998_uv']['raw_axis_mismatches'] == 9
 
 
-def test_native_keeps_all_eight_frozen_whole_run_exclusions(tmp_path):
+def test_native_keeps_all_twelve_frozen_whole_run_exclusions(tmp_path):
     from calibration.run_quality import load_run_quality
     quality = load_run_quality()
     excluded = {row['run']: row for row in quality['excluded_runs']}
-    assert len(excluded) == 8
+    assert len(excluded) == 12
     runs = [(1321, '1998_uv')] + [(run, row['period']) for run, row in excluded.items()]
     manifest = tmp_path / 'manifest.csv'
     write_manifest([RunRecord(run, period, 'P', 'UV', 'P_UV', 'manual', f'{period}/run{run}.root')

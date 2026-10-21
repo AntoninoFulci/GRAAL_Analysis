@@ -37,24 +37,22 @@ def test_factor100_policy_freezes_new_findings_preserves_manual_exclusions(tmp_p
     path.write_text(json.dumps(policy))
     loaded = load_run_quality(path)
     assert {r['run'] for r in findings} == {5}
-    assert {r['run'] for r in loaded['excluded_runs']} == {5, 1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064}
+    assert {r['run'] for r in loaded['excluded_runs']} == {5, 1322, 1441, 1454, 1482, 1970, 1988, 2055, 2064, 2607, 2804, 3585, 3776}
     assert next(r for r in loaded['excluded_runs'] if r['run'] == 5)['decision_basis'] == 'flux_per_event_factor_100'
     assert next(r for r in loaded['excluded_runs'] if r['run'] == 1441)['decision_basis'] == 'user_requested_development_benchmark_errors'
-    assert len(base['excluded_runs']) == 8
+    assert len(base['excluded_runs']) == 12
 
 
-def test_anomalous_run_is_missing_in_all_states_and_never_a_donor():
+def test_anomalous_run_never_becomes_candidate_or_donor():
     manifest = [SimpleNamespace(run_number=i, source_period='p', target='P', beam_type='UV') for i in range(1, 8)]
-    audit = {'rows': [dict(run_number=i, state=s, calibrated_keys=[{}], problems=[])
+    audit = {'rows': [dict(run_number=i, state=s, calibrated_keys=[] if i in (3, 4) else [{}], problems=[])
                       for i in range(1, 8) for s in ('POL1', 'POL2', 'BREM')]}
     data = [{**r, 'position': r['position'] - 15} for r in records(7)]
     counts = {(r['run'], r['state']): r['count'] for r in data}
-    # Deliberately supply contaminated records: inventory must exclude them.
-    inv = gap_inventory(manifest, audit, counts, data, excluded_runs={3, 4}, recover_runs={3})
-    assert {(r['run'], r['state']) for r in inv['missing']} == {(3, s) for s in ('POL1', 'POL2', 'BREM')}
-    assert all(r['status'] == 'candidate' and r['donors'] == [2, 5] for r in inv['missing'])
-    assert all(r['missing_reason'] == 'quality_excluded_as_missing' for r in inv['missing'])
-    assert inv['patterns'][0]['masks'] == [['POL1', 'POL2', 'BREM'], []]
+    inv = gap_inventory(manifest, audit, counts, data, excluded_runs={3})
+    assert all(r['status'] == 'quality_excluded' for r in inv['missing'] if r['run'] == 3)
+    assert all(3 not in r['donors'] for r in inv['missing'])
+    assert all(r['status'] == 'candidate' for r in inv['missing'] if r['run'] == 4)
 
 
 def test_campaign_policy_applies_to_dataset_and_rejects_closure_truth(tmp_path):
@@ -112,8 +110,9 @@ def test_preparation_counts_full_fixture_and_freezes_recovery_inputs(tmp_path):
     assert preparation['current_factor100_runs'] == [4010]
     assert preparation['clean_runs'] == 19
     inv = json.loads((output / 'gap_inventory.json').read_text())
-    assert len(inv['missing']) == 3
-    assert all(r['run'] == 4010 and r['status'] == 'candidate' for r in inv['missing'])
+    assert inv['missing'] == []
+    assert preparation['recover_quality_runs'] == []
     design = json.loads((output / 'realistic_design.json').read_text())
-    assert design['test_masks'] and all(r['run'] != 4010 for r in design['split_plan']['period_uv'])
+    assert not design['test_masks']
+    assert all(r['run'] != 4010 for r in design['split_plan']['period_uv'])
     assert json.loads((output / 'input_integrity.json').read_text())['unchanged']

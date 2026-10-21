@@ -20,8 +20,9 @@ from flux_studies.study_calibrated_neighbors import _write_benchmark
 from flux_studies.study_realistic_gaps import restrict_test_states, require_mask_coverage
 from flux_studies.study_realistic_gaps import candidate_support
 
-FAMILIES = ('ridge', 'kernel_ridge', 'extra_trees', 'mlp', 'cnn1d')
-METHODS = ('linear', 'extra_trees_hybrid', 'kernel_ridge_hybrid', 'mlp_hybrid', 'cnn1d_hybrid')
+from flux_studies.neighbor_models import FAMILIES
+from flux_studies.realistic_gaps import recovery_targets
+METHODS = ('linear', 'extra_trees_hybrid', 'kernel_ridge_hybrid')
 
 
 def load_cached_counts(path):
@@ -172,12 +173,10 @@ def main(argv=None):
                 methods=METHODS, flux_replicas=closure_replicas(uncertainty), flux_replica_count=args.replicas,
                 run_quality_path=args.run_quality)
             print('Fitting experimental missing-state candidates in native strips...', flush=True)
-            targets = [{k: r[k] for k in ('run', 'state', 'period', 'group', 'position', 'count')}
-                       for r in inventory['missing'] if r['status'] == 'candidate']
-            for target in targets:
-                target['group'] = tuple(target['group'])
+            targets = recovery_targets(inventory, excluded_runs={
+                r['run'] for r in dataset['run_quality']['excluded_runs']})
             candidates = predict_missing_neighbors(dataset['records'], targets,
-                                                   models=tuple(f for f in FAMILIES if f != 'ridge'), seed=args.seed)
+                                                   models=FAMILIES, seed=args.seed)
             write_json(directory / 'candidate_fits.json', candidates['fits'])
             support = candidate_support(candidates['predictions'], study['predictions'], dataset['records'],
                                         targets=targets, methods=METHODS, native=True)
@@ -199,10 +198,10 @@ def main(argv=None):
                       ('estimate', 'lower68', 'upper68', 'lower95', 'upper95')} for p in published])
             np.savez_compressed(directory / 'candidate_spectra.npz', strip_indices=np.arange(1, 129),
                                 estimate=np.array([p['estimate'] for p in published]).reshape(-1, 128))
-        import torch, sklearn, uproot
+        import sklearn, uproot
         write_json(directory / 'execution.json', dict(elapsed_seconds=time.monotonic()-started,
                    command=sys.argv, python=sys.version, platform=platform.platform(),
-                   versions=dict(torch=torch.__version__, numpy=np.__version__, sklearn=sklearn.__version__, uproot=uproot.__version__),
+                   versions=dict(numpy=np.__version__, sklearn=sklearn.__version__, uproot=uproot.__version__),
                    methods=METHODS, replicas=args.replicas, seed=args.seed,
                    split_definition='frozen geometry from supplied reference-study; block_size does not override explicit split',
                    reference_study=str(args.reference_study), run_quality=dataset['run_quality']))

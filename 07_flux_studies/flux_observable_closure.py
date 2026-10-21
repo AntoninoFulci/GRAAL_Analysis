@@ -137,7 +137,9 @@ def _comparison(reference, candidate, scenario, reference_name, keys, matched_al
 def run_observable_closure(predictions, *, common_edges_by_period=None, flux_path,
                            manifest_path, reco_paths, output_dir,
                            methods=DEFAULT_METHODS, workers=1, representation='common_energy',
-                           flux_replicas=None, flux_replica_count=None, run_quality_path=None):
+                           flux_replicas=None, flux_replica_count=None, run_quality_path=None,
+                           accepted_runs: set[int] | None = None,
+                           analysis_runs: set[int] | None = None):
     """Compare fixed-grid observables with masked flux and optional replicas.
 
     ``representation='native_strip'`` copies the 128 bins directly and adds a
@@ -146,6 +148,16 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
     to period to synchronized replica payloads keyed by ``(run, state)``. Pass
     ``flux_replica_count`` to retain absent replicas in the failure denominator;
     otherwise the largest supplied list defines the requested count.
+
+    ``accepted_runs`` selects whole masked runs for every method. None accepts
+    all masked runs. The baseline always excludes every masked run; recovered
+    scenarios and both truth oracles exclude rejected masked runs, so paired
+    shifts compare identical samples at each acceptance threshold.
+
+    ``analysis_runs`` independently restricts the analysis universe before
+    loading exposures or selecting events. All masked runs must belong to it.
+    Use a development-only set to keep reserved confirmation runs out of
+    baseline, truth and recovered fits. None preserves the full native universe.
 
     Replica covariance is estimated on common complete fits at the oracle's
     estimable points. Bias and coverage remain unvalidated without independent
@@ -169,6 +181,13 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
     excluded_runs = {r['run'] for r in quality['excluded_runs']}
     records = validate_manifest(Path(manifest_path))
     manifest = {r.run_number: r for r in records}
+    if analysis_runs is not None:
+        if (not isinstance(analysis_runs, (set, frozenset))
+                or any(isinstance(run, bool) or not isinstance(run, (int, np.integer))
+                       for run in analysis_runs)
+                or not analysis_runs <= manifest.keys()):
+            raise ValueError('analysis_runs must be a set of known manifest run IDs')
+        analysis_runs = set(map(int, analysis_runs))
     selected = defaultdict(dict)
     truth = {}
     for row in predictions:
@@ -181,6 +200,8 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
             raise ValueError(f'unknown prediction state {state}')
         if run not in manifest or manifest[run].source_period != period or manifest[run].target != 'P':
             raise ValueError(f'prediction does not match proton manifest: {run}/{period}')
+        if analysis_runs is not None and run not in analysis_runs:
+            raise ValueError(f'masked prediction run is outside analysis_runs: {run}')
         key = (period, run, state)
         current_truth = np.asarray(row['truth'], dtype=float)
         if current_truth.shape != (128,):
@@ -197,11 +218,28 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
     period_targets = defaultdict(set)
     for period, run, state in truth:
         period_targets[period].add((run, state))
+    all_masked_runs = {run for _, run, _ in truth}
+    if accepted_runs is None:
+        accepted_runs = all_masked_runs.copy()
+    elif (not isinstance(accepted_runs, (set, frozenset))
+          or any(isinstance(run, bool) or not isinstance(run, (int, np.integer))
+                 for run in accepted_runs)
+          or not accepted_runs <= all_masked_runs
+          or accepted_runs & excluded_runs):
+        raise ValueError('accepted_runs must be a set of whole masked, non-excluded run IDs')
+    accepted_runs = set(map(int, accepted_runs))
+    baseline_definition = 'Unmasked native runs only; all masked runs excluded at every acceptance threshold.'
+    oracle_definition = 'Unmasked native runs plus accepted masked runs with native truth; rejected masked runs excluded from events and exposures.'
     report = dict(status='diagnostic_only', representation=representation, phi_bins=12, estimator='both',
                   run_quality=quality,
+                  analysis_runs=None if analysis_runs is None else sorted(analysis_runs),
+                  analysis_universe_definition='Only requested analysis runs enter exposure loading and event selection; quality exclusions still apply.',
+                  masked_runs=sorted(all_masked_runs), accepted_runs=sorted(accepted_runs),
+                  rejected_runs=sorted(all_masked_runs - accepted_runs),
+                  baseline_definition=baseline_definition, matched_oracle_definition=oracle_definition,
                   flux_path=str(Path(flux_path)), manifest_path=str(Path(manifest_path)),
                   sample='raw_bdt', vector_mode='raw', periods=[],
-                  scenario_definition='All requested test run/states replaced together within each period; other native flux retained.',
+                  scenario_definition='All accepted test run/states replaced together within each period; rejected masked runs excluded and unmasked native flux retained.',
                   statistic_label='Paired sensitivity deltaSigma / reference statistical error; not independent significance.',
                   uncertainty=dict(paired_event_selection=True, paired_bootstrap=False,
                                    flux_covariance='unvalidated', coverage='unvalidated'),
@@ -210,8 +248,12 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
                                                 'independent bias and coverage evidence unavailable']),
                   brem_caveat='BREM-only replacements do not alter central Sigma in these ratio/likelihood estimators; this does not validate BREM-dependent background or uncertainty corrections.')
     cache = {}
-    for period, targets in sorted(period_targets.items()):
-        profile_names = {manifest[run].beam_type.lower() for run, _ in targets}
+    for period, masked_targets in sorted(period_targets.items()):
+        masked_runs = {run for run, _ in masked_targets}
+        accepted_period_runs = masked_runs & accepted_runs
+        rejected_runs = masked_runs - accepted_period_runs
+        targets = {(run, state) for run, state in masked_targets if run in accepted_period_runs}
+        profile_names = {manifest[run].beam_type.lower() for run, _ in masked_targets}
         if len(profile_names) != 1:
             raise ValueError(f'mixed profiles in period {period}')
         profile_name = profile_names.pop()
@@ -230,7 +272,9 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
             if not set(map(int, np.unique(events.run_number))) <= set(universe):
                 raise ValueError('selected events fall outside inclusive reconstruction universe')
             universe = set(universe) - excluded_runs
-            events = events.take(~np.isin(events.run_number, sorted(excluded_runs)))
+            if analysis_runs is not None:
+                universe &= analysis_runs
+            events = events.take(np.isin(events.run_number, sorted(universe)))
             audit = {}
             native = load_exposures(Path(flux_path), manifest_path=Path(manifest_path),
                                     run_numbers=universe, target=profile.target, beam_type=profile.beam_type,
@@ -244,16 +288,28 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
         # Select once from native availability. No scenario may alter this object.
         selected_events = select_sigma_events(period_events, native,
                                                energy_range=profile.energy_range_gev, drop_missing=True)
+        baseline_native = {key: value for key, value in native.items() if key[0] not in masked_runs}
+        baseline_events = selected_events.take(~np.isin(selected_events.run_number, sorted(masked_runs)))
+        if rejected_runs:
+            native = {key: value for key, value in native.items() if key[0] not in rejected_runs}
+            selected_events = selected_events.take(~np.isin(selected_events.run_number, sorted(rejected_runs)))
+        recovered_events = int(np.isin(selected_events.run_number, sorted(accepted_period_runs)).sum())
         energy_edges = np.asarray(profile.energy_edges_gev)
         keys = [(estimator, pair, e, m) for estimator in ('ratio', 'likelihood')
                 for pair in PAIR_NAMES for e in range(len(energy_edges) - 1)
                 for m in range(len(pair_mass_edges(pair)) - 1)]
         expected = len(keys)
         entry = dict(period=period, profile=profile_name, reco_path=str(reco_paths[profile_name]),
+                     analysis_runs=sorted(period_runs),
                      run_universe=sorted(period_runs), exposed_runs=sorted({key[0] for key in native}),
                      native_strata=len(native), input_events=len(period_events), selected_events=len(selected_events),
+                     masked_runs=sorted(masked_runs), accepted_runs=sorted(accepted_period_runs),
+                     rejected_runs=sorted(rejected_runs),
+                     baseline_definition=baseline_definition, matched_oracle_definition=oracle_definition,
+                     masked_target_states=[dict(run=run, state=state) for run, state in sorted(masked_targets)],
                      target_states=[dict(run=run, state=state) for run, state in sorted(targets)],
-                     target_selected_events=int(np.isin(selected_events.run_number, [r for r, _ in targets]).sum()),
+                     target_selected_events=recovered_events, recovered_events=recovered_events,
+                     recovery_status='recovered_events' if recovered_events else 'no_recovered_events',
                      brem_only=all(state == 'BREM' for _, state in targets),
                      energy_edges_gev=energy_edges.tolist(), expected_points_per_scenario=expected,
                      flux_audit={str(run): audit.get(str(run)) for run in sorted(period_runs)},
@@ -280,9 +336,7 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
             try:
                 exposures, scenario_events = native, selected_events
                 if scenario == 'without_recovery':
-                    masked_runs = {run for run, _ in targets}
-                    exposures = {key: value for key, value in native.items() if key[0] not in masked_runs}
-                    scenario_events = selected_events.take(~np.isin(selected_events.run_number, sorted(masked_runs)))
+                    exposures, scenario_events = baseline_native, baseline_events
                 elif scenario != 'native_truth':
                     if axes_error:
                         raise ValueError(axes_error)
@@ -357,7 +411,7 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
         if representation == 'native_strip':
             _add_recovery_uncertainty(entry, scenario_points, methods, flux_replicas,
                                       flux_replica_count, native, targets, selected_events,
-                                      energy_edges, workers, keys)
+                                      energy_edges, workers, keys, masked_targets=masked_targets)
         report['periods'].append(entry)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -438,7 +492,8 @@ def _key_record(key):
 
 
 def _add_recovery_uncertainty(entry, scenario_points, methods, replicas_by_method,
-                              requested, native, targets, events, energy_edges, workers, keys):
+                              requested, native, targets, events, energy_edges, workers, keys,
+                              *, masked_targets=None):
     """Propagate whole-spectrum replicas through the frozen observable extraction.
 
     Covariance uses the same complete replica indices at every oracle-estimable
@@ -447,6 +502,7 @@ def _add_recovery_uncertainty(entry, scenario_points, methods, replicas_by_metho
     independent repeated-experiment evidence for mean bias or coverage.
     """
     oracle = scenario_points['native_truth']
+    masked_targets = targets if masked_targets is None else masked_targets
     without = scenario_points['without_recovery']
     covariance_keys = sorted(oracle)
     entry['flux_replica_results'] = {}
@@ -460,7 +516,7 @@ def _add_recovery_uncertainty(entry, scenario_points, methods, replicas_by_metho
     entry['acceptance'] = dict(
         representation=dict(budget_sigma_stat=.05, evaluable_points=len(shifts),
                             status=('passed' if max(shifts, default=0.) <= .05 else 'failed')
-                            if representation_complete and shifts else 'unvalidated'),
+                            if representation_complete and shifts and targets else 'unvalidated'),
         bias=dict(budget_sigma_stat=.10, status='unvalidated',
                   reason='One paired period fit cannot estimate independent mean bias and its uncertainty.'),
         flux=dict(budget_sigma_stat=.30, status='unvalidated',
@@ -479,19 +535,24 @@ def _add_recovery_uncertainty(entry, scenario_points, methods, replicas_by_metho
                          missing_points=len(keys), reused_native_fit=False)
             started = time.perf_counter()
             try:
-                if index >= len(supplied) or not isinstance(supplied[index], dict):
+                if targets and (index >= len(supplied) or not isinstance(supplied[index], dict)):
                     raise ValueError('missing replica payload')
-                payload = supplied[index]
-                if set(payload) != targets:
-                    raise ValueError('replica must supply exactly every masked run/state')
-                replacements = {key: _native_values(value) for key, value in payload.items()}
+                payload = supplied[index] if index < len(supplied) else {}
+                if not isinstance(payload, dict):
+                    raise ValueError('invalid replica payload')
+                if not targets <= set(payload) or not set(payload) <= masked_targets:
+                    raise ValueError('replica must supply every accepted masked run/state and no unknown states')
+                replacements = {key: _native_values(payload[key]) for key in targets}
                 exposures = replace_masked_exposures(native, replacements)
                 # Both fixed estimators depend only on polarized flux. Validate
                 # BREM replacements first, then reuse the same mathematical fit.
                 if all(state == 'BREM' for _, state in targets):
                     fitted = oracle
                     audit['reused_native_fit'] = True
-                    audit['reuse_reason'] = 'Only BREM changed; fixed ratio/likelihood estimators use polarized flux.'
+                    audit['reuse_reason'] = (
+                        'No accepted targets; reuse the matched native oracle.'
+                        if not targets else
+                        'Only BREM changed; fixed ratio/likelihood estimators use polarized flux.')
                 else:
                     bundle = _extract_sample(sample_name='raw_bdt', events=events, exposures=exposures,
                                              estimator='both', retain_ratio_objects=False,

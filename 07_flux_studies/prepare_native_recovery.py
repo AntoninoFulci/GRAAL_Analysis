@@ -33,7 +33,7 @@ def campaign_quality(records, base, sources):
         if run in by_run and by_run[run]['decision_basis'] != 'flux_per_event_factor_100':
             continue
         by_run[run] = dict(run=run, period=evidence[0]['period'],
-            reason='Full-campaign flux/event outside [0.01, 100] times period/state median; all states excluded and treated as missing for experimental reconstruction.',
+            reason='Full-campaign flux/event outside [0.01, 100] times period/state median; exclude the whole run from analysis, training and recovery.',
             decision_basis='flux_per_event_factor_100',
             evidence=[{k: v for k, v in row.items() if k not in ('run', 'period')} for row in evidence])
     policy['excluded_runs'] = [by_run[r] for r in sorted(by_run)]
@@ -79,11 +79,8 @@ def main(argv=None):
         data = load_calibrated_dataset(args.manifest, args.calibrated_flux, counts,
                                       representation='native_strip', run_quality_path=quality_path)
         excluded = {r['run'] for r in policy['excluded_runs']}
-        recover = {r['run'] for r in policy['excluded_runs'] if r['decision_basis'] == 'flux_per_event_factor_100'}
-        # A previous manual exclusion can also newly satisfy the factor-100 rule.
-        recover.update(r['run'] for r in findings)
         audit = audit_flux(manifest=args.manifest, raw_flux=args.raw_flux, calibrated_flux=args.calibrated_flux)
-        inventory = gap_inventory(manifest, audit, counts, data['records'], excluded_runs=excluded, recover_runs=recover)
+        inventory = gap_inventory(manifest, audit, counts, data['records'], excluded_runs=excluded)
         design = realistic_split(data['records'], inventory['patterns'], seed=args.seed)
         write_json(directory / 'gap_inventory.json', inventory)
         write_json(directory / 'realistic_design.json', design)
@@ -91,12 +88,12 @@ def main(argv=None):
         write_csv(directory / 'missing_states.csv', inventory['missing'])
         write_json(directory / 'preparation.json', dict(periods=periods, inclusive_events=sum(counts.values()),
                    clean_runs=len({r['run'] for r in data['records']}), clean_spectra=len(data['records']),
-                   excluded_runs=sorted(excluded), recover_quality_runs=sorted(recover),
+                   excluded_runs=sorted(excluded), recover_quality_runs=[],
                    current_factor100_runs=sorted({r['run'] for r in findings}),
                    test_masks=len(design['test_masks']), inventory=inventory['summary'],
                    status='prepared_experimental_not_adopted',
                    comparison_caveat='Full current h80 excludes no-tagger events; local pilot used historical h80. Compare convention and period effects separately.'))
-        print(f"Clean spectra: {len(data['records'])}; quality recovery runs: {sorted(recover)}; test masks: {len(design['test_masks'])}", flush=True)
+        print(f"Clean spectra: {len(data['records'])}; excluded runs: {sorted(excluded)}; test masks: {len(design['test_masks'])}", flush=True)
     print(f'Published {args.output_dir}', flush=True)
     return 0
 

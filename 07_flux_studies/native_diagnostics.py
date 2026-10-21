@@ -104,37 +104,38 @@ def plot_published_energy_views(directory):
             fig.suptitle(f'{key[0]} run {key[1]} {key[2]}\nNative predictions; energy axis applied only after fitting')
             _save(pdf, fig)
     fits = json.loads((block / 'fits.json').read_text())
-    with PdfPages(directory / 'neural_learning.pdf') as pdf:
-        for fit in fits:
-            fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-            for column, family in enumerate(('mlp', 'cnn1d')):
-                metadata = fit['models'].get(family, {})
-                diagnostic = metadata.get('fit_diagnostics', {}).get(family + '_hybrid')
-                if diagnostic is None:
-                    for ax in axes[:, column]:
-                        ax.text(.5, .5, f'{family}: fit unavailable\nInsufficient training or family not requested',
-                                transform=ax.transAxes, ha='center', va='center')
-                        ax.set_axis_off()
-                    continue
-                for member in diagnostic['initializations']:
-                    loss = member['loss_history']
-                    axes[0, column].plot(np.arange(1, len(loss)+1), loss, label=f"seed {member['seed']}")
-                axes[0, column].set(xlabel='Epoch', ylabel='Training KL divergence', title=f'{family}: selected full-training fit')
-                axes[0, column].legend(fontsize=7)
-                for i, candidate in enumerate(metadata['candidates']):
-                    error = candidate['hybrid']['relative_l1']
-                    final_losses = [m['final_loss'] for fold in candidate['folds']
-                                    if fold.get('fit_diagnostics') for m in fold['fit_diagnostics']['initializations']]
-                    axes[1, column].scatter(i, error, color='tab:orange', label='Inner held-out L1' if i == 0 else None)
-                    if final_losses:
-                        axes[1, column].scatter(i, np.mean(final_losses), color='tab:blue', marker='x', label='Mean training KL' if i == 0 else None)
-                axes[1, column].set_xticks(range(len(metadata['candidates'])),
-                    [f"width={c['parameters']['width']}\nweight decay={c['parameters']['weight_decay']:g}"
-                     for c in metadata['candidates']], fontsize=7)
-                axes[1, column].set(ylabel='Different losses, shown separately', title='Grid: training fit and held-out error')
-                axes[1, column].legend(fontsize=7)
-            fig.suptitle(f"{fit['group'][0]} {fit['group'][-1]}: neural convergence and grid diagnostics\nTraining KL and held-out L1 are different metrics; compare candidates within each metric")
-            _save(pdf, fig)
+    if any(set(fit['models']) & {'mlp', 'cnn1d'} for fit in fits):
+        with PdfPages(directory / 'neural_learning.pdf') as pdf:
+            for fit in fits:
+                fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+                for column, family in enumerate(('mlp', 'cnn1d')):
+                    metadata = fit['models'].get(family, {})
+                    diagnostic = metadata.get('fit_diagnostics', {}).get(family + '_hybrid')
+                    if diagnostic is None:
+                        for ax in axes[:, column]:
+                            ax.text(.5, .5, f'{family}: fit unavailable\nInsufficient training or family not requested',
+                                    transform=ax.transAxes, ha='center', va='center')
+                            ax.set_axis_off()
+                        continue
+                    for member in diagnostic['initializations']:
+                        loss = member['loss_history']
+                        axes[0, column].plot(np.arange(1, len(loss)+1), loss, label=f"seed {member['seed']}")
+                    axes[0, column].set(xlabel='Epoch', ylabel='Training KL divergence', title=f'{family}: selected full-training fit')
+                    axes[0, column].legend(fontsize=7)
+                    for i, candidate in enumerate(metadata['candidates']):
+                        error = candidate['hybrid']['relative_l1']
+                        final_losses = [m['final_loss'] for fold in candidate['folds']
+                                        if fold.get('fit_diagnostics') for m in fold['fit_diagnostics']['initializations']]
+                        axes[1, column].scatter(i, error, color='tab:orange', label='Inner held-out L1' if i == 0 else None)
+                        if final_losses:
+                            axes[1, column].scatter(i, np.mean(final_losses), color='tab:blue', marker='x', label='Mean training KL' if i == 0 else None)
+                    axes[1, column].set_xticks(range(len(metadata['candidates'])),
+                        [f"width={c['parameters']['width']}\nweight decay={c['parameters']['weight_decay']:g}"
+                         for c in metadata['candidates']], fontsize=7)
+                    axes[1, column].set(ylabel='Different losses, shown separately', title='Grid: training fit and held-out error')
+                    axes[1, column].legend(fontsize=7)
+                fig.suptitle(f"{fit['group'][0]} {fit['group'][-1]}: neural convergence and grid diagnostics\nTraining KL and held-out L1 are different metrics; compare candidates within each metric")
+                _save(pdf, fig)
     if not (directory / 'candidate_predictions.csv').exists():
         return
     attempts = (directory / 'candidate_attempts.csv').exists()

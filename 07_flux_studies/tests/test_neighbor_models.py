@@ -16,7 +16,7 @@ def test_all_models_grid_defaults_determinism_and_test_isolation():
     for row in rows:
         row['values'] *= 1 + .2 * np.sin(np.linspace(0, 6, 128) + row['run'] / 8)
     roles, _ = split_runs(range(1, 46), block_size=1, seed=42)
-    models = ('ridge', 'kernel_ridge', 'extra_trees')
+    models = ('kernel_ridge', 'extra_trees')
     first = evaluate_neighbors(rows, block_size=1, seed=42, models=models)
     changed = [{**r, 'values': r['values'] * (20 if roles[r['run']] == 'test' else 1)} for r in rows]
     second = evaluate_neighbors(changed, block_size=1, seed=42, models=models)
@@ -31,7 +31,7 @@ def test_all_models_grid_defaults_determinism_and_test_isolation():
             np.testing.assert_array_equal(a['lower95'], b['lower95'])
         if a['method'].endswith('_hybrid'):
             np.testing.assert_allclose(a['predicted_integral'], linear[a['run'], a['role']]['predicted_integral'], rtol=1e-14)
-    for family, size in [('ridge', 7), ('kernel_ridge', 9), ('extra_trees', 6)]:
+    for family, size in [('kernel_ridge', 9), ('extra_trees', 6)]:
         model = first['fits'][0]['models'][family]
         assert len(model['candidates']) == size
         assert model == second['fits'][0]['models'][family]
@@ -74,7 +74,7 @@ def test_zero_model_shape_is_reported_as_unavailable():
         row['values'][:] = 0
     study = evaluate_neighbors(rows, block_size=1, seed=42)
     assert not any(p['method'].endswith('_hybrid') for p in study['predictions'])
-    assert any(e.get('method') == 'ridge_default_hybrid' and e['reason'] == 'zero_predicted_shape'
+    assert any(e.get('method') == 'extra_trees_default_hybrid' and e['reason'] == 'zero_predicted_shape'
                for e in study['exclusions'])
 
 

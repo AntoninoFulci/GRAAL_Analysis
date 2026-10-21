@@ -13,32 +13,33 @@
     "test_data/pre_analyzed/pre_analisi_1998_uv.root": "9f99ac60ce49c6b3c8c51a49f3d9ae727baf06f86ef910dc80319e6463874525",
     "test_data/pre_analyzed/pre_analisi_1999_vis.root": "117855c1dc0553189b06612d5ee0c0695369545c07fb9b3db97dcf1ec1c53a52",
     "results/calibrated-flux-neighbors-20261019/counts.csv": "cfde2110ab840c10d77acf7627841c79aba6627306b82f48407a00b6e8989b20",
-    "results/hybrid-flux-model-search-20261019/block_1/predictions.csv": "18b40ac353c3945204876942dcd6f1d8ff2f5f1e35a000d0e3d5745db87093fe"
+    "results/hybrid-flux-model-search-20261019/block_1/predictions.csv": "18b40ac353c3945204876942dcd6f1d8ff2f5f1e35a000d0e3d5745db87093fe",
+    "results/farm-flux-results-20261020/prepared/factor100_findings.json": "db7390fa10edd6d0e3ab8d6c1b08d98a0a8e5cb865e2c8023580b98e0f7e03a5"
   },
   "excluded_runs": [
     {
       "run": 1322,
       "period": "1998_uv",
-      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
       "evidence": [
         {
-          "state": "BREM",
+          "event_count": 1595,
           "flux_integral": 2567590011.0,
-          "event_count": 1881,
-          "flux_per_event": 1365013.2966507177,
-          "period_state_median": 202.5064828669976,
-          "ratio_to_period_state_median": 6740.590608880569
+          "flux_per_event": 1609774.301567398,
+          "period_state_median": 237.13344553846147,
+          "ratio_to_period_state_median": 6788.474303622866,
+          "state": "BREM"
         },
         {
-          "state": "POL1",
+          "event_count": 387040,
           "flux_integral": 537987.7859999997,
-          "event_count": 422964,
-          "flux_per_event": 1.271946988396175,
-          "period_state_median": 6527.590379402251,
-          "ratio_to_period_state_median": 0.00019485704746575268
+          "flux_per_event": 1.3900056479950387,
+          "period_state_median": 7131.7627468294495,
+          "ratio_to_period_state_median": 0.00019490351787333226,
+          "state": "POL1"
         }
-      ],
-      "decision_basis": "flux_per_event_factor_100"
+      ]
     },
     {
       "run": 1441,
@@ -83,42 +84,42 @@
     {
       "run": 1482,
       "period": "1998_uv",
-      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
       "evidence": [
         {
-          "state": "BREM",
+          "event_count": 5081,
           "flux_integral": 2100584264.0,
-          "event_count": 5953,
-          "flux_per_event": 352861.45876028895,
-          "period_state_median": 202.5064828669976,
-          "ratio_to_period_state_median": 1742.469938565086
+          "flux_per_event": 413419.45758708916,
+          "period_state_median": 237.13344553846147,
+          "ratio_to_period_state_median": 1743.4042534503437,
+          "state": "BREM"
         }
-      ],
-      "decision_basis": "flux_per_event_factor_100"
+      ]
     },
     {
       "run": 1970,
       "period": "1999_vis",
-      "reason": "Extreme calibrated flux per inclusive h80 event relative to the period/state median; exclude all states of the run. Fixed from inspected development data, without automatic state reassignment.",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
       "evidence": [
         {
-          "state": "BREM",
+          "event_count": 15777,
           "flux_integral": 1429296463.5,
-          "event_count": 19256,
-          "flux_per_event": 74226.03154860823,
-          "period_state_median": 63.565377623977604,
-          "ratio_to_period_state_median": 1167.711643084919
+          "flux_per_event": 90593.67836090512,
+          "period_state_median": 74.26084176411631,
+          "ratio_to_period_state_median": 1219.9387484546537,
+          "state": "BREM"
         },
         {
-          "state": "POL1",
+          "event_count": 337696,
           "flux_integral": 615620.5020000001,
-          "event_count": 361490,
-          "flux_per_event": 1.703008387507262,
-          "period_state_median": 3162.698089184898,
-          "ratio_to_period_state_median": 0.0005384669479931825
+          "flux_per_event": 1.8230020551028145,
+          "period_state_median": 3393.6451395051236,
+          "ratio_to_period_state_median": 0.0005371811076772314,
+          "state": "POL1"
         }
-      ],
-      "decision_basis": "flux_per_event_factor_100"
+      ]
     },
     {
       "run": 1988,
@@ -177,6 +178,86 @@
           "relative_integral_error": 1.4530156881594718,
           "relative_l1": 1.4530156881594714,
           "shape_l1": 0.11763764989290895
+        }
+      ]
+    },
+    {
+      "run": 2607,
+      "period": "2000_uv1",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
+      "evidence": [
+        {
+          "event_count": 1726,
+          "flux_integral": 1507161581.0,
+          "flux_per_event": 873210.6494785631,
+          "period_state_median": 1683.4870076086954,
+          "ratio_to_period_state_median": 518.6916474745551,
+          "state": "BREM"
+        }
+      ]
+    },
+    {
+      "run": 2804,
+      "period": "2000_fuv",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
+      "evidence": [
+        {
+          "event_count": 131183,
+          "flux_integral": 124159.19699999997,
+          "flux_per_event": 0.9464579785490496,
+          "period_state_median": 1768.5755747784788,
+          "ratio_to_period_state_median": 0.0005351526912654537,
+          "state": "BREM"
+        },
+        {
+          "event_count": 472065,
+          "flux_integral": 674703.3740000001,
+          "flux_per_event": 1.4292594748604537,
+          "period_state_median": 5416.698154984255,
+          "ratio_to_period_state_median": 0.0002638617537780464,
+          "state": "POL1"
+        },
+        {
+          "event_count": 522713,
+          "flux_integral": 744809.2409999997,
+          "flux_per_event": 1.4248913667729703,
+          "period_state_median": 5027.359503411973,
+          "ratio_to_period_state_median": 0.0002834273868431179,
+          "state": "POL2"
+        }
+      ]
+    },
+    {
+      "run": 3585,
+      "period": "2002_vis1",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
+      "evidence": [
+        {
+          "event_count": 487,
+          "flux_integral": 2370075181.0,
+          "flux_per_event": 4866684.14989733,
+          "period_state_median": 1786.1648290870494,
+          "ratio_to_period_state_median": 2724.6556816286693,
+          "state": "BREM"
+        }
+      ]
+    },
+    {
+      "run": 3776,
+      "period": "2002_uv1",
+      "reason": "Full-campaign flux/event outside [0.01, 100] times the period/state median. Exclude the whole run from analysis, training and recovery.",
+      "decision_basis": "flux_per_event_factor_100",
+      "evidence": [
+        {
+          "event_count": 647,
+          "flux_integral": 535864350.734,
+          "flux_per_event": 828229.2901607419,
+          "period_state_median": 1604.6473403565647,
+          "ratio_to_period_state_median": 516.1441204749095,
+          "state": "BREM"
         }
       ]
     }
