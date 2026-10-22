@@ -1,0 +1,50 @@
+--- a/src/lagdata.F
++++ b/src/lagdata.F
+@@ -17,6 +17,8 @@
+ #include "geant321/gctrak.inc"
+ 
+       COMMON /SLATE/ ND,NE,NF,NG,NUM(2),DUMMY(34)
++      REAL SIGNAL_EWIN(2)
++      COMMON /SIGNAL_ENERGY/ SIGNAL_EWIN
+       REAL ANUM(2)
+       EQUIVALENCE (ANUM(1),NUM(1))
+ 
+@@ -95,6 +97,10 @@
+ C       Minumum Value if IBEAM != 0
+ C
+       CALL FFKEY('ENER',ETAG,1,'REAL')
++C Optional uniform signal energy interval; zero preserves fixed energy.
++      SIGNAL_EWIN(1)=0.
++      SIGNAL_EWIN(2)=0.
++      CALL FFKEY('EWIN',SIGNAL_EWIN,2,'REAL')
+ C
+ C       ICHAIN(I) = Reaction Channel
+ C                 = 0 (All)
+--- a/src/montecarlo.F
++++ b/src/montecarlo.F
+@@ -27,6 +27,8 @@
+ #include "polariz.inc"
+ #include "geant321/gconsp.inc"
+       LOGICAL LREAC
++      REAL SIGNAL_EWIN(2)
++      COMMON /SIGNAL_ENERGY/ SIGNAL_EWIN
+       REAL Thresh
+ 
+       Thresh = 0.5
+@@ -77,6 +79,16 @@
+ C ***   Estrazione dell energia del fotone nel canale di tagging
+ 
+         EGAM = ETAG
++        IF(SIGNAL_EWIN(2).GT.0.)THEN
++          IF(NCHAIN.NE.1.OR.ICHAIN(1).NE.38)
++     &      STOP 'EWIN REQUIRES SIGNAL CHANNEL 38'
++          IF(SIGNAL_EWIN(1).LE..94.OR.
++     &       SIGNAL_EWIN(2).LE.SIGNAL_EWIN(1).OR.
++     &       SIGNAL_EWIN(2).GT.EG_MAX)
++     &      STOP 'INVALID SIGNAL ENERGY INTERVAL'
++          CALL GRNDM(RND,1)
++          EGAM=SIGNAL_EWIN(1)+(SIGNAL_EWIN(2)-SIGNAL_EWIN(1))*RND
++        ENDIF
+       ELSE
+ 
+ C ***   Estrazione di S energia totale nel CM secondo lo spettro

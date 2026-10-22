@@ -1,0 +1,433 @@
+{
+  "schema_version": 1,
+  "status": "provisional_configuration_mapping",
+  "date": "2026-10-21",
+  "transport_validated": false,
+  "usable_for_physical_acceptance": false,
+  "image": "afulci/ubuntu77@sha256:cb810e84914ae1a440663c391b26058c3bb13fff1b41760da6bbc4d1c31a3ca6",
+  "initial_profile": "2002_uv1",
+  "initial_run": 3629,
+  "inputs": {
+    "canonical_manifest": {
+      "path": "config/run_manifest.csv",
+      "sha256": "64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160"
+    },
+    "available_periods": {
+      "path": "results/cross-section-net-yields-20261021/extracted/index.json",
+      "sha256": "3a3afa20dbbf670ca8457c2f5bbc6632badea2e5ee22fe90aa1d0e5c5bd43bfb"
+    },
+    "normalization": {
+      "path": "config/cross_sections/ajaka_provisional_normalization.json",
+      "sha256": "94395e7c6e2a8ae4edc57ac178d1b21bff60125ed6badf8fa7e19fa4fbdbbe8e"
+    }
+  },
+  "sources": [
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/prean/src/constan.F",
+      "sha256": "e49ab992ab92f6882bdc532a6140b3b3e34ead30a6a2baf9ba415832052edaad"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/prean/src/wall_choose_file.F",
+      "sha256": "ba10ee1a4e3a6b80377dfd1c9b5ec59146e9345305d7010c1fdd24c82427bb51"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/lagdig/src/constan.F",
+      "sha256": "d3470057030e9c8cdea28ee222fa8cf267aef43d756c132decd9d8e7ab9c0287"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/lagdig/src/trig.F",
+      "sha256": "34ae775aabb5d7fc562b825a404b1f500a856355aa1b517c5d0d67827bd30638"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/include/GRAAL_period.h",
+      "sha256": "722da2cf65b417f484a9e2f2359dee454f00111111b519532fe11a8b7526fe91"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/prean/comp_prean",
+      "sha256": "eaeac4f1a4e44604fcd642dd258a167193a3c6e8e360cf82ad6fe8b6b0031f1e"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_script",
+      "sha256": "e5a3ab4c84efb6081bc2dcd890b0fec314300861384d160ee8aabd54013efe9b"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/laggen/pilot.h",
+      "sha256": "592eafaca9b727419979605882bce44d3d17d853deb8002020f068990f9fbf68"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/lagdig/pilot.h",
+      "sha256": "eb2ec36bb028a4c5828835908baa0d225700bfb5d6c57c14f8cbb353a74e7b50"
+    },
+    {
+      "image_path": "/home/gmandaglio/graal/software/prog/prean/pilot.h",
+      "sha256": "122e43065334e85ea9cbaf86f88155f55dee8f24e1ec27dbae0161a12434b929"
+    }
+  ],
+  "target_profiles": {
+    "provisional_lh2_12cm": {
+      "material": "liquid hydrogen",
+      "length_cm": 12.0,
+      "density_g_cm3": 0.071,
+      "laggen_target_card": "TARG 1 4",
+      "status": "user_authorized_provisional_assumption_all_proton_periods",
+      "historical_default_length_cm": 11.1
+    }
+  },
+  "profiles": [
+    {
+      "source_period": "1998_uv",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 1321,
+      "canonical_manifest_run_count": 179,
+      "canonical_manifest_run_range": [
+        1321,
+        1515
+      ],
+      "current_exposure_run_count": 166,
+      "historical_run_interval": [
+        1186,
+        1517
+      ],
+      "historical_period": 9,
+      "period_macro": "GRAAL_09",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data09.base",
+        "sha256": "87e5e77370f6dd59e58c3ef5575cefa372c679d7db9cd5fc9fdc12418c7aac06"
+      },
+      "wall_calibration": "calib_1400.cal",
+      "planar_macro": "GRAAL_OLD_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.92e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_1998_uv",
+        "sha256": "24c8869aee613e8091c10d527bff6e717b01b25a6e17927a837c2acd97159d47",
+        "matching_manifest_runs": 179
+      }
+    },
+    {
+      "source_period": "1999_uv",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 1549,
+      "canonical_manifest_run_count": 339,
+      "canonical_manifest_run_range": [
+        1549,
+        1962
+      ],
+      "current_exposure_run_count": 282,
+      "historical_run_interval": [
+        1549,
+        1962
+      ],
+      "historical_period": 10,
+      "period_macro": "GRAAL_10",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data10.base",
+        "sha256": "6ab89ced1c2c17f72b2537e07415c8afc8f6ecc444654e4b33c0e4e5078fa65c"
+      },
+      "wall_calibration": "calib_1700.cal",
+      "planar_macro": "GRAAL_OLD_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.97e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_1999_uv",
+        "sha256": "96c32bfc3f6b24121799128f4ed1ad875d0f6882a6a1687c17b19c4103d9b822",
+        "matching_manifest_runs": 339
+      }
+    },
+    {
+      "source_period": "2000_fuv",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 2643,
+      "canonical_manifest_run_count": 147,
+      "canonical_manifest_run_range": [
+        2643,
+        2823
+      ],
+      "current_exposure_run_count": 91,
+      "historical_run_interval": [
+        2643,
+        2824
+      ],
+      "historical_period": 15,
+      "period_macro": "GRAAL_15",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data15.base",
+        "sha256": "74022f92e103ccc6941213a24959061b5e22680d596e6f98445782fdd511141b"
+      },
+      "wall_calibration": "calib_2700.cal",
+      "planar_macro": "GRAAL_NEW_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.55e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_2000_fuv",
+        "sha256": "13e7a2738fb0a25517f4bb7dd2ffa6ff867e21433ccadd8816c2ee55d76a3025",
+        "matching_manifest_runs": 147
+      }
+    },
+    {
+      "source_period": "2000_uv1",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 2388,
+      "canonical_manifest_run_count": 204,
+      "canonical_manifest_run_range": [
+        2388,
+        2625
+      ],
+      "current_exposure_run_count": 202,
+      "historical_run_interval": [
+        2388,
+        2639
+      ],
+      "historical_period": 14,
+      "period_macro": "GRAAL_14",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data14.base",
+        "sha256": "9cf0da8eee3427f7053fbb57e04a9a2f9921f9518dc47daa838bf88ca51856cd"
+      },
+      "wall_calibration": "calib_2500.cal",
+      "planar_macro": "GRAAL_NEW_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.66e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_2000_uv1",
+        "sha256": "6e76a806bef43f37c96075d52edf2e1dff9e670ce11e727f04b1c63f16bf3fa3",
+        "matching_manifest_runs": 204
+      }
+    },
+    {
+      "source_period": "2000_uv2",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 3026,
+      "canonical_manifest_run_count": 102,
+      "canonical_manifest_run_range": [
+        3026,
+        3167
+      ],
+      "current_exposure_run_count": 53,
+      "historical_run_interval": [
+        3026,
+        3167
+      ],
+      "historical_period": 17,
+      "period_macro": "GRAAL_17",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data17.base",
+        "sha256": "3cb04bd99928ef95f7336f8d3e66cc9f621ad48690f529b065d49e0c3de739b5"
+      },
+      "wall_calibration": "calib_3100.cal",
+      "planar_macro": "GRAAL_NEW_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.49e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_2000_uv2",
+        "sha256": "fa7d768a4538d2a093dfabff0632090c4be913dacaba4a04c11b3378fa851435",
+        "matching_manifest_runs": 102
+      }
+    },
+    {
+      "source_period": "2002_uv1",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 3629,
+      "canonical_manifest_run_count": 128,
+      "canonical_manifest_run_range": [
+        3629,
+        3776
+      ],
+      "current_exposure_run_count": 105,
+      "historical_run_interval": [
+        3629,
+        3776
+      ],
+      "historical_period": 21,
+      "period_macro": "GRAAL_21",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data21.base",
+        "sha256": "b538962f94cb4929c3b3c3daf89d540cf9ed374d05686fa477311c8d859e0040"
+      },
+      "wall_calibration": "calib_3700.cal",
+      "planar_macro": "GRAAL_NEW_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 3.31e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_2002_uv1",
+        "sha256": "8d7107fd3722a083e45eba3549c3630a07f2c0ddd9035c107b1a7a52d62704d7",
+        "matching_manifest_runs": 128
+      }
+    },
+    {
+      "source_period": "2002_uv2",
+      "target": "P",
+      "beam_type": "UV",
+      "status": "provisional_not_validated",
+      "representative_run": 3778,
+      "canonical_manifest_run_count": 190,
+      "canonical_manifest_run_range": [
+        3778,
+        3986
+      ],
+      "current_exposure_run_count": 115,
+      "historical_run_interval": [
+        3778,
+        3986
+      ],
+      "historical_period": 22,
+      "period_macro": "GRAAL_22",
+      "base": {
+        "image_path": "/home/gmandaglio/graal/data/base/data22.base",
+        "sha256": "dceb06616cbc5ad54005626e374ab38a1735c50f757f942860a1e198d83259d7"
+      },
+      "wall_calibration": "calib_3800.cal",
+      "planar_macro": "GRAAL_NEW_PLAN",
+      "planar_status": "evidenced_by_period_header",
+      "ctd": true,
+      "short_event": false,
+      "cylindrical_macro": "GRAAL_OLD_CYL",
+      "cylindrical_status": "provisional_inferred_from_old_data_executable_build_convention",
+      "target_profile": "provisional_lh2_12cm",
+      "trigger": {
+        "macro": "GRAAL_T_BGO",
+        "logic": "ETOTR >= ETOTSEUIL",
+        "sum_threshold_gev": 0.09,
+        "crystal_threshold_gev": 0.0022,
+        "wall_threshold_gev": 0.001,
+        "barrel_threshold_gev": 4.7e-05,
+        "threshold_status": "evidenced_in_base",
+        "trigger_choice_status": "provisional_BGO_only_not_verified_against_logbook"
+      },
+      "wrapper_evidence": {
+        "image_path": "/home/gmandaglio/graal/software/prog/prean/prean_run_2002_uv2",
+        "sha256": "74ce615f730a65d6cc21126dd02201116b2e63b7700eee84c4f61793c28689dd",
+        "matching_manifest_runs": 190
+      }
+    }
+  ],
+  "unavailable_periods": [
+    {
+      "source_period": "2001_uv",
+      "historical_period": 18,
+      "base": "data18.base",
+      "canonical_manifest_run_count": 137,
+      "reason": "no complete P/UV exposures in current energy range; not one of the seven production profiles"
+    }
+  ],
+  "excluded_diagnostic_configuration": {
+    "historical_period": 26,
+    "run": 4300,
+    "canonical_target": "D",
+    "canonical_source_period": "2002_d3",
+    "reason": "existing diagnostic binaries only; must never stand in for proton profiles"
+  },
+  "limitations": [
+    "Run-to-base and wall-file assignments are evidenced by historical source; availability is the current yield extraction domain.",
+    "Old cylindrical chambers are a provisional inference from the historical comp_prean old-cylinder unsuffixed executable convention; wrappers alone do not prove the binary used.",
+    "BGO-only trigger is a provisional choice; 90 MeV sum threshold is present in every selected base.",
+    "12 cm LH2 is the authorized common assumption, not an inferred per-run target measurement.",
+    "The initial2002_uv1/base21/old-cylinder profile has a dedicated build and Stage03 launcher; other six profiles remain declarative.",
+    "No new transport runs were made for this mapping; compiler/instrumentation-dependent photon transport remains unresolved."
+  ],
+  "initial_profile_backend": "implemented_initial_proton_pilot; detector_chain_complete_transport_unvalidated",
+  "initial_profile_diagnostic": {
+    "path": "results/cross-section-signal-acceptance-20261021/proton21-1000",
+    "generated": 1000,
+    "trigger_rejected": 883,
+    "digitized": 117,
+    "prean_input": 117,
+    "physical_acceptance_validated": false
+  }
+}

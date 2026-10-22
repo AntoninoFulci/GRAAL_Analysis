@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "status": "frozen_sources_pending_native_campaign",
+  "frozen_at_utc": "2026-10-21T13:55:35.124327+00:00",
+  "base_image": "afulci/ubuntu77@sha256:cb810e84914ae1a440663c391b26058c3bb13fff1b41760da6bbc4d1c31a3ca6",
+  "base_image_local_id": "sha256:0090b49d8e70bb85858e68a3e8f59e41c1b3d6a746153770d2dee4d2b75b0002",
+  "platform": "linux/386",
+  "compiler": "GNU g77 3.4.6",
+  "source_tree_head_for_context": "7854d8895a19c1263ad085675f39b98a99591a58",
+  "source_identity_rule": "SHA256 of individual frozen files is authoritative; source_tree_head does not include uncommitted changes.",
+  "snapshot_path_base": "resources/geant3/docker-upgrade",
+  "original_image_modified": false,
+  "new_image_built": false,
+  "image_pushed": false,
+  "physical_acceptance_validated": false,
+  "new_native_campaign_complete": false,
+  "files": [
+    {
+      "source_path": "03_mc_simulation/geant3.py",
+      "snapshot_path": "snapshot/03_mc_simulation/geant3.py",
+      "size_bytes": 9149,
+      "sha256": "0b39dbea68ab8313cd72319abb95f937ec4150e91927612cf00d0fe401218800",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "03_mc_simulation/geant3_signal.py",
+      "snapshot_path": "snapshot/03_mc_simulation/geant3_signal.py",
+      "size_bytes": 14014,
+      "sha256": "7725369c53106bd35b6352492d70801034891d7fecd650c8ab9680146293d0e2",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "03_mc_simulation/response.py",
+      "snapshot_path": "snapshot/03_mc_simulation/response.py",
+      "size_bytes": 3843,
+      "sha256": "a2b6f3b07673a872daecacf643b951967e50649876c0e33ac48ec5366f27525b",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "03_mc_simulation/tests/test_geant3.py",
+      "snapshot_path": "snapshot/03_mc_simulation/tests/test_geant3.py",
+      "size_bytes": 4217,
+      "sha256": "f214995647d31828e66786b9b5e3f187d09deecef5dac9d6efe545efeea2f0e8",
+      "role": "test"
+    },
+    {
+      "source_path": "03_mc_simulation/tests/test_geant3_signal.py",
+      "snapshot_path": "snapshot/03_mc_simulation/tests/test_geant3_signal.py",
+      "size_bytes": 6653,
+      "sha256": "1bed114f61b4d8b9d4092891108da172a26d15950232dc1240e487a3bdfce146",
+      "role": "test"
+    },
+    {
+      "source_path": "03_mc_simulation/tests/test_response.py",
+      "snapshot_path": "snapshot/03_mc_simulation/tests/test_response.py",
+      "size_bytes": 1633,
+      "sha256": "54931ca9136307fc5a5faf19023c19e4e9375f20be623568dcb7025aa756c11e",
+      "role": "test"
+    },
+    {
+      "source_path": "config/cross_sections/ajaka_provisional_normalization.json",
+      "snapshot_path": "snapshot/config/cross_sections/ajaka_provisional_normalization.json",
+      "size_bytes": 1501,
+      "sha256": "94395e7c6e2a8ae4edc57ac178d1b21bff60125ed6badf8fa7e19fa4fbdbbe8e",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "config/run_manifest.csv",
+      "snapshot_path": "snapshot/config/run_manifest.csv",
+      "size_bytes": 141947,
+      "sha256": "64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "docs/reports/2026-10-21-signal-acceptance.md",
+      "snapshot_path": "snapshot/docs/reports/2026-10-21-signal-acceptance.md",
+      "size_bytes": 20868,
+      "sha256": "7b1de6a293038b4661b409946636cec1230186027f5f4d9001136ee1e8fdf798",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "docs/runbooks/geant3-docker-upgrade.md",
+      "snapshot_path": "snapshot/docs/runbooks/geant3-docker-upgrade.md",
+      "size_bytes": 19908,
+      "sha256": "430b6a18087c54e3b2efdad5e2ac9e82099adffc07b3c2a9bce7197f2fdaec7c",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "resources/geant3/README.md",
+      "snapshot_path": "snapshot/resources/geant3/README.md",
+      "size_bytes": 18466,
+      "sha256": "9c2aeef16470b2138b54bc0a62e46269a4ca6172f5a92eb5bbc96def4e579341",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/build_all_signal.sh",
+      "snapshot_path": "snapshot/resources/geant3/build_all_signal.sh",
+      "size_bytes": 320,
+      "sha256": "94d74fd06345c2949d62a05c0504009950498c7a47c0fcd72003f595a806187f",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/build_digitizer.sh",
+      "snapshot_path": "snapshot/resources/geant3/build_digitizer.sh",
+      "size_bytes": 1217,
+      "sha256": "86b710821cb093d4872ca46fb970ea8c575b53a6cd49b4738c39497f4f1b7202",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/build_prean.sh",
+      "snapshot_path": "snapshot/resources/geant3/build_prean.sh",
+      "size_bytes": 1012,
+      "sha256": "8cd5d4c37b013ffed766b5f0b67e23ac826d41f45c947b1d6289f8dd214357c0",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/build_signal.sh",
+      "snapshot_path": "snapshot/resources/geant3/build_signal.sh",
+      "size_bytes": 1362,
+      "sha256": "6034a0ad2e1e10b9c92d7822fed987884d1ba74607eba49c5bce55f853db4cd1",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/energy_window.patch",
+      "snapshot_path": "snapshot/resources/geant3/energy_window.patch",
+      "size_bytes": 1477,
+      "sha256": "04a2fac455992b23e458b33416f31d2f9e7b813d2510ef4041e5bc7a7f9017da",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/proton_periods_provisional.json",
+      "snapshot_path": "snapshot/resources/geant3/proton_periods_provisional.json",
+      "size_bytes": 16297,
+      "sha256": "8fd79cd851eec9afeed4d71cf0b7388e8f49655937bd29a993938410e58d3ddd",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/run_signal_chain.sh",
+      "snapshot_path": "snapshot/resources/geant3/run_signal_chain.sh",
+      "size_bytes": 2233,
+      "sha256": "5714a47b9add7ea4ac671f15e09a981a29c0156a9b239d0beeda22e1bca6f1e7",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/signal.patch",
+      "snapshot_path": "snapshot/resources/geant3/signal.patch",
+      "size_bytes": 7870,
+      "sha256": "c6c06d8d0eda99dfd5c9ef9bcf701d5ccf01ace8f6a81d791ecebb49a24f8ff0",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/signal_smoke.dat",
+      "snapshot_path": "snapshot/resources/geant3/signal_smoke.dat",
+      "size_bytes": 333,
+      "sha256": "e7b308da9d9cf6f521c1ac6b0c3c5aeae112541d0ccf200de8a532041bc2a154",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/smoke_pi0.dat",
+      "snapshot_path": "snapshot/resources/geant3/smoke_pi0.dat",
+      "size_bytes": 321,
+      "sha256": "a1b1fe38b068ba50ba158b5077ad8013983feedce6443c057d8f1faf427dc560",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "resources/geant3/transport_probe.F",
+      "snapshot_path": "snapshot/resources/geant3/transport_probe.F",
+      "size_bytes": 1071,
+      "sha256": "4c0efbe34fab9a08c03e4f7b5a36419ec8784648da0845df7ffec81bb795f99d",
+      "role": "runtime_resource"
+    },
+    {
+      "source_path": "results/cross-section-signal-acceptance-20261021/native-campaign-inputs/plan.json",
+      "snapshot_path": "snapshot/results/cross-section-signal-acceptance-20261021/native-campaign-inputs/plan.json",
+      "size_bytes": 952,
+      "sha256": "33694cf835c40242edca9edcc969b078775efe81e52290d471b35e8612cbb00a",
+      "role": "supporting_source_or_evidence"
+    },
+    {
+      "source_path": "results/cross-section-signal-acceptance-20261021/native-original-1000/validation.json",
+      "snapshot_path": "snapshot/results/cross-section-signal-acceptance-20261021/native-original-1000/validation.json",
+      "size_bytes": 963,
+      "sha256": "5baf6aede10552594c05b1883e206862b53387f91fc1bc8c15a01750738948aa",
+      "role": "supporting_source_or_evidence"
+    }
+  ],
+  "patch_application_order": [
+    "resources/geant3/signal.patch",
+    "resources/geant3/energy_window.patch"
+  ],
+  "patch_targets": {
+    "resources/geant3/energy_window.patch": [
+      "src/lagdata.F",
+      "src/montecarlo.F"
+    ],
+    "resources/geant3/signal.patch": [
+      "src/blockdata.F",
+      "src/channeldef.F",
+      "src/totalsect.F",
+      "src/ev_nuc.F",
+      "src/lagdata.F",
+      "src/gukine.F",
+      "src/laggen.F",
+      "src/uginit.F",
+      "pilot.h"
+    ]
+  },
+  "initial_profile": {
+    "source_period": "2002_uv1",
+    "run": 3629,
+    "period_macro": "GRAAL_21",
+    "cylindrical_macro": "GRAAL_OLD_CYL",
+    "base": "data21.base",
+    "wall_calibration": "calib_3700.cal"
+  },
+  "physical_assumptions": {
+    "generator": "unweighted Lorentz-invariant three-body phase space",
+    "prompt_decays": "eta and pi0 isotropic gg; photons and proton as primaries",
+    "branching": "physical branching fraction excluded from detector efficiency and applied once by analysis",
+    "target": "provisional 12 cm LH2, density 0.071 g/cm3",
+    "trigger": "provisional BGO only, total threshold 0.09 GeV",
+    "geometry": "old cylindrical chambers provisional; new planar chambers evidenced for period21"
+  },
+  "runtime_contract": {
+    "probe_source": "resources/geant3/transport_probe.F",
+    "probe_linkage": "unchanged historical libgeant321 GTGAMA object",
+    "probe_required_before_events": true,
+    "probe_failure_uses": "CALL EXIT(1/2), not g77 STOP 1 which returned zero in observed test",
+    "probe_pass_marker": "TRANSPORT PROBE PASS",
+    "resource_snapshot_required": true,
+    "probe_in_binary_hashes": true,
+    "supported_production_runtime": "native x86_64 with passing actual runtime probe; current OrbStack photon transport is unreliable"
+  },
+  "runtime_diagnostic": {
+    "native_original": "results/cross-section-signal-acceptance-20261021/native-original-1000",
+    "native_generated": 1000,
+    "native_prean": 999,
+    "native_h85": 727,
+    "native_reconstructed": 11,
+    "orbstack_generated": 1000,
+    "orbstack_prean": 117,
+    "same_original_three_binaries_verified": true,
+    "new_probe_orbstack_exit_code": 1,
+    "new_probe_native_verified": false,
+    "energy_window_native_verified": false,
+    "eight_phi_response": "not estimable: zero-support column; guard retained"
+  },
+  "not_adopted": [
+    "GTGAMA source recompilation as production fix",
+    "GTGAMA instruction hotpatch OR AX,0xc00 -> MOV AH,0xc plus NOP",
+    "GSKING recompilation as claimed physical fix; unchanged source rebuild remains explicit in recipe"
+  ],
+  "native_campaign_plan": {
+    "path": "results/cross-section-signal-acceptance-20261021/native-campaign-inputs/plan.json",
+    "status_at_freeze": "prepared_awaiting_remote_authorization",
+    "events_requested": 100000,
+    "batches": [
+      {
+        "events": 100,
+        "seed": 310027
+      },
+      {
+        "events": 99900,
+        "seed": 310031
+      }
+    ],
+    "uniform_energy_range_gev": [
+      0.95,
+      1.4875
+    ],
+    "guard_truth_energy_range_gev": [
+      0.95,
+      1.1
+    ],
+    "executed": false
+  },
+  "verification": {
+    "focused_tests": {
+      "command": ".venv-flux/bin/python -m pytest 03_mc_simulation/tests/test_geant3_signal.py -q",
+      "passed": 13,
+      "verified_during_freeze": true
+    },
+    "stage03_suite": {
+      "passed": 94,
+      "reported_by": "root agent"
+    },
+    "ruff": "clean, reported by root agent",
+    "active_signal_containers": 0,
+    "payload_checks": "all copied bytes equal sources at freeze; no recursive docker-upgrade directory; manifest is not in payload"
+  },
+  "limitations": [
+    "Native original1000-event success does not validate the new probe/EWIN build or a sufficiently populated response.",
+    "Snapshots of reports and plans describe the freeze time; their live source files may subsequently advance.",
+    "Prepared campaign authorization and execution remain pending at freeze time."
+  ],
+  "runbook": "docs/runbooks/geant3-docker-upgrade.md",
+  "payload_inventory_sha256": "63ce0ab5bf133624e9f7adfed948ade351ac503e75f75cf340e3ed49111a1257"
+}

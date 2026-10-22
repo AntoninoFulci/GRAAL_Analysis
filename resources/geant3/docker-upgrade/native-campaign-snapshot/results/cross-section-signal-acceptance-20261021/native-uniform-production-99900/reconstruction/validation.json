@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "status": "generation_and_native_chain_contract_passed",
+  "model": "unweighted Lorentz-invariant three-body phase space",
+  "forced_decays": [
+    "eta->gg",
+    "pi0->gg"
+  ],
+  "energy_range_gev": [
+    0.95,
+    1.4875
+  ],
+  "seeds": [
+    310031,
+    310033
+  ],
+  "generated_sample_sha256": "f5924c156915469c39d9022169d54cc0d6efbd4c4d45954602fe77bf2cc1de7c",
+  "counts": {
+    "generated": 99900,
+    "hit_written": 99900,
+    "tag_rejected": 0,
+    "trigger_rejected": 315,
+    "digitized": 99585,
+    "lost_before_digitizer": 0
+  },
+  "decays": {
+    "decays": 199800,
+    "max_four_momentum_residual_gev": 1.6799999991157222e-07,
+    "max_photon_mass_squared_gev2": 2.805378014336668e-07,
+    "rest_frame_cosine_mean": -0.0023693791595178924,
+    "rest_frame_cosine_second_moment": 0.3323938813035278,
+    "rest_frame_sin_phi_mean": -0.0012523286823083487,
+    "rest_frame_cos_phi_mean": -0.0008721362932229816
+  },
+  "inputs": [
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/resources/geant3/native_campaign_contract.json",
+      "sha256": "83ab7acd64f6b6c12c2d43da7937ac75b3dc08f283ff3054296c2496e3b55078"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/laggen_signal.dat",
+      "sha256": "59f93e552bb88e7c88d1e6d4b77b7ebde6e1ff3d86f812851cd0552c28f84cae"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/binary-sha256.txt",
+      "sha256": "eff2cca2e66a740d2a61b6afa9e70c10aa84692d6b89c59a74c622b241d6d82b"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/transport_probe.log",
+      "sha256": "d8e28e6db116f70402e884f99848656e6218850804071e002330c463e9373e4b"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/laggen.log",
+      "sha256": "47cb863e7aa9dd6f2b9dea4762c6c31710969b7723d462812b57a8dfbe41f9cd"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/lagdig.log",
+      "sha256": "c42926e18d770e2ad75a05b17d4139b637d49ba201c4fbd41bf0c4952bdced9b"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/prean.log",
+      "sha256": "196f31490d7ad3c0c2be95d710e91af7c880471cb4012b0bab7c335a53247673"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/generated_signal.dat",
+      "sha256": "f5924c156915469c39d9022169d54cc0d6efbd4c4d45954602fe77bf2cc1de7c"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/generated_decays.dat",
+      "sha256": "0685f61ca64892af5925125d91effb1a94350fe7954b679ff73cecd16532b92b"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/converted.root",
+      "sha256": "ceae3315fce24703bdb9deed2d23ba4e9b0cf76860c9130b98b3ada596d1931e"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/reconstruction/matched_events.npz",
+      "sha256": "6fcb09a98b134182192f934d7ff6ce359f546f1d1449e5f97081928ff2f718b5"
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/reconstruction/selection_audit.json",
+      "sha256": "945d626611aa857e1d5ec3b59dc0aad401d56761d4bddd9a7cdf6604af75cd01"
+    }
+  ]
+}

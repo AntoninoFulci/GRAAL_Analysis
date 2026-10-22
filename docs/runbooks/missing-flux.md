@@ -1,5 +1,9 @@
 # Missing-flux audit and experimental study
 
+See the [illustrated Italian report](../reports/2026-10-21-ricostruzione-flussi.html)
+for the complete study history, glossary, diagnostics, final acceptance-scan
+outcome and proposed next steps. Figures and seven PDF atlases are embedded.
+
 ## Full-statistics farm campaign and whole-run exclusions
 
 The [19 October farm campaign](../reports/2026-10-19-farm-flux-recovery.md)
@@ -332,3 +336,10 @@ be preserved in the study directory.
 The collector reports conditional diagnostics, not independent experimental
 certification. No feasible policy is a valid result. It must not trigger
 automatic loosening or production adoption.
+
+The 20 October 2026 scan was verified complete on21 October:10/10 development
+trials, no feasible policy, reserved confirmation skipped. The two strict
+policies recover no runs; the other three fail uncertainty coverage diagnostics
+(mostly insufficient clusters, but also nominal incompatibility). Production
+recovery remains disabled. See the report for conditional precision gains and
+the distinction between repeated masked-run counts and actual production yield.

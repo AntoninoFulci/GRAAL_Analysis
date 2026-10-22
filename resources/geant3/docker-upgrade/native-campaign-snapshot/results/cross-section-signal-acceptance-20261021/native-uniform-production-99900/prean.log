@@ -1,0 +1,54 @@
+  
+ Compilato con Opzione GRAAL_21
+  
+ Compilato con Opzione OLD_CYL
+  
+ New Plan Chamber
+ Compilato con routine Orsay Wall di Alessia 31/10/2001
+ Compilato con routine Track di Alessia 11/12/2001
+ Compilato con routine Track Central Angle FANCIULLE
+  
+  
+ You are reading the NTUPLE 
+ /work/out_lagdig/signal.dig                                                     
+ DIG-NTUPLE
+ Corretto Att. Barrel  9  3.24692011  0.313316464
+ Corretto Att. Barrel  14  2.31922007  0.313316464
+ Corretto Att. Barrel  15  1.20498395  0.313316464
+ Corretto Att. Barrel  16  1.57120001  0.313316464
+ Corretto Att. Barrel  28  2.06958008  0.313316464
+ Corretto Att. Barrel  29  1.80417991  0.313316464
+ Wall Corr. File = 
+ /home/gmandaglio/graal/data/calib_wall/calib_3700.cal                           
+ Russian Wall Calibration File = 
+ /home/gmandaglio/graal/data/calib_rw/rw_calibr_144_391.dat                      
+ Tagging Offset =  19.70  mm.
+ BGO Crystal soft. Threshold   = 0.00200 GeV
+ BGO Crystal soft. Threshold : >       3 Ch. (     2.20 MeV real )
+ BGO Cluster soft. Threshold   = 0.01500 GeV
+ You are recording the NTUPLE 
+ /work/out_prean/signal.pol                                                      
+ Number of events in NTUPLE: 99585
+ 10 %
+ 20 %
+ 30 %
+ 40 %
+ 50 %
+ 60 %
+ 70 %
+ 80 %
+ 90 %
+ 100 %
+ Number of events out of pm window =  0
+ Number of events in pm window     =  99585 0
+ Tagging PM : OK =  100.0 %
+ Microstrips : ok  =  99585 0
+ Tagging ST/PM : OK =  100.0 %
+ Barrel : ok  =  49395
+ Barrel : bad =  0
+ Barrel : no  =  50190
+ Barrel Sum =   99585   100.0 %
+ BGO : OK   =   99553   100.0 %
+ Match : OK =   99553   100.0 %
+ CPU Time Used =   6.67999983
+  Normal Termination

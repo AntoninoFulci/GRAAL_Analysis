@@ -62,7 +62,7 @@ Consumes: tasks 1/2, full h80 count cache and production reconstructed files.
 - [x] Run local full suite, farm focused tests and review.
 - [x] Complete isolated farm smoke trial.
 - [x] Submit bounded parallel development jobs and record exact IDs/resources.
-- [ ] Collect completed outputs; run reserved confirmation only after freezing
+- [x] Collect completed outputs; run reserved confirmation only after freezing
       selected policy; report failures/no feasible policy honestly.
 
 ## Progress
@@ -91,3 +91,8 @@ Execution ledger:
 - Follow-up 2026-10-20 12:01 UTC: smoke and launcher succeeded. Array7 tasks0–9
   running on40 total cores; selection8 and confirmation9 pending dependencies.
   Retrieved jobs.json locally. Scientific collection remains pending.
+- Final check 2026-10-21 10:21 UTC: all10 development trials complete, no
+  incomplete artifacts. No feasible policy. Conditional confirmation correctly
+  skipped; no production adoption. Selection, plots and confirmation decision
+  fetched locally; protocol/selection hashes verified. Report includes numeric
+  results and distinguishes insufficient coverage clusters from incompatibility.

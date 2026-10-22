@@ -6,6 +6,15 @@ distorsione degli osservabili, scegliendo quando una ricostruzione può essere
 considerata plausibile. Questo documento registra metodo, decisioni e stato
 dell'esperimento per la futura stesura dell'articolo.
 
+**Esito verificato il 21 ottobre 2026:** dieci prove di sviluppo complete;
+nessuna delle cinque politiche ammissibile secondo il protocollo congelato.
+Conferma riservata non eseguita, nessuna adozione in produzione. I risultati
+quantitativi e i motivi di esclusione sono riportati in fondo al documento.
+
+La [sintesi HTML dell’intero studio](2026-10-21-ricostruzione-flussi.html)
+include glossario iniziale, 28 figure commentate, sette atlanti PDF incorporati
+e la proposta dettagliata per i prossimi passi. È consultabile senza rete.
+
 ## Terminologia
 
 - **Donatore:** run buona con flusso misurato, precedente o successiva al
@@ -200,3 +209,83 @@ riporta orario UTC, job, dipendenze e avanzamento. Sono conservati anche
 l'[ambiente software](../../results/farm-acceptance-launch-20261020/environment.json)
 e il [log dei test sulla farm](../../results/farm-acceptance-launch-20261020/farm-tests.log).
 Nessuna nuova adozione in produzione.
+
+## Risultati conclusivi, 21 ottobre 2026
+
+Al controllo delle 10:21 UTC (12:21 ora italiana), la coda Slurm era vuota.
+La raccolta riporta `status=complete`, dieci prove attese e dieci complete,
+senza indici mancanti. La decisione è `selected_policy=null`; il passaggio
+di conferma registra `not_run_no_feasible_policy`. La conferma sulle 239 run
+riservate non è stata eseguita. Le impronte SHA-256 del protocollo e della
+selezione locale corrispondono a quelle registrate nella decisione finale.
+
+Per **scostamento appaiato** si intende la differenza dell'osservabile fra
+ricostruzione e oracle sulle stesse run, divisa per l'errore statistico di
+riferimento. Non è una misura indipendente del bias medio. Il **rapporto di
+precisione** confronta l'errore statistico più il contributo del flusso con
+l'errore statistico senza recupero: valori inferiori a uno indicano un
+miglioramento condizionale. Si usa la mediana definita nel protocollo.
+
+| Politica | Run ammesse per prova, minimo–massimo | Eventi recuperati per prova, minimo–massimo | Rapporto di precisione | Massimo scostamento appaiato / σ_stat | Massimo contributo flusso / σ_stat |
+|---|---:|---:|---:|---:|---:|
+| strict_1 | 0 | 0 | non valutabile | — | — |
+| strict_2 | 0 | 0 | non valutabile | — | — |
+| moderate_3 | 6–49 | 493–6.391 | 1,00000 | 0,03406 | 0,06928 |
+| loose_4 | 16–82 | 1.338–10.009 | 0,99189 | 0,06772 | 0,03381 |
+| loose_5 | 34–107 | 3.105–12.244 | 0,97785 | 0,06848 | 0,03536 |
+
+Questi sono recuperi simulati di run calibrate mascherate. Le ripetizioni
+condividono dati: sommare eventi o run fra prove non fornisce il numero di
+eventi distinti recuperabili in produzione. Gli eventi sono quelli della
+ricostruzione negli intervalli d'analisi, non tutti gli h80 né una resa di
+segnale estratta da fit. Il numero di eventi adottati in produzione resta zero.
+
+Le prime due politiche non ammettono run in nessuna prova. Le altre rispettano
+i budget osservati sullo scostamento appaiato (0,10 σ_stat) e sul contributo
+del flusso (0,30 σ_stat), ma non superano tutti i controlli sulle incertezze.
+Per `loose_4` e `loose_5`, la riduzione condizionale dell'errore secondo
+l'obiettivo aggregato è rispettivamente circa 0,81% e 2,21%; non costituisce
+un guadagno validato finché la copertura non è supportata.
+
+Un **gruppo di dipendenza**, indicato come `donor_cluster` negli artefatti,
+raggruppa bersagli con donatori o blocchi condivisi. Il protocollo richiede
+almeno cinque gruppi per valutare la copertura in ciascun periodo/stato.
+La distinzione fra dati insufficienti e incompatibilità misurata è:
+
+| Politica | Controlli di copertura falliti per meno di 5 gruppi | Copertura sotto il nominale | Copertura sopra il nominale |
+|---|---:|---:|---:|
+| moderate_3 | 68 | 7 | 2 |
+| loose_4 | 102 | 11 | 5 |
+| loose_5 | 128 | 22 | 8 |
+
+I conteggi sono occorrenze di controlli periodo/stato/livello 68% o 95%
+nelle dieci prove, non esperimenti indipendenti. Sotto o sopra il nominale
+significa che l'intervallo diagnostico al 95% sulla copertura non include
+il livello dichiarato. Il protocollo richiede compatibilità da entrambi i lati.
+Esempio: `moderate_3`, seed 20261020, periodo 2000 UV1, BREM, presenta
+copertura della banda 95% pari a 89,78%, con intervallo diagnostico
+[86,25%; 93,17%], su 23 bersagli e 16 gruppi. Non si tratta quindi soltanto
+di numerosità insufficiente.
+
+Inoltre, `loose_4` e `loose_5` falliscono la disponibilità delle repliche
+complete nel periodo 2000 UV1 del seed 20261929. `moderate_3` non mostra
+miglioramento nell'obiettivo aggregato di precisione. Non emergono altri
+tipi di blocco nei motivi della selezione finale.
+
+Il passo scientifico successivo consigliato è verificare e calibrare le
+incertezze sui soli dati di sviluppo, separando periodi/stati con pochi
+gruppi da quelli con copertura incompatibile; poi definire un nuovo
+protocollo prima di ripetere la selezione. Aumentare le repliche non crea
+nuovi gruppi indipendenti. Nessuna soglia di questa scansione viene
+allargata a posteriori per ottenere un'accettazione.
+
+Artefatti conservati localmente:
+
+- [Selezione completa](../../results/farm-acceptance-launch-20261020/selection/summary.json)
+- [Decisione sulla conferma](../../results/farm-acceptance-launch-20261020/confirmation_decision/summary.json)
+- [Conteggi diagnostici derivati](../../results/farm-acceptance-launch-20261020/completion-diagnostics.json)
+- [Grafico recupero, precisione e scostamenti](../../results/farm-acceptance-launch-20261020/selection/acceptance_scan.png)
+- [Grafico dei controlli per periodo](../../results/farm-acceptance-launch-20261020/selection/period_screens.png)
+
+Gli artefatti dettagliati per prova restano nello snapshot remoto, sotto
+`development/trial_0` fino a `development/trial_9`.

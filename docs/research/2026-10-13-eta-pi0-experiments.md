@@ -6,7 +6,7 @@ Verifica: **2026-10-13**, Europe/Rome. Allegato alla ricerca del [punto 13](../p
 
 Metadati verificati su editore/arXiv; autori indicati come primo autore + *et al.*, elenchi completi disponibili nei link primari. Per Gutz/Kashevarov/Sokhoyan sono state lette le sezioni sperimentali HTML arXiv indicate, non ricertificata ogni formula teorica. Date anomale di ricompilazione mostrate nell'HTML non sostituiscono anno editoriale/versione arXiv.
 
-Ajaka 2008 riusa il PDF già presente `tmp/pdfs/PhysRevLett.100.052003.pdf`, identità controllata su frontespizio e DOI APS; SHA256 `7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb`. File ignorato da Git: disponibilità locale, non allegato distribuibile del repository. Nessun PDF riscaricato. Estrazione locale con `pdftotext`; caratteri greci alterati dall'encoding non usati per inferire segni ambigui.
+Ajaka 2008 riusa il PDF già presente `docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf`, identità controllata su frontespizio e DOI APS; SHA256 `7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb`. File ignorato da Git: disponibilità locale, non allegato distribuibile del repository. Nessun PDF riscaricato. Estrazione locale con `pdftotext`; caratteri greci alterati dall'encoding non usati per inferire segni ambigui.
 
 **Covarianze:** matrici numeriche fra bin/normalizzazioni non disponibili nelle sezioni consultate di queste sette fonti; non equivale a prova di assenza in archivi esterni. Materiale supplementare/eventi non acquisiti. Campi «non verificato» restano aperti, senza trasformarli in dati mancanti dell'articolo.
 

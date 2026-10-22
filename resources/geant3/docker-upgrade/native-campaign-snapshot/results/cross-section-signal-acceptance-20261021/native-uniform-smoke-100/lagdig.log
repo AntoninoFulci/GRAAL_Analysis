@@ -1,0 +1,144 @@
+ Program will read  1 files
+  
+ Compilato con Opzione OLD_CYL
+  
+ Compilato con Opzione 21
+  
+ Compilato con Opzione CTD
+ Compilato con Opzione NEW_PLAN
+  
+ Routine CHECK_OPT
+ Data Base File = 
+ /work/base/data21.base                                                          
+ BGO Threshold =   0.00219999999GeV
+ BGO Threshold = > 3Ch.(   3.49244237 )
+ Corretto Att. Barrel  9  3.24692011  0.313316464
+ Corretto Att. Barrel  14  2.31922007  0.313316464
+ Corretto Att. Barrel  15  1.20498395  0.313316464
+ Corretto Att. Barrel  16  1.57120001  0.313316464
+ Corretto Att. Barrel  28  2.06958008  0.313316464
+ Corretto Att. Barrel  29  1.80417991  0.313316464
+ Wall Corr. File = 
+ /home/gmandaglio/graal/data/calib_wall/calib_3700.cal                                                                               
+ Tagging resolution data = 
+ /home/gmandaglio/graal/data/simul_beam/tag.hist                                 
+ You are Reading the File = 
+ /work/out_laggen/signal.hit                                                     
+  NUMBER OF EVENTS  :  100
+ You are Writing the File = 
+ /work/out_lagdig/signal.dig                                                     
+ 10 %
+ 20 %
+ 30 %
+ 40 %
+ 50 %
+ 60 %
+ 70 %
+ 80 %
+ 90 %
+ 100 %
+
+
+ ******************************************************************
+ * Ntuple ID = 60     Entries = 100       DIG-NTUPLE
+ ******************************************************************
+ * Var numb * Type * Packing *    Range     *  Block   *  Name    *
+ ******************************************************************
+ *      1   * U*4  *    16   *              * EVENT    * IDRUN
+ *      2   * U*4  *    24   *              * EVENT    * IDEVT
+ *      3   * U*4  *    4    *              * EVENT    * IPOL
+ *      4   * U*4  *    8    *              * EVENT    * ITRIG
+ *      1   * R*4  *    12   * [-20.,10.5]  * EVENT_CH * VERTX(3)
+ *      2   * I*4  *         * [0,10]       * EVENT_CH * NPART
+ *      3   * U*4  *    9    * [0,500]      * EVENT_CH * IP(NPART)
+ *      4   * R*4  *    12   * [-3.,3.]     * EVENT_CH * P(5,NPART)
+ *      5   * U*4  *    7    * [0,64]       * EVENT_CH * IND_CH
+ *      6   * R*4  *    16   * [0.,1.6]     * EVENT_CH * EGAM
+ *      7   * R*4  *    16   * [0.,1.01]    * EVENT_CH * WT
+ *      1   * I*4  *         * [0,480]      * BGO      * MBGO
+ *      2   * U*4  *    12   *              * BGO      * EBGO(MBGO)
+ *      3   * U*4  *    5    *              * BGO      * ITBGO(MBGO)
+ *      4   * U*4  *    6    *              * BGO      * IPBGO(MBGO)
+ *      1   * I*4  *         * [0,16]       * RUSS     * MSHO
+ *      2   * U*4  *    5    *              * RUSS     * IP3(MSHO)
+ *      3   * U*4  *    12   *              * RUSS     * EP3U(MSHO)
+ *      4   * U*4  *    12   *              * RUSS     * EP3D(MSHO)
+ *      5   * U*4  *    12   *              * RUSS     * TP3U(MSHO)
+ *      6   * U*4  *    12   *              * RUSS     * TP3D(MSHO)
+ *      1   * I*4  *         * [0,32]       * BARREL   * LDE
+ *      2   * U*4  *    6    *              * BARREL   * IPLA(LDE)
+ *      3   * U*4  *    12   *              * BARREL   * EPLA(LDE)
+ *      4   * U*4  *    12   *              * BARREL   * TPLA(LDE)
+ *      1   * I*4  *         * [0,26]       * ORS_WALL * LM1
+ *      2   * U*4  *    12   *              * ORS_WALL * EP1L(LM1)
+ *      3   * U*4  *    12   *              * ORS_WALL * EP1R(LM1)
+ *      4   * U*4  *    6    *              * ORS_WALL * IP1(LM1)
+ *      5   * U*4  *    12   *              * ORS_WALL * TP1L(LM1)
+ *      6   * U*4  *    12   *              * ORS_WALL * TP1R(LM1)
+ *      7   * I*4  *         * [0,26]       * ORS_WALL * LM2
+ *      8   * U*4  *    12   *              * ORS_WALL * EP2U(LM2)
+ *      9   * U*4  *    12   *              * ORS_WALL * EP2D(LM2)
+ *     10   * U*4  *    6    *              * ORS_WALL * IP2(LM2)
+ *     11   * U*4  *    12   *              * ORS_WALL * TP2U(LM2)
+ *     12   * U*4  *    12   *              * ORS_WALL * TP2D(LM2)
+ *      1   * I*4  *         * [0,128]      * CYL      * MCCI
+ *      2   * U*4  *    8    *              * CYL      * WCI(MCCI)
+ *      3   * I*4  *         * [0,192]      * CYL      * MCCE
+ *      4   * U*4  *    8    *              * CYL      * WCE(MCCE)
+ *      5   * I*4  *         * [0,64]       * CYL      * MBCI1
+ *      6   * I*4  *         * [0,64]       * CYL      * MBCI2
+ *      7   * U*4  *    7    *              * CYL      * IBCI1(MBCI1)
+ *      8   * U*4  *    7    *              * CYL      * IBCI2(MBCI2)
+ *      9   * U*4  *    12   *              * CYL      * CBCI1(MBCI1)
+ *     10   * U*4  *    12   *              * CYL      * CBCI2(MBCI2)
+ *     11   * I*4  *         * [0,96]       * CYL      * MBCE1
+ *     12   * I*4  *         * [0,96]       * CYL      * MBCE2
+ *     13   * U*4  *    7    *              * CYL      * IBCE1(MBCE1)
+ *     14   * U*4  *    7    *              * CYL      * IBCE2(MBCE2)
+ *     15   * U*4  *    12   *              * CYL      * CBCE1(MBCE1)
+ *     16   * U*4  *    12   *              * CYL      * CBCE2(MBCE2)
+ *      1   * I*4  *         * [0,320]      * PLAN     * MPCU
+ *      2   * I*4  *         * [0,320]      * PLAN     * MPCV
+ *      3   * U*4  *    10   * [1,320]      * PLAN     * WU(MPCU)
+ *      4   * U*4  *    10   * [1,320]      * PLAN     * WV(MPCV)
+ *      5   * I*4  *         * [0,384]      * PLAN     * MPCX
+ *      6   * I*4  *         * [0,384]      * PLAN     * MPCY
+ *      7   * U*4  *    10   * [1,384]      * PLAN     * WX(MPCX)
+ *      8   * U*4  *    10   * [1,384]      * PLAN     * WY(MPCY)
+ *      1   * I*4  *         * [0,128]      * STRIP    * MTGC2
+ *      2   * U*4  *         *              * STRIP    * ITGC2(MTGC2)
+ *      1   * U*4  *    12   *              * ETOT     * ETOT
+ *      2   * U*4  *    12   *              * ETOT     * ETOTSOFT
+ *      1   * I*4  *         * [0,20]       * CTD      * LCTD1
+ *      2   * R*4  *    16   * [0.,1.]      * CTD      * ECTD1(LCTD1)
+ *      3   * R*4  *    16   * [0.,0.0001]  * CTD      * TCTD1(LCTD1)
+ *      4   * R*4  *    16   * [-100.,100.] * CTD      * XCTD1(LCTD1)
+ *      5   * R*4  *    16   * [-100.,100.] * CTD      * YCTD1(LCTD1)
+ *      6   * I*4  *         * [0,20]       * CTD      * LCTD2
+ *      7   * R*4  *    16   * [0.,1.]      * CTD      * ECTD2(LCTD2)
+ *      8   * R*4  *    16   * [0.,0.0001]  * CTD      * TCTD2(LCTD2)
+ *      9   * R*4  *    16   * [-100.,100.] * CTD      * XCTD2(LCTD2)
+ *     10   * R*4  *    16   * [-100.,100.] * CTD      * YCTD2(LCTD2)
+ ******************************************************************
+ *  Block   *  Entries  * Unpacked * Packed *   Packing Factor    *
+ ******************************************************************
+ * EVENT    *  100      * 16       * 7      *       2.286         *
+ * EVENT_CH *  100      * 268      * Var.   *    Variable         *
+ * BGO      *  100      * 5764     * Var.   *    Variable         *
+ * RUSS     *  100      * 324      * Var.   *    Variable         *
+ * BARREL   *  100      * 388      * Var.   *    Variable         *
+ * ORS_WALL *  100      * 1048     * Var.   *    Variable         *
+ * CYL      *  100      * 3864     * Var.   *    Variable         *
+ * PLAN     *  100      * 5648     * Var.   *    Variable         *
+ * STRIP    *  100      * 516      * Var.   *    Variable         *
+ * ETOT     *  100      * 8        * 3      *       2.667         *
+ * CTD      *  100      * 648      * Var.   *    Variable         *
+ * Total    *    ---    * 18492    * Var.   *    Variable         *
+ ******************************************************************
+ * Blocks = 11           Variables = 75      Max. Columns = 4623  *
+ ******************************************************************
+
+ Events rejected by Tagging Condition =  0
+ Events rejected by Trigger Condition =  0
+ Events collected =  100
+  Normal termination !

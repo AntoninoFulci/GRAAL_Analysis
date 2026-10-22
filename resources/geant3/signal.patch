@@ -1,0 +1,270 @@
+--- a/src/blockdata.F
++++ b/src/blockdata.F
+@@ -11,7 +11,9 @@
+ #include "sigto.inc"
+ 
+       DATA NPROP / 1,  2,  5,  6,  7, 11, 12, 15, 16, 19, 21, 23, 24,
+-     &            27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 7*0/
++     &            27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 6*0/
++C Signal 38 uses arbitrary unit strength; never normalization data.
++      DATA (SIGR(38,J),J=1,251) /63*0.,188*1./
+       DATA NPRON / 3,  4,  8,  9, 10, 13, 14, 17, 18, 20,
+      &            22, 25, 26, 28,  0,  0,  0,  0,  0,  0/
+ C ############ changed by orietta ############
+--- a/src/channeldef.F
++++ b/src/channeldef.F
+@@ -596,6 +596,15 @@
+       NCH(37) = 0
+       NPLEV(37,1) = 3
+ 
++C Dedicated signal channel: eta pi0 p, pure phase space.
++      PARTIC(38,0,0,1) = 'proton'
++      PARTIC(38,1,0,1) = 'eta'
++      PARTIC(38,1,0,2) = 'pi0'
++      PARTIC(38,1,0,3) = 'proton'
++      NPLEV(38,1) = 3
++      JDEC(38) = 0
++      NCH(38) = 0
++
+ C ***   CANALI SPECIALI SU DEUTONE
+ 
+ C ***   Canale 51
+--- a/src/totalsect.F
++++ b/src/totalsect.F
+@@ -59,6 +59,7 @@
+       NCANAL(35) = 'gamma + p --->  pi0  pi0  p'
+       NCANAL(36) = 'gamma + p --->  phi0 p'
+       NCANAL(37) = 'gamma + p --->  K+   K-   p'
++      NCANAL(38) = 'gamma + p ---> eta pi0 p (phase space)'
+       NCANAL(51) = 'gamma + D --->  pi0  D'
+       NCANAL(52) = 'gamma + D --->  p  n'
+ C ############ added by Orietta ###################
+--- a/src/ev_nuc.F
++++ b/src/ev_nuc.F
+@@ -272,9 +272,16 @@
+      &   (JCH.GE.23.AND.JCH.LE.28).OR.
+      &    JCH.EQ.31.OR.JCH.EQ.34.OR.
+      &    JCH.EQ.35.OR.JCH.EQ.37.OR.JCH.EQ.54.OR.
+-     &    JCH.EQ.63.OR.JCH.EQ.64)THEN
+-        ECM = W 
+-        CALL GENBOD
++     &    JCH.EQ.63.OR.JCH.EQ.64.OR.JCH.EQ.38)THEN
++        ECM = W
++   21   CALL GENBOD
++C GENBOD KGENEV=1 gives normalized weight, NOT unweighted events.
++        IF (JCH.EQ.38) THEN
++          IF (WT.LT.0..OR.WT.GT.1.000001) STOP 'BAD SIGNAL WT'
++          CALL GRNDM(YRNDM,1)
++          IF (YRNDM.GT.WT) GOTO 21
++          WT = 1.
++        ENDIF
+ c *** added by ori for extraction of theta eta according to xsect
+ c     whilst the other 4 vars are extracted according to phase space.
+       ELSEIF(JCH.EQ.54)THEN
+@@ -598,7 +605,8 @@
+ 
+ C ***    Canali 34,35,37
+ 
+-      IF (JCH.EQ.34.OR.JCH.EQ.35.OR.JCH.EQ.37)THEN
++      IF (JCH.EQ.34.OR.JCH.EQ.35.OR.JCH.EQ.37.OR.
++     &    JCH.EQ.38)THEN
+         NUMPAR=NPLEV(JCH,1)
+         NPART = NUMPAR+NUMPLUS
+         DO JR=1,5
+--- a/src/lagdata.F
++++ b/src/lagdata.F
+@@ -245,6 +245,8 @@
+ 
+ C
+ C ***      if no +seq. # given, initialize the generator by random
++C Seed GENBOD CERN RNDM separately from GEANT GRNDM.
++      CALL RDMIN(NRNDM(1))
+       IF (NRNDM(1).EQ.0) THEN
+ 	CALL INIT_RANDOM
+       ENDIF
+@@ -304,6 +306,8 @@
+       ELSE IF (ICIBLE(2).GE.3) THEN
+         THLENGTH = 3.
+       ENDIF
++C Explicit provisional target length, selected only by TARG x 4.
++      IF (ICIBLE(2).EQ.4) THLENGTH = 12.
+ C
+ C ***      defines Compton spectrum maximum energy
+       IF(IRAY.EQ.0)THEN
+--- a/src/gukine.F
++++ b/src/gukine.F
+@@ -17,7 +17,7 @@
+       COMMON /BRANCH_RATIO/ NB1,NB2,NB3
+ #endif
+ 
+-      DIMENSION PLAB(5),NT(10)
++      DIMENSION PLAB(5),NT(10),SIGNALQ(5,2)
+ C
+ C ***      resets event counters
+       CALL LAGRESET
+@@ -66,6 +66,11 @@
+       ELSEIF(PAO_ANG(1).LE.0)THEN
+ 	CALL MONTECARLO
+         CALL VERTEX
++C Complete generated denominator after vertex, before transport losses.
++        IF (IND_CH.EQ.38) THEN
++          WRITE(43,901) IDRUN,IDEVT,IND_CH,NPART,EGAM,VERTX,
++     &                  ((P(I,J),I=1,4),J=1,3)
++        ENDIF
+         CALL GSVERT (VERTX,0,0,UBUF,0,NVTX)
+ #if defined(GRAAL_OMEGA)
+         IF (JBR.EQ.1) THEN
+@@ -85,7 +90,16 @@
+           PLAB(4) = P(4,J)
+           PLAB(5) = P(5,J)
+ C
+-          CALL GSKINE (PLAB,IP(J),NVTX,UBUF,0,NT(J))
++          IF (IND_CH.EQ.38.AND.J.LE.2) THEN
++            CALL SIGNAL_DECAY_GG(PLAB,SIGNALQ)
++            WRITE(44,902) IDRUN,IDEVT,J,
++     &                    ((SIGNALQ(I,K),I=1,4),K=1,2)
++            DO K=1,2
++              CALL GSKINE(SIGNALQ(1,K),1,NVTX,UBUF,0,NT(J))
++            ENDDO
++          ELSE
++            CALL GSKINE (PLAB,IP(J),NVTX,UBUF,0,NT(J))
++          ENDIF
+ #if defined(GRAAL_COMPTON)||defined(GRAAL_ETA_PI0GG)
+ 	  IF(IP(J).EQ.7)THEN
+ 	    GAMMA_PI0 = PLAB(4)/PLAB(5)
+@@ -111,6 +125,47 @@
+       CALL GLOOK('KINE',LPRIN,NPRIN,IPRK)
+       IF (IPRV.NE.0) CALL GPRINT ('VERT',0)
+       IF (IPRK.NE.0) CALL GPRINT ('KINE',0)
++  901 FORMAT(4(I10,1X),16(E16.9,1X))
++  902 FORMAT(3(I10,1X),8(E16.9,1X))
+       RETURN
+       END
+ 
++
++      SUBROUTINE SIGNAL_DECAY_GG(MOTHER,Q)
++C Explicit isotropic prompt decay of a pseudoscalar into two photons.
++      REAL MOTHER(5),Q(5,2),R(2),BETA(3),REST(3)
++      REAL MASS,GAMMA,B2,CT,ST,PHI,DOT,COEF,SGN
++      MASS=SQRT(MOTHER(4)**2-MOTHER(1)**2-MOTHER(2)**2
++     &          -MOTHER(3)**2)
++      GAMMA=MOTHER(4)/MASS
++      B2=0.
++      DO I=1,3
++        BETA(I)=MOTHER(I)/MOTHER(4)
++        B2=B2+BETA(I)**2
++      ENDDO
++      CALL GRNDM(R,2)
++      CT=2.*R(1)-1.
++      ST=SQRT(MAX(0.,1.-CT*CT))
++      PHI=6.283185307179586*R(2)
++      REST(1)=MASS*.5*ST*COS(PHI)
++      REST(2)=MASS*.5*ST*SIN(PHI)
++      REST(3)=MASS*.5*CT
++      DOT=0.
++      DO I=1,3
++        DOT=DOT+BETA(I)*REST(I)
++      ENDDO
++      DO K=1,2
++        SGN=3.-2.*K
++        COEF=GAMMA*MASS*.5
++        IF(B2.GT.1.E-20)COEF=COEF+(GAMMA-1.)*SGN*DOT/B2
++        DO I=1,3
++          Q(I,K)=SGN*REST(I)+COEF*BETA(I)
++        ENDDO
++        Q(4,K)=GAMMA*(MASS*.5+SGN*DOT)
++        Q(5,K)=Q(4,K)
++      ENDDO
++      DO I=1,4
++        IF(ABS(Q(I,1)+Q(I,2)-MOTHER(I)).GT.1.E-5)
++     &     STOP 'SIGNAL DECAY NONCONSERVATION'
++      ENDDO
++      END
+--- a/src/laggen.F
++++ b/src/laggen.F
+@@ -9,9 +9,11 @@
+       COMMON/GCBANK/GEANT(NWGEAN)
+       COMMON/PAWC/PAW(NWPAW)
+       CHARACTER*80 SALVAMI
+-      SALVAMI='/home/gmandaglio/graal/data/out_evgen/outev.dat'
++      SALVAMI='legacy_events.dat'
+ 
+        OPEN(42,FILE=SALVAMI,STATUS='UNKNOWN')
++      OPEN(43,FILE='generated_signal.dat',STATUS='NEW')
++      OPEN(44,FILE='generated_decays.dat',STATUS='NEW')
+ C
+ C ***      memory allocation for ZEBRA & HBOOK
+       CALL GZEBRA(NWGEAN)
+@@ -27,6 +29,10 @@
+       CALL UGLAST
+       WRITE(42,*)"  -1"
+       CLOSE(42)
++      WRITE(43,*) -1
++      CLOSE(43)
++      WRITE(44,*) -1
++      CLOSE(44)
+       CALL TIMEX(T)
+       WRITE(*,*)'Time of CPU Used = ',T
+       WRITE(*,*)'Number of events with HIGH mult. = ',NEV_HIGH_MULT
+--- a/src/uginit.F
++++ b/src/uginit.F
+@@ -13,6 +13,8 @@
+       CHARACTER*132 FILEKILL
+       CHARACTER*80 FILEEND
+       COMMON /KILL_OPTION/ FILEKILL
++      REAL SBR(6)
++      INTEGER SMODE(6)
+ C
+ C ***      Write OUT the Option
+       CALL WRITE_OPTION
+@@ -35,6 +37,17 @@
+ C ***      stores special branching ratios for eta decays
+       PRINT *,' ### ietaflag in uginit = ', IETAFLAG
+       IF (IETAFLAG.NE.0) CALL ETADEC
++C Force both signal decays; branching fractions applied in analysis.
++      IF (NCHAIN.EQ.1.AND.ICHAIN(1).EQ.38) THEN
++        IF (IETAFLAG.NE.1) STOP 'SIGNAL REQUIRES ETDK 1'
++        DO I=1,6
++          SBR(I)=0.
++          SMODE(I)=0
++        ENDDO
++        SBR(1)=100.
++        SMODE(1)=101
++        CALL GSDK(7,SBR,SMODE)
++      ENDIF
+       
+       IF(NCHAIN.EQ.1.AND.(ICHAIN(1).EQ.61.OR.ICHAIN(1).EQ.62))THEN
+         CALL LAMBDADEC
+--- a/pilot.h
++++ b/pilot.h
+@@ -1,28 +1,6 @@
+-*
+-* User Define
+-*
+ #define GRAAL_NTUP
+-#define GRAAL_BIN
+-
+-*#define GRAAL_BATCH
+-*#define GRAAL_INT
+-
+-*#define GRAAL_INT_M
+-
++#define GRAAL_BATCH
+ #define GRAAL_HPRINT
+-#define GRAAL_COMPTON
+-
+-*#define GRAAL_KAPPA0
+-#define GRAAL_OMEGA
+-*#define GRAAL_LAMBDA
+-*#define GRAAL_BGO_SHOWER
+-*#define GRAAL_ETA_PI0GG
+-*#define GRAAL_NEW_CYL
+-#define GRAAL_OLD_CYL
+-*#define GRAAL_BC448
+-
++#define GRAAL_OLD_CYL
+ #include "GRAAL_period.h"
+-
+-#define GRAAL_CONDOR_POOL
+-
+ #include "check_pilot.h"

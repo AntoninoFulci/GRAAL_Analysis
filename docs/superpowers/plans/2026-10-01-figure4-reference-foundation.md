@@ -14,7 +14,7 @@
 
 - Scope: publication Figure 4 reference and amplitude source inventory only; no Stage 07/08 edits or output changes.
 - Existing Eq. (43) pilot stays labeled `partial tree contribution`; traced curves stay labeled `published theory reference`, never calculated output.
-- Source PDF is `tmp/pdfs/PhysRevLett.100.052003.pdf`, page 5, SHA-256 `7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb`.
+- Source PDF is `docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf`, page 5, SHA-256 `7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb`.
 - The twelve panels are three pairs (`p_pi0`, `p_eta`, `eta_pi0`) by energy bins 0–3: `[1.10,1.20)`, `[1.20,1.30)`, `[1.30,1.40)`, `[1.40,1.50]` GeV.
 - No source parameter, phase, or formula is inferred from visual agreement with Figure 4. Missing dependencies remain explicit blockers for the corresponding amplitude.
 - Preserve all pre-existing worktree edits. Stage and commit only paths owned by the current task.
@@ -345,8 +345,8 @@ Expected staged list: loader and its test only.
 - [ ] **Step 1: Render the source at high resolution**
 
 ```bash
-pdftoppm -f 5 -l 5 -r 600 -png -singlefile tmp/pdfs/PhysRevLett.100.052003.pdf /private/tmp/ajaka2008_figure4_page5_600dpi
-shasum -a 256 tmp/pdfs/PhysRevLett.100.052003.pdf
+pdftoppm -f 5 -l 5 -r 600 -png -singlefile docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf /private/tmp/ajaka2008_figure4_page5_600dpi
+shasum -a 256 docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf
 ```
 
 Expected digest: value in Global Constraints. Inspect the rendered page, not OCR text, because Figure 4 lines and circles overlap.
@@ -362,7 +362,7 @@ Append this test to `theory/tests/test_figure4_reference.py`:
 ```python
 def test_reviewed_ajaka_figure4_theory_reference_loads():
     root = Path(__file__).resolve().parents[1]
-    source = root.parent / "tmp/pdfs/PhysRevLett.100.052003.pdf"
+    source = root.parent / "docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf"
     metadata_path = root / "references/ajaka2008_figure4_theory.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["source_pdf_sha256"] == "7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb"
@@ -396,7 +396,7 @@ from graal_theory.figure4_reference import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT.parent / "tmp/pdfs/PhysRevLett.100.052003.pdf"
+SOURCE = ROOT.parent / "docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf"
 POINTS = load_published_theory_curves(
     ROOT / "references/ajaka2008_figure4_theory.csv",
     ROOT / "references/ajaka2008_figure4_theory.json",

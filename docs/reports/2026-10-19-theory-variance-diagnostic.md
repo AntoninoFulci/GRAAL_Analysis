@@ -743,3 +743,123 @@ p_pi0, covariance and panel/cross-projection gates also remain open.
 The bounded local campaign is complete; no further physics job remains
 running. This outcome is additional evidence for the factorization route,
 not reproduction of the twelve panels or a change to existing certificates.
+
+
+## 2026-10-21: authorized eta-pion confirmation
+
+The user authorized continuing the local calculation. Reuse the existing
+mass8/energy4 and mass16/energy4 records after verifying their source,
+reference and capture SHA-256 hashes against the current worktree.
+No model, integration rule, parameter, tolerance or runner changes are
+needed. Launch only mass32/energy4 and mass16/energy8, using the unchanged
+runner, direct 64/48, angular8/16/32, and at most two single-thread
+processes. Previous timing projects approximately 2004 s and 1947 s,
+respectively; these are estimates, not measured outcomes.
+
+Before observing results, freeze the required bounded comparisons:
+mass8/16, mass16/32, full mass8/32, energy4/8 at mass16, and angular
+adjacent/full-span refinements. Each D difference must remain strictly
+below 1%; Sigma tolerances remain 0.01 for mass/angles and 0.005 for
+energy. Preserve the earlier failed mass2/4 and mass4/8/16 records.
+The separate `compare_confirmation_20261021.py` writes a new confirmation
+artifact, leaving the earlier comparison intact. Independent read-only
+review found no concrete error in its verification or gate selection.
+It explicitly fixes `production_certificate=False`; mass32/energy8 is
+not computed by this bounded campaign. Capture integrity checks do not
+constitute an independent re-evaluation of physical amplitudes.
+
+
+### 2026-10-21 result: bounded mass8/16/32 confirmation passes
+
+Both authorized jobs completed with exit 0. Mass32/energy4 took
+**1996.33 s (33 min 16 s)**, using 448 anchor nodes and 896 H/V calls.
+Mass16/energy8 took **1926.62 s (32 min 7 s)**, using 432 anchor nodes
+and 864 H/V calls. They ran concurrently with numerical-library thread
+limits fixed to one. At angular order 32:
+
+| Mass nodes per segment | Energy nodes | Numerator | Denominator | Sigma |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 4 | -0.19273188597658747 | 0.7248672390424603 | -0.26588577272602865 |
+| 16 | 4 | -0.19272765841862727 | 0.7248671655110299 | -0.2658799675148131 |
+| 32 | 4 | -0.1927276978423397 | 0.7248671983280403 | -0.2658800098650903 |
+| 16 | 8 | -0.19272708833539853 | 0.7248662024780734 | -0.2658795342871961 |
+
+| Frozen comparison | Relative D difference | Absolute Sigma difference | Result |
+| --- | ---: | ---: | --- |
+| Mass8 to 16 | 0.0000101441% | 5.80521122e-6 | pass |
+| Mass16 to 32 | 0.00000452731% | 4.23502772e-8 | pass |
+| Full mass8 to 32 | 0.00000561681% | 5.76286094e-6 | pass |
+| Energy4 to 8 at mass16 | 0.000132856% | 4.33227617e-7 | pass |
+
+All required adjacent/full-span angular checks pass as well. Over the
+seven saved runs, the largest angular D difference is 5.13885e-11
+relative and the largest angular Sigma difference is 3.28431e-11.
+The earlier mass4/16 D difference remains 1.02852618% and remains marked
+**fail**. No threshold was relaxed; the newly confirmed sequence begins
+at the predetermined higher base order 8.
+
+`compare_confirmation_20261021.py` completed with exit 0, verifying all
+seven complete captures, checksums, source/reference hashes, snapshots,
+settings, shapes, finite amplitudes, angular-order labels and N/D ratios.
+It reports `capture_and_provenance_verified=true`,
+`bounded_confirmation_passed=true`, and `production_certificate=false`.
+Artifacts are `confirmation-20261021.json` and `.log` alongside the new
+`mass32-energy4/` and `mass16-energy8/` folders. The October 19 comparison
+is preserved. No physics or test source changed; the prior 80 passing
+focused tests were not rerun solely to repeat unchanged-code verification.
+
+**Decision:** the frozen eta_pi0 bin now passes the bounded numerical
+confirmation for mass, angles and incident energy. This resolves the
+open mass-refinement check from October 19. The two p_eta controls and
+this eta_pi0 control provide favorable local evidence for exact angular
+factorization. These differences are empirical convergence checks, not
+rigorous error bounds or a universal choice of quadrature orders.
+
+Production certification remains open: the diagnostic Gauss rules are
+nonnested and are not yet integrated into the production convergence
+policy; inner-loop and other policy-required independent checks remain
+separate, as do p_pi0 projection, panel/covariance and cross-projection
+totals. No mass32/energy8 combined run was performed, no production
+integration path was replaced, and no twelve-panel reproduction or
+universal speedup is claimed. The authorized local confirmation is
+finished; neither physics process remains running.
+
+## October 21: angular native-fit implementation and farm preflight
+
+Worktree `.work/figure4-fit` now connects the exact source/unit-offset g1/g2
+basis to the reduced angular integration for all three pair projections.
+Complete complex families are summed before quadratic moments; both cosine
+and H/V-interference sine harmonics feed finite-phi expected counts. Physical
+source/off-source direct64/48 amplitudes pass an independent comparison;
+three-pair toy integrals agree with independent selected-pair Sobol sampling.
+
+The actual nominal UV data require per-point 8/12/16 phi bins, rounded divisors
+.9003/.9549/.9745, and the recorded cosine-only or diagnostic fit choice. These
+contracts now propagate through native data, moments, checkpoints and fitting.
+A separate AngularBinCheck gates each fit trial with angular/mass/energy/inner
+refinements; it is explicitly not a Sobol production certificate.
+
+Preflight exposed two previously incorrect input assumptions. The input must
+be `production_best_binning_nominal/common/flux_calibrated.root`, not raw flux.
+Also the by-period extraction uses the inclusive reconstruction cutflow (1425
+runs), not just the 1396 runs with surviving events. Survivor-only selection
+underestimated first-bin vertical exposure by about 2.2%. The corrected reader
+matches both fluxes and both polarizations for all 102 native ratio points.
+The extraction `periods/index.json` is hashed with the campaign inputs.
+
+Local focused regressions: 96 passed before final provenance/exposure fixes;
+17 focused fit/workflow tests and 16 flux/workflow tests passed afterward.
+Read-only reviewer found no remaining concrete errors after fixes. Farm v2
+snapshot preflight passed; numerical farm tests and a bounded p_pi0 timing pilot
+are the next gate. No full production fit or convergence certificate is claimed.
+
+See worktree `theory/docs/2026-10-21-angular-farm-runbook.md` for exact snapshot,
+input identities, checkpoint/resume rules and commands.
+
+Farm update: 65 focused tests passed in 93.33 s. Bounded p_pi0 pilot is now
+Slurm **job 20**, RUNNING at the first verified check (00:22); one CPU, 4 GB,
+two-hour limit. Job19 stopped before physics because direct Slurm submission
+changed the script location; explicit-path wrapper fixed launch. Checkpoints:
+`/data/graal/GRAAL_Analysis/results/angular-native-pilot-20261021-v2/timing/precompute/0_p_pi0_3/`.
+Logs: sibling `logs/ppi-20.out` and `logs/ppi-20.err` under campaign root.
+Numerical convergence results, resource scaling and actual fit remain pending.

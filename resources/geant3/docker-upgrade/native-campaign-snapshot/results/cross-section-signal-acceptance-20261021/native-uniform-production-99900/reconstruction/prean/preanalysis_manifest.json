@@ -1,0 +1,526 @@
+{
+  "schema": 1,
+  "tagger_policy": "discard_zero",
+  "cpus": 1,
+  "inputs": [
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/reconstruction/raw/2002_uv1/run3629.root",
+      "size": 63519894,
+      "mtime_ns": 1792592964937076604
+    }
+  ],
+  "sources": [
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/CutManager.h",
+      "size": 15277,
+      "mtime_ns": 1789576425198366594
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/PreAnalysis.C",
+      "size": 18144,
+      "mtime_ns": 1791920660308645996
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/PreAnalysis.h",
+      "size": 28631,
+      "mtime_ns": 1783953835396098377
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/RawTrackContract.h",
+      "size": 2128,
+      "mtime_ns": 1791920660286222957
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_1999_d1.cpp",
+      "size": 1238,
+      "mtime_ns": 1764249873692505240
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_1999_d2.cpp",
+      "size": 1079,
+      "mtime_ns": 1764249873696343303
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2001_d.cpp",
+      "size": 1002,
+      "mtime_ns": 1764249873697039962
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2002_d1.cpp",
+      "size": 1003,
+      "mtime_ns": 1764249873696215153
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2002_d2.cpp",
+      "size": 945,
+      "mtime_ns": 1764249873692661405
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2002_d3.cpp",
+      "size": 1128,
+      "mtime_ns": 1764249873688409925
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2005_d2.cpp",
+      "size": 886,
+      "mtime_ns": 1764249873702365875
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/DeuteronFwdCut_2006_d.cpp",
+      "size": 1237,
+      "mtime_ns": 1764249873702986002
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_1998_uv.cpp",
+      "size": 1091,
+      "mtime_ns": 1764249873694974065
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_1999_d1.cpp",
+      "size": 1072,
+      "mtime_ns": 1764249873705537915
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_1999_d2.cpp",
+      "size": 1072,
+      "mtime_ns": 1764249873695439100
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_1999_uv.cpp",
+      "size": 1076,
+      "mtime_ns": 1764249873694028020
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_1999_vis.cpp",
+      "size": 1157,
+      "mtime_ns": 1764249873695282578
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2000_fuv.cpp",
+      "size": 1079,
+      "mtime_ns": 1764249873694272161
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2000_uv1.cpp",
+      "size": 1078,
+      "mtime_ns": 1764249873692309618
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2000_uv2.cpp",
+      "size": 1037,
+      "mtime_ns": 1764249873696493626
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2000_vis.cpp",
+      "size": 1071,
+      "mtime_ns": 1764249873690439701
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2001_d.cpp",
+      "size": 1149,
+      "mtime_ns": 1764249873691603184
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2001_uv.cpp",
+      "size": 1277,
+      "mtime_ns": 1764249873685125351
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_d1.cpp",
+      "size": 1031,
+      "mtime_ns": 1764249873695786238
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_d2.cpp",
+      "size": 1032,
+      "mtime_ns": 1764249873705224872
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_d3.cpp",
+      "size": 1071,
+      "mtime_ns": 1764249873687006950
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_uv1.cpp",
+      "size": 1034,
+      "mtime_ns": 1764249873693588614
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_uv2.cpp",
+      "size": 1037,
+      "mtime_ns": 1764249873698523045
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_vis1.cpp",
+      "size": 1205,
+      "mtime_ns": 1764249873703638673
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2002_vis2.cpp",
+      "size": 1038,
+      "mtime_ns": 1764249873694808364
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2003_vis.cpp",
+      "size": 1075,
+      "mtime_ns": 1764249873687369108
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2005_d1.cpp",
+      "size": 1081,
+      "mtime_ns": 1764249873701307297
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2005_d2.cpp",
+      "size": 1243,
+      "mtime_ns": 1764249873693301320
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionCntCut_2006_d.cpp",
+      "size": 1440,
+      "mtime_ns": 1764249873695125341
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_1998_uv.cpp",
+      "size": 574,
+      "mtime_ns": 1764249873682704329
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_1999_d1.cpp",
+      "size": 574,
+      "mtime_ns": 1764249873688739300
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_1999_d2.cpp",
+      "size": 689,
+      "mtime_ns": 1764249873683932900
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_1999_uv.cpp",
+      "size": 607,
+      "mtime_ns": 1764249873686612010
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_1999_vis.cpp",
+      "size": 692,
+      "mtime_ns": 1764249873702768683
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2000_fuv.cpp",
+      "size": 689,
+      "mtime_ns": 1764249873697186947
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2000_uv1.cpp",
+      "size": 599,
+      "mtime_ns": 1764249873698060989
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2000_uv2.cpp",
+      "size": 727,
+      "mtime_ns": 1764249873693897724
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2000_vis.cpp",
+      "size": 648,
+      "mtime_ns": 1764249873685271025
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2001_d.cpp",
+      "size": 680,
+      "mtime_ns": 1764249873695939183
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2001_uv.cpp",
+      "size": 649,
+      "mtime_ns": 1764249873691737533
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_d1.cpp",
+      "size": 572,
+      "mtime_ns": 1764249873683703542
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_d2.cpp",
+      "size": 650,
+      "mtime_ns": 1764249873688917875
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_d3.cpp",
+      "size": 689,
+      "mtime_ns": 1764249873694153070
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_uv1.cpp",
+      "size": 883,
+      "mtime_ns": 1764249873697673798
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_uv2.cpp",
+      "size": 609,
+      "mtime_ns": 1764249873691914320
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_vis1.cpp",
+      "size": 692,
+      "mtime_ns": 1764249873695603848
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2002_vis2.cpp",
+      "size": 653,
+      "mtime_ns": 1764249873704953194
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2003_vis.cpp",
+      "size": 612,
+      "mtime_ns": 1764249873689780593
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2005_d1.cpp",
+      "size": 650,
+      "mtime_ns": 1764249873691063285
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2005_d2.cpp",
+      "size": 648,
+      "mtime_ns": 1764249873686228275
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/PionFwdCut_2006_d.cpp",
+      "size": 558,
+      "mtime_ns": 1764249873693764448
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_1998_uv.cpp",
+      "size": 1325,
+      "mtime_ns": 1764249873691332340
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_1999_d1.cpp",
+      "size": 1709,
+      "mtime_ns": 1764249873684986830
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_1999_d2.cpp",
+      "size": 1284,
+      "mtime_ns": 1764249873689944625
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_1999_uv.cpp",
+      "size": 1394,
+      "mtime_ns": 1764249873687740207
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_1999_vis.cpp",
+      "size": 1379,
+      "mtime_ns": 1764249873697824836
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2000_fuv.cpp",
+      "size": 1136,
+      "mtime_ns": 1764249873701860309
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2000_uv1.cpp",
+      "size": 1337,
+      "mtime_ns": 1764249873703953385
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2000_uv2.cpp",
+      "size": 1366,
+      "mtime_ns": 1764249873696074724
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2000_vis.cpp",
+      "size": 1259,
+      "mtime_ns": 1764249873683384776
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2001_d.cpp",
+      "size": 1686,
+      "mtime_ns": 1764249873682406664
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2001_uv.cpp",
+      "size": 1292,
+      "mtime_ns": 1764249873704554677
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_d1.cpp",
+      "size": 1684,
+      "mtime_ns": 1764249873690129638
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_d2.cpp",
+      "size": 1441,
+      "mtime_ns": 1764249873684834719
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_d3.cpp",
+      "size": 1258,
+      "mtime_ns": 1764249873702541947
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_uv1.cpp",
+      "size": 1470,
+      "mtime_ns": 1764249873703233600
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_uv2.cpp",
+      "size": 1689,
+      "mtime_ns": 1764249873694628835
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_vis1.cpp",
+      "size": 1168,
+      "mtime_ns": 1764249873696902752
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2002_vis2.cpp",
+      "size": 1694,
+      "mtime_ns": 1764249873692818642
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2003_vis.cpp",
+      "size": 1160,
+      "mtime_ns": 1764249873687912941
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2005_d1.cpp",
+      "size": 1133,
+      "mtime_ns": 1764249873682985544
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2005_d2.cpp",
+      "size": 1412,
+      "mtime_ns": 1764249873688576698
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonCntCut_2006_d.cpp",
+      "size": 1437,
+      "mtime_ns": 1764249873685450912
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_1998_uv.cpp",
+      "size": 1889,
+      "mtime_ns": 1764249873688248515
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_1999_d1.cpp",
+      "size": 1539,
+      "mtime_ns": 1764249873684227228
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_1999_d2.cpp",
+      "size": 1425,
+      "mtime_ns": 1764249873689383149
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_1999_uv.cpp",
+      "size": 1972,
+      "mtime_ns": 1764249873690582991
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_1999_vis.cpp",
+      "size": 1617,
+      "mtime_ns": 1764249873688088179
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2000_fuv.cpp",
+      "size": 1852,
+      "mtime_ns": 1764249873690294981
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2000_uv1.cpp",
+      "size": 1781,
+      "mtime_ns": 1764249873690716147
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2000_uv2.cpp",
+      "size": 1432,
+      "mtime_ns": 1764249873685827613
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2000_vis.cpp",
+      "size": 1546,
+      "mtime_ns": 1764249873692117333
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2001_d.cpp",
+      "size": 1725,
+      "mtime_ns": 1764249873693118691
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2001_uv.cpp",
+      "size": 1700,
+      "mtime_ns": 1764249873697319865
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_d1.cpp",
+      "size": 1583,
+      "mtime_ns": 1764249873689205170
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_d2.cpp",
+      "size": 1464,
+      "mtime_ns": 1764249873684647799
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_d3.cpp",
+      "size": 1731,
+      "mtime_ns": 1764249873698353767
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_uv1.cpp",
+      "size": 1890,
+      "mtime_ns": 1764249873689644694
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_uv2.cpp",
+      "size": 1826,
+      "mtime_ns": 1764249873685635805
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_vis1.cpp",
+      "size": 1856,
+      "mtime_ns": 1764249873696762204
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2002_vis2.cpp",
+      "size": 1624,
+      "mtime_ns": 1764249873692961454
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2003_vis.cpp",
+      "size": 1889,
+      "mtime_ns": 1764249873697448730
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2005_d2.cpp",
+      "size": 1688,
+      "mtime_ns": 1764249873690872669
+    },
+    {
+      "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/01_pre_analysis/cuts/ProtonFwdCut_2006_d.cpp",
+      "size": 1575,
+      "mtime_ns": 1764249873694419146
+    }
+  ],
+  "source_sha256": "400536c5ac22a9ba294f68f316c9ddc3507914f042b2c0747dc4f5614b177ff1",
+  "counts": [
+    {
+      "source": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results/cross-section-signal-acceptance-20261021/native-uniform-production-99900/reconstruction/raw/2002_uv1/run3629.root",
+      "input": 99585,
+      "written": 99585,
+      "skipped_no_tagger": 0,
+      "input_run_states": [
+        {
+          "run": 3629,
+          "polarization": 2,
+          "input": 99585,
+          "skipped_no_tagger": 0
+        }
+      ]
+    }
+  ]
+}
