@@ -15,7 +15,7 @@ def raw(**changes):
 
 
 def metadata():
-    return dict(do_fit=False, channel="eta_pi0", raw_track_metadata=dict(available=True),
+    return dict(schema=2, selection_algorithm="pairing_missing_mass", channel="eta_pi0", raw_track_metadata=dict(available=True),
                 selection=dict(protons="exactly_one", photons="first_four_of_at_least_four"))
 
 

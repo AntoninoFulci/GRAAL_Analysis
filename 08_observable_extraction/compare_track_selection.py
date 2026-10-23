@@ -31,7 +31,7 @@ from observable_extraction.core.binning import PHI_EDGES_RAD
 from observable_extraction.core.gate_comparison import align_points
 from observable_extraction.core.periods import partition_runs, exposure_summary, selection_audit
 from observable_extraction.io.reconstructed_events import read_run_universe, select_sigma_events
-from reconstruction.runtime.provenance import file_identities, validate_no_fit, validate_energy_domain
+from reconstruction.runtime.provenance import file_identities, validate_reconstruction_selection, validate_energy_domain
 
 
 NAMES = ("before", "after")
@@ -83,7 +83,7 @@ def read_track_mask(path, tree_name):
         tree = source.Get(tree_name)
         if not tree or not tree.InheritsFrom("TTree"):
             raise ValueError(f"missing TTree {tree_name}: {path}")
-        meta = validate_no_fit(source, tree)
+        meta = validate_reconstruction_selection(source, tree)
         selection = meta.get("selection", {})
         if (meta.get("channel") != "eta_pi0" or selection.get("protons") != "exactly_one"
                 or selection.get("photons") != "first_four_of_at_least_four"

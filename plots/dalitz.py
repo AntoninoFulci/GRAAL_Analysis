@@ -16,19 +16,12 @@ is the whole reason both exist. Everything kinematic comes from
 plots.core.kinematics; plots.core.reconstruction_data reads ROOT, while this module fills
 histograms and draws.
 
-Only with --with-kinematic-fit, when a tree carries fitted branches (`eta_fit`/`pi0_fit`/`fit_chi2`,
-written by the reconstruction when the fit is on), the eta/pi0 masses and the
-Dalitz axes built from them switch to the fitted 4-vectors, and the massa_*
-figures gain a dashed "raw" overlay of the pre-fit mass in the same color —
-before/after, same sample. A pre-fit reco file has none of those branches and
-everything falls back to the raw eta/pi0 as before.
-The default requires certified no-fit provenance. ROOT stores that provenance,
+Requires certified pairing/missing-mass reconstruction provenance. ROOT stores that provenance,
 input hashes, sample populations, units and a histogram dictionary as TNamed JSON.
 
 Two proton variants are produced, and they are NOT equivalent:
 
-  misurato  — uses the measured `proton` branch for raw trees and the fitted
-              `proton_fit` with fitted mesons: no mixed raw/fitted vectors.
+  misurato  — uses the measured `proton` branch.
               This variant carries recoil-track information.
   implicito — uses `missing`. Note the algebraic identity
                   eta + missing = beam + target - pi0,
@@ -77,7 +70,6 @@ _MASS2D_BINS = 90
 # uses the explicit adapter API and ReconstructionArrays structure below.
 _as_array = reconstruction_data.as_array
 _open_tree = reconstruction_data.open_tree
-_has_fit = reconstruction_data.has_fit
 _collect = reconstruction_data.collect_legacy
 
 
@@ -216,7 +208,7 @@ def _draw_raw_mass_comparison(
     out_dir: Path,
     hists: dict,
 ) -> None:
-    """Compare chi2 and BDT+chi2 meson masses before the kinematic fit."""
+    """Compare chi2 and BDT+chi2 meson masses after pairing and missing-mass selection."""
     label = "#eta" if meson == "eta" else "#pi^{0}"
     lo, hi = (
         (_ETA_MASS_MIN, _ETA_MASS_MAX)
@@ -252,7 +244,7 @@ def _draw_raw_mass_comparison(
     )
     c.SetLeftMargin(0.12)
     hc.SetTitle(
-        f"massa invariante {label} prima del fit;"
+        f"massa invariante {label} dopo la selezione;"
         f"M({label})  [GeV];eventi"
     )
     hc.GetYaxis().CenterTitle()
@@ -288,8 +280,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out-dir", type=Path, default=Path("results/plots"))
     p.add_argument("--profile", choices=("uv", "vis"), help="sample label; no additional energy cut")
     p.add_argument("--run-manifest", type=Path, default=dalitz_metadata.DEFAULT_MANIFEST)
-    p.add_argument("--with-kinematic-fit", action="store_true",
-                   help="explicitly plot archived fitted vectors and overlays")
     args = p.parse_args(argv)
 
     ROOT.gROOT.SetBatch(True)
@@ -304,12 +294,12 @@ def main(argv: list[str] | None = None) -> int:
         inputs.callback(fc.Close)
         fb, tb = reconstruction_data.open_tree(args.bdt, BDT_TREE, allow_empty=True)
         inputs.callback(fb.Close)
-        provenance = {tag: dalitz_metadata.read_provenance(source, tree, allow_fit=args.with_kinematic_fit)
+        provenance = {tag: dalitz_metadata.read_provenance(source, tree)
                       for tag, source, tree in (("chi2", fc, tc), ("bdt", fb, tb))}
         comparison = dalitz_metadata.compare_selections(
-            provenance['chi2'], provenance['bdt'], allow_fit=args.with_kinematic_fit)
-        chi2 = reconstruction_data.collect(tc, forbid_fit=not args.with_kinematic_fit)
-        bdt = reconstruction_data.collect(tb, forbid_fit=not args.with_kinematic_fit)
+            provenance['chi2'], provenance['bdt'])
+        chi2 = reconstruction_data.collect(tc)
+        bdt = reconstruction_data.collect(tb)
 
     samples = {'chi2': chi2, 'bdt': bdt}
     for tag, data in samples.items():
@@ -347,19 +337,6 @@ def main(argv: list[str] | None = None) -> int:
         "massa_pi0_chi2", "solo chi2", chi2.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
     hists["massa_pi0_bdt"] = _mass_hist(
         "massa_pi0_bdt", "gate BDT", bdt.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
-
-    # Fitted-vs-raw overlay: only meaningful when the tree actually carries the
-    # kinematic-fit branches (Task 3). When has_fit is False for a sample,
-    # eta_mass/pi0_mass above are already the raw masses, so there is nothing
-    # to overlay for it.
-    for tag, data in (("chi2", chi2), ("bdt", bdt)):
-        if data.has_fit:
-            hists[f"massa_eta_{tag}_raw"] = _mass_hist(
-                f"massa_eta_{tag}_raw", "raw",
-                data.eta_mass_raw, _ETA_MASS_MIN, _ETA_MASS_MAX)
-            hists[f"massa_pi0_{tag}_raw"] = _mass_hist(
-                f"massa_pi0_{tag}_raw", "raw",
-                data.pi0_mass_raw, _PI0_MASS_MIN, _PI0_MASS_MAX)
 
     # The two meson masses against each other: on this figure the gate shows up
     # as the blob tightening onto the truth crossing, not as a shifted median.
@@ -427,25 +404,8 @@ def main(argv: list[str] | None = None) -> int:
         hb.Draw("hist same")
 
         leg = ROOT.TLegend(0.58, 0.62, 0.90, 0.88)
-        leg.AddEntry(hc, "solo chi2" + (" (fit)" if chi2.has_fit else ""), "f")
-        leg.AddEntry(hb, "gate BDT" + (" (fit)" if bdt.has_fit else ""), "l")
-
-        # Before/after: the raw mass for the same sample, dashed in the same
-        # color — what the kinematic fit did to the peak. Only drawn where a
-        # fit actually ran (see the massa_*_*_raw hists built above).
-        hc_raw = hists.get(f"massa_{meson}_chi2_raw")
-        if hc_raw is not None:
-            hc_raw.SetLineColor(ROOT.kGray + 2)
-            hc_raw.SetLineStyle(2)
-            hc_raw.SetLineWidth(2)
-            hc_raw.Draw("hist same")
-            leg.AddEntry(hc_raw, "solo chi2 (raw)", "l")
-        hb_raw = hists.get(f"massa_{meson}_bdt_raw")
-        if hb_raw is not None:
-            hb_raw.SetLineColor(ROOT.kAzure + 1)
-            hb_raw.SetLineStyle(2)
-            hb_raw.Draw("hist same")
-            leg.AddEntry(hb_raw, "gate BDT (raw)", "l")
+        leg.AddEntry(hc, "solo chi2", "f")
+        leg.AddEntry(hb, "gate BDT", "l")
 
         line = ROOT.TLine(truth, 0, truth, hc.GetMaximum() * 1.05)
         line.SetLineColor(ROOT.kRed + 1)
@@ -455,8 +415,7 @@ def main(argv: list[str] | None = None) -> int:
         leg.Draw()
         _save(c, args.out_dir, f"massa_{meson}")
 
-    # Raw-only comparison requested separately from the fitted overlays above:
-    # pairing and chi2 selection have run, kinematic fit has not.
+    # Raw mass comparison with normalized overlays.
     for meson, truth in (("eta", kin.M_ETA), ("pi0", kin.M_PI0)):
         _draw_raw_mass_comparison(
             meson, truth, chi2, bdt, args.out_dir, hists
@@ -492,8 +451,6 @@ def main(argv: list[str] | None = None) -> int:
     print("\n====================================")
     print(f"Scritti in {args.out_dir}/")
     print(f"  eventi         chi2 {len(chi2.eta_mass):7d}   BDT {len(bdt.eta_mass):7d}")
-    print(f"  fit cinematico chi2 {'si' if chi2.has_fit else 'no':>7}   "
-          f"BDT {'si' if bdt.has_fit else 'no':>7}")
     def percentage(values):
         return f'{100 * np.mean(values):.1f}%' if len(values) else 'n/d (vuoto)'
 

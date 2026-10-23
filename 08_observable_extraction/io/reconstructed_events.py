@@ -13,7 +13,7 @@ import ROOT
 
 from calibration.run_quality import excluded_run_numbers
 from observable_extraction.core.models import FluxExposure
-from reconstruction.runtime.provenance import validate_no_fit
+from reconstruction.runtime.provenance import validate_reconstruction_selection
 
 
 def read_run_universe(path: Path, *, allow_missing: bool = False):
@@ -83,12 +83,7 @@ class EventArrays:
 def read_reconstructed(
     path: Path,
     tree_name: str,
-    *,
-    vector_mode: str,
-    require_no_fit: bool = False,
 ) -> EventArrays:
-    if vector_mode not in {"raw", "fit"}:
-        raise ValueError("vector_mode must be 'raw' or 'fit'")
     path = Path(path)
     source = ROOT.TFile.Open(str(path), "READ")
     if not source or source.IsZombie():
@@ -97,17 +92,12 @@ def read_reconstructed(
         tree = source.Get(tree_name)
         if not tree or not tree.InheritsFrom("TTree"):
             raise RuntimeError(f"missing TTree {tree_name!r} in {path}")
-        if require_no_fit:
-            if vector_mode != "raw":
-                raise ValueError("no-fit baseline requires raw vectors")
-            validate_no_fit(source, tree)
+        validate_reconstruction_selection(source, tree)
         branches = {branch.GetName() for branch in tree.GetListOfBranches()}
         required = {
             "RunNumber", "Xstrip", "Polarization", "beam", "eta", "pi0",
             "proton", "missing", "eta_mass", "pi0_mass", "n_photons_input",
         }
-        if vector_mode == "fit":
-            required.update({"eta_fit", "pi0_fit", "proton_fit"})
         missing = sorted(required - branches)
         if missing:
             raise RuntimeError(f"{path}:{tree_name}: missing branches {missing}")
@@ -122,10 +112,10 @@ def read_reconstructed(
         }
         for event in tree:
             beam = _vector(event.beam)
-            eta = _vector(event.eta_fit if vector_mode == "fit" else event.eta)
-            pi0 = _vector(event.pi0_fit if vector_mode == "fit" else event.pi0)
+            eta = _vector(event.eta)
+            pi0 = _vector(event.pi0)
             proton = _vector(
-                event.proton_fit if vector_mode == "fit" else event.proton
+                event.proton
             )
             raw_missing = _vector(event.missing)
             values["run_number"].append(int(event.RunNumber))

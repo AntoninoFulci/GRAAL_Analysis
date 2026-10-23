@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from array import array
 from dataclasses import replace
 import warnings
@@ -12,7 +13,7 @@ from observable_extraction.io.root_output import RootOutputPayload, write_root_o
 from observable_extraction.tests.test_figure4 import _points
 
 
-def _write_reconstruction(path: Path, tree_name: str, *, fit: bool) -> None:
+def _write_reconstruction(path: Path, tree_name: str, *, fit: bool, certified: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     source = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree(tree_name, tree_name)
@@ -35,10 +36,12 @@ def _write_reconstruction(path: Path, tree_name: str, *, fit: bool) -> None:
         tree.Branch(name, value, f"{name}/F")
     tree.Fill()
     tree.Write()
+    if not fit and certified:
+        ROOT.TNamed("reconstruction_provenance", json.dumps(dict(schema=2, selection_algorithm="pairing_missing_mass"))).Write()
     source.Close()
 
 
-def _write_asymmetry(path: Path, profile: str, *, fit: bool = True) -> None:
+def _write_asymmetry(path: Path, profile: str, *, fit: bool = False) -> None:
     source_points = _points()
     if profile == "vis":
         source_points = tuple(replace(item, point=replace(item.point, energy_bin=0,
@@ -63,7 +66,7 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path, work
     original = {}
     for profile in ("uv", "vis"):
         root = campaign / profile
-        for tree_name, fit in (("reco_eta_pi0_chi2", False), ("reco_eta_pi0_bdt", True)):
+        for tree_name, fit in (("reco_eta_pi0_chi2", False), ("reco_eta_pi0_bdt", False)):
             path = root / "reco" / f"{tree_name}.root"
             _write_reconstruction(path, tree_name, fit=fit)
             original[path] = path.read_bytes()
@@ -75,17 +78,16 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path, work
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, with_kinematic_fit=True, workers=workers)
+        plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, workers=workers)
     assert not any("Deleting canvas with same name" in str(item.message) for item in caught)
 
     assert all(path.read_bytes() == contents for path, contents in original.items())
     for profile in ("uv", "vis"):
         output = campaign / profile / "plots"
-        for name in ("mass_raw_fit_p_eta.pdf", "mass_raw_fit_p_pi0.pdf", "mass_raw_fit_eta_pi0.pdf",
-                     "comparison_raw_fit_ratio.pdf", "comparison_raw_fit_likelihood.pdf", "dalitz_confronto.pdf"):
+        for name in ("comparison_reconstruction_samples.pdf", "comparison_estimators.pdf", "fit_diagnostics.pdf", "dalitz_confronto.pdf"):
             assert (output / name).read_bytes().startswith(b"%PDF")
     common = campaign / "common/plots"
-    for name in ("mass_uv_vis_p_eta.pdf", "comparison_raw_fit_ratio.pdf", "figure4_experimental.pdf"):
+    for name in ("figure4_experimental.pdf",):
         assert (common / name).read_bytes().startswith(b"%PDF")
 
 
@@ -99,7 +101,7 @@ def test_postprocessing_publishes_all_plot_sets_without_changing_root_inputs(tmp
         roots.append(root)
     monkeypatch.setattr(plot_campaign, "_read_profile", lambda campaign, profile: (profile, profile))
     monkeypatch.setattr(plot_campaign, "_render_profile", lambda campaign, profile, payload, output: (output / "plot.pdf").write_bytes(b"%PDF"))
-    monkeypatch.setattr(plot_campaign, "_render_common", lambda campaign, payloads, output, reference: (output / "combined.pdf").write_bytes(b"%PDF"))
+    monkeypatch.setattr(plot_campaign, "_render_common", lambda campaign, output, reference: (output / "combined.pdf").write_bytes(b"%PDF"))
 
     plot_campaign.render_campaign(campaign, tmp_path / "ajaka.csv")
 
@@ -151,7 +153,7 @@ def test_no_fit_campaign_generates_raw_plots_and_removes_stale_fit_pdfs(tmp_path
             path = root / "reco" / f"{tree}.root"
             _write_reconstruction(path, tree, fit=False)
             source = ROOT.TFile(str(path), "UPDATE")
-            ROOT.TNamed("reconstruction_provenance", json.dumps({"do_fit": False})).Write()
+            ROOT.TNamed("reconstruction_provenance", json.dumps({"schema": 2, "selection_algorithm": "pairing_missing_mass"})).Write()
             source.Close()
         _write_asymmetry(root / "beam_asymmetry/beam_asymmetry.root", profile, fit=False)
         for name in plot_campaign.REQUIRED_STAGE7_PDFS:
@@ -172,8 +174,8 @@ def test_no_fit_campaign_generates_raw_plots_and_removes_stale_fit_pdfs(tmp_path
 
 
 def test_default_postprocessing_rejects_archived_fit_campaign(tmp_path):
-    _write_asymmetry(tmp_path / "uv/beam_asymmetry/beam_asymmetry.root", "uv")
-    with pytest.raises(ValueError, match="kinematic-fit|kinematic fit"):
+    _write_asymmetry(tmp_path / "uv/beam_asymmetry/beam_asymmetry.root", "uv", fit=True)
+    with pytest.raises(ValueError, match="raw/raw_bdt"):
         plot_campaign._read_profile(tmp_path, "uv")
 
 
@@ -209,8 +211,8 @@ def test_postprocessing_refuses_diagnostics_older_than_current_extraction(tmp_pa
 def test_standalone_dalitz_rejects_uncertified_raw_tree(tmp_path):
     chi2 = tmp_path / "chi2.root"
     bdt = tmp_path / "bdt.root"
-    _write_reconstruction(chi2, "reco_eta_pi0_chi2", fit=False)
-    _write_reconstruction(bdt, "reco_eta_pi0_bdt", fit=False)
+    _write_reconstruction(chi2, "reco_eta_pi0_chi2", fit=False, certified=False)
+    _write_reconstruction(bdt, "reco_eta_pi0_bdt", fit=False, certified=False)
     with pytest.raises(ValueError, match="provenance"):
         plot_campaign.dalitz.main(["--chi2", str(chi2), "--bdt", str(bdt), "--out-dir", str(tmp_path / "out")])
 
@@ -224,7 +226,7 @@ def _certify_dalitz_fixture(path, *, empty=False, chi2_cut=10.):
         tree.Reset()
         tree.Write('', ROOT.TObject.kOverwrite)
     ROOT.TNamed('reconstruction_provenance', json.dumps({
-        'do_fit': False, 'channel': 'eta_pi0', 'input_tree': 'h85',
+        'schema': 2, 'selection_algorithm': 'pairing_missing_mass', 'channel': 'eta_pi0', 'input_tree': 'h85',
         'inputs': [{'path': 'fixture.root', 'sha256': 'fixture-h85', 'size': 42}],
         'selection': {'chi2_cut': chi2_cut, 'energy_range_gev': [1.1, 1.5],
                       'chi2_resolution_relative': .08, 'missing_mass_window_gev': .06,
@@ -251,7 +253,7 @@ def test_dalitz_root_is_self_documented_and_empty_safe(tmp_path, empty, capsys):
     assert metadata['samples']['chi2']['entries'] == (0 if empty else 1)
     assert metadata['samples']['chi2']['profile'] == 'uv'
     assert metadata['samples']['chi2']['input']['sha256']
-    assert metadata['samples']['chi2']['reconstruction_provenance']['do_fit'] is False
+    assert metadata['samples']['chi2']['reconstruction_provenance']['selection_algorithm'] == 'pairing_missing_mass'
     assert metadata['selection_comparison'] == 'matched_except_bdt_gate'
     assert metadata['masses_gev'] == {'proton': .938272, 'eta': .547862, 'pi0': .134977}
     for name in ('dalitz_s_chi2_misurato', 'dalitz_s_bdt_implicito', 'residuo_chi2_misurato'):

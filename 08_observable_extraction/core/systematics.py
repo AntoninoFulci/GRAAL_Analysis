@@ -16,7 +16,6 @@ REQUIRED_SYSTEMATICS = (
     "polarization_scale_3pct",
     "flux_balance",
     "estimator_ratio_vs_likelihood",
-    "raw_vs_kinematic_fit",
     "bdt_threshold",
     "background_template",
     "sideband_definition",

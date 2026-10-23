@@ -47,7 +47,7 @@ class _Tree:
         return self._branches
 
 
-def _event(*, fitted=False):
+def _event():
     values = {
         "eta": _Vector(0.0, 0.0, 0.0, 0.55),
         "pi0": _Vector(0.0, 0.0, 0.0, 0.14),
@@ -58,12 +58,6 @@ def _event(*, fitted=False):
         "eta_mass": 0.54,
         "pi0_mass": 0.13,
     }
-    if fitted:
-        values.update(
-            eta_fit=_Vector(0.0, 0.0, 0.0, 0.56),
-            pi0_fit=_Vector(0.0, 0.0, 0.0, 0.15),
-            proton_fit=_Vector(0.0, 0.0, 0.0, 1.04),
-        )
     return SimpleNamespace(**values)
 
 
@@ -75,7 +69,6 @@ def test_collect_raw_tree_returns_explicit_arrays_detached_from_tree():
     event.eta.values[3] = 99.0
 
     assert isinstance(arrays, reconstruction_data.ReconstructionArrays)
-    assert arrays.has_fit is False
     assert arrays.mep_meas == pytest.approx([1.49])
     assert arrays.mpp_meas == pytest.approx([1.08])
     assert arrays.mep_miss == pytest.approx([1.50])
@@ -86,31 +79,6 @@ def test_collect_raw_tree_returns_explicit_arrays_detached_from_tree():
     assert arrays.pi0_mass_raw == pytest.approx([0.13])
     assert arrays.over_limit.tolist() == [False]
     assert arrays.eta_over_beam.tolist() == [False]
-
-
-def test_collect_fit_tree_uses_fitted_vectors_and_preserves_raw_masses():
-    tree = _Tree([_event(fitted=True)], branches=("fit_chi2", "eta_fit", "pi0_fit", "proton_fit"))
-
-    arrays = reconstruction_data.collect(tree)
-
-    assert arrays.has_fit is True
-    assert arrays.mep_meas == pytest.approx([1.60])
-    assert arrays.mpp_meas == pytest.approx([1.19])
-    assert arrays.pair_masses_raw["p_eta"] == pytest.approx([1.49])
-    assert arrays.pair_masses_fit["p_eta"] == pytest.approx([1.60])
-    assert arrays.pair_masses_fit["eta_pi0"] == pytest.approx([0.71])
-    # Fitted missing vector preserves eta + missing = beam + target - pi0.
-    assert arrays.mep_miss == pytest.approx([np.sqrt((1.5 + 0.94 - 0.15) ** 2 - 1.5 ** 2)])
-    assert arrays.eta_mass == pytest.approx([0.56])
-    assert arrays.pi0_mass == pytest.approx([0.15])
-    assert arrays.eta_mass_raw == pytest.approx([0.54])
-    assert arrays.pi0_mass_raw == pytest.approx([0.13])
-
-
-def test_collect_requires_complete_fit_bundle_when_requested():
-    tree = _Tree([_event(fitted=True)], branches=("fit_chi2", "eta_fit", "pi0_fit"))
-    with pytest.raises(ValueError, match="proton_fit"):
-        reconstruction_data.collect(tree, require_fit=True)
 
 
 def test_collect_legacy_preserves_current_dictionary_shape():
@@ -129,10 +97,8 @@ def test_collect_legacy_preserves_current_dictionary_shape():
         "pi0_mass_raw",
         "over_limit",
         "eta_over_beam",
-        "has_fit",
     }
     assert legacy["eta_mass"] == pytest.approx([0.54])
-    assert legacy["has_fit"] is False
 
 
 def test_open_tree_preserves_validation_and_return_contract(
@@ -165,12 +131,6 @@ def test_open_tree_rejects_missing_file(tmp_path):
         FileNotFoundError, match=f"file ricostruito non trovato: {path}"
     ):
         reconstruction_data.open_tree(path, "events")
-
-
-def test_no_fit_plot_contract_rejects_fitted_tree():
-    tree = _Tree([_event(fitted=True)], branches=("fit_chi2", "eta_fit", "pi0_fit", "proton_fit"))
-    with pytest.raises(ValueError, match="no-fit"):
-        reconstruction_data.collect(tree, forbid_fit=True)
 
 
 def test_collect_keeps_signed_invariants_and_nominal_identity_residual():

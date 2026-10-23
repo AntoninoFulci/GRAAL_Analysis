@@ -10,8 +10,8 @@ from observable_extraction import beam_asymmetry
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import EventArrays
 from observable_extraction.io.root_input import read_output_points, read_output_uncertainties, read_output_contract
-from .test_beam_asymmetry_cli import _synthetic_events
-from .test_calibration_io import _write_flux_root
+from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
+from observable_extraction.tests.test_calibration_io import _write_flux_root
 
 
 def _records():
@@ -170,7 +170,7 @@ def test_period_mode_rejects_unknown_input_before_writing(tmp_path, monkeypatch)
 
 def test_csv_period_must_agree_with_canonical_manifest(tmp_path):
     from observable_extraction.calibration.flux_v2 import load_exposures
-    from .test_calibration_io import _write_rows, _row
+    from observable_extraction.tests.test_calibration_io import _write_rows, _row
     path, manifest = tmp_path / 'flux.csv', tmp_path / 'manifest.csv'
     write_manifest(_records(), manifest)
     _write_rows(path, [_row(source_period='1999_uv')])
@@ -212,7 +212,7 @@ def test_period_audit_energy_boundaries_match_selector():
 
 
 def test_unconverged_period_fit_is_recorded_but_not_published(tmp_path, monkeypatch):
-    from .test_root_output import _point
+    from observable_extraction.tests.test_root_output import _point
     point = _point()
     failed = replace(point, sample='raw_bdt', estimator='likelihood',
                      point=replace(point.point, diagnostics=replace(point.point.diagnostics, converged=False)))
@@ -222,7 +222,7 @@ def test_unconverged_period_fit_is_recorded_but_not_published(tmp_path, monkeypa
         '--raw-bdt', str(tmp_path / 'input.root'), '--raw', str(tmp_path / 'absent.root'),
         '--estimator', 'likelihood', '--output-dir', str(tmp_path / 'result')])
     events = _synthetic_events()
-    inputs = {(args.raw_bdt, 'reco_eta_pi0_bdt', 'raw'): events}
+    inputs = {(args.raw_bdt, 'reco_eta_pi0_bdt'): events}
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1., 1., .2, .6, .6)}
     payload = beam_asymmetry._run_single(args, prepared=(inputs, exposures),
                                          period='1998_uv', metadata={}, campaign='toy')

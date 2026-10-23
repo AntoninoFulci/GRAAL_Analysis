@@ -7,8 +7,8 @@ import pytest
 from observable_extraction import beam_asymmetry as beam
 from observable_extraction.core.models import FitNotEstimableError, FluxExposure
 from observable_extraction.core.systematics import bootstrap_by_run, paired_bootstrap_by_run
-from .test_beam_asymmetry_cli import _synthetic_events
-from .test_systematics import _run_events, _run_exposures
+from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
+from observable_extraction.tests.test_systematics import _run_events, _run_exposures
 
 
 def assert_same(left, right):

@@ -13,15 +13,9 @@ from reconstruction.core.event_logic import (
     RejectionReason,
     reconstruct_event,
 )
-from reconstruction.core.kinematic_fit import (
-    PROTON_TARGET_REACTION,
-    FitCovariance,
-    FitResult,
-)
 
 
 PAIRING = Pairing(heavy=(2, 3), light=(0, 1))
-FIT_PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
 
 
 def _event(*, beam_energy: float = 1.5) -> EventInput:
@@ -48,10 +42,6 @@ def _config(**overrides):
         "chi2_cut": 10.0,
         "partner_mass": rp.M_PROTON,
         "missing_mass_window": None,
-        "do_fit": False,
-        "fit_cl": 0.01,
-        "fit_cov": FitCovariance(),
-        "fit_reaction": PROTON_TARGET_REACTION,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -64,10 +54,6 @@ def _pairing_with(chi2: float):
     return pair
 
 
-def _fit_must_not_run(*_args, **_kwargs):
-    raise AssertionError("fit must not run")
-
-
 def test_accepted_event_contains_ordered_raw_vectors_masses_and_metadata():
     event = _event()
 
@@ -76,7 +62,6 @@ def test_accepted_event_contains_ordered_raw_vectors_masses_and_metadata():
         rp.ETA_PI0,
         _config(),
         pairing_fn=_pairing_with(2.5),
-        fit_fn=_fit_must_not_run,
     )
 
     assert isinstance(result, ReconstructedEvent)
@@ -102,13 +87,6 @@ def test_accepted_event_contains_ordered_raw_vectors_masses_and_metadata():
     assert result.run_number == 4242
     assert result.polarization == 2
     assert result.strip == 73.0
-    assert result.fitted_photons is None
-    assert result.fitted_proton is None
-    assert result.fitted_heavy is None
-    assert result.fitted_light is None
-    assert result.fit_chi2 is None
-    assert result.fit_ndf is None
-    assert result.fit_converged is None
 
 
 def test_mass_rounding_matches_tlorentzvector_operation_order():
@@ -128,7 +106,6 @@ def test_mass_rounding_matches_tlorentzvector_operation_order():
             Pairing(heavy=(0, 1), light=(2, 3)),
             0.0,
         ),
-        fit_fn=_fit_must_not_run,
     )
 
     assert isinstance(result, ReconstructedEvent)
@@ -139,138 +116,39 @@ def test_chi_square_rejection_happens_before_other_physics_decisions():
     result = reconstruct_event(
         _event(beam_energy=0.1),
         rp.ETA_PI0,
-        _config(chi2_cut=10.0, do_fit=True),
+        _config(chi2_cut=10.0),
         pairing_fn=_pairing_with(10.0),
-        fit_fn=_fit_must_not_run,
     )
 
     assert result is RejectionReason.CHI_SQUARE
 
 
-def test_impossible_energy_rejection_happens_before_fit():
+def test_impossible_energy_rejection_happens_before_missing_mass():
     result = reconstruct_event(
         _event(beam_energy=0.2),
         rp.ETA_PI0,
-        _config(do_fit=True),
+        _config(),
         pairing_fn=_pairing_with(0.0),
-        fit_fn=_fit_must_not_run,
     )
 
     assert result is RejectionReason.IMPOSSIBLE_ENERGY
 
 
-def test_missing_mass_rejection_applies_only_without_fit():
+def test_missing_mass_rejection_applies_to_every_event():
     result = reconstruct_event(
         _event(),
         rp.ETA_PI0,
         _config(partner_mass=3.0, missing_mass_window=0.01),
         pairing_fn=_pairing_with(0.0),
-        fit_fn=_fit_must_not_run,
     )
 
     assert result is RejectionReason.MISSING_MASS
 
 
-@pytest.mark.parametrize(
-    "fit_result",
-    [
-        FitResult(
-            fitted_photons=np.zeros((4, 4)),
-            fitted_proton=np.zeros(4),
-            chi2=1.0,
-            ndf=6,
-            converged=False,
-            fitted_cov=np.ones(16),
-        ),
-        FitResult(
-            fitted_photons=np.zeros((4, 4)),
-            fitted_proton=np.zeros(4),
-            chi2=100.0,
-            ndf=6,
-            converged=True,
-            fitted_cov=np.ones(16),
-        ),
-    ],
-    ids=("not-converged", "confidence-level"),
-)
-def test_fit_rejection_covers_nonconvergence_and_confidence_level(fit_result):
-    result = reconstruct_event(
-        _event(),
-        rp.ETA_PI0,
-        _config(do_fit=True, fit_cl=0.01),
-        pairing_fn=_pairing_with(0.0),
-        fit_fn=lambda *_args, **_kwargs: fit_result,
-    )
-
-    assert result is RejectionReason.FIT
-
-
-def test_accepted_fit_preserves_fit_arguments_and_vectors():
-    event = _event()
-    config = _config(do_fit=True, fit_cl=0.0)
-    fitted_photons = np.array(
-        [
-            [1.0, 0.0, 0.0, 1.0],
-            [0.0, 1.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0, 1.0],
-            [-1.0, 0.0, 0.0, 1.0],
-        ]
-    )
-    fitted_proton = np.array([0.1, 0.2, 0.3, 1.1])
-    observed = {}
-
-    def fit(photons, proton, beam, pairing, hypothesis, covariance, *, reaction):
-        observed.update(
-            photons=photons,
-            proton=proton,
-            beam=beam,
-            pairing=pairing,
-            hypothesis=hypothesis,
-            covariance=covariance,
-            reaction=reaction,
-        )
-        return FitResult(
-            fitted_photons=fitted_photons,
-            fitted_proton=fitted_proton,
-            chi2=6.0,
-            ndf=6,
-            converged=True,
-            fitted_cov=np.ones(16),
-        )
-
-    result = reconstruct_event(
-        event,
-        rp.ETA_PI0,
-        config,
-        pairing_fn=_pairing_with(0.0),
-        fit_fn=fit,
-    )
-
-    assert isinstance(result, ReconstructedEvent)
-    np.testing.assert_array_equal(observed["photons"], event.photons[[2, 3, 0, 1]])
-    np.testing.assert_array_equal(observed["proton"], event.proton)
-    np.testing.assert_array_equal(observed["beam"], event.beam)
-    assert observed["pairing"] == FIT_PAIRING
-    assert observed["hypothesis"] is rp.ETA_PI0.hypothesis
-    assert observed["covariance"] is config.fit_cov
-    assert observed["reaction"] is config.fit_reaction
-    np.testing.assert_array_equal(result.fitted_photons, fitted_photons)
-    np.testing.assert_array_equal(result.fitted_proton, fitted_proton)
-    np.testing.assert_array_equal(result.fitted_heavy, [1.0, 1.0, 0.0, 2.0])
-    np.testing.assert_array_equal(result.fitted_light, [-1.0, 0.0, 1.0, 2.0])
-    assert result.fit_chi2 == 6.0
-    assert result.fit_ndf == 6
-    assert result.fit_converged is True
-
-
-def test_no_fit_recovers_event_rejected_by_historical_fitter():
+def test_missing_mass_accepts_event_inside_window():
     energy = (rp.M_PROTON**2 / (rp.M_PROTON - 0.3) - rp.M_PROTON + 1.5) / 2
     event = _event(beam_energy=energy)
-    failed = FitResult(np.zeros((4, 4)), np.zeros(4), 100.0, 6, False, np.ones(16))
-    historical = reconstruct_event(event, rp.ETA_PI0, _config(do_fit=True),
-                                   pairing_fn=_pairing_with(1.0), fit_fn=lambda *a, **kw: failed)
-    assert historical is RejectionReason.FIT
     baseline = reconstruct_event(event, rp.ETA_PI0, _config(missing_mass_window=0.06),
-                                 pairing_fn=_pairing_with(1.0), fit_fn=_fit_must_not_run)
+                                 pairing_fn=_pairing_with(1.0))
     assert isinstance(baseline, ReconstructedEvent)
-    assert baseline.fit_converged is None
+    assert not any(name.startswith("fit") for name in vars(baseline))

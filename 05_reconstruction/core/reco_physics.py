@@ -75,11 +75,8 @@ def invariant_mass(v) -> float:
     return float(np.sqrt(max(m2, 0.0)))
 
 
-# Recoil partner used by the missing-mass fallback when the kinematic fit is
-# disabled: gamma N -> N eta pi0. This selection does not change the active
-# fit's target or recoil assumptions; RecoConfig.fit_reaction controls those and
-# defaults to a proton target and proton recoil. The missing mass of the eta-pi0
-# pair peaks at the partner's mass, and requiring it there is what centres the
+# Recoil partner used by the missing-mass selection: gamma N -> N eta pi0.
+# The missing mass of the eta-pi0 pair peaks at the partner's mass, and requiring it there is what centres the
 # reconstructed eta -- see the design note. Proton and neutron are ~1.3 MeV
 # apart, far below the missing-mass resolution, so they give the same cut; only
 # the deuteron (twice the mass) is a distinct hypothesis.

@@ -152,26 +152,26 @@ def test_squared_histogram_and_normalized_clone_keep_flow_counts():
 @pytest.mark.parametrize('selection', [{}, {'chi2_cut': 10.}])
 def test_incomplete_provenance_never_certifies_matched_samples(selection):
     from plots.core.dalitz_metadata import compare_selections
-    record = {'do_fit': False, 'selection': selection}
-    assert compare_selections(record, record, allow_fit=False).startswith('unknown_')
+    record = {'schema': 2, 'selection_algorithm': 'pairing_missing_mass', 'selection': selection}
+    assert compare_selections(record, record).startswith('unknown_')
 
 
 def test_distinct_source_trees_cannot_be_certified_as_matched():
     from plots.core.dalitz_metadata import compare_selections
-    record = {'do_fit': False, 'channel': 'eta_pi0', 'selection': {'chi2_cut': 10.},
+    record = {'schema': 2, 'selection_algorithm': 'pairing_missing_mass', 'channel': 'eta_pi0', 'selection': {'chi2_cut': 10.},
               'inputs': [{'sha256': 'abc', 'size': 42}], 'input_tree': 'h85'}
     with pytest.raises(ValueError, match='input_tree'):
-        compare_selections(record, {**record, 'input_tree': 'h80'}, allow_fit=False)
+        compare_selections(record, {**record, 'input_tree': 'h80'})
 
 
 @pytest.mark.parametrize('missing', ['inputs', 'channel', 'input_tree'])
 def test_complete_cuts_without_population_identity_remain_unknown(missing):
     from plots.core.dalitz_metadata import compare_selections
-    record = {'do_fit': False, 'channel': 'eta_pi0', 'input_tree': 'h85',
+    record = {'schema': 2, 'selection_algorithm': 'pairing_missing_mass', 'channel': 'eta_pi0', 'input_tree': 'h85',
               'inputs': [{'sha256': 'abc', 'size': 42}],
               'selection': {'chi2_cut': 10., 'chi2_resolution_relative': .08,
                             'energy_range_gev': [1.1, 1.5], 'missing_mass_window_gev': .06,
                             'partner_mass_gev': .938272, 'photons': 'first_four_of_at_least_four',
                             'protons': 'exactly_one'}}
     del record[missing]
-    assert compare_selections(record, record, allow_fit=False).startswith('unknown_')
+    assert compare_selections(record, record).startswith('unknown_')

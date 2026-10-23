@@ -29,14 +29,12 @@ def main():
         p,
         default_output_file=Path("results/reco/reco_2pi0.root"),
         partner_help="recoil partner of the pi0 pi0 system (default proton)",
-        fit_options_exposed=False,
     )
     args = p.parse_args()
 
     cfg = reco_config_from_args(
         args,
         output_tree="reco_2pi0",
-        fit_options_exposed=False,
     )
     run_reconstruction(cfg, TWO_PI0, gate=None)
 

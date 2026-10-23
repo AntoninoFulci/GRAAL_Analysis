@@ -18,11 +18,11 @@ def _selected(path, event_ids):
     source = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree("h85", "h85")
     beam = ROOT.TLorentzVector()
-    tree.Branch("beam", beam)
+    tree.Branch("beam", "TLorentzVector", beam, 32000, 0)
     vectors = {name: ROOT.std.vector("TLorentzVector")()
                for name in ("gammas", "protons", "neutrons")}
     for name, vector in vectors.items():
-        tree.Branch(name, vector)
+        tree.Branch(name, vector, 32000, 0)
     scalars = {"RunNumber": array("i", [0]), "Polarization": array("i", [0]),
                "Xstrip": array("f", [0])}
     for name, value in scalars.items():

@@ -73,19 +73,24 @@ def file_identities(paths):
     return identities
 
 
-def validate_no_fit(source, tree) -> dict:
-    """Reject historical raw branches whose event selection may include 6C."""
+def validate_reconstruction_selection(source, tree) -> dict:
+    """Require positive certification of the pairing/missing-mass selection."""
     record = source.Get(KEY)
     if not record:
-        raise ValueError("no-fit baseline requires reconstruction provenance; rebuild from selected h85/h80")
+        raise ValueError("reconstruction provenance missing; rebuild from selected h85/h80")
     try:
         metadata = json.loads(record.GetTitle())
-    except (TypeError, ValueError) as error:
+    except (AttributeError, TypeError, ValueError) as error:
         raise ValueError("invalid reconstruction provenance") from error
-    if not isinstance(metadata, dict) or metadata.get("do_fit") is not False:
-        raise ValueError("no-fit baseline requires provenance do_fit=false")
-    if any("fit" in branch.GetName() for branch in tree.GetListOfBranches()):
-        raise ValueError("no-fit baseline cannot reuse historical fit-selected raw branches")
+    if (not isinstance(metadata, dict) or type(metadata.get("schema")) is not int
+            or metadata["schema"] != 2
+            or metadata.get("selection_algorithm") != "pairing_missing_mass"):
+        raise ValueError("reconstruction selection requires schema=2, selection_algorithm=pairing_missing_mass")
+    forbidden = {"eta_fit", "pi0_fit", "proton_fit", "eta_fit_gamma1", "eta_fit_gamma2",
+                 "pi0_fit_gamma1", "pi0_fit_gamma2", "fit_chi2", "fit_ndf", "fit_converged"}
+    present = forbidden.intersection(branch.GetName() for branch in tree.GetListOfBranches())
+    if present:
+        raise ValueError(f"reconstruction selection forbids fitted branches: {sorted(present)}")
     return metadata
 
 

@@ -30,23 +30,23 @@ COMMON_OPTIONS = {
     [
         (
             "reconstruction.reconstruct_eta_pi0_chi2",
-            {"--no-fit", "--fit-cl"},
+            set(),
             {"--model-dir"},
         ),
         (
             "reconstruction.reconstruct_eta_pi0_bdt",
-            {"--no-fit", "--fit-cl", "--model-dir", "--profile"},
+            {"--model-dir", "--profile"},
             set(),
         ),
         (
             "reconstruction.reconstruct_eta_pi0_bdt_sideband",
-            {"--no-fit", "--fit-cl", "--model-dir"},
+            {"--model-dir"},
             set(),
         ),
         (
             "reconstruction.reconstruct_2pi0",
             set(),
-            {"--no-fit", "--fit-cl", "--model-dir"},
+            {"--model-dir"},
         ),
     ],
 )
@@ -85,8 +85,6 @@ def test_eta_pi0_chi2_defaults_build_expected_configuration(monkeypatch):
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is False
-    assert cfg.fit_cl == 0.01
     assert observed["channel"] is rp.ETA_PI0
     assert observed["gate"] is None
 
@@ -136,8 +134,6 @@ def test_eta_pi0_bdt_defaults_load_gate_and_build_expected_configuration(monkeyp
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is False
-    assert cfg.fit_cl == 0.01
     assert gate.checked is rp.ETA_PI0.hypothesis
     assert gate.checked_profile is None
     assert cfg.energy_range_gev is None
@@ -197,7 +193,6 @@ def test_eta_pi0_bdt_sideband_defaults_build_broad_control_configuration(
     assert cfg.output_tree == "reco_eta_pi0_bdt_sideband"
     assert math.isinf(cfg.chi2_cut)
     assert cfg.missing_mass_window == 0.0
-    assert cfg.do_fit is False
     assert gate.checked is rp.ETA_PI0.hypothesis
     assert observed["channel"] is rp.ETA_PI0
     assert observed["gate"] is gate
@@ -224,7 +219,19 @@ def test_2pi0_defaults_build_expected_configuration(monkeypatch):
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == rp.M_PROTON
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is False
-    assert cfg.fit_cl == 0.01
     assert observed["channel"] is rp.TWO_PI0
     assert observed["gate"] is None
+
+
+@pytest.mark.parametrize('module', [
+    'reconstruction.reconstruct_eta_pi0_chi2',
+    'reconstruction.reconstruct_eta_pi0_bdt',
+    'reconstruction.reconstruct_eta_pi0_bdt_sideband',
+    'reconstruction.reconstruct_2pi0',
+])
+@pytest.mark.parametrize('option', ['--no-fit', '--with-kinematic-fit', '--fit-cl'])
+def test_retired_selection_options_are_rejected(module, option, monkeypatch):
+    monkeypatch.setattr(sys, "argv", [module, option] + (["0.01"] if option == "--fit-cl" else []))
+    with pytest.raises(SystemExit) as error:
+        importlib.import_module(module).main()
+    assert error.value.code == 2

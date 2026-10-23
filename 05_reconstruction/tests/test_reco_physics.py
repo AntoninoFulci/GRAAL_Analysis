@@ -141,7 +141,6 @@ def test_reconstruction_preserves_event_metadata(tmp_path, monkeypatch):
         input_tree="h80",
         output_file=output_path,
         output_tree="reco",
-        do_fit=False,
         missing_mass_window=None,
     )
     assert reco_core.run_reconstruction(cfg, rp.ETA_PI0) == 1

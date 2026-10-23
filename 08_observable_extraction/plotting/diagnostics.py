@@ -36,60 +36,6 @@ def _legend_below(figure, axes, *, ncols=4):
                       ncol=min(ncols, len(entries)), fontsize=9)
 
 
-def build_raw_fit_comparison(
-    points_by_profile: Mapping[str, Sequence[OutputPoint]],
-    rows: Sequence[EnergyRow],
-    *,
-    estimator: str,
-):
-    """Compare same BDT sample before and after 6C fit in physical energy rows."""
-    if estimator not in {"ratio", "likelihood"}:
-        raise ValueError(f"unknown estimator: {estimator}")
-    if not rows:
-        raise ValueError("at least one energy row is required")
-    figure, axes = plt.subplots(len(rows), 3, figsize=(11, 2.8 * len(rows) + 0.8),
-                                sharey=True, constrained_layout=True, squeeze=False)
-    for row_index, row in enumerate(rows):
-        for column, pair in enumerate(PAIR_ORDER):
-            axis = axes[row_index, column]
-            selections = {}
-            for sample in ("raw_bdt", "raw_bdt_fit"):
-                selected = sorted(
-                    (item for item in points_by_profile.get(row.profile, ())
-                     if item.sample == sample and item.estimator == estimator
-                     and item.point.pair == pair and item.point.energy_bin == row.energy_bin),
-                    key=lambda item: item.point.mass_bin,
-                )
-                if not selected:
-                    plt.close(figure)
-                    raise ValueError(f"missing {sample} {estimator} {row.profile} {pair} energy bin {row.energy_bin}")
-                selections[sample] = selected
-            for sample, marker, color in (("raw_bdt", "o", "tab:blue"), ("raw_bdt_fit", "s", "tab:orange")):
-                selected = selections[sample]
-                axis.errorbar([_mass_center(item) for item in selected],
-                              [item.point.sigma for item in selected],
-                              yerr=np.array([[item.point.stat_low for item in selected],
-                                             [item.point.stat_high for item in selected]]),
-                              fmt=marker, color=color, capsize=2,
-                              label="raw BDT" if sample == "raw_bdt" else "6C fit BDT")
-            axis.axhline(0, color="0.65", linewidth=0.8)
-            axis.set_ylim(-1, 1)
-            axis.grid(alpha=0.2)
-            if row_index == 0:
-                axis.set_title(PAIR_LABELS[pair])
-            if column == 0:
-                axis.set_ylabel("$\\Sigma$\n" + f"{row.profile.upper()} {row.low_gev:.4g}–{row.high_gev:.4g} GeV")
-            if row_index == len(rows) - 1:
-                axis.set_xlabel(r"$M$ [GeV]")
-    _legend_below(figure, axes)
-    return figure, axes
-
-
-def write_raw_fit_comparison_pdf(path: Path, points_by_profile, rows, *, estimator: str) -> None:
-    figure, _ = build_raw_fit_comparison(points_by_profile, rows, estimator=estimator)
-    _save(path, figure)
-
-
 def _save(path: Path, figure) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

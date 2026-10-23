@@ -1,7 +1,6 @@
 """Provenance and population accounting for the Dalitz ROOT product."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import subprocess
 import sys
@@ -10,23 +9,18 @@ import numpy as np
 import ROOT
 
 from calibration.run_manifest import validate_manifest
-from reconstruction.runtime.provenance import KEY, file_identities, validate_no_fit
+from reconstruction.runtime.provenance import file_identities, validate_reconstruction_selection
 from plots.core import kinematics as kin
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parents[2] / 'config/run_manifest.csv'
 
 
-def read_provenance(source, tree, *, allow_fit: bool) -> dict | None:
-    if not allow_fit:
-        return validate_no_fit(source, tree)
-    record = source.Get(KEY)
-    return json.loads(record.GetTitle()) if record else None
+def read_provenance(source, tree) -> dict:
+    return validate_reconstruction_selection(source, tree)
 
 
-def compare_selections(chi2: dict | None, bdt: dict | None, *, allow_fit: bool) -> str:
-    """Reject different raw selection contracts; archives remain labelled unknown."""
-    if allow_fit:
-        return 'archived_fit_comparison_not_certified'
+def compare_selections(chi2: dict | None, bdt: dict | None) -> str:
+    """Reject different raw selection contracts."""
     if not chi2 or not bdt:
         return 'unknown_incomplete_comparison_provenance'
     for field in ('input_tree', 'channel'):
@@ -92,7 +86,7 @@ def build_metadata(args, samples: dict, provenance: dict, comparison: str, comma
             raise ValueError('declared profile disagrees with observed run manifest')
         prov = provenance[tag]
         result['samples'][tag] = {
-            'sample': ('fitted' if data.has_fit else 'raw') + ('_bdt' if tag == 'bdt' else ''),
+            'sample': 'raw' + ('_bdt' if tag == 'bdt' else ''),
             'profile': profile, 'profile_source': 'argument' if args.profile else 'run_manifest',
             'periods': periods or None, 'runs': runs,
             'unmapped_runs': None if runs is None else [r for r in runs if r not in records],
@@ -101,7 +95,7 @@ def build_metadata(args, samples: dict, provenance: dict, comparison: str, comma
             'selection_energy_range_gev': (prov or {}).get('selection', {}).get('energy_range_gev'),
             'observed_energy_range_gev': _range(data.beam_energy),
             'observed_w_range_gev': _range(data.w),
-            'entries': len(data.eta_mass), 'has_fit': data.has_fit,
+            'entries': len(data.eta_mass),
             'over_limit_count': int(np.count_nonzero(data.over_limit)),
             'eta_over_beam_count': int(np.count_nonzero(data.eta_over_beam)),
             'residuals_gev2': {mode: {'range': _range(values),

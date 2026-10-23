@@ -10,12 +10,12 @@ from observable_extraction.io.reconstructed_events import EventArrays
 
 
 def metadata(threshold=None):
-    return dict(do_fit=False, channel="eta_pi0", input_tree="h85",
+    return dict(schema=2, selection_algorithm="pairing_missing_mass", channel="eta_pi0", input_tree="h85",
                 inputs=[dict(path="input.root", size=10, sha256="abc")],
                 source_files=[dict(path="core.py", size=20, sha256="def")],
                 selection=dict(chi2_cut=10., chi2_resolution_relative=.08,
                                missing_mass_window_gev=.06, partner_mass_gev=.938272,
-                               energy_range_gev=[1.1, 1.5], fit_cl=None,
+                               energy_range_gev=[1.1, 1.5],
                                photons="first_four_of_at_least_four", protons="exactly_one",
                                bdt_threshold=threshold),
                 counts_by_run_state=[dict(run=1, polarization=1, input=100)])

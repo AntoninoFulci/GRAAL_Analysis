@@ -238,7 +238,7 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
                   rejected_runs=sorted(all_masked_runs - accepted_runs),
                   baseline_definition=baseline_definition, matched_oracle_definition=oracle_definition,
                   flux_path=str(Path(flux_path)), manifest_path=str(Path(manifest_path)),
-                  sample='raw_bdt', vector_mode='raw', periods=[],
+                  sample='raw_bdt', periods=[],
                   scenario_definition='All accepted test run/states replaced together within each period; rejected masked runs excluded and unmasked native flux retained.',
                   statistic_label='Paired sensitivity deltaSigma / reference statistical error; not independent significance.',
                   uncertainty=dict(paired_event_selection=True, paired_bootstrap=False,
@@ -268,7 +268,7 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
                 raise ValueError(f'reconstruction universe has unknown runs: {sorted(unknown)}')
             if any(manifest[r].target != profile.target or manifest[r].beam_type != profile.beam_type for r in universe):
                 raise ValueError(f'reconstruction universe disagrees with profile {profile_name}')
-            events = read_reconstructed(path, 'reco_eta_pi0_bdt', vector_mode='raw')
+            events = read_reconstructed(path, 'reco_eta_pi0_bdt')
             if not set(map(int, np.unique(events.run_number))) <= set(universe):
                 raise ValueError('selected events fall outside inclusive reconstruction universe')
             universe = set(universe) - excluded_runs

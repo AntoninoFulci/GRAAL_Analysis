@@ -9,8 +9,6 @@ import types
 
 import pytest
 
-import reconstruction.core.kinematic_fit as kinematic_fit
-
 
 @contextmanager
 def _import_with_root_stub(*module_names):
@@ -30,14 +28,13 @@ def _import_with_root_stub(*module_names):
             sys.modules["ROOT"] = previous_root
 
 
-def test_common_options_build_fit_enabled_configuration():
+def test_common_options_build_raw_selection_configuration():
     with _import_with_root_stub("reconstruction.runtime.cli_options") as (cli_options,):
         parser = argparse.ArgumentParser(add_help=False)
         cli_options.add_common_reconstruction_arguments(
             parser,
             default_output_file=Path("default.root"),
             partner_help="partner help",
-            fit_options_exposed=True,
         )
 
         args = parser.parse_args(
@@ -54,15 +51,11 @@ def test_common_options_build_fit_enabled_configuration():
                 "deuteron",
                 "--missing-mass-window",
                 "0.2",
-                "--no-fit",
-                "--fit-cl",
-                "0.15",
             ]
         )
         cfg = cli_options.reco_config_from_args(
             args,
             output_tree="custom_tree",
-            fit_options_exposed=True,
         )
 
     assert cfg.input_dir == Path("selected")
@@ -72,10 +65,6 @@ def test_common_options_build_fit_enabled_configuration():
     assert cfg.chi2_cut == 7.5
     assert cfg.partner_mass == 1.875613
     assert cfg.missing_mass_window == 0.2
-    assert cfg.do_fit is False
-    assert cfg.fit_cl == 0.15
-    assert cfg.fit_reaction is kinematic_fit.PROTON_TARGET_REACTION
-    assert cfg.fit_reaction.recoil_mass != cfg.partner_mass
 
 
 def test_common_options_keep_fit_flags_out_of_non_fit_cli():
@@ -85,14 +74,12 @@ def test_common_options_keep_fit_flags_out_of_non_fit_cli():
             parser,
             default_output_file=Path("two_pi0.root"),
             partner_help="partner help",
-            fit_options_exposed=False,
         )
 
         args = parser.parse_args([])
         cfg = cli_options.reco_config_from_args(
             args,
             output_tree="reco_2pi0",
-            fit_options_exposed=False,
         )
         with pytest.raises(SystemExit) as exc_info:
             parser.parse_args(["--no-fit"])
@@ -107,8 +94,6 @@ def test_common_options_keep_fit_flags_out_of_non_fit_cli():
     assert cfg.chi2_cut == 10.0
     assert cfg.partner_mass == 0.938272
     assert cfg.missing_mass_window == 0.06
-    assert cfg.do_fit is False
-    assert cfg.fit_cl == 0.01
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "1.5"])
@@ -116,8 +101,7 @@ def test_reconstruction_workers_must_be_positive_integer(value):
     with _import_with_root_stub("reconstruction.runtime.cli_options") as (cli_options,):
         parser = argparse.ArgumentParser()
         cli_options.add_common_reconstruction_arguments(parser,
-            default_output_file=Path("result.root"), partner_help="partner",
-            fit_options_exposed=False)
+            default_output_file=Path("result.root"), partner_help="partner")
         with pytest.raises(SystemExit):
             parser.parse_args(["--workers", value])
 
@@ -126,11 +110,10 @@ def test_reconstruction_workers_default_and_explicit_configuration():
     with _import_with_root_stub("reconstruction.runtime.cli_options") as (cli_options,):
         parser = argparse.ArgumentParser()
         cli_options.add_common_reconstruction_arguments(parser,
-            default_output_file=Path("result.root"), partner_help="partner",
-            fit_options_exposed=False)
+            default_output_file=Path("result.root"), partner_help="partner")
         assert parser.parse_args([]).workers == 1
         cfg = cli_options.reco_config_from_args(parser.parse_args(["--workers", "40"]),
-            output_tree="reco", fit_options_exposed=False)
+            output_tree="reco")
         assert cfg.workers == 40
 
 

@@ -1,1 +1,1 @@
-"""ROOT-free reconstruction physics and kinematic fitting."""
+"""ROOT-free reconstruction physics."""

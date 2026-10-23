@@ -17,7 +17,7 @@ before either the gate or the chi2 pairing run:
 
 Two cuts are applied after the pairing, also to both runs. An event where
 either reconstructed meson carries more energy than the tagged beam photon is
-thrown away. When the fit is disabled, the missing mass of the two-meson system
+thrown away. The missing mass of the two-meson system
 must sit within a window of the recoil partner's mass (RecoConfig.partner_mass /
 missing_mass_window): the reaction recoils against a single partner, so the
 contamination that does not is what pulls the reconstructed meson peak high.
@@ -31,7 +31,7 @@ import json
 import subprocess
 import sys
 from array import array
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -50,12 +50,6 @@ from reconstruction.core.event_logic import (
     ReconstructedEvent,
     RejectionReason,
     reconstruct_event,
-)
-from reconstruction.core.kinematic_fit import (
-    PROTON_TARGET_REACTION,
-    FitCovariance,
-    FitReactionModel,
-    fit_event,
 )
 
 
@@ -96,13 +90,6 @@ class RecoConfig:
     # or <= 0 disables it. See reco_physics.passes_missing_mass.
     partner_mass: float = rp.M_PROTON
     missing_mass_window: float | None = 0.06
-    # Kinematic fit. When on, its confidence-level cut replaces the missing-mass
-    # cut (the fit's 4-momentum constraint subsumes it); when off, the
-    # missing-mass cut above applies. See kinematic_fit.
-    do_fit: bool = False
-    fit_cl: float = 0.01
-    fit_cov: FitCovariance = field(default_factory=FitCovariance)
-    fit_reaction: FitReactionModel = PROTON_TARGET_REACTION
     energy_range_gev: tuple[float, float] | None = None
     model_dir: Path | None = None
     beam_profile: str | None = None
@@ -246,17 +233,6 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
     light_g2 = ROOT.TLorentzVector()
     missing = ROOT.TLorentzVector()
 
-    eta_fit = ROOT.TLorentzVector()
-    pi0_fit = ROOT.TLorentzVector()
-    proton_fit = ROOT.TLorentzVector()
-    eta_fit_g1 = ROOT.TLorentzVector()
-    eta_fit_g2 = ROOT.TLorentzVector()
-    pi0_fit_g1 = ROOT.TLorentzVector()
-    pi0_fit_g2 = ROOT.TLorentzVector()
-    fit_chi2 = array("f", [0.0])
-    fit_ndf = array("i", [0])
-    fit_conv = array("i", [0])
-
     H, L = channel.heavy_label, channel.light_label
 
     tout.Branch("chi2", chi2, "chi2/F")
@@ -281,23 +257,10 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
     tout.Branch(f"{L}_gamma2", "TLorentzVector", light_g2)
     tout.Branch("missing", "TLorentzVector", missing)
 
-    if cfg.do_fit:
-        tout.Branch("eta_fit", "TLorentzVector", eta_fit)
-        tout.Branch("pi0_fit", "TLorentzVector", pi0_fit)
-        tout.Branch("proton_fit", "TLorentzVector", proton_fit)
-        tout.Branch("eta_fit_gamma1", "TLorentzVector", eta_fit_g1)
-        tout.Branch("eta_fit_gamma2", "TLorentzVector", eta_fit_g2)
-        tout.Branch("pi0_fit_gamma1", "TLorentzVector", pi0_fit_g1)
-        tout.Branch("pi0_fit_gamma2", "TLorentzVector", pi0_fit_g2)
-        tout.Branch("fit_chi2", fit_chi2, "fit_chi2/F")
-        tout.Branch("fit_ndf", fit_ndf, "fit_ndf/I")
-        tout.Branch("fit_converged", fit_conv, "fit_converged/I")
-
     n_gated_out = 0
     n_no_proton = 0
     n_impossible = 0
     n_missing_cut = 0
-    n_fit_cut = 0
     n_outside_energy = 0
     print("Starting event loop...")
 
@@ -305,14 +268,13 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
         event: EventInput, score: float | None = None, raw_tracks=None
     ) -> None:
         """Reconstruct one gate-accepted event and write it when retained."""
-        nonlocal n_impossible, n_missing_cut, n_fit_cut
+        nonlocal n_impossible, n_missing_cut
 
         decision = reconstruct_event(
             event,
             channel,
             cfg,
             pairing_fn=pr.best_pairing,
-            fit_fn=fit_event,
         )
         if isinstance(decision, RejectionReason):
             counts[(event.run_number, event.polarization)][decision.value] += 1
@@ -320,8 +282,6 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
                 n_impossible += 1
             elif decision is RejectionReason.MISSING_MASS:
                 n_missing_cut += 1
-            elif decision is RejectionReason.FIT:
-                n_fit_cut += 1
             return
 
         counts[(event.run_number, event.polarization)]["written"] += 1
@@ -338,19 +298,6 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
         heavy.SetPxPyPzE(*reconstructed.heavy)
         light.SetPxPyPzE(*reconstructed.light)
         missing.SetPxPyPzE(*reconstructed.missing)
-
-        if cfg.do_fit:
-            fitted_photons = reconstructed.fitted_photons
-            eta_fit_g1.SetPxPyPzE(*fitted_photons[0])
-            eta_fit_g2.SetPxPyPzE(*fitted_photons[1])
-            pi0_fit_g1.SetPxPyPzE(*fitted_photons[2])
-            pi0_fit_g2.SetPxPyPzE(*fitted_photons[3])
-            eta_fit.SetPxPyPzE(*reconstructed.fitted_heavy)
-            pi0_fit.SetPxPyPzE(*reconstructed.fitted_light)
-            proton_fit.SetPxPyPzE(*reconstructed.fitted_proton)
-            fit_chi2[0] = reconstructed.fit_chi2
-            fit_ndf[0] = reconstructed.fit_ndf
-            fit_conv[0] = 1
 
         chi2[0] = reconstructed.chi2
         heavy_mass[0] = reconstructed.heavy_mass
@@ -458,7 +405,7 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
     tout.Write("", ROOT.TObject.kOverwrite)  # reuse the key, avoid extra ;N cycles
     n_written = tout.GetEntries()
     metadata = {
-        "schema": 1, "do_fit": cfg.do_fit, "channel": channel.name,
+        "schema": 2, "selection_algorithm": "pairing_missing_mass", "channel": channel.name,
         "input_tree": getattr(chain, "GetName", lambda: cfg.input_tree)(),
         "output_tree": cfg.output_tree,
         "raw_track_metadata": {"available": raw_track_writer is not None,
@@ -467,11 +414,10 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
         "versions": {"python": sys.version, "numpy": np.__version__},
         "selection": {
             "chi2_cut": cfg.chi2_cut, "chi2_resolution_relative": rp.CHI2_RESOLUTION,
-            "missing_mass_window_gev": cfg.missing_mass_window if not cfg.do_fit else None,
+            "missing_mass_window_gev": cfg.missing_mass_window,
             "partner_mass_gev": cfg.partner_mass,
             "energy_range_gev": cfg.energy_range_gev,
             "photons": "first_four_of_at_least_four", "protons": "exactly_one",
-            "fit_cl": cfg.fit_cl if cfg.do_fit else None,
             "bdt_threshold": gate.threshold if gate is not None else None,
         },
         "beam_profile": cfg.beam_profile,
@@ -490,9 +436,7 @@ def _run_serial(cfg, channel, gate=None, *, input_files=None, entry_range=None,
     if gate is not None:
         print(f"Rejected by gate: {n_gated_out}")
     print(f"Cut (meson energy above the beam): {n_impossible}")
-    if cfg.do_fit:
-        print(f"Cut (fit CL < {cfg.fit_cl}): {n_fit_cut}")
-    elif cfg.missing_mass_window and cfg.missing_mass_window > 0:
+    if cfg.missing_mass_window and cfg.missing_mass_window > 0:
         print(f"Cut (missing mass off partner {cfg.partner_mass:.3f} "
               f"by >= {cfg.missing_mass_window}): {n_missing_cut}")
     print(f"Events written: {n_written}")

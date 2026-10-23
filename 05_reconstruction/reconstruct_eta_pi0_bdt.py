@@ -29,7 +29,6 @@ def main():
         default_output_file=Path("results/reco/reco_eta_pi0_bdt.root"),
         partner_help="recoil partner of the eta-pi0 system; sets the missing-"
         "mass the cut centres on (default proton)",
-        fit_options_exposed=True,
     )
     p.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR,
                    help="folder with bdt_stage1.json and stage1_threshold.txt")
@@ -49,7 +48,6 @@ def main():
     cfg = reco_config_from_args(
         args,
         output_tree="reco_eta_pi0_bdt",
-        fit_options_exposed=True,
     )
     cfg.model_dir = args.model_dir
     if profile is not None:

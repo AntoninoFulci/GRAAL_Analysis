@@ -12,8 +12,8 @@ from observable_extraction.core.systematics import difference_covariance
 def compare_contracts(pairing, bdt):
     """Require identical recorded reconstruction, apart from the optional gate."""
     for record in (pairing, bdt):
-        if record.get("do_fit") is not False:
-            raise ValueError("comparison requires proven no-fit reconstruction")
+        if record.get("schema") != 2 or record.get("selection_algorithm") != "pairing_missing_mass":
+            raise ValueError("comparison requires certified pairing_missing_mass reconstruction")
         for key in ("inputs", "source_files", "counts_by_run_state"):
             if not record.get(key):
                 raise ValueError(f"missing reconstruction provenance: {key}")
@@ -29,7 +29,7 @@ def compare_contracts(pairing, bdt):
     if threshold_a is not None or selections[0] != selections[1]:
         raise ValueError("selection differs beyond the BDT gate")
     approved = dict(chi2_cut=10., chi2_resolution_relative=.08,
-                    missing_mass_window_gev=.06, fit_cl=None,
+                    missing_mass_window_gev=.06,
                     photons="first_four_of_at_least_four", protons="exactly_one")
     if any(selections[0].get(key) != value for key, value in approved.items()):
         raise ValueError("selection does not match the approved no-fit baseline")

@@ -30,7 +30,7 @@ from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.core.periods import partition_runs, selection_audit, exposure_summary
 from observable_extraction.core.systematics import paired_bootstrap_by_run
 from observable_extraction.io.reconstructed_events import read_reconstructed, select_sigma_events
-from reconstruction.runtime.provenance import file_identities, validate_no_fit
+from reconstruction.runtime.provenance import file_identities, validate_reconstruction_selection
 
 
 def _read(path, tree_name):
@@ -41,10 +41,10 @@ def _read(path, tree_name):
         tree = source.Get(tree_name)
         if not tree:
             raise ValueError(f"missing tree {tree_name}: {path}")
-        metadata = validate_no_fit(source, tree)
+        metadata = validate_reconstruction_selection(source, tree)
     finally:
         source.Close()
-    return read_reconstructed(path, tree_name, vector_mode="raw", require_no_fit=True), metadata
+    return read_reconstructed(path, tree_name), metadata
 
 
 def selected_cutflow(pairing, bdt, exposures, periods, energy_edges, *, sample_names=("pairing", "bdt")):

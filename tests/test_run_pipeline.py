@@ -318,9 +318,9 @@ def test_plan_trains_and_reconstructs_with_profile_local_artifacts(tmp_path):
         assert extract.argv.count(str(reco)) == 1
         assert "--raw-bdt-fit" not in extract.argv
         assert "--by-period" in extract.argv
-        assert "--no-fit" in bdt.argv
+        assert "--no-fit" not in bdt.argv
         chi2 = _stage(stages, f"{profile}:reconstruct_chi2")
-        assert "--no-fit" in chi2.argv
+        assert "--no-fit" not in chi2.argv
         assert chi2.argv[-2:] == ("--profile", profile)
         assert str(root / "reco/reco_eta_pi0_chi2.root") in extract.argv
 

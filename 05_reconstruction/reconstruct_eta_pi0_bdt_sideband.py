@@ -2,7 +2,7 @@
 """Broad BDT-gated eta-pi0 reconstruction for background sidebands.
 
 Keeps same topology guards, Stage-1 model, and best-pairing algorithm as
-nominal BDT reconstruction. Disables kinematic fit, chi-square ceiling, and
+nominal BDT reconstruction. Disables the chi-square ceiling and
 missing-mass window so raw eta mass, pi0 mass, and proton missing-mass
 sidebands remain available downstream.
 """
@@ -29,7 +29,6 @@ def build_parser() -> argparse.ArgumentParser:
             "results/reco/reco_eta_pi0_bdt_sideband.root"
         ),
         partner_help="recoil partner of the eta-pi0 system",
-        fit_options_exposed=True,
     )
     parser.add_argument(
         "--model-dir",
@@ -38,7 +37,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="folder with bdt_stage1.json and stage1_threshold.txt",
     )
     parser.set_defaults(
-        no_fit=True,
         chi2_cut=float("inf"),
         missing_mass_window=0.0,
     )
@@ -54,7 +52,6 @@ def main() -> None:
     config = reco_config_from_args(
         args,
         output_tree="reco_eta_pi0_bdt_sideband",
-        fit_options_exposed=True,
     )
     grid = energy_binning_from_args(args, args.profile)
     config.model_dir = args.model_dir

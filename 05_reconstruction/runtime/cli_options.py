@@ -21,7 +21,6 @@ def add_common_reconstruction_arguments(
     *,
     default_output_file: Path,
     partner_help: str,
-    fit_options_exposed: bool,
 ) -> None:
     """Add options shared by reconstruction commands."""
     parser.add_argument(
@@ -57,31 +56,12 @@ def add_common_reconstruction_arguments(
         help="half-width [GeV] of the missing-mass window around the "
         "partner; <= 0 disables the cut (default 0.06)",
     )
-    if fit_options_exposed:
-        fit_group = parser.add_mutually_exclusive_group()
-        fit_group.add_argument("--with-kinematic-fit", dest="no_fit", action="store_false",
-                               help="explicitly enable archived kinematic-fit analysis")
-        fit_group.add_argument(
-            "--no-fit",
-            action="store_true",
-            default=True,
-            help="disable the kinematic fit; fall back to the missing-mass "
-            "cut for selection",
-        )
-        parser.add_argument(
-            "--fit-cl",
-            type=float,
-            default=0.01,
-            help="keep events whose kinematic-fit confidence level is above "
-            "this (default 0.01)",
-        )
 
 
 def reco_config_from_args(
     args: argparse.Namespace,
     *,
     output_tree: str,
-    fit_options_exposed: bool,
 ) -> RecoConfig:
     """Build a reconstruction configuration from parsed common options."""
     values = {
@@ -94,7 +74,4 @@ def reco_config_from_args(
         "missing_mass_window": args.missing_mass_window,
         "workers": args.workers,
     }
-    if fit_options_exposed:
-        values["do_fit"] = not args.no_fit
-        values["fit_cl"] = args.fit_cl
     return RecoConfig(**values)

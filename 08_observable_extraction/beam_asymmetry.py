@@ -94,7 +94,6 @@ from observable_extraction.plotting.diagnostics import (
 @dataclass(frozen=True)
 class SampleInput:
     tree: str
-    vector_mode: str
     requires_bdt: bool
 
 
@@ -107,9 +106,8 @@ class ExtractionBundle:
 
 
 SAMPLES = {
-    "raw": SampleInput("reco_eta_pi0_chi2", "raw", False),
-    "raw_bdt": SampleInput("reco_eta_pi0_bdt", "raw", True),
-    "raw_bdt_fit": SampleInput("reco_eta_pi0_bdt", "fit", True),
+    "raw": SampleInput("reco_eta_pi0_chi2", False),
+    "raw_bdt": SampleInput("reco_eta_pi0_bdt", True),
 }
 
 SIDEBAND_TREE = "reco_eta_pi0_bdt_sideband"
@@ -134,12 +132,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--raw-bdt",
         type=Path,
         default=Path("results/reco/reco_eta_pi0_bdt_raw.root"),
-    )
-    parser.add_argument(
-        "--raw-bdt-fit",
-        type=Path,
-        default=None,
-        help="explicit opt-in for archived 6C comparison; disabled by default",
     )
     parser.add_argument("--sideband", type=Path)
     parser.add_argument("--signal-mc", type=Path)
@@ -194,7 +186,6 @@ def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
     return {
         "raw": args.raw,
         "raw_bdt": args.raw_bdt,
-        "raw_bdt_fit": args.raw_bdt_fit,
     }[sample]
 
 
@@ -575,8 +566,6 @@ def _systematic_studies(points, extra_shifts=None):
             studies["angular_offset_sine_leakage"][0][index] = point.diagnostics.s2
             studies["angular_offset_sine_leakage"][1][index] = True
     for name, shift in (extra_shifts or {}).items():
-        if name == "raw_vs_kinematic_fit":
-            raise ValueError("raw_vs_kinematic_fit is retired from operational systematics")
         component = component_from_shift(name, shift)
         if component.shift.shape != (size,):
             raise ValueError("systematic shift dimension does not match points")
@@ -603,8 +592,6 @@ def _systematic_inventory(points, covariances, extra_shifts=None):
     for name, (shift, measured) in _systematic_studies(points, extra_shifts).items():
         status = "executed" if name in covariances else "unavailable"
         reason = "" if status == "executed" else "required variation or matching fitted points unavailable"
-        if name == "raw_vs_kinematic_fit":
-            status, reason = "not_applicable", "retired; baseline without 6C; archived comparisons are diagnostic only"
         inputs, variation, category = definitions.get(name, ("not supplied", "not evaluated", "unclassified"))
         inventory[name] = dict(
             status=status, reason=reason, inputs=inputs, variation=variation,
@@ -844,9 +831,6 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             raise ValueError("diagnostic bootstrap requires an explicit inclusive run universe manifest")
         if args.bootstrap_replicas:
             raise ValueError("choose diagnostic bootstrap or legacy bootstrap, not both")
-    if args.nominal_sample == "raw_bdt_fit" and args.raw_bdt_fit is None:
-        raise ValueError("fitted nominal sample requires explicit --raw-bdt-fit")
-    no_fit = args.raw_bdt_fit is None
     best_binning = getattr(args, "best_binning", False)
     if best_binning and args.estimator == "likelihood":
         raise ValueError("--best-binning requires ratio or both; likelihood is unbinned")
@@ -869,16 +853,14 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     grid = energy_binning_from_args(args, args.profile)
     energy_edges = np.asarray(grid.edges_gev, dtype=np.float64)
     sample = SAMPLES[args.nominal_sample]
-    def read_sample(path, tree, **kwargs):
+    def read_sample(path, tree):
         if prepared is not None:
-            return prepared[0][(path, tree, kwargs["vector_mode"])]
-        return read_reconstructed(path, tree, **kwargs)
+            return prepared[0][(path, tree)]
+        return read_reconstructed(path, tree)
 
     all_nominal_events = read_sample(
         _sample_path(args, args.nominal_sample),
         sample.tree,
-        vector_mode=sample.vector_mode,
-        require_no_fit=no_fit,
     )
     exposures = prepared[1] if prepared is not None else load_exposures(
         args.flux_file,
@@ -915,7 +897,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     background_leakage: float | None = None
     background_by_bin: dict = {}
     if args.sideband is not None:
-        broad_input_events = read_sample(args.sideband, SIDEBAND_TREE, vector_mode="raw", require_no_fit=no_fit)
+        broad_input_events = read_sample(args.sideband, SIDEBAND_TREE)
         broad_events = select_sigma_events(
             broad_input_events,
             exposures,
@@ -925,7 +907,6 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         signal_mc = read_sample(
             args.signal_mc,
             SIDEBAND_TREE,
-            vector_mode="raw",
         )
         background_fractions, background_leakage = _estimate_background_fractions(
             broad_events,
@@ -960,7 +941,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             )
             continue
         input_samples[sample_name] = read_sample(
-            path, contract.tree, vector_mode=contract.vector_mode, require_no_fit=no_fit)
+            path, contract.tree)
         comparison_events = select_sigma_events(
             input_samples[sample_name],
             exposures,
@@ -982,7 +963,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         output_points.extend(comparison.points)
     if metadata is not None:
         context = dict(campaign=campaign, period=period, profile=profile.name,
-                       selection="no-fit" if no_fit else "archived-fit-selected")
+                       selection="pairing_missing_mass")
         failed = [item for item in output_points if not item.point.diagnostics.converged]
         metadata["failed_fit_keys"] = ordered_point_keys(failed, context)
         metadata["failed_fit_diagnostics"] = [vars(item.point.diagnostics) for item in failed]
@@ -1012,7 +993,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             binning_candidates=tuple(binning_candidates),
             candidate_ratio_objects=nominal.candidate_ratio_objects,
             point_context=dict(campaign=campaign, period=period, profile=profile.name,
-                               selection="no-fit" if no_fit else "archived-fit-selected"),
+                               selection="pairing_missing_mass"),
             extraction_metadata=metadata,
             uncertainty_metadata=dict(final_inference="suspended", status="not_estimable"),
             provenance=(f"profile={profile.name}\nperiod={period}\nstatus=not_estimable\n"
@@ -1080,7 +1061,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     for covariance in systematic_covariances.values():
         covariance_total += covariance
     point_context = dict(campaign=campaign or str(args.output_dir.resolve()),
-                         selection="no-fit" if no_fit else "archived-fit-selected",
+                         selection="pairing_missing_mass",
                          profile=profile.name, period=period)
     inventory = _systematic_inventory(output_points, systematic_covariances, extra_shifts)
     if multiplicity_shift is not None:
@@ -1165,7 +1146,6 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         binning_candidates=tuple(binning_candidates),
         candidate_ratio_objects=nominal.candidate_ratio_objects,
         provenance=(
-            "raw_vs_kinematic_fit=disabled\n"
             "final_inference=suspended\n"
             f"sample={args.nominal_sample}\n"
             f"estimator={args.estimator}\n"
@@ -1387,10 +1367,9 @@ def _run_periods(args):
         path = _sample_path(args, name)
         if path is None or (name != args.nominal_sample and not path.is_file()):
             continue
-        key = (path, contract.tree, contract.vector_mode)
+        key = (path, contract.tree)
         sample_keys[name] = key
-        inputs[key] = read_reconstructed(path, contract.tree, vector_mode=contract.vector_mode,
-                                          require_no_fit=args.raw_bdt_fit is None)
+        inputs[key] = read_reconstructed(path, contract.tree)
         paths.append(path)
         if explicit is None:
             universes[name], cutflows[name] = read_run_universe(path)
@@ -1416,10 +1395,9 @@ def _run_periods(args):
     if (args.sideband is None) != (args.signal_mc is None):
         raise ValueError("--sideband and --signal-mc must be supplied together")
     if args.sideband is not None:
-        broad_key, mc_key = (args.sideband, SIDEBAND_TREE, "raw"), (args.signal_mc, SIDEBAND_TREE, "raw")
-        inputs[broad_key] = read_reconstructed(args.sideband, SIDEBAND_TREE, vector_mode="raw",
-                                               require_no_fit=args.raw_bdt_fit is None)
-        inputs[mc_key] = read_reconstructed(args.signal_mc, SIDEBAND_TREE, vector_mode="raw")
+        broad_key, mc_key = (args.sideband, SIDEBAND_TREE), (args.signal_mc, SIDEBAND_TREE)
+        inputs[broad_key] = read_reconstructed(args.sideband, SIDEBAND_TREE)
+        inputs[mc_key] = read_reconstructed(args.signal_mc, SIDEBAND_TREE)
         if explicit is None:
             broad_universe, cutflows["sideband"] = read_run_universe(args.sideband)
         else:

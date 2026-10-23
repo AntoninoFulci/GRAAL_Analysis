@@ -140,7 +140,7 @@ def plot_args(tmp_path, monkeypatch):
     source.touch()
     region.write_text(json.dumps(polygon().to_dict()))
     monkeypatch.setattr(study, "_read", lambda *_: (sample(), {
-        "do_fit": False, "selection": {"energy_range_gev": [1.1, 1.5]}}))
+        "schema": 2, "selection_algorithm": "pairing_missing_mass", "selection": {"energy_range_gev": [1.1, 1.5]}}))
     args = study.build_parser().parse_args([
         "plot", "--input", str(source), "--mass-polygon", str(region),
         "--profile", "uv", "--output-dir", str(tmp_path / "output")])

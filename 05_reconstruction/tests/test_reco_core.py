@@ -161,7 +161,6 @@ def root_adapter(monkeypatch, tmp_path):
         output_file=tmp_path / "result.root",
         input_tree="h80",
         output_tree="reco",
-        do_fit=False,
         missing_mass_window=None,
     )
     return config, trees
@@ -172,9 +171,7 @@ def test_root_adapter_routes_accepted_event_through_pure_core(
     monkeypatch,
 ):
     config, trees = root_adapter
-    config.do_fit = True
     photons = _input_event()["photons"][[2, 3, 0, 1]]
-    fitted_photons = photons + np.array([0.01, 0.02, 0.03, 0.04])
     observed = {}
     reconstructed = ReconstructedEvent(
         pairing=Pairing(heavy=(2, 3), light=(0, 1)),
@@ -191,22 +188,14 @@ def test_root_adapter_routes_accepted_event_through_pure_core(
         run_number=4242,
         polarization=2,
         strip=73.0,
-        fitted_photons=fitted_photons,
-        fitted_proton=np.array([0.2, 0.3, 0.4, 1.2]),
-        fitted_heavy=fitted_photons[0] + fitted_photons[1],
-        fitted_light=fitted_photons[2] + fitted_photons[3],
-        fit_chi2=6.0,
-        fit_ndf=6,
-        fit_converged=True,
     )
 
-    def decide(event, channel, cfg, *, pairing_fn, fit_fn):
+    def decide(event, channel, cfg, *, pairing_fn):
         observed.update(
             event=event,
             channel=channel,
             config=cfg,
             pairing_fn=pairing_fn,
-            fit_fn=fit_fn,
         )
         return reconstructed
 
@@ -217,7 +206,6 @@ def test_root_adapter_routes_accepted_event_through_pure_core(
     assert observed["channel"] is rp.ETA_PI0
     assert observed["config"] is config
     assert observed["pairing_fn"] is reco_core.pr.best_pairing
-    assert observed["fit_fn"] is reco_core.fit_event
     assert observed["event"].run_number == 4242
     assert observed["event"].polarization == 2
     assert observed["event"].strip == 73.0
@@ -237,16 +225,6 @@ def test_root_adapter_routes_accepted_event_through_pure_core(
     assert entry["eta"] == tuple(reconstructed.heavy)
     assert entry["pi0"] == tuple(reconstructed.light)
     assert entry["missing"] == tuple(reconstructed.missing)
-    assert entry["eta_fit_gamma1"] == tuple(fitted_photons[0])
-    assert entry["eta_fit_gamma2"] == tuple(fitted_photons[1])
-    assert entry["pi0_fit_gamma1"] == tuple(fitted_photons[2])
-    assert entry["pi0_fit_gamma2"] == tuple(fitted_photons[3])
-    assert entry["eta_fit"] == tuple(reconstructed.fitted_heavy)
-    assert entry["pi0_fit"] == tuple(reconstructed.fitted_light)
-    assert entry["proton_fit"] == tuple(reconstructed.fitted_proton)
-    assert entry["fit_chi2"] == pytest.approx(6.0)
-    assert entry["fit_ndf"] == 6
-    assert entry["fit_converged"] == 1
 
 
 def test_accept_all_gate_matches_ungated_output(root_adapter, monkeypatch):
@@ -274,17 +252,16 @@ def test_accept_all_gate_matches_ungated_output(root_adapter, monkeypatch):
     } == ungated_entry
 
 
-def test_reject_all_gate_writes_nothing_without_pairing_or_fit(
+def test_reject_all_gate_writes_nothing_without_pairing(
     root_adapter,
     monkeypatch,
 ):
     config, trees = root_adapter
 
     def forbidden(*_args, **_kwargs):
-        raise AssertionError("pairing or fit ran after gate rejection")
+        raise AssertionError("pairing ran after gate rejection")
 
     monkeypatch.setattr(reco_core.pr, "best_pairing", forbidden)
-    monkeypatch.setattr(reco_core, "fit_event", forbidden)
 
     assert reco_core.run_reconstruction(config, rp.ETA_PI0, gate=_Gate(False)) == 0
     assert trees[-1].entries == []

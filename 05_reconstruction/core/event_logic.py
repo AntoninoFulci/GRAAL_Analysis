@@ -12,12 +12,6 @@ import numpy as np
 from graal_common.physics.channels import Hypothesis
 from graal_common.physics.pairing import Pairing
 from reconstruction.core import reco_physics as rp
-from reconstruction.core.kinematic_fit import (
-    FitReactionModel,
-    FitResult,
-    ResolutionModel,
-    confidence_level,
-)
 
 
 @dataclass(frozen=True)
@@ -48,36 +42,21 @@ class ReconstructedEvent:
     run_number: int
     polarization: int
     strip: float
-    fitted_photons: np.ndarray | None = None
-    fitted_proton: np.ndarray | None = None
-    fitted_heavy: np.ndarray | None = None
-    fitted_light: np.ndarray | None = None
-    fit_chi2: float | None = None
-    fit_ndf: int | None = None
-    fit_converged: bool | None = None
 
 
 class RejectionReason(Enum):
     CHI_SQUARE = "chi_square"
     IMPOSSIBLE_ENERGY = "impossible_energy"
     MISSING_MASS = "missing_mass"
-    FIT = "fit"
 
 
 class _ReconstructionConfig(Protocol):
     chi2_cut: float
     partner_mass: float
     missing_mass_window: float | None
-    do_fit: bool
-    fit_cl: float
-    fit_cov: ResolutionModel
-    fit_reaction: FitReactionModel
 
 
 PairingFunction = Callable[[np.ndarray, Hypothesis], tuple[Pairing, float]]
-FitFunction = Callable[..., FitResult]
-
-_FIT_PAIRING = Pairing(heavy=(0, 1), light=(2, 3))
 
 
 def _mass(vector: np.ndarray) -> float:
@@ -99,7 +78,6 @@ def reconstruct_event(
     config: _ReconstructionConfig,
     *,
     pairing_fn: PairingFunction,
-    fit_fn: FitFunction,
 ) -> ReconstructedEvent | RejectionReason:
     """Apply reconstruction decisions to one event, preserving cut order."""
     pairing, chi2_value = pairing_fn(event.photons, channel.hypothesis)
@@ -124,37 +102,7 @@ def reconstruct_event(
     target = np.array([0.0, 0.0, 0.0, config.partner_mass])
     missing = (event.beam + target) - (heavy + light)
 
-    fitted_photons = None
-    fitted_proton = None
-    fitted_heavy = None
-    fitted_light = None
-    fit_chi2 = None
-    fit_ndf = None
-    fit_converged = None
-
-    if config.do_fit:
-        fit_result = fit_fn(
-            photons,
-            event.proton,
-            event.beam,
-            _FIT_PAIRING,
-            channel.hypothesis,
-            config.fit_cov,
-            reaction=config.fit_reaction,
-        )
-        if (
-            not fit_result.converged
-            or confidence_level(fit_result.chi2, fit_result.ndf) < config.fit_cl
-        ):
-            return RejectionReason.FIT
-        fitted_photons = fit_result.fitted_photons
-        fitted_proton = fit_result.fitted_proton
-        fitted_heavy = fitted_photons[0] + fitted_photons[1]
-        fitted_light = fitted_photons[2] + fitted_photons[3]
-        fit_chi2 = fit_result.chi2
-        fit_ndf = fit_result.ndf
-        fit_converged = fit_result.converged
-    elif not rp.passes_missing_mass(
+    if not rp.passes_missing_mass(
         _mass(missing),
         config.partner_mass,
         config.missing_mass_window,
@@ -176,11 +124,4 @@ def reconstruct_event(
         run_number=event.run_number,
         polarization=event.polarization,
         strip=event.strip,
-        fitted_photons=fitted_photons,
-        fitted_proton=fitted_proton,
-        fitted_heavy=fitted_heavy,
-        fitted_light=fitted_light,
-        fit_chi2=fit_chi2,
-        fit_ndf=fit_ndf,
-        fit_converged=fit_converged,
     )

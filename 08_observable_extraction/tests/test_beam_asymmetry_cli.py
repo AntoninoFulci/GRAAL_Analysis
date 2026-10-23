@@ -20,7 +20,7 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     args = beam_asymmetry.build_parser().parse_args([])
 
     assert args.nominal_sample == "raw_bdt"
-    assert args.raw_bdt_fit is None
+    assert set(beam_asymmetry.SAMPLES) == {"raw", "raw_bdt"}
     assert args.estimator == "both"
     assert args.profile == "uv"
     assert args.flux_file == Path("data/00_external/flux_calibrated.root")
@@ -146,7 +146,7 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
     monkeypatch.setattr(
         beam_asymmetry,
         "read_reconstructed",
-        lambda _path, _tree, vector_mode, **kwargs: events,
+        lambda _path, _tree, **kwargs: events,
     )
     output = tmp_path / "beam_asymmetry"
 
@@ -186,7 +186,7 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
         ]
         assert stored_edges == pytest.approx([0.9313, 1.10])
         assert "profile=vis" in source.Get("provenance").GetTitle()
-        assert "raw_vs_kinematic_fit=disabled" in source.Get("provenance").GetTitle()
+        assert "raw_vs_kinematic_fit" not in source.Get("provenance").GetTitle()
         assert not source.Get("covariance/systematic/raw_vs_kinematic_fit")
         assert f"phi_bins={phi_bins}" in source.Get("provenance").GetTitle()
         phi_edges = source.Get("binning/phi_edges")
@@ -293,7 +293,7 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
     monkeypatch.setattr(
         beam_asymmetry,
         "read_reconstructed",
-        lambda _path, _tree, vector_mode, **kwargs: _synthetic_events(),
+        lambda _path, _tree, **kwargs: _synthetic_events(),
     )
 
     with pytest.raises(ValueError, match="supplied together"):
@@ -373,7 +373,7 @@ def test_source_inventory_distinguishes_measured_zero_missing_and_retired():
     inventory = beam_asymmetry._systematic_inventory(points, covariances)
     assert inventory['estimator_ratio_vs_likelihood']['status'] == 'executed'
     assert inventory['flux_balance']['status'] == 'unavailable'
-    assert inventory['raw_vs_kinematic_fit']['status'] == 'not_applicable'
+    assert 'raw_vs_kinematic_fit' not in inventory
     missing = beam_asymmetry._systematic_inventory([ratio], beam_asymmetry._systematic_covariances([ratio]))
     assert missing['estimator_ratio_vs_likelihood']['status'] == 'unavailable'
     archived = replace(ratio, sample='raw_bdt_fit', point=replace(ratio.point, sigma=.4))
@@ -443,7 +443,7 @@ def test_cli_persists_paired_diagnostic_without_combining_it(tmp_path, monkeypat
     assert diagnostic.replicas.shape == (4, 3)
     assert diagnostic.zero_event_runs['raw_bdt'] == (813,)
     assert result.metadata['final_inference'] == 'suspended'
-    assert result.metadata['sources']['raw_vs_kinematic_fit']['status'] == 'not_applicable'
+    assert 'raw_vs_kinematic_fit' not in result.metadata['sources']
     assert result.metadata['bootstrap_diagnostic_status'] == 'failed_replicas'
     assert diagnostic.failures  # seeded draw contains only the exposed zero-yield run
     assert diagnostic.covariance is None

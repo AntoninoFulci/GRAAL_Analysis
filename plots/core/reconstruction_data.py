@@ -29,9 +29,7 @@ class ReconstructionArrays:
     pi0_mass_raw: np.ndarray
     over_limit: np.ndarray
     eta_over_beam: np.ndarray
-    has_fit: bool
     pair_masses_raw: Mapping[str, np.ndarray]
-    pair_masses_fit: Mapping[str, np.ndarray]
     pair_mass_squared: Mapping[str, Mapping[str, np.ndarray]]
     identity_residual: Mapping[str, np.ndarray]
     beam_energy: np.ndarray
@@ -51,7 +49,6 @@ class ReconstructionArrays:
             "pi0_mass_raw": self.pi0_mass_raw,
             "over_limit": self.over_limit,
             "eta_over_beam": self.eta_over_beam,
-            "has_fit": self.has_fit,
         }
 
 
@@ -88,45 +85,24 @@ def open_tree(path: Path, tree_name: str, *, allow_empty: bool = False):
     return root_file, tree
 
 
-def has_fit(tree) -> bool:
-    """Return whether tree carries kinematic-fit branches."""
-    return "fit_chi2" in {
-        branch.GetName() for branch in tree.GetListOfBranches()
-    }
-
-
-def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> ReconstructionArrays:
-    """Collect paired raw/fit plot inputs without mixing recoil-vector modes."""
+def collect(tree) -> ReconstructionArrays:
+    """Collect measured vectors and missing-recoil diagnostics."""
     branches = {branch.GetName() for branch in tree.GetListOfBranches()}
-    tree_has_fit = "fit_chi2" in branches
-    if forbid_fit and any("fit" in name for name in branches):
-        raise ValueError("no-fit plots cannot use a historically fit-selected tree")
-    if require_fit and not tree_has_fit:
-        raise ValueError("reconstructed tree has no kinematic-fit branches")
-    if tree_has_fit:
-        missing_fit = {"eta_fit", "pi0_fit", "proton_fit"} - branches
-        if missing_fit:
-            raise ValueError(f"missing kinematic-fit branches: {sorted(missing_fit)}")
-
     mep_meas, mpp_meas, mep_miss, mpp_miss = [], [], [], []
     eta_m, pi0_m, eta_m_raw, pi0_m_raw = [], [], [], []
     over_limit, eta_over_beam = [], []
     pair_raw = {name: [] for name in ("p_eta", "p_pi0", "eta_pi0")}
-    pair_fit = {name: [] for name in pair_raw}
     pair_s = {mode: {name: [] for name in pair_raw} for mode in ("meas", "miss")}
     residual = {mode: [] for mode in pair_s}
     beam_energy, w, runs = [], [], []
 
     for event in tree:
-        eta_raw = as_array(event.eta)
-        pi0_raw = as_array(event.pi0)
-        eta = as_array(event.eta_fit) if tree_has_fit else eta_raw
-        pi0 = as_array(event.pi0_fit) if tree_has_fit else pi0_raw
-        proton_raw = as_array(event.proton)
-        proton = as_array(event.proton_fit) if tree_has_fit else proton_raw
+        eta = as_array(event.eta)
+        pi0 = as_array(event.pi0)
+        proton = as_array(event.proton)
         beam = as_array(event.beam)
         target = as_array(event.target)
-        missing = beam + target - eta - pi0 if tree_has_fit else as_array(event.missing)
+        missing = as_array(event.missing)
 
         for mode, recoil in (("meas", proton), ("miss", missing)):
             squares = kin.dalitz_invariants(recoil, eta, pi0)
@@ -142,20 +118,18 @@ def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> Rec
         mpp_meas.append(kin.invariant_mass(pi0, proton))
         mep_miss.append(kin.invariant_mass(eta, missing))
         mpp_miss.append(kin.invariant_mass(pi0, missing))
-        for destination, e, p, recoil in ((pair_raw, eta_raw, pi0_raw, proton_raw),
-                                          (pair_fit, eta, pi0, proton)):
-            destination["p_eta"].append(kin.invariant_mass(recoil, e))
-            destination["p_pi0"].append(kin.invariant_mass(recoil, p))
-            destination["eta_pi0"].append(kin.invariant_mass(e, p))
+        pair_raw["p_eta"].append(kin.invariant_mass(proton, eta))
+        pair_raw["p_pi0"].append(kin.invariant_mass(proton, pi0))
+        pair_raw["eta_pi0"].append(kin.invariant_mass(eta, pi0))
 
-        eta_m.append(event.eta_fit.M() if tree_has_fit else event.eta_mass)
-        pi0_m.append(event.pi0_fit.M() if tree_has_fit else event.pi0_mass)
+        eta_m.append(event.eta_mass)
+        pi0_m.append(event.pi0_mass)
         eta_m_raw.append(event.eta_mass)
         pi0_m_raw.append(event.pi0_mass)
 
         limit = kin.dalitz_limit(kin.sqrt_s(beam, target), kin.M_PI0)
         over_limit.append(mep_meas[-1] > limit)
-        eta_over_beam.append(eta_raw[3] > beam[3])
+        eta_over_beam.append(eta[3] > beam[3])
 
     return ReconstructionArrays(
         mep_meas=np.array(mep_meas),
@@ -168,9 +142,7 @@ def collect(tree, *, require_fit: bool = False, forbid_fit: bool = False) -> Rec
         pi0_mass_raw=np.array(pi0_m_raw),
         over_limit=np.array(over_limit),
         eta_over_beam=np.array(eta_over_beam),
-        has_fit=tree_has_fit,
         pair_masses_raw={name: np.array(values) for name, values in pair_raw.items()},
-        pair_masses_fit={name: np.array(values) for name, values in pair_fit.items()},
         pair_mass_squared={mode: {name: np.array(values) for name, values in pairs.items()}
                            for mode, pairs in pair_s.items()},
         identity_residual={mode: np.array(values) for mode, values in residual.items()},

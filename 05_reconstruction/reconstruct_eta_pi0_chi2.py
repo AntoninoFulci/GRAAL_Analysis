@@ -28,7 +28,6 @@ def main():
         default_output_file=Path("results/reco/reco_eta_pi0_chi2.root"),
         partner_help="recoil partner of the eta-pi0 system; sets the missing-"
         "mass the cut centres on (default proton)",
-        fit_options_exposed=True,
     )
     p.add_argument("--profile", choices=BEAM_PROFILES, default=None)
     add_energy_arguments(p)
@@ -37,7 +36,6 @@ def main():
     cfg = reco_config_from_args(
         args,
         output_tree="reco_eta_pi0_chi2",
-        fit_options_exposed=True,
     )
     grid = energy_binning_from_args(args, args.profile)
     if grid is not None:

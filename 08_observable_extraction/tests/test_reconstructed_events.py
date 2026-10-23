@@ -1,4 +1,5 @@
 from array import array
+import json
 
 import numpy as np
 import pytest
@@ -13,7 +14,7 @@ from observable_extraction.io.reconstructed_events import (
 )
 
 
-def _write_reconstructed(path):
+def _write_reconstructed(path, *, certified=True):
     output = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree("reco", "reco")
     run = array("i", [811])
@@ -27,7 +28,6 @@ def _write_reconstructed(path):
         name: ROOT.TLorentzVector()
         for name in (
             "beam", "eta", "pi0", "proton", "missing",
-            "eta_fit", "pi0_fit", "proton_fit",
         )
     }
     tree.Branch("RunNumber", run, "RunNumber/I")
@@ -45,9 +45,6 @@ def _write_reconstructed(path):
     vectors["pi0"].SetPxPyPzE(-0.1, 0.0, 0.1, 0.25)
     vectors["proton"].SetPxPyPzE(0.0, 0.0, 0.1, 0.95)
     vectors["missing"].SetPxPyPzE(0.0, 0.0, 0.0, 0.94)
-    vectors["eta_fit"].SetPxPyPzE(0.08, 0.0, 0.2, 0.70)
-    vectors["pi0_fit"].SetPxPyPzE(-0.08, 0.0, 0.1, 0.24)
-    vectors["proton_fit"].SetPxPyPzE(0.0, 0.0, 0.1, 0.96)
     tree.Fill()
 
     polarization[0] = 0
@@ -56,18 +53,18 @@ def _write_reconstructed(path):
     multiplicity[0] = 4
     tree.Fill()
     tree.Write()
+    if certified:
+        ROOT.TNamed("reconstruction_provenance", json.dumps(dict(schema=2, selection_algorithm="pairing_missing_mass"))).Write()
     output.Close()
 
 
-def test_read_reconstructed_selects_raw_or_fitted_vectors(tmp_path):
+def test_read_reconstructed_preserves_raw_vectors(tmp_path):
     path = tmp_path / "reco.root"
     _write_reconstructed(path)
 
-    raw = read_reconstructed(path, "reco", vector_mode="raw")
-    fitted = read_reconstructed(path, "reco", vector_mode="fit")
+    raw = read_reconstructed(path, "reco")
 
     assert raw.eta[0, 3] == pytest.approx(0.72)
-    assert fitted.eta[0, 3] == pytest.approx(0.70)
     assert raw.bdt_score[0] == pytest.approx(0.81)
     assert raw.n_photons_input[0] == 5
     assert raw.missing_mass_gev[0] == pytest.approx(0.94)
@@ -78,7 +75,7 @@ def test_read_reconstructed_selects_raw_or_fitted_vectors(tmp_path):
 def test_select_sigma_events_and_brem_control_are_disjoint(tmp_path):
     path = tmp_path / "reco.root"
     _write_reconstructed(path)
-    events = read_reconstructed(path, "reco", vector_mode="raw")
+    events = read_reconstructed(path, "reco")
     exposures = {
         (811, 17): FluxExposure(811, 17, 1.25, 120, 80, 25, 0.5, 0.5),
         (811, 18): FluxExposure(811, 18, 1.25, 120, 80, 25, 0.5, 0.5),
@@ -94,7 +91,7 @@ def test_select_sigma_events_and_brem_control_are_disjoint(tmp_path):
 def test_select_sigma_events_fails_on_missing_selected_run_strip(tmp_path):
     path = tmp_path / "reco.root"
     _write_reconstructed(path)
-    events = read_reconstructed(path, "reco", vector_mode="raw")
+    events = read_reconstructed(path, "reco")
 
     with pytest.raises(ValueError, match=r"missing exposure.*\(811, 17\)"):
         select_sigma_events(events, {})
@@ -105,7 +102,7 @@ def test_select_sigma_events_can_drop_missing_exposures_with_warning(
 ):
     path = tmp_path / "reco.root"
     _write_reconstructed(path)
-    events = read_reconstructed(path, "reco", vector_mode="raw")
+    events = read_reconstructed(path, "reco")
 
     selected = select_sigma_events(events, {}, drop_missing=True)
 
@@ -149,6 +146,6 @@ def test_vis_energy_range_keeps_exact_boundaries_after_exposure_filtering():
 
 def test_baseline_reader_rejects_historical_fit_selected_raw(tmp_path):
     path = tmp_path / "historical.root"
-    _write_reconstructed(path)
-    with pytest.raises(ValueError, match="no-fit|provenance"):
-        read_reconstructed(path, "reco", vector_mode="raw", require_no_fit=True)
+    _write_reconstructed(path, certified=False)
+    with pytest.raises(ValueError, match="provenance"):
+        read_reconstructed(path, "reco")

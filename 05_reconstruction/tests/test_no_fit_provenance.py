@@ -22,8 +22,8 @@ def test_no_fit_root_records_selection_and_reopens_without_fit_branches(tmp_path
     beam = ROOT.TLorentzVector(0, 0, 1.2, 1.2)
     vectors = {name: ROOT.std.vector("TLorentzVector")() for name in ("gammas", "protons", "neutrons")}
     for name, value in vectors.items():
-        tree.Branch(name, value)
-    tree.Branch("beam", beam)
+        tree.Branch(name, value, 32000, 0)
+    tree.Branch("beam", "TLorentzVector", beam, 32000, 0)
     scalars = {"RunNumber": array("i", [811]), "Polarization": array("i", [1]), "Xstrip": array("f", [17])}
     for name, value in scalars.items():
         tree.Branch(name, value, f"{name}/{'F' if name == 'Xstrip' else 'I'}")
@@ -35,9 +35,6 @@ def test_no_fit_root_records_selection_and_reopens_without_fit_branches(tmp_path
     tree.Fill()
     tree.Write()
     source.Close()
-    def forbidden(*args, **kwargs):
-        raise AssertionError("fitter called")
-    monkeypatch.setattr(reco_core, "fit_event", forbidden)
     cfg = reco_core.RecoConfig(selected, tmp_path / "reco.root", output_tree="reco",
                                chi2_cut=1000, missing_mass_window=None)
     gate = None
@@ -57,7 +54,8 @@ def test_no_fit_root_records_selection_and_reopens_without_fit_branches(tmp_path
     metadata = json.loads(output.Get("reconstruction_provenance").GetTitle())
     if mutate_model:
         assert metadata["model_inputs"][0]["sha256"] == hashlib.sha256(b"original").hexdigest()
-    assert metadata["do_fit"] is False
+    assert metadata["schema"] == 2
+    assert metadata["selection_algorithm"] == "pairing_missing_mass"
     assert metadata["input_tree"] == "h85"
     assert metadata["selection"]["chi2_cut"] == 1000
     assert metadata["selection"]["chi2_resolution_relative"] == .08
@@ -66,4 +64,4 @@ def test_no_fit_root_records_selection_and_reopens_without_fit_branches(tmp_path
     assert metadata["counts_by_run_state"] == [{"run": 811, "polarization": 1, "input": 2, "written": 1, "not_one_proton": 1}]
     assert not any("fit" in b.GetName() for b in output.Get("reco").GetListOfBranches())
     output.Close()
-    assert len(read_reconstructed(cfg.output_file, "reco", vector_mode="raw", require_no_fit=True)) == 1
+    assert len(read_reconstructed(cfg.output_file, "reco")) == 1

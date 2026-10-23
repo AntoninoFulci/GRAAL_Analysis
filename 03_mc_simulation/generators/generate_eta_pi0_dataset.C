@@ -50,8 +50,8 @@ void generate_eta_pi0_dataset(int Nevents = 1000000,
     TLorentzVector eta_gamma1, eta_gamma2, pi0_gamma1, pi0_gamma2;
 
     // Pre-smearing truth, saved before the in-place smearing below overwrites
-    // the reconstructed-looking branches. Needed by the kinematic-fit pull
-    // validation.
+    // the reconstructed-looking branches. Retained for detector-response and
+    // reconstruction validation.
     TLorentzVector eta_gamma1_true, eta_gamma2_true;
     TLorentzVector pi0_gamma1_true, pi0_gamma2_true;
     TLorentzVector proton_true, beam_true;
