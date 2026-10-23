@@ -128,3 +128,51 @@ def test_final_requires_background_and_bootstrap(root):
     data = load_native_sigma_root(path, require_final=True)
     assert data.status == "final_input"
     np.testing.assert_allclose(data.bootstrap_covariance, np.eye(3)*.01)
+
+
+def best_binning(fake):
+    fake.objects['provenance'].value += ('\nphi_bins=best-binning'
+        '\nphi_bin_divisor=per_point\nphi_bin_correction=ratio_only_rounded')
+    columns = fake.objects['sigma_points'].columns
+    columns['phi_bins'] = np.array([0, 8, 0, 0, 12, 16])
+    columns['phi_bin_divisor'] = np.array([1., .9003, 1., 1., .9549, .9745])
+    columns['used_fallback'] = np.array([0, 1, 0, 0, 0, 1])
+    return columns
+
+
+def test_best_binning_metadata_follows_selected_covariance_rows(root):
+    path, fake = root
+    best_binning(fake)
+    data = load_native_sigma_root(path)
+    np.testing.assert_array_equal(data.phi_bins, [8, 12, 16])
+    np.testing.assert_array_equal(data.phi_bin_divisor, [.9003, .9549, .9745])
+    np.testing.assert_array_equal(data.ratio_used_fallback, [True, False, True])
+    assert not data.phi_bins.flags.writeable
+
+
+@pytest.mark.parametrize('field,value', [('phi_bins', 0), ('phi_bins', 12.5),
+    ('phi_bin_divisor', .900316316), ('used_fallback', 2)])
+def test_best_binning_rejects_invalid_selected_metadata(root, field, value):
+    path, fake = root
+    columns = best_binning(fake)
+    columns[field] = columns[field].astype(float)
+    columns[field][1] = value
+    with pytest.raises(ValueError, match='phi|fallback'):
+        load_native_sigma_root(path)
+
+
+def test_best_binning_requires_metadata(root):
+    path, fake = root
+    best_binning(fake).pop('phi_bins')
+    with pytest.raises(ValueError, match='phi'):
+        load_native_sigma_root(path)
+
+
+def test_explicit_suspension_overrides_final_prerequisites(root):
+    path, fake = root
+    fake.objects['provenance'].value = ('profile=uv\nbackground=sideband-corrected'
+                                      '\nfinal_inference=suspended')
+    fake.objects['covariance/bootstrap_run'] = FakeObject(np.eye(6)*.01)
+    assert load_native_sigma_root(path).status == 'pilot'
+    with pytest.raises(ValueError, match='final'):
+        load_native_sigma_root(path, require_final=True)

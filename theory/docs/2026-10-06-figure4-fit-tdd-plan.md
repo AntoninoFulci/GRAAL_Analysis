@@ -227,6 +227,68 @@ feasibility before any all-bin campaign.
 - [x] **Step 4 GREEN command:** Focused CLI/output tests pass. Check emitted JSON/CSV and open one tiny synthetic PDF for masked segments and source-versus-fitted labels; no real long run.
 - [x] **Step 5 review/commit:** Commit only Task 7 files with `feat(theory): add resumable Figure 4 fit workflow`.
 
+## Task 7E: Exploratory p6 fit to existing UV pilot data
+
+**2026-10-12 interim decision:** The user accepted a preliminary fit now.
+The available Stage 07 UV ROOT has 109 `raw_bdt/ratio` points, positive
+definite selected covariance, measured run-matched flux, and pilot provenance
+`background=uncorrected`, no run bootstrap, `best_quartet_resolved=false`.
+This task is a separate exploratory calculation. It does not alter Task 8
+final-data, certification, or Ajaka reproduction gates.
+
+- [x] **RED:** Test that raw `BasisBinMoment` objects cannot enter the
+  certified `build_gls`, while an exploratory objective selects every
+  calculated native-flux moment in Stage 07 key order, reports all
+  numerical masks, slices the original covariance by those indices, and
+  rejects inconsistent anchors, invalid denominators and rank deficiency.
+  No data-dependent bin selection or diagonal-only replacement covariance.
+- [x] **GREEN:** Add a resumable user-run raw p6 native-basis calculation at
+  `n=4`, `64/48`, grid mode and measured run-matched flux. Reuse exact
+  three-term event amplitude basis and `BasisCheckpoint`; saved certificates
+  must have `preliminary_uncertified` status so formal `figure4-fit` rejects
+  them. Preserve typed inner-quadrature and kinematic masks. Hash code,
+  parameters, ROOT data, reco, flux and manifest; checkpoint per bin.
+- [x] **Fit implementation:** Build an explicitly exploratory GLS objective from every
+  finite native moment and the corresponding full covariance principal
+  submatrix. Fit the two sourced Delta(1700) EM couplings with the existing
+  rank-checked optimizer. Emit source/fitted predictions for all 109 points,
+  exclusion reasons, chi-square/dof, source/internal units, fingerprints,
+  4×3 native-data PDF and pilot limitations. Fewer than three usable bins
+  abort with an explicit error and no fit artifact; a rank-deficient Jacobian
+  produces `not_identifiable`. Never invent a prior or tune to Ajaka strokes.
+  Parameter covariance is conditional on pilot data and p6 numerical
+  accuracy, not a physics uncertainty.
+- [ ] **Proof/handoff:** Run focused tests and full short suite locally.
+  Give user exact long basis command, eight-worker resource estimate and
+  identical restart command. User runs and returns manifest/log. Inspect
+  every saved status before running the short optimizer; user launches it
+  if its measured runtime is long. Then calculate fitted Ajaka publication
+  curves separately with uniform energy weighting before claiming any
+  relationship to the paper. Task 8 remains open.
+
+## Task 7F: Recovery fit against `production_phi12` pilot data
+
+**2026-10-12 decision:** Original `production-20261006-113738` ROOT inputs
+disappeared while Task 7E finished. All 109 saved p6 checkpoints are readable
+and hash-valid, but original manifest remains incomplete. The user approved a
+separately labeled proxy fit to `production_phi12` now; this never promotes the
+old basis to certified status.
+
+- [x] **RED:** Test rejection of changed native bin identities, large flux
+  shifts, and wrong 12-bin correction; test proxy report provenance.
+- [x] **GREEN:** New script reads all old checkpoint certificates, validates
+  current 109 key/edge identities, selected-run flux and grouped energy nodes,
+  and gates relative total-flux change at `0.005`, polarization change at
+  `1e-4`, energy-node shift at `1e-4 GeV`. Saved and current ROOT fingerprints
+  remain distinct in report. Original fingerprinted script stays untouched.
+- [x] **Estimator convention:** Current Stage 07 ratio points divide the raw
+  12-center fit by `0.9549`; proxy theory prediction applies the same divisor.
+- [ ] **User-run fit:** User executes short optimizer. Inspect chi-square,
+  parameter values, covariance/rank, 75 included points, 34 masks, comparison
+  PDF and proxy audit. Never interpret input-proximity gates as an error bound
+  on Sigma or this fit as a final physical parameter estimate. An exact
+  `production_phi12` basis still needs its own long calculation.
+
 ## Task 8: User-run data release, production proof and scientific claim
 
 **Files:** Update `references/full_production_validation.md`, `references/model_scope.md` and the two Figure 4 TDD plans only with measured outcomes; generated artifacts stay in `theory/outputs/` and `results/` without Git staging.

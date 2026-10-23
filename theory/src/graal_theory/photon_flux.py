@@ -151,13 +151,44 @@ def selected_uv_runs(reco_root: Path) -> frozenset[int]:
     return frozenset(int(value) for value in np.unique(values))
 
 
+def inclusive_uv_runs(reco_root: Path) -> frozenset[int]:
+    """Run universe before reconstruction cuts, including zero-survivor runs."""
+    import json
+    import uproot
+    with uproot.open(reco_root) as source:
+        try:
+            record=source['reconstruction_provenance']
+            text=str(record) if record.classname=='TObjString' else record.member('fTitle')
+            rows=json.loads(text).get('counts_by_run_state')
+        except (KeyError,AttributeError,ValueError) as exc:
+            raise ValueError('missing or invalid reconstruction cutflow') from exc
+    if not isinstance(rows,list) or not rows:
+        raise ValueError('inclusive reconstruction cutflow must be nonempty')
+    keys=set()
+    for row in rows:
+        if not isinstance(row,dict):
+            raise ValueError('invalid inclusive cutflow row')
+        run,state,count=row.get('run'),row.get('polarization'),row.get('input')
+        if (type(run) is not int or run<=0 or type(state) is not int
+                or type(count) is not int or count<0 or (run,state) in keys):
+            raise ValueError('invalid or duplicate inclusive cutflow row')
+        keys.add((run,state))
+    runs=frozenset(run for run,_ in keys)
+    if not selected_uv_runs(reco_root)<=runs:
+        raise ValueError('reconstructed events outside inclusive cutflow')
+    return runs
+
+
 def native_flux_spectrum(flux_root: Path, manifest: Path, reco_root: Path,
-                         energy_range_gev: tuple[float, float]) -> FluxSpectrum:
+                         energy_range_gev: tuple[float, float], *,
+                         use_inclusive_cutflow: bool = False) -> FluxSpectrum:
     """Match measured exposure to nominal reconstruction runs and inputs."""
     from dataclasses import replace
     import uproot
 
-    reconstructed = selected_uv_runs(reco_root)
+    if type(use_inclusive_cutflow) is not bool:
+        raise ValueError("use_inclusive_cutflow must be boolean")
+    reconstructed = inclusive_uv_runs(reco_root) if use_inclusive_cutflow else selected_uv_runs(reco_root)
     with Path(manifest).open(newline="", encoding="utf-8") as stream:
         manifest_runs = {int(row["run_number"]) for row in csv.DictReader(stream)
                          if row["target"] == "P" and row["beam_type"] == "UV"}
@@ -176,6 +207,8 @@ def native_flux_spectrum(flux_root: Path, manifest: Path, reco_root: Path,
     spectrum = load_calibrated_flux(flux_root, manifest, energy_range_gev,
                                     selected_run_numbers=selected)
     digest = hashlib.sha256()
+    if use_inclusive_cutflow:
+        digest.update(b"inclusive_reconstruction_cutflow")
     for label, path in (("reco", reco_root), ("flux", flux_root), ("manifest", manifest)):
         digest.update(label.encode("ascii"))
         with Path(path).open("rb") as stream:

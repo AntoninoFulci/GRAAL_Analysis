@@ -115,6 +115,9 @@ covariance for a final joint fit.
 Map predictions to the **actual Stage 07 bins** and measured incident-energy
 exposure. Keep this native-data weighting separate from the uniform
 incident-energy weighting used for the primary Ajaka publication calculation.
+Stage 07 selects nominal reconstructed run IDs, then skips incomplete calibrated
+flux triplets and invalid run/strip exposures; native theory weights must use
+that effective exposure set, including the same photon-energy interval.
 Check that flux, polarization, azimuth-sign conventions and selected run set
 are compatible with the Stage 07 estimator. Assess acceptance effects with
 available simulation/control studies before interpreting fitted couplings;
@@ -179,9 +182,9 @@ and cause rather than an interpolated line through unresolved bins.
 
 ## Long-running execution and artifacts
 
-The assistant writes code, documentation and runs short focused checks.
-Before any fit, bootstrap, full test suite or integration expected to take
-substantial time, it provides the user with the exact command, estimated
+The assistant writes code, documentation and runs short focused checks,
+including synthetic fit tests. Before production fits, bootstrap, full test
+suite or integration expected to take substantial time, it provides the user with the exact command, estimated
 duration, CPU/memory assumptions, input paths, output paths and success/fail
 signals. The user launches long work and returns its logs or artifacts for
 analysis. Estimates come from measured pilots; unmeasured campaigns are

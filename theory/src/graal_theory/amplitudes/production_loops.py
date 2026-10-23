@@ -375,6 +375,65 @@ def _radial_cut_density(q, numerator, denominator, roots, derivative, limit, con
     return density + correction/limit
 
 
+def _recoil_endpoint_data(available, meson, baryon, momentum, limit):
+    """Radial cut boundaries and cancellation-safe angular endpoint gaps."""
+    def gap(q, sign):
+        omega = np.sqrt(meson*meson+q*q)
+        recoil = np.sqrt(baryon*baryon+(q+sign*momentum)**2)
+        return available-omega-recoil
+
+    boundaries = [0., limit]
+    references = {}
+    for sign in (-1, 1):
+        def slope(q):
+            omega = np.sqrt(meson*meson+q*q)
+            recoil = np.sqrt(baryon*baryon+(q+sign*momentum)**2)
+            return -q/omega-(q+sign*momentum)/recoil
+
+        # Each gap is concave: its stationary point brackets every narrow cut.
+        segments = [0.]
+        if slope(0.)*slope(limit) < 0:
+            stationary = brentq(slope, 0., limit, xtol=1e-14)
+            boundaries.append(stationary)
+            segments.append(stationary)
+        segments.append(limit)
+        roots = []
+        for lower, upper in zip(segments[:-1], segments[1:]):
+            if gap(lower, sign)*gap(upper, sign) < 0:
+                root = brentq(lambda q: gap(q, sign), lower, upper, xtol=1e-14)
+                boundaries.append(root)
+                roots.append(root)
+        references[sign] = (roots, segments[1:-1])
+
+    def stable_gap(q, sign, mapped_anchor=None, mapped_delta=None):
+        roots, stationary = references[sign]
+        candidates = roots or stationary
+        if not candidates:
+            return gap(q, sign)
+        reference = min(candidates, key=lambda value: abs(q-value))
+        # On a very narrow recoil interval, lower+length*u*u can round
+        # back to lower even though the mapped distance is positive.
+        # Keep that distance for the logarithmic endpoint evaluation.
+        delta = (mapped_delta if reference == mapped_anchor
+                 and mapped_delta is not None else q-reference)
+        omega_ref = np.sqrt(meson*meson+reference*reference)
+        recoil_ref = np.sqrt(baryon*baryon+(reference+sign*momentum)**2)
+        derivative = -reference/omega_ref-(reference+sign*momentum)/recoil_ref
+
+        def convex_remainder(mass, origin):
+            base = np.sqrt(mass*mass+origin*origin)
+            shifted = np.sqrt(mass*mass+(origin+delta)**2)
+            return (delta*delta*(base*(shifted+base)-origin*(2*origin+delta))
+                    /(base*(shifted+base)**2))
+
+        residual = 0. if roots else gap(reference, sign)
+        return (residual+derivative*delta
+                -convex_remainder(meson, reference)
+                -convex_remainder(baryon, reference+sign*momentum))
+
+    return tuple(sorted(set(boundaries))), stable_gap
+
+
 def _polarization(polarization, context):
     try:
         array = np.asarray(polarization)
@@ -670,33 +729,23 @@ def eq26_rescattering_loop(
         # Eq. (26) has no angular source factor: integrate 1/(E_R B+i0)
         # analytically after y=E_R(x). This removes the coalescing radial
         # recoil roots without introducing a finite-width prescription.
-        def b_endpoint(q, sign):
-            omega = np.sqrt(mass*mass+q*q)
-            recoil = np.sqrt(baryon*baryon+(q+sign*pion_magnitude)**2)
-            return available-omega-recoil
-
-        probe = np.linspace(0., limit, 257)
-        for sign in (-1, 1):
-            values = [b_endpoint(float(q), sign) for q in probe]
-            for index in range(len(probe)-1):
-                if values[index]*values[index+1] < 0:
-                    root = brentq(lambda q: b_endpoint(q, sign),
-                                  float(probe[index]), float(probe[index+1]), xtol=1e-14)
-                    if 0 < root < limit:
-                        cuts.append(root)
+        recoil_cuts, stable_gap = _recoil_endpoint_data(
+            available, mass, baryon, pion_magnitude, limit)
+        cuts.extend(recoil_cuts)
         cuts = sorted(set(cuts))
 
         @lru_cache(maxsize=8192)
-        def radial_angular(q):
+        def radial_angular(q, mapped_anchor=None, mapped_delta=None):
             omega = np.sqrt(mass*mass+q*q)
             c = available-omega
             y_low = np.sqrt(baryon*baryon+(q-pion_magnitude)**2)
-            y_high = np.sqrt(baryon*baryon+(q+pion_magnitude)**2)
             if q*pion_magnitude == 0:
                 angular = 2/(y_low*np.complex128(c-y_low))
             else:
-                angular = (np.log(np.complex128(c-y_low))
-                           -np.log(np.complex128(c-y_high)))/(q*pion_magnitude)
+                angular = (np.log(np.complex128(stable_gap(
+                    q, -1, mapped_anchor, mapped_delta)))
+                           -np.log(np.complex128(stable_gap(
+                               q, 1, mapped_anchor, mapped_delta))))/(q*pion_magnitude)
             return radial_factor(q)*radial_source(q)*angular
 
         pieces = []
@@ -715,12 +764,17 @@ def eq26_rescattering_loop(
             for lower, upper, anchor in pieces:
                 length = upper-lower
                 if anchor == "lower":
-                    q, jacobian = lower+length*u*u, 2*length*u
+                    displacement = length*u*u
+                    q, jacobian = lower+displacement, 2*length*u
+                    mapped_anchor, mapped_delta = lower, displacement
                 elif anchor == "upper":
-                    q, jacobian = upper-length*u*u, 2*length*u
+                    displacement = length*u*u
+                    q, jacobian = upper-displacement, 2*length*u
+                    mapped_anchor, mapped_delta = upper, -displacement
                 else:
                     q, jacobian = lower+length*u, length
-                total += jacobian*radial_angular(q)
+                    mapped_anchor = mapped_delta = None
+                total += jacobian*radial_angular(q, mapped_anchor, mapped_delta)
             return total
 
         return _integrate_complex_1d(mapped_radial, 0., 1.,

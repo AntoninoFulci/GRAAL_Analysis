@@ -57,6 +57,9 @@ class BasisBinMoment:
     vertical_normalization: NDArray[np.complex128] | None = None
     horizontal_normalization: NDArray[np.complex128] | None = None
 
+    phi_bin_divisor: float = 1.
+    ratio_used_fallback: bool = False
+
     def polarized_normalizations(self, coefficients) -> tuple[float, float]:
         if self.status != "calculated" or self.vertical_normalization is None \
                 or self.horizontal_normalization is None:
@@ -91,6 +94,12 @@ class BasisBinMoment:
         n, d, intrinsic = QuadraticMoments(self.numerator, self.denominator).evaluate(coefficients)
         ratio = None
         if self.energy_rule == "native_flux":
+            if (self.state_phi is None or self.state_phi.ndim != 4
+                    or self.state_phi.shape[0] != 2 or self.state_phi.shape[2:] != (3, 3)
+                    or self.state_phi.shape[1] not in (8, 12, 16)):
+                raise ValueError("native state_phi must have 8, 12 or 16 bins")
+            if not np.isfinite(self.phi_bin_divisor) or not 0 < self.phi_bin_divisor <= 1:
+                raise ValueError("invalid phi_bin_divisor")
             c = np.asarray(coefficients, dtype=np.float64)
             counts = np.real(np.einsum("a,spab,b->sp", c, self.state_phi, c))
             if not np.isfinite(counts).all() or np.any(counts < -1e-12):
@@ -99,7 +108,8 @@ class BasisBinMoment:
             ratio = fit_binned_asymmetry(counts[0], counts[1], self.flux_vertical,
                                          self.flux_horizontal, self.polarization_vertical,
                                          self.polarization_horizontal,
-                                         np.linspace(0., 2*np.pi, 13))
+                                         np.linspace(0., 2*np.pi, counts.shape[1]+1),
+                                         diagnostic_fit=self.ratio_used_fallback)/self.phi_bin_divisor
         return BinPrediction(n, d, intrinsic, ratio, self.energy_rule)
 
 
@@ -123,6 +133,57 @@ class BasisBinCertificate:
         limit = self.fit_precision_limit if self.fit_precision_limit is not None else .01
         if not np.isfinite(bound) or bound > limit:
             raise ValueError(f"basis prediction numerical error {bound} exceeds {limit}")
+        return estimate
+
+
+@dataclass(frozen=True)
+class AngularBinCheck:
+    """Deterministic refinement evidence for a pilot; never a Sobol certificate."""
+    moment: BasisBinMoment
+    status: str
+    reason: tuple[str, ...]
+    checks: dict[str, BasisBinMoment]
+    fit_precision_limit: float
+
+    def predict(self, coefficients) -> BinPrediction:
+        if self.status != "diagnostic_converged":
+            raise ValueError(f"uncertified angular diagnostic: {self.reason}")
+        if set(self.checks) != {"angular", "mass", "energy", "inner"}:
+            raise ValueError("angular checks require angular, mass, energy and inner refinements")
+        if not np.isfinite(self.fit_precision_limit) or not 0 < self.fit_precision_limit <= .01:
+            raise ValueError("invalid angular refinement precision limit")
+        base = self.moment
+        estimate = base.evaluate(coefficients)
+        c = np.asarray(coefficients, dtype=float)
+        for name, other in self.checks.items():
+            for field_name in ("pair", "energy_range_gev", "mass_range_gev", "energy_rule",
+                               "anchor_g1", "anchor_g2", "proton_mass_gev", "phi_bin_divisor",
+                               "ratio_used_fallback", "flux_vertical", "flux_horizontal",
+                               "polarization_vertical", "polarization_horizontal"):
+                if getattr(base, field_name) != getattr(other, field_name):
+                    raise ValueError(f"{name} refinement identity mismatch: {field_name}")
+            alternate = other.evaluate(coefficients)
+            if (abs(estimate.sigma-alternate.sigma) > self.fit_precision_limit
+                    or _relative(estimate.denominator,alternate.denominator) > .01):
+                raise ValueError(f"{name} refinement prediction exceeds numerical limits")
+            for field_name in ("numerator", "denominator", "vertical_normalization",
+                               "horizontal_normalization", "mass_numerator",
+                               "source_used_denominator", "state_phi"):
+                a,b = getattr(base,field_name),getattr(other,field_name)
+                if a is None and b is None:
+                    continue
+                if a is None or b is None or a.shape != b.shape or not np.isfinite([a,b]).all():
+                    raise ValueError(f"{name} refinement matrix unavailable: {field_name}")
+                scale = max(np.max(abs(a)),np.max(abs(b)),1e-30)
+                if field_name in ("numerator", "source_used_denominator"):
+                    scale = max(scale,np.max(abs(base.denominator)),np.max(abs(other.denominator)))
+                if np.max(abs(a-b))/scale > .01:
+                    raise ValueError(f"{name} refinement matrix drift: {field_name}")
+                if field_name == "state_phi":
+                    av,bv = (np.real(np.einsum('a,spab,b->sp',c,x,c)) for x in (a,b))
+                    norm = max(np.max(abs(av)),np.max(abs(bv)),1e-30)
+                    if np.max(abs(av-bv))/norm > .01:
+                        raise ValueError(f"{name} refinement trial state counts drift")
         return estimate
 
 
@@ -305,10 +366,70 @@ def _zero_matrix() -> NDArray[np.complex128]:
     return np.zeros((3, 3), dtype=np.complex128)
 
 
+@dataclass(frozen=True)
+class _NodeMoments:
+    quadratics: QuadraticMoments
+    mass_numerator: NDArray[np.complex128]
+    source_used: NDArray[np.complex128]
+    state_phi: NDArray[np.complex128] | None
+    anchor: tuple[float, float]
+    fingerprint: str | None
+
+
 def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                         mass_range_gev: tuple[float, float], *, energy_rule: str,
                         energy_order: int, sobol: SobolConfig,
                         flux_spectrum: FluxSpectrum | None = None) -> BasisBinMoment:
+    """Independent Sobol integration of exact EM matrices in a mass/energy bin."""
+    if not isinstance(sobol, SobolConfig):
+        raise ValueError("sobol requires SobolConfig")
+
+    def node(energy, exposure):
+        proton = model.parameters.proton_mass_gev
+        s = s_from_lab_photon_energy(float(energy), proton)
+        daughters = PAIR_DAUGHTERS[pair]
+        sample = sample_three_body_mass_window(float(np.sqrt(s)), model.masses, daughters,
+                                                mass_range_gev, sobol,
+                                                reduce_global_azimuth=True)
+        if sample is None:
+            return None
+        eta_p_mass = invariant_mass(sample.momenta[:, 0]+sample.momenta[:, 2])
+        pair_momentum = sample.momenta[:, daughters[0]]+sample.momenta[:, daughters[1]]
+        phi = np.arctan2(pair_momentum[:, 2], pair_momentum[:, 1])
+        pair_mass = invariant_mass(pair_momentum)
+        normalization = GEV2_TO_MICROBARN*4*proton**2/(2*(s-proton**2)*len(phi))
+        measure = normalization*sample.weights_gev2
+        vertical = delta_em_event_basis(model, sample, _VERTICAL)
+        horizontal = delta_em_event_basis(model, sample, _HORIZONTAL)
+        vertical.validate_model(model)
+        horizontal.validate_model(model)
+        anchor = (vertical.anchor_g1, vertical.anchor_g2)
+        if anchor != (horizontal.anchor_g1, horizontal.anchor_g2):
+            raise ValueError("H/V EM source anchor mismatch")
+        fingerprint = getattr(vertical, "fingerprint", None)
+        if fingerprint != getattr(horizontal, "fingerprint", None):
+            raise ValueError("H/V basis model fingerprint mismatch")
+        q = quadratic_moments(vertical.matrices, horizontal.matrices, phi, measure)
+        mass_numerator = quadratic_moments(vertical.matrices, horizontal.matrices,
+                                          phi, measure*pair_mass).denominator
+        source_used = quadratic_moments(vertical.matrices, horizontal.matrices,
+                                        phi, measure*(eta_p_mass > 1.60)).denominator
+        state = None if exposure is None else azimuth_state_moments(
+            vertical.matrices, horizontal.matrices, phi, measure,
+            exposure.polarization_vertical, exposure.polarization_horizontal)
+        return _NodeMoments(q, mass_numerator, source_used, state, anchor, fingerprint)
+
+    return _integrate_basis_bin(model, pair, energy_range_gev, mass_range_gev,
+                                energy_rule=energy_rule, energy_order=energy_order,
+                                flux_spectrum=flux_spectrum, node_integrator=node)
+
+
+def _integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
+                        mass_range_gev: tuple[float, float], *, energy_rule: str,
+                        energy_order: int, node_integrator,
+                        flux_spectrum: FluxSpectrum | None = None,
+                        phi_bins: int = 12, phi_bin_divisor: float = 1.,
+                        ratio_used_fallback: bool = False) -> BasisBinMoment:
     """Integrate raw Hermitian matrices over one exact mass/energy window."""
     if pair not in PAIR_DAUGHTERS:
         raise ValueError(f"unknown pair: {pair}")
@@ -316,8 +437,6 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
         raise ValueError("uniform and native-flux energy weights must not mix")
     if not isinstance(energy_order, int) or isinstance(energy_order, bool) or energy_order < 1:
         raise ValueError("energy_order must be a positive integer")
-    if not isinstance(sobol, SobolConfig):
-        raise ValueError("sobol requires SobolConfig")
     bounds = (*energy_range_gev, *mass_range_gev)
     if len(bounds) != 4 or not np.isfinite(bounds).all() or bounds[0] <= 0 \
             or bounds[0] >= bounds[1] or bounds[2] >= bounds[3]:
@@ -334,7 +453,7 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     numerator, denominator, source_used, mass_numerator, vertical_norm, horizontal_norm = (
         _zero_matrix(), _zero_matrix(), _zero_matrix(), _zero_matrix(),
         _zero_matrix(), _zero_matrix())
-    state_phi = np.zeros((2, 12, 3, 3), dtype=np.complex128) if energy_rule == "native_flux" else None
+    state_phi = np.zeros((2, phi_bins, 3, 3), dtype=np.complex128) if energy_rule == "native_flux" else None
     anchor = None
     def result(status, reason, energies=(), fingerprint=None, flux=None):
         for matrix in (numerator, denominator, source_used, mass_numerator,
@@ -355,9 +474,15 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
                               mass_numerator,
                               (energy_low, e_high) if mass_low < mass_high and energy_low < e_high else None,
                               (mass_low, mass_high) if mass_low < mass_high and energy_low < e_high else None,
-                              vertical_norm, horizontal_norm)
+                              vertical_norm, horizontal_norm, phi_bin_divisor, ratio_used_fallback)
     if mass_low >= mass_high or energy_low >= e_high:
         return result("masked_kinematic", "no accessible energy-mass intersection")
+    # Validate the complete support before any expensive amplitude evaluation.
+    from .angular_geometry import mass_segments
+    support = mass_segments(np.sqrt(s_from_lab_photon_energy(e_high, proton)),
+                            masses, pair, (m_low, m_high))
+    if any(hi > 1.80+1e-12 for _, hi in support):
+        return result("masked_unsupported_domain", "M(eta p) exceeds 1.80 GeV")
     if energy_rule == "uniform":
         nodes, legendre = np.polynomial.legendre.leggauss(energy_order)
         energies = (energy_low+e_high)/2 + (e_high-energy_low)*nodes/2
@@ -386,57 +511,25 @@ def integrate_basis_bin(model, pair: str, energy_range_gev: tuple[float, float],
     for index, (energy, energy_weight) in enumerate(zip(energies, weights)):
         if energy < energy_low:
             continue
-        s = s_from_lab_photon_energy(float(energy), proton)
-        sample = sample_three_body_mass_window(float(np.sqrt(s)), masses, daughters,
-                                                (m_low, m_high), sobol,
-                                                reduce_global_azimuth=True)
-        if sample is None:
+        exposure = grouped[index] if energy_rule == "native_flux" else None
+        item = node_integrator(float(energy), exposure)
+        if item is None:
             continue
-        eta_p_mass = invariant_mass(sample.momenta[:, 0]+sample.momenta[:, 2])
-        if np.any(eta_p_mass > 1.80):
-            return result("masked_unsupported_domain", "M(eta p) exceeds 1.80 GeV", energies)
-        pair_momentum = sample.momenta[:, daughters[0]]+sample.momenta[:, daughters[1]]
-        phi = np.arctan2(pair_momentum[:, 2], pair_momentum[:, 1])
-        pair_mass = invariant_mass(pair_momentum)
-        normalization = GEV2_TO_MICROBARN*4*proton**2/(2*(s-proton**2)*len(phi))
-        measure = normalization*sample.weights_gev2
-        vertical = delta_em_event_basis(model, sample, _VERTICAL)
-        horizontal = delta_em_event_basis(model, sample, _HORIZONTAL)
-        vertical.validate_model(model)
-        horizontal.validate_model(model)
-        candidate_anchor = (getattr(vertical, "anchor_g1", None),
-                            getattr(vertical, "anchor_g2", None))
-        if (candidate_anchor != (getattr(horizontal, "anchor_g1", None),
-                                 getattr(horizontal, "anchor_g2", None))
-                or (anchor is not None and anchor != candidate_anchor)):
-            raise ValueError("H/V or energy-node EM source anchor mismatch")
-        anchor = candidate_anchor
-        if getattr(vertical, "fingerprint", None) != getattr(horizontal, "fingerprint", None):
-            raise ValueError("H/V basis model fingerprint mismatch")
-        if fingerprint is None:
-            fingerprint = getattr(vertical, "fingerprint", None)
-        elif fingerprint != getattr(vertical, "fingerprint", None):
+        if anchor is not None and anchor != item.anchor:
+            raise ValueError("energy-node EM source anchor mismatch")
+        if anchor is not None and fingerprint != item.fingerprint:
             raise ValueError("basis model fingerprint changed across energy nodes")
-        q = quadratic_moments(vertical.matrices, horizontal.matrices, phi, measure)
+        anchor, fingerprint = item.anchor, item.fingerprint
+        q = item.quadratics
         numerator += energy_weight*q.numerator
         denominator += energy_weight*q.denominator
         vertical_norm += energy_weight*q.vertical
         horizontal_norm += energy_weight*q.horizontal
-        mass_numerator += energy_weight*quadratic_moments(
-            vertical.matrices, horizontal.matrices, phi,
-            measure*pair_mass).denominator
-        extended = eta_p_mass > 1.60
-        if np.any(extended):
-            source_used += energy_weight*quadratic_moments(
-                vertical.matrices[:, extended], horizontal.matrices[:, extended],
-                phi[extended], measure[extended]).denominator
-        if energy_rule == "native_flux":
-            node = grouped[index]
-            state = azimuth_state_moments(vertical.matrices, horizontal.matrices,
-                                          phi, measure, node.polarization_vertical,
-                                          node.polarization_horizontal)
-            state_phi[0] += node.flux_vertical*state[0]
-            state_phi[1] += node.flux_horizontal*state[1]
+        mass_numerator += energy_weight*item.mass_numerator
+        source_used += energy_weight*item.source_used
+        if exposure is not None:
+            state_phi[0] += exposure.flux_vertical*item.state_phi[0]
+            state_phi[1] += exposure.flux_horizontal*item.state_phi[1]
     if not np.isfinite(denominator).all() or np.real(denominator[0, 0]) <= 0:
         return result("masked_nonconverged", "zero or nonfinite source normalization", energies)
     return result("calculated", None, energies, fingerprint, flux_summary)

@@ -81,3 +81,20 @@ def test_finite_phi_states_match_explicit_azimuth_quadrature(toy):
             density = (v2+h2)[None, :]/2 + (1 if state == 0 else -1)*polarization*polarized/2
             direct.append(np.sum(np.mean(density, axis=0)*weights)*(upper-lower)/(2*np.pi))
         np.testing.assert_allclose(measured, direct, rtol=2e-4, atol=1e-10)
+
+
+@pytest.mark.parametrize('bins', [8, 12, 16])
+def test_cone_averaged_harmonics_match_symmetric_explicit_azimuth(toy, bins):
+    from graal_theory.quadratic_moments import cone_averaged_moments, harmonic_state_moments
+    v, h, phi, weights = toy
+    # Equal +/- azimuths: sine mean vanishes, H/V interference need not.
+    q, sine = cone_averaged_moments(v, h, np.cos(2*phi), weights)
+    expected = quadratic_moments(np.repeat(v, 2, axis=1), np.repeat(h, 2, axis=1),
+                                np.column_stack((phi, -phi)).ravel(), np.repeat(weights/2, 2))
+    np.testing.assert_allclose(q.numerator, expected.numerator, atol=1e-13)
+    np.testing.assert_allclose(q.denominator, expected.denominator, atol=1e-13)
+    assert np.linalg.norm(sine) > .1
+    state = harmonic_state_moments(q.numerator, sine, q.denominator, .68, .42, phi_bins=bins)
+    explicit = azimuth_state_moments(np.repeat(v, 2, axis=1), np.repeat(h, 2, axis=1),
+        np.column_stack((phi, -phi)).ravel(), np.repeat(weights/2, 2), .68, .42, phi_bins=bins)
+    np.testing.assert_allclose(state, explicit, atol=1e-13)

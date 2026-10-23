@@ -37,6 +37,16 @@ def test_figure4_full_command_dispatches_explicit_numerical_settings(tmp_path, m
     assert observed == [(tmp_path/"run", 4, 6, 8, 4, "grid")]
 
 
+def test_figure4_full_adaptive_cli_passes_power_bounds(tmp_path, monkeypatch):
+    from graal_theory import cli
+    seen = []
+    monkeypatch.setattr(cli, "_figure4_full", lambda args:
+                        seen.append((args.adaptive_min_power, args.adaptive_max_power)) or 0)
+    assert cli.main(["figure4-full", "--output", str(tmp_path/"run"),
+                     "--adaptive-min-power", "5", "--adaptive-max-power", "8"]) == 0
+    assert seen == [(5, 8)]
+
+
 def test_basis_cli_rejects_missing_native_inputs_and_mixed_ajaka_inputs(tmp_path):
     missing = _run_cli("figure4-basis-build", "--target", "native",
                        "--output", str(tmp_path/"native"))

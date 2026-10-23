@@ -74,21 +74,24 @@ class DeltaEMBasis:
             raise ValueError("model fixed-physics fingerprint does not match basis")
 
 
-def delta_em_event_basis(model: EtaPi0PFullModel, sample: ThreeBodySample,
-                         polarization: NDArray[np.float64]) -> DeltaEMBasis:
-    """Freeze complete seven-family amplitudes at source and unit EM offsets."""
+def _basis_models(model):
+    """Source and two unit offsets with identical fixed physics."""
     if not isinstance(model, EtaPi0PFullModel):
         raise ValueError("model requires EtaPi0PFullModel")
     tree = model.parameters.tree
+    return (model, *(EtaPi0PFullModel(replace(model.parameters, tree=replace(tree,
+        g1_prime=tree.g1_prime+dg1, g2_prime=tree.g2_prime+dg2)), model.strong_grid)
+        for dg1, dg2 in ((1.,0.),(0.,1.))))
+
+
+def delta_em_event_basis(model: EtaPi0PFullModel, sample: ThreeBodySample,
+                         polarization: NDArray[np.float64]) -> DeltaEMBasis:
+    """Freeze complete seven-family amplitudes at source and unit EM offsets."""
+    models = _basis_models(model)
+    tree = model.parameters.tree
     anchor = (tree.g1_prime, tree.g2_prime)
-    source = model.amplitude(sample, polarization)
-
-    def shifted(g1: float, g2: float) -> NDArray[np.complex128]:
-        parameters = replace(model.parameters, tree=replace(tree, g1_prime=g1, g2_prime=g2))
-        return EtaPi0PFullModel(parameters, model.strong_grid).amplitude(sample, polarization)
-
-    matrices = np.stack((source, shifted(anchor[0]+1., anchor[1])-source,
-                         shifted(anchor[0], anchor[1]+1.)-source)).astype(np.complex128)
+    source, first, second = (candidate.amplitude(sample, polarization) for candidate in models)
+    matrices = np.stack((source, first-source, second-source)).astype(np.complex128)
     if matrices.shape != (3, len(sample.momenta), 2, 2) or not np.isfinite(matrices).all():
         raise ValueError("EM basis requires finite complex spin matrices")
     matrices.setflags(write=False)

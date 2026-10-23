@@ -13,10 +13,10 @@ from typing import Mapping
 
 import numpy as np
 
-from .figure4_basis import BasisBinCertificate, BasisBinMoment
+from .figure4_basis import AngularBinCheck, BasisBinCertificate, BasisBinMoment
 
 
-_TYPES = {item.__name__: item for item in (BasisBinCertificate, BasisBinMoment)}
+_TYPES = {item.__name__: item for item in (AngularBinCheck, BasisBinCertificate, BasisBinMoment)}
 
 
 def _digest(path: Path) -> str:
@@ -158,7 +158,7 @@ class BasisCheckpoint:
 
     def write(self, key: tuple[int, str, int], certificate: BasisBinCertificate):
         name = _bin_name(key)
-        if name not in self.manifest["keys"] or not isinstance(certificate, BasisBinCertificate):
+        if name not in self.manifest["keys"] or not isinstance(certificate, (BasisBinCertificate, AngularBinCheck)):
             raise ValueError("unexpected bin or certificate")
         arrays = {}
         metadata = _pack(certificate, arrays)
@@ -188,7 +188,7 @@ class BasisCheckpoint:
         with np.load(self.path / "bins" / name, allow_pickle=False) as archive:
             metadata = json.loads(archive["metadata"].tobytes().decode())
             result = _unpack(metadata, archive)
-        if not isinstance(result, BasisBinCertificate):
+        if not isinstance(result, (BasisBinCertificate, AngularBinCheck)):
             raise ValueError("invalid basis bin contents")
         return result
 

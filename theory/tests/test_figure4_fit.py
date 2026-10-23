@@ -1,12 +1,13 @@
 """Covariance-aware two-coupling objective and identifiable toy recovery."""
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from graal_theory.figure4_basis import BinPrediction
-from graal_theory.figure4_fit import build_gls, fit_delta_em
+from graal_theory.figure4_fit import build_exploratory_gls, build_gls, fit_delta_em
 from graal_theory.native_sigma import NativeSigmaData
 
 
@@ -115,3 +116,77 @@ def test_rank_one_sensitivity_is_not_identifiable():
     result = fit_delta_em(objective, np.array([objective.anchor_g1, objective.anchor_g2]))
     assert result.status == "not_identifiable"
     assert result.parameter_covariance is None
+
+
+def _pilot_moments(predictions):
+    return {key: SimpleNamespace(**vars(certificate.moment),
+                                 status="calculated", reason=None,
+                                 evaluate=certificate.predict)
+            for key, certificate in predictions.items()}
+
+
+def test_exploratory_gls_keeps_all_computed_bins_and_slices_full_covariance():
+    data, predictions, truth = toy_data()
+    data = replace(data, status="pilot")
+    moments = _pilot_moments(predictions)
+    omitted = data.keys[1]
+    moments[omitted].status = "masked_nonconverged"
+    moments[omitted].reason = "inner quadrature"
+    objective = build_exploratory_gls(data, moments)
+    indices = [0, 2, 3, 4, 5]
+    assert objective.data.keys == tuple(data.keys[i] for i in indices)
+    assert objective.excluded == ((omitted, "inner quadrature"),)
+    np.testing.assert_allclose(objective.data.covariance,
+                               data.covariance[np.ix_(indices, indices)])
+    np.testing.assert_allclose(objective.residuals(truth), 0., atol=1e-13)
+    result = fit_delta_em(objective, np.array([objective.anchor_g1, objective.anchor_g2]))
+    assert result.status == "exploratory_pilot"
+    np.testing.assert_allclose(result.theta_internal, truth, atol=1e-8)
+    with pytest.raises(ValueError, match="uncertified"):
+        build_gls(data, {key: SimpleNamespace(moment=moment,
+                    status="preliminary_uncertified", numerical_error_bound=np.nan)
+                    for key, moment in moments.items()})
+
+
+def test_exploratory_gls_rejects_missing_key_or_inconsistent_anchor():
+    data, predictions, _ = toy_data()
+    moments = _pilot_moments(predictions)
+    with pytest.raises(ValueError, match="pilot data"):
+        build_exploratory_gls(data, moments)
+    data = replace(data, status="pilot")
+    with pytest.raises(ValueError, match="keys"):
+        build_exploratory_gls(data, {key: value for key, value in moments.items()
+                                     if key != data.keys[-1]})
+    moments[data.keys[1]].anchor_g1 += .1
+    with pytest.raises(ValueError, match="anchor"):
+        build_exploratory_gls(data, moments)
+
+
+def test_exploratory_fit_checks_each_trial_and_preserves_selected_phi_metadata():
+    data,predictions,truth=toy_data()
+    data=replace(data,status='pilot',phi_bins=np.array([8,12,16,8,12,16]),
+                 phi_bin_divisor=np.array([.9003,.9549,.9745]*2),
+                 ratio_used_fallback=np.array([True,False]*3))
+    moments=_pilot_moments(predictions)
+    for index,key in enumerate(data.keys):
+        moments[key].state_phi=np.zeros((2,int(data.phi_bins[index]),3,3),complex)
+        moments[key].phi_bin_divisor=float(data.phi_bin_divisor[index])
+        moments[key].ratio_used_fallback=bool(data.ratio_used_fallback[index])
+    moments[data.keys[1]].status='masked_nonconverged'
+    checks={}
+    calls=[]
+    for key in data.keys:
+        def predict(c,key=key):
+            calls.append(key)
+            if abs(c[1]) > .09:
+                raise ValueError('refinement unresolved at trial')
+            return predictions[key].predict(c)
+        checks[key]=SimpleNamespace(moment=moments[key],status='diagnostic_converged',predict=predict)
+    objective=build_exploratory_gls(data,moments,checks=checks)
+    assert objective.data.phi_bins.tolist() == [8,16,8,12,16]
+    result=fit_delta_em(objective,np.array([objective.anchor_g1,objective.anchor_g2]))
+    assert result.status == 'exploratory_pilot'
+    np.testing.assert_allclose(result.theta_internal,truth,atol=1e-8)
+    assert len(calls) > 10
+    with pytest.raises(ValueError,match='refinement'):
+        objective.residuals(truth+[.1,0.])

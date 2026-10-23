@@ -86,6 +86,9 @@ class NativeSigmaData:
     provenance: dict[str, str]
     source_sha256: str
     status: str
+    phi_bins: NDArray[np.int64] | None = None
+    phi_bin_divisor: NDArray[np.float64] | None = None
+    ratio_used_fallback: NDArray[np.bool_] | None = None
 
 
 def load_native_sigma_root(path: Path, *, require_final: bool = False) -> NativeSigmaData:
@@ -119,6 +122,33 @@ def load_native_sigma_root(path: Path, *, require_final: bool = False) -> Native
                                   & (columns["estimator_id"] == estimator_id))
         if not len(indices):
             raise ValueError("no raw_bdt/ratio points")
+        # Modern production declares the finite-bin correction explicitly.
+        # Legacy files without that declaration retain the old uncorrected 12-bin contract.
+        phi_bins = np.full(len(indices), 12, dtype=np.int64)
+        phi_divisor = np.ones(len(indices))
+        fallback = np.zeros(len(indices), dtype=bool)
+        if "phi_bins" in provenance or "phi_bin_correction" in provenance:
+            try:
+                metadata = tree.arrays(("phi_bins", "phi_bin_divisor", "used_fallback"), library="np")
+            except KeyError as exc:
+                raise ValueError("missing per-point phi/fallback metadata") from exc
+            if any(value.shape != (size,) for value in metadata.values()):
+                raise ValueError("phi metadata branch length mismatch")
+            bins = metadata["phi_bins"][indices]
+            divisors = metadata["phi_bin_divisor"][indices]
+            used_fallback = metadata["used_fallback"][indices]
+            if not np.isin(bins, (8, 12, 16)).all():
+                raise ValueError("phi_bins must be 8, 12 or 16")
+            approved = {8: .9003, 12: .9549, 16: .9745}
+            expected = np.array([approved[int(n)] for n in bins])
+            if (provenance.get("phi_bin_correction") != "ratio_only_rounded"
+                    or not np.allclose(divisors, expected, rtol=0, atol=1e-12)):
+                raise ValueError("phi_bin_divisor disagrees with rounded correction")
+            if not np.isin(used_fallback, (0, 1)).all():
+                raise ValueError("invalid ratio used_fallback")
+            phi_bins = bins.astype(np.int64)
+            phi_divisor = divisors.astype(np.float64)
+            fallback = used_fallback.astype(bool)
         keys = []
         for index in indices:
             try:
@@ -156,14 +186,17 @@ def load_native_sigma_root(path: Path, *, require_final: bool = False) -> Native
         bootstrap = _covariance(source, "covariance/bootstrap_run", size, optional=True)
         if bootstrap is not None:
             bootstrap = bootstrap[np.ix_(indices, indices)].copy()
-        final_input = provenance.get("background") == "sideband-corrected" and bootstrap is not None
+        final_input = (provenance.get("background") == "sideband-corrected"
+                       and bootstrap is not None
+                       and provenance.get("final_inference") != "suspended")
         if require_final and not final_input:
             raise ValueError("final data require sideband correction and run-bootstrap covariance")
-        for value in (sigma, indices, covariance, bootstrap):
+        for value in (sigma, indices, covariance, bootstrap, phi_bins, phi_divisor, fallback):
             if value is not None:
                 value.setflags(write=False)
         return NativeSigmaData(tuple(keys), sigma, (low+high)/2, indices, covariance,
                                bootstrap, energy_edges, mass_edges, provenance,
-                               digest.hexdigest(), "final_input" if final_input else "pilot")
+                               digest.hexdigest(), "final_input" if final_input else "pilot",
+                               phi_bins, phi_divisor, fallback)
     finally:
         source.close()

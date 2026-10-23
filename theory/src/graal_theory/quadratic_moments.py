@@ -71,7 +71,7 @@ def quadratic_moments(vertical_basis, horizontal_basis, phi, weights) -> Quadrat
 
 def azimuth_state_moments(vertical_basis, horizontal_basis, phi, weights,
                           polarization_vertical: float,
-                          polarization_horizontal: float) -> NDArray[np.complex128]:
+                          polarization_horizontal: float, *, phi_bins: int = 12) -> NDArray[np.complex128]:
     """Twelve exact azimuth-bin expected-count matrices for V/H, before flux."""
     v, h, angle, measure = _inputs(vertical_basis, horizontal_basis, phi, weights)
     for value in (polarization_vertical, polarization_horizontal):
@@ -79,8 +79,10 @@ def azimuth_state_moments(vertical_basis, horizontal_basis, phi, weights,
                 or not np.isfinite(value) or not 0 < value <= 1:
             raise ValueError("polarization must lie in (0,1]")
     total = _gram(v, v, measure) + _gram(h, h, measure)
-    edges = np.linspace(0., 2*np.pi, 13)
-    result = np.empty((2, 12, 3, 3), dtype=np.complex128)
+    if type(phi_bins) is not int or phi_bins not in (8, 12, 16):
+        raise ValueError("phi_bins must be 8, 12 or 16")
+    edges = np.linspace(0., 2*np.pi, phi_bins+1)
+    result = np.empty((2, phi_bins, 3, 3), dtype=np.complex128)
     for index, (lower, upper) in enumerate(zip(edges[:-1], edges[1:])):
         cos_integral = (np.sin(2*(upper-angle)) - np.sin(2*(lower-angle)))/2
         sin_integral = (np.cos(2*(lower-angle)) - np.cos(2*(upper-angle)))/2
@@ -90,5 +92,39 @@ def azimuth_state_moments(vertical_basis, horizontal_basis, phi, weights,
         baseline = (upper-lower)/(4*np.pi)*total
         result[0, index] = _hermitian(baseline + polarization_vertical/(4*np.pi)*polarized)
         result[1, index] = _hermitian(baseline - polarization_horizontal/(4*np.pi)*polarized)
+    result.setflags(write=False)
+    return result
+
+
+def cone_averaged_moments(vertical_basis, horizontal_basis, cosine_mean, weights):
+    """Average a symmetric internal azimuth cone; retain both output harmonics."""
+    v, h, cosine, measure = _inputs(vertical_basis, horizontal_basis, cosine_mean, weights)
+    if np.any(abs(cosine) > 1+1e-12):
+        raise ValueError("cone cosine mean must lie in [-1,1]")
+    vertical, horizontal = _hermitian(_gram(v,v,measure)), _hermitian(_gram(h,h,measure))
+    numerator = _hermitian(_gram(v,v,measure*cosine)-_gram(h,h,measure*cosine))
+    cross = _gram(h,v,measure*cosine)
+    sine = _hermitian(-cross-cross.conj().T)
+    return QuadraticMoments(numerator, _hermitian(vertical+horizontal), vertical, horizontal), sine
+
+
+def harmonic_state_moments(numerator, sine, denominator, polarization_vertical,
+                           polarization_horizontal, *, phi_bins=12):
+    """Integrate cosine/sine density exactly over native azimuth bins, before flux."""
+    if type(phi_bins) is not int or phi_bins not in (8,12,16):
+        raise ValueError("phi_bins must be 8, 12 or 16")
+    if any(not np.isscalar(p) or isinstance(p, (bool, np.bool_)) or not np.isreal(p)
+           or not np.isfinite(p) or not 0 < p <= 1
+           for p in (polarization_vertical, polarization_horizontal)):
+        raise ValueError("polarization must lie in (0,1]")
+    n, s, d = map(_hermitian, (numerator, sine, denominator))
+    edges = np.linspace(0., 2*np.pi, phi_bins+1)
+    result = np.empty((2,phi_bins,3,3), complex)
+    for i,(lo,hi) in enumerate(zip(edges[:-1],edges[1:])):
+        harmonic = ((np.sin(2*hi)-np.sin(2*lo))*n
+                    +(np.cos(2*lo)-np.cos(2*hi))*s)/(8*np.pi)
+        baseline = (hi-lo)*d/(4*np.pi)
+        result[0,i] = baseline + polarization_vertical*harmonic
+        result[1,i] = baseline - polarization_horizontal*harmonic
     result.setflags(write=False)
     return result

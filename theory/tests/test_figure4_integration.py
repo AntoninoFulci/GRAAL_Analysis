@@ -11,6 +11,7 @@ from graal_theory.figure4_integration import (
     covariance_from_replicates, predict_figure4_bin, project_polarized_moments,
     convergence_reasons, integrate_figure4_panel, certify_figure4_panel,
     project_azimuth_averaged_moments, apply_pair_total_gate,
+    adaptive_figure4_bin_checks, assemble_figure4_panel, Figure4BinMoment,
 )
 from graal_theory.phase_space import SobolConfig, phase_space_volume_quad
 from graal_theory.kinematics import kallen
@@ -38,6 +39,193 @@ class FlatModel:
         matrix = np.eye(2, dtype=complex) if epsilon[0] else np.diag([1., -1.]).astype(complex)
         return np.broadcast_to(matrix,
                                (len(sample.initial), 2, 2)).copy()
+
+
+def test_adaptive_bin_reuses_nested_deterministic_samples_and_delays_expensive_checks(monkeypatch):
+    from dataclasses import dataclass
+    from graal_theory.figure4_integration import AdaptiveBinChecks
+
+    @dataclass(frozen=True)
+    class GridModel:
+        strong_grid: object = "grid"
+
+    calls = []
+    def fake(model, pair, energy_range, mass_range, order, sobol):
+        key = "lower" if mass_range[0] < 1.55 else "upper"
+        calls.append((key, sobol.power, sobol.scramble, order, model.strong_grid))
+        levels = ({5: 1., 6: 1.005, 7: 1.006, 8: 1.007, 9: 1.008} if key == "lower"
+                  else {5: 1., 6: 1.03, 7: 1.06, 8: 1.064, 9: 1.065})
+        denominator = levels[sobol.power]
+        return Figure4BinMoment(pair, energy_range, mass_range,
+            energy_range, mass_range, np.array([1.15]), .2*denominator,
+            denominator, denominator/2, denominator/2,
+            denominator*sum(mass_range)/2, 0., "calculated")
+
+    monkeypatch.setattr("graal_theory.figure4_integration._safe_predict", fake)
+    seeds = tuple(range(2026, 2034))
+    model = GridModel()
+    lower = adaptive_figure4_bin_checks(model, "p_eta", (1.1, 1.2),
+        (1.52, 1.56), energy_order=2, min_power=5, max_power=7,
+        replica_seeds=seeds)
+    upper = adaptive_figure4_bin_checks(model, "p_eta", (1.1, 1.2),
+        (1.60, 1.64), energy_order=2, min_power=5, max_power=7,
+        replica_seeds=seeds)
+    assert isinstance(lower, AdaptiveBinChecks)
+    assert (lower.selected_power, upper.selected_power) == (5, 7)
+    assert not lower.exhausted and not upper.exhausted
+    for power in (5, 6):
+        assert not any(key == "upper" and candidate == power and (scrambled or grid is None)
+                       for key, candidate, scrambled, order, grid in calls)
+    assert sum(key == "upper" and candidate == 6 and not scrambled and order == 2
+               for key, candidate, scrambled, order, grid in calls) == 1
+    assert sum(key == "upper" and candidate == 7 and not scrambled and order == 2 and grid is not None
+               for key, candidate, scrambled, order, grid in calls) == 1
+    assert sum(key == "upper" and scrambled for key, _, scrambled, _, _ in calls) == 8
+    assert sum(key == "upper" and grid is None for key, _, _, _, grid in calls) == 1
+
+
+def test_adaptive_rejects_accidental_first_pair_agreement(monkeypatch):
+    calls = []
+    levels = {5: 1., 6: 1.005, 7: 1.05, 8: 1.053, 9: 1.054}
+    def fake(model, pair, energy_range, mass_range, order, sobol):
+        calls.append((sobol.power, sobol.scramble, order))
+        denominator = levels[sobol.power]
+        return Figure4BinMoment(pair, energy_range, mass_range,
+            energy_range, mass_range, np.array([1.15]), .2*denominator,
+            denominator, denominator/2, denominator/2,
+            1.62*denominator, 0., "calculated")
+    monkeypatch.setattr("graal_theory.figure4_integration._safe_predict", fake)
+    seeds = tuple(range(2026, 2034))
+    result = adaptive_figure4_bin_checks(FlatModel(), "p_eta", (1.1, 1.2),
+        (1.60, 1.64), energy_order=2, min_power=5, max_power=7,
+        replica_seeds=seeds)
+    assert result.selected_power == 7
+    assert not result.exhausted
+    assert result.confirmation is not None
+    assert [power for power, scrambled, order in calls if not scrambled and order == 2] == [5, 6, 7, 8, 9]
+    assert [power for power, scrambled, _ in calls if scrambled] == [7]*8
+
+
+def test_adaptive_rejects_two_small_steps_with_large_total_drift(monkeypatch):
+    calls = []
+    def fake(model, pair, energy_range, mass_range, order, sobol):
+        calls.append((sobol.power, sobol.scramble))
+        denominator = {5: 1., 6: 1.006, 7: 1.012}[sobol.power]
+        return Figure4BinMoment(pair, energy_range, mass_range,
+            energy_range, mass_range, np.array([1.15]), .2*denominator,
+            denominator, denominator/2, denominator/2,
+            1.62*denominator, 0., "calculated")
+    monkeypatch.setattr("graal_theory.figure4_integration._safe_predict", fake)
+    result = adaptive_figure4_bin_checks(FlatModel(), "p_eta", (1.1, 1.2),
+        (1.60, 1.64), energy_order=2, min_power=5, max_power=5,
+        replica_seeds=tuple(range(2026, 2034)))
+    assert result.exhausted
+    assert "sobol_span_total" in result.failure_reason
+    assert calls == [(5, False), (6, False), (7, False)]
+
+
+def test_adaptive_certificate_includes_confirmation_drift_in_error_bound():
+    from graal_theory.figure4_integration import AdaptiveBinChecks
+    energy = (1.1, 1.2)
+    mass = (1.60, 1.64)
+    seeds = tuple(range(2026, 2034))
+    def moment(sigma):
+        return Figure4BinMoment("p_eta", energy, mass, energy, mass,
+            np.array([1.15]), sigma, 1., .5, .5, 1.62, 0., "calculated")
+    base, finer, confirmation = moment(.2), moment(.201), moment(.209)
+    checks = AdaptiveBinChecks((base, base, finer, (base,)*8, base), 5,
+                               confirmation=confirmation)
+    panel = assemble_figure4_panel("p_eta", energy, list(mass), (checks,),
+        energy_order=2, sobol_power=5, replica_seeds=seeds, mode="direct")
+    assert panel.bins[0].status == "calculated"
+    assert panel.bins[0].error_components["sobol_confirmation_delta_sigma"] == pytest.approx(.008)
+    assert panel.bins[0].error_components["sobol_span_delta_sigma"] == pytest.approx(.009)
+    assert panel.bins[0].numerical_error_bound >= .009-1e-12
+
+
+def test_adaptive_exhaustion_is_masked_with_selected_power(monkeypatch):
+    def drifting(model, pair, energy_range, mass_range, order, sobol):
+        denominator = 1.1**(sobol.power-5)
+        return Figure4BinMoment(pair, energy_range, mass_range,
+            energy_range, mass_range, np.array([1.15]), .2*denominator,
+            denominator, denominator/2, denominator/2, 1.6*denominator,
+            0., "calculated")
+    monkeypatch.setattr("graal_theory.figure4_integration._safe_predict", drifting)
+    seeds = tuple(range(2026, 2034))
+    result = adaptive_figure4_bin_checks(FlatModel(), "p_eta", (1.1, 1.2),
+        (1.60, 1.64), energy_order=2, min_power=5, max_power=6,
+        replica_seeds=seeds)
+    panel = assemble_figure4_panel("p_eta", (1.1, 1.2), [1.60, 1.64],
+        (result,), energy_order=2, sobol_power=6,
+        replica_seeds=seeds, mode="direct")
+    assert result.exhausted
+    assert panel.bins[0].status == "masked_nonconverged"
+    assert panel.bins[0].sobol_power == 6
+    assert "sobol_resolution_exhausted" in panel.bins[0].reason
+
+
+def test_adaptive_assembly_keeps_shared_seed_order_across_different_powers():
+    from graal_theory.figure4_integration import AdaptiveBinChecks
+    seeds = tuple(range(2026, 2034))
+    energy = (1.4, 1.5)
+    edges = [1.60, 1.64, 1.68]
+
+    def checks(index, power):
+        mass = (edges[index], edges[index+1])
+        def moment(sigma):
+            return Figure4BinMoment("p_eta", energy, mass, energy, mass,
+                np.array([1.45]), sigma, 1., .5, .5,
+                sum(mass)/2, 0., "calculated")
+        base = moment(.2)
+        replicas = tuple(moment(.2 + (seed-2029.5)*.001*(index+1))
+                         for seed in seeds)
+        return AdaptiveBinChecks((base, base, base, replicas, base), power,
+                                 confirmation=base)
+
+    panel = assemble_figure4_panel("p_eta", energy, edges,
+        (checks(0, 5), checks(1, 7)), energy_order=4, sobol_power=7,
+        replica_seeds=seeds, mode="direct")
+    assert [item.sobol_power for item in panel.bins] == [5, 7]
+    assert [item.status for item in panel.bins] == ["calculated", "calculated"]
+    assert panel.covariance[0, 1] > 0
+    assert panel.covariance[1, 1] == pytest.approx(4*panel.covariance[0, 0])
+
+
+def test_adaptive_energy_failure_keeps_reason_and_skips_replicas(monkeypatch):
+    calls = []
+    def fake(model, pair, energy_range, mass_range, order, sobol):
+        calls.append((order, sobol.power, sobol.scramble))
+        status = "masked_nonconverged" if order == 4 else "calculated"
+        return Figure4BinMoment(pair, energy_range, mass_range,
+            energy_range, mass_range, np.array([1.15]), .2, 1., .5, .5,
+            1.62, 0., status,
+            "inner_quadrature_or_input: failed" if order == 4 else None)
+
+    monkeypatch.setattr("graal_theory.figure4_integration._safe_predict", fake)
+    result = adaptive_figure4_bin_checks(FlatModel(), "p_eta", (1.1, 1.2),
+        (1.60, 1.64), energy_order=2, min_power=5, max_power=7,
+        replica_seeds=tuple(range(2026, 2034)))
+    assert result.failure_reason == ("inner_quadrature_or_input: failed",)
+    assert not result.exhausted
+    assert calls == [(2, 5, False), (2, 6, False), (2, 7, False), (4, 5, False)]
+
+
+def test_adaptive_panel_and_binwise_assembly_agree():
+    model = FlatModel()
+    edges = [1.60, 1.64, 1.68]
+    seeds = tuple(range(2026, 2034))
+    kwargs = dict(energy_order=2, replica_seeds=seeds)
+    serial = certify_figure4_panel(model, "p_eta", (1.4, 1.5), edges,
+        sobol_power=4, adaptive_min_power=4, adaptive_max_power=5, **kwargs)
+    checks = tuple(adaptive_figure4_bin_checks(model, "p_eta", (1.4, 1.5),
+        (low, high), min_power=4, max_power=5, **kwargs)
+        for low, high in zip(edges[:-1], edges[1:]))
+    binwise = assemble_figure4_panel("p_eta", (1.4, 1.5), edges, checks,
+        sobol_power=5, mode="direct", **kwargs)
+    assert [(item.status, item.reason, item.sobol_power) for item in serial.bins] == [
+        (item.status, item.reason, item.sobol_power) for item in binwise.bins]
+    np.testing.assert_allclose(serial.covariance, binwise.covariance,
+                               rtol=0, atol=0, equal_nan=True)
 
 
 def test_exact_global_azimuth_average_matches_rotated_polarizations():
@@ -185,3 +373,58 @@ def test_pair_total_gate_masks_disagreeing_accessible_panels():
     checked = apply_pair_total_gate(panels)
     assert all(checked[key].bins[0].status == "masked_nonconverged" for key in panels)
     assert all("pair_total_mismatch" in checked[key].bins[0].reason for key in panels)
+
+
+def test_binwise_certification_preserves_cross_bin_covariance_and_statuses():
+    from graal_theory.figure4_integration import (
+        calculate_figure4_bin_checks, assemble_figure4_panel)
+
+    class AngularModel(FlatModel):
+        def amplitude(self, sample, epsilon):
+            pion_x = sample.momenta[:, 1, 1]
+            eta_y = sample.momenta[:, 0, 2]
+            scale = 1+.8*pion_x+(.5 if epsilon[0] else -.3)*eta_y
+            return scale[:, None, None]*super().amplitude(sample, epsilon)
+
+    model = AngularModel()
+    edges = np.array([1.60, 1.64, 1.68])
+    seeds = tuple(range(2026, 2034))
+    serial = certify_figure4_panel(model, "p_eta", (1.4, 1.5), edges,
+        energy_order=2, sobol_power=4, replica_seeds=seeds)
+    checks = tuple(calculate_figure4_bin_checks(
+        model, "p_eta", (1.4, 1.5), (float(low), float(high)),
+        energy_order=2, sobol_power=4, replica_seeds=seeds)
+        for low, high in zip(edges[:-1], edges[1:]))
+    binwise = assemble_figure4_panel("p_eta", (1.4, 1.5), edges, checks,
+        energy_order=2, sobol_power=4, replica_seeds=seeds, mode="direct")
+    assert [item.status for item in binwise.bins] == [item.status for item in serial.bins]
+    np.testing.assert_allclose(
+        [item.moment.denominator for item in binwise.bins],
+        [item.moment.denominator for item in serial.bins], rtol=0, atol=0)
+    np.testing.assert_allclose(binwise.covariance, serial.covariance,
+                               rtol=0, atol=0, equal_nan=True)
+    assert binwise.covariance[0, 1] != 0
+    with pytest.raises(ValueError, match="bin order"):
+        assemble_figure4_panel("p_eta", (1.4, 1.5), edges, checks[::-1],
+            energy_order=2, sobol_power=4, replica_seeds=seeds, mode="direct")
+
+
+def test_certification_keeps_kinematic_mask_without_accessing_missing_refinements():
+    panel = certify_figure4_panel(FlatModel(), "p_eta", (1.4, 1.5),
+        [1.8, 1.84], energy_order=2, sobol_power=4,
+        replica_seeds=tuple(range(2026, 2034)))
+    assert panel.bins[0].status == "masked_kinematic"
+
+
+def test_binwise_assembly_masks_missing_replica_instead_of_accepting_it():
+    from graal_theory.figure4_integration import (
+        calculate_figure4_bin_checks, assemble_figure4_panel)
+    seeds = tuple(range(2026, 2034))
+    checks = calculate_figure4_bin_checks(FlatModel(), "p_eta", (1.4, 1.5),
+        (1.6, 1.64), energy_order=2, sobol_power=4, replica_seeds=seeds)
+    incomplete = (*checks[:3], checks[3][:-1], checks[4])
+    panel = assemble_figure4_panel("p_eta", (1.4, 1.5), [1.6, 1.64],
+        (incomplete,), energy_order=2, sobol_power=4,
+        replica_seeds=seeds, mode="direct")
+    assert panel.bins[0].status == "masked_nonconverged"
+    assert "not_completed" in panel.bins[0].reason

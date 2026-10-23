@@ -237,3 +237,28 @@ def test_certificate_rejects_unstable_weighted_mass_matrix(monkeypatch):
     certificate = certify_basis_bin(*args, energy_rule="uniform", energy_order=2,
                                     sobol_power=4, replica_seeds=tuple(range(8)))
     assert "energy_matrix" in certificate.reason
+
+
+@pytest.mark.parametrize('bins,divisor', [(8,.9003),(12,.9549),(16,.9745)])
+@pytest.mark.parametrize('fallback', [False, True])
+def test_native_prediction_uses_declared_bin_correction_and_frozen_fit(bins, divisor, fallback):
+    from graal_theory.figure4_basis import BasisBinMoment
+    edges = np.linspace(0., 2*np.pi, bins+1)
+    phi = (edges[1:]+edges[:-1])/2
+    cosine, sine = np.cos(2*phi), np.sin(2*phi)
+    # Asymmetric exposures/offset make cosine-only and diagnostic fits distinct.
+    ratio = .13 + .27*cosine - .21*sine
+    v, h = 1000*(1+.6*ratio), 700*(1-.4*ratio)
+    states = np.zeros((2,bins,3,3), complex)
+    states[0,:,0,0], states[1,:,0,0] = v, h
+    d = np.eye(3,dtype=complex)
+    moment = BasisBinMoment('p_eta',(1.1,1.2),(1.5,1.54),'native_flux',.27*d,d,
+        states,1000.,700.,.6,.4,np.zeros_like(d),np.array([1.15]),'calculated',
+        phi_bin_divisor=divisor, ratio_used_fallback=fallback)
+    yv, yh = v/1000,h/700
+    denom = .4*yv+.6*yh
+    variance = (yh/denom**2/1000)**2*v + (yv/denom**2/700)**2*h
+    design = np.column_stack((np.ones(bins), cosine, sine)) if fallback else cosine[:,None]
+    fitted = np.linalg.lstsq(design/np.sqrt(variance[:,None]), ratio/np.sqrt(variance),rcond=None)[0]
+    expected = fitted[1 if fallback else 0]/divisor
+    assert moment.evaluate([1.,0.,0.]).sigma == pytest.approx(expected, abs=1e-13)

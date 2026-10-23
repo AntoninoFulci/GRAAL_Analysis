@@ -120,3 +120,31 @@ def test_selected_run_rejects_duplicate_flux_root_cycle(tmp_path):
         out["run1_POL1"] = np.zeros(128), edges
     with pytest.raises(ValueError, match="duplicate"):
         load_calibrated_flux(root, manifest, (1.2, 1.3), selected_run_numbers=frozenset({1}))
+
+
+def test_inclusive_native_spectrum_keeps_runs_with_zero_surviving_events(tmp_path):
+    import json
+    root,manifest=_fixture(tmp_path)
+    reco=tmp_path/'reco.root'
+    with uproot.recreate(reco) as out:
+        out['reco_eta_pi0_bdt']={'RunNumber':np.array([1],dtype=np.int32)}
+        out['reconstruction_provenance']=json.dumps({'counts_by_run_state':[
+            {'run':1,'polarization':1,'input':10}, {'run':2,'polarization':1,'input':5}]})
+    events=native_flux_spectrum(root,manifest,reco,(1.2,1.3))
+    inclusive=native_flux_spectrum(root,manifest,reco,(1.2,1.3),use_inclusive_cutflow=True)
+    assert inclusive.complete_runs==2
+    assert sum(n.flux_vertical for n in inclusive.exposures)==80.
+    assert inclusive.source_fingerprint!=events.source_fingerprint
+
+
+@pytest.mark.parametrize('rows', [[],[{'run':2,'polarization':1,'input':10}],
+    [{'run':1,'polarization':1,'input':10}]*2])
+def test_inclusive_native_spectrum_rejects_missing_or_inconsistent_cutflow(tmp_path,rows):
+    import json
+    root,manifest=_fixture(tmp_path)
+    reco=tmp_path/'reco.root'
+    with uproot.recreate(reco) as out:
+        out['reco_eta_pi0_bdt']={'RunNumber':np.array([1],dtype=np.int32)}
+        out['reconstruction_provenance']=json.dumps({'counts_by_run_state':rows})
+    with pytest.raises(ValueError,match='cutflow'):
+        native_flux_spectrum(root,manifest,reco,(1.2,1.3),use_inclusive_cutflow=True)

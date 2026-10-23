@@ -92,6 +92,7 @@ class Figure4CertifiedBin:
     reason: tuple[str, ...]
     numerical_error_bound: float
     error_components: dict[str, float]
+    sobol_power: int | None = None
 
     @property
     def sigma(self) -> float:
@@ -112,6 +113,15 @@ class Figure4PanelResult:
     denominator_replica_se: float = float("nan")
     vertical_replica_se: float = float("nan")
     horizontal_replica_se: float = float("nan")
+
+
+@dataclass(frozen=True)
+class AdaptiveBinChecks:
+    checks: tuple
+    selected_power: int
+    exhausted: bool = False
+    failure_reason: tuple[str, ...] = ()
+    confirmation: Figure4BinMoment | None = None
 
 
 def covariance_from_replicates(sigma_by_replica: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -310,6 +320,25 @@ def _relative_difference(left: float, right: float) -> float:
     return abs(left-right)/max(abs(left), abs(right), 1e-30)
 
 
+def _sobol_gate_reasons(left: Figure4BinMoment, right: Figure4BinMoment,
+                        prefix: str) -> tuple[str, ...]:
+    """Apply the same raw-moment gates to any nested Sobol pair."""
+    reasons = []
+    if not np.isfinite(left.sigma) or not np.isfinite(right.sigma):
+        reasons.append(f"{prefix}_sigma_not_completed")
+    elif abs(left.sigma) > 1+1e-12 or abs(right.sigma) > 1+1e-12:
+        reasons.append("sigma_range")
+    elif abs(right.sigma-left.sigma) > .01:
+        reasons.append(f"{prefix}_sigma")
+    if _relative_difference(right.denominator, left.denominator) >= .01:
+        reasons.append(f"{prefix}_total")
+    for label in ("vertical", "horizontal"):
+        if _relative_difference(getattr(right, f"{label}_normalization"),
+                                getattr(left, f"{label}_normalization")) >= .03:
+            reasons.append(f"{prefix}_{label}")
+    return tuple(reasons)
+
+
 def _replica_mean(moments: tuple[Figure4BinMoment, ...]) -> Figure4BinMoment:
     first = moments[0]
     names = ("numerator", "denominator", "vertical_normalization",
@@ -319,43 +348,188 @@ def _replica_mean(moments: tuple[Figure4BinMoment, ...]) -> Figure4BinMoment:
     return replace(first, **averages)
 
 
-def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float],
-                          mass_edges_gev, *, energy_order: int, sobol_power: int,
-                          replica_seeds: tuple[int, ...] = tuple(range(2026, 2034))) -> Figure4PanelResult:
-    """Apply every fixed numerical gate to each conditional nominal bin."""
+def _validate_replica_seeds(replica_seeds):
     if (not isinstance(replica_seeds, tuple) or len(replica_seeds) < 8
             or len(set(replica_seeds)) != len(replica_seeds)
             or any(type(seed) is not int or seed < 0 for seed in replica_seeds)):
         raise ValueError("certification requires at least eight distinct nonnegative replica seeds")
+
+
+def calculate_figure4_bin_checks(model, pair: str,
+                                 energy_range_gev: tuple[float, float],
+                                 mass_range_gev: tuple[float, float], *,
+                                 energy_order: int, sobol_power: int,
+                                 replica_seeds: tuple[int, ...]):
+    """Evaluate one nominal bin and retain all checks for panel covariance."""
+    _validate_replica_seeds(replica_seeds)
     _validate_panel_input(pair, energy_range_gev)
-    edges = _panel_edges(mass_edges_gev)
+    interval = tuple(_panel_edges(mass_range_gev))
     base_config = SobolConfig(sobol_power)
     finer_config = SobolConfig(sobol_power+1)
-    raw = []
-    for lower, upper in zip(edges[:-1], edges[1:]):
-        interval = (float(lower), float(upper))
-        base = _safe_predict(model, pair, energy_range_gev, interval, energy_order, base_config)
-        if base.status != "calculated":
-            raw.append((base, None, None, (), None))
+    base = _safe_predict(model, pair, energy_range_gev, interval, energy_order, base_config)
+    if base.status != "calculated":
+        return base, None, None, (), None
+    energy = _safe_predict(model, pair, energy_range_gev, interval,
+                           2*energy_order, base_config)
+    sobol = _safe_predict(model, pair, energy_range_gev, interval,
+                          energy_order, finer_config)
+    replicas = tuple(_safe_predict(model, pair, energy_range_gev, interval,
+        energy_order, SobolConfig(sobol_power, scramble=True, seed=seed))
+        for seed in replica_seeds)
+    if getattr(model, "strong_grid", None) is not None:
+        direct_model = replace(model, strong_grid=None)
+        direct = _safe_predict(direct_model, pair, energy_range_gev,
+                               interval, energy_order, base_config)
+    else:
+        direct = base
+    return base, energy, sobol, replicas, direct
+
+
+def adaptive_figure4_bin_checks(model, pair: str,
+                                energy_range_gev: tuple[float, float],
+                                mass_range_gev: tuple[float, float], *,
+                                energy_order: int, min_power: int, max_power: int,
+                                replica_seeds: tuple[int, ...]) -> AdaptiveBinChecks:
+    """Require two nested refinements and their full span before replicas."""
+    _validate_replica_seeds(replica_seeds)
+    _validate_panel_input(pair, energy_range_gev)
+    interval = tuple(_panel_edges(mass_range_gev))
+    if (type(min_power) is not int or type(max_power) is not int
+            or not 4 <= min_power <= max_power <= 22):
+        raise ValueError("adaptive Sobol powers require 4 <= min <= max <= 22")
+    if type(energy_order) is not int or energy_order <= 0:
+        raise ValueError("energy_order must be positive")
+
+    def evaluate(order, power, *, scramble=False, seed=None, candidate=model):
+        return _safe_predict(candidate, pair, energy_range_gev, interval,
+                             order, SobolConfig(power, scramble=scramble, seed=seed))
+
+    base = evaluate(energy_order, min_power)
+    if base.status != "calculated":
+        return AdaptiveBinChecks((base, None, None, (), None), min_power)
+    next_finer = None
+    for power in range(min_power, max_power+1):
+        finer = next_finer if next_finer is not None else evaluate(energy_order, power+1)
+        next_finer = None
+        if finer.status != "calculated":
+            return AdaptiveBinChecks((base, None, finer, (), None), power,
+                                     failure_reason=(finer.reason or finer.status,))
+        sobol_reasons = _sobol_gate_reasons(base, finer, "sobol")
+        if sobol_reasons:
+            if power == max_power:
+                return AdaptiveBinChecks((base, None, finer, (), None), power,
+                                         exhausted=True,
+                                         failure_reason=sobol_reasons)
+            base = finer
             continue
-        energy = _safe_predict(model, pair, energy_range_gev, interval,
-                               2*energy_order, base_config)
-        sobol = _safe_predict(model, pair, energy_range_gev, interval,
-                              energy_order, finer_config)
-        replicas = tuple(_safe_predict(model, pair, energy_range_gev, interval,
-            energy_order, SobolConfig(sobol_power, scramble=True, seed=seed))
-            for seed in replica_seeds)
-        if getattr(model, "strong_grid", None) is not None:
-            direct_model = replace(model, strong_grid=None)
-            direct = _safe_predict(direct_model, pair, energy_range_gev,
-                                   interval, energy_order, base_config)
-        else:
-            direct = base
-        raw.append((base, energy, sobol, replicas, direct))
+
+        confirmation = evaluate(energy_order, power+2)
+        if confirmation.status != "calculated":
+            return AdaptiveBinChecks((base, None, finer, (), None), power,
+                                     failure_reason=(confirmation.reason or confirmation.status,),
+                                     confirmation=confirmation)
+        confirmation_reasons = (
+            _sobol_gate_reasons(finer, confirmation, "sobol_confirmation")
+            + _sobol_gate_reasons(base, confirmation, "sobol_span"))
+        if confirmation_reasons:
+            if power == max_power:
+                return AdaptiveBinChecks((base, None, finer, (), None), power,
+                    exhausted=True, failure_reason=confirmation_reasons,
+                    confirmation=confirmation)
+            base, next_finer = finer, confirmation
+            continue
+
+        energy = evaluate(2*energy_order, power)
+        if energy.status != "calculated":
+            return AdaptiveBinChecks((base, energy, finer, (), None), power,
+                                     failure_reason=(energy.reason or energy.status,),
+                                     confirmation=confirmation)
+        energy_reasons = []
+        if abs(energy.sigma-base.sigma) > .005:
+            energy_reasons.append("energy_sigma")
+        for label in ("vertical", "horizontal"):
+            if _relative_difference(getattr(energy, f"{label}_normalization"),
+                                    getattr(base, f"{label}_normalization")) >= .01:
+                energy_reasons.append(f"energy_{label}")
+        if energy_reasons:
+            return AdaptiveBinChecks((base, energy, finer, (), None), power,
+                                     failure_reason=tuple(energy_reasons),
+                                     confirmation=confirmation)
+
+        replicas = tuple(evaluate(energy_order, power, scramble=True, seed=seed)
+                         for seed in replica_seeds)
+        failures = tuple(item.reason or item.status for item in replicas
+                         if item.status != "calculated")
+        if failures:
+            return AdaptiveBinChecks((base, energy, finer, replicas, None), power,
+                                     failure_reason=failures, confirmation=confirmation)
+        replica_se = float(np.std([item.sigma for item in replicas], ddof=1)
+                           /np.sqrt(len(replicas)))
+        if not np.isfinite(replica_se):
+            return AdaptiveBinChecks((base, energy, finer, replicas, None), power,
+                                     failure_reason=("replica_se_not_completed",),
+                                     confirmation=confirmation)
+        if replica_se > .01 and power < max_power:
+            base, next_finer = finer, confirmation
+            continue
+        direct_model = (replace(model, strong_grid=None)
+                        if getattr(model, "strong_grid", None) is not None else model)
+        direct = evaluate(energy_order, power, candidate=direct_model) \
+            if direct_model is not model else base
+        if direct.status != "calculated":
+            return AdaptiveBinChecks((base, energy, finer, replicas, direct), power,
+                                     failure_reason=(direct.reason or direct.status,),
+                                     confirmation=confirmation)
+        if abs(direct.sigma-base.sigma) > .002:
+            return AdaptiveBinChecks((base, energy, finer, replicas, direct), power,
+                                     failure_reason=("grid_direct_sigma",),
+                                     confirmation=confirmation)
+        if replica_se > .01:
+            return AdaptiveBinChecks((base, energy, finer, replicas, direct), power,
+                                     exhausted=True, failure_reason=("replica_se",),
+                                     confirmation=confirmation)
+        return AdaptiveBinChecks((base, energy, finer, replicas, direct), power,
+                                 confirmation=confirmation)
+    raise AssertionError("adaptive power loop did not terminate")
+
+
+def assemble_figure4_panel(pair: str, energy_range_gev: tuple[float, float],
+                           mass_edges_gev, checks, *, energy_order: int,
+                           sobol_power: int, replica_seeds: tuple[int, ...],
+                           mode: str) -> Figure4PanelResult:
+    """Assemble ordered bin checks, preserving cross-bin replica covariance."""
+    _validate_replica_seeds(replica_seeds)
+    _validate_panel_input(pair, energy_range_gev)
+    edges = _panel_edges(mass_edges_gev)
+    entries = tuple(checks)
+    raw = tuple(item.checks if isinstance(item, AdaptiveBinChecks) else item
+                for item in entries)
+    selected_powers = tuple(item.selected_power if isinstance(item, AdaptiveBinChecks)
+                            else sobol_power for item in entries)
+    adaptive_reasons = tuple(
+        item.failure_reason
+        + (("sobol_resolution_exhausted",) if item.exhausted else ())
+        + (("sobol_confirmation_not_completed",) if item.confirmation is None else ())
+        if isinstance(item, AdaptiveBinChecks) else () for item in entries)
+    if mode not in ("direct", "grid") or len(raw) != len(edges)-1:
+        raise ValueError("invalid mode or bin count")
+    for index, item in enumerate(raw):
+        if (not isinstance(item, tuple) or len(item) != 5
+                or not isinstance(item[0], Figure4BinMoment)
+                or item[0].pair != pair
+                or item[0].energy_range_gev != tuple(energy_range_gev)
+                or item[0].mass_range_gev != (float(edges[index]), float(edges[index+1]))):
+            raise ValueError("bin order or identity mismatch")
 
     covariance = np.full((len(raw), len(raw)), np.nan)
     valid = [index for index, (base, energy, sobol, replicas, direct) in enumerate(raw)
-             if (base.status == energy.status == sobol.status == direct.status == "calculated"
+             if (base.status == "calculated"
+                 and energy is not None and sobol is not None and direct is not None
+                 and energy.status == sobol.status == direct.status == "calculated"
+                 and (not isinstance(entries[index], AdaptiveBinChecks)
+                      or entries[index].confirmation is not None
+                      and entries[index].confirmation.status == "calculated")
+                 and len(replicas) == len(replica_seeds)
                  and all(replica.status == "calculated" for replica in replicas))]
     if valid:
         replica_sigmas = np.array([[raw[index][3][replica].sigma for index in valid]
@@ -367,13 +541,14 @@ def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float
     for index, (base, energy, sobol, replicas, direct) in enumerate(raw):
         if base.status == "masked_kinematic":
             certified.append(Figure4CertifiedBin(base, base.status,
-                (base.reason or "kinematic",), float("nan"), {}))
+                (base.reason or "kinematic",), float("nan"), {}, selected_powers[index]))
             continue
         if index not in valid:
             failures = [moment.reason for moment in (base, energy, sobol, direct, *replicas)
                         if moment is not None and moment.status != "calculated"]
             certified.append(Figure4CertifiedBin(base, "masked_nonconverged",
-                tuple(failures) or ("not_completed",), float("nan"), {}))
+                (tuple(failures) or ("not_completed",))+adaptive_reasons[index],
+                float("nan"), {}, selected_powers[index]))
             continue
         mean = _replica_mean(replicas)
         se = float(np.sqrt(max(covariance[index, index], 0.)))
@@ -395,11 +570,26 @@ def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float
         }
         reasons = convergence_reasons(sigma=mean.sigma,
             populated=base.denominator >= 1e-4*total, **deltas)
+        if isinstance(entries[index], AdaptiveBinChecks):
+            confirmation = entries[index].confirmation
+            deltas.update({
+                "sobol_confirmation_delta_sigma": abs(confirmation.sigma-sobol.sigma),
+                "sobol_confirmation_total_relative": _relative_difference(
+                    confirmation.denominator, sobol.denominator),
+                "sobol_span_delta_sigma": abs(confirmation.sigma-base.sigma),
+                "sobol_span_total_relative": _relative_difference(
+                    confirmation.denominator, base.denominator),
+            })
+            reasons += _sobol_gate_reasons(sobol, confirmation, "sobol_confirmation")
+            reasons += _sobol_gate_reasons(base, confirmation, "sobol_span")
         error = max(se, deltas["energy_delta_sigma"],
-                    deltas["sobol_delta_sigma"], deltas["grid_direct_delta_sigma"])
+                    deltas["sobol_delta_sigma"], deltas["grid_direct_delta_sigma"],
+                    deltas.get("sobol_confirmation_delta_sigma", 0.),
+                    deltas.get("sobol_span_delta_sigma", 0.))
+        reasons = tuple(dict.fromkeys(reasons+adaptive_reasons[index]))
         certified.append(Figure4CertifiedBin(mean,
             "masked_nonconverged" if reasons else "calculated", reasons,
-            error, deltas))
+            error, deltas, selected_powers[index]))
     accessible = [index for index, (base, _, _, _, _) in enumerate(raw)
                   if base.status != "masked_kinematic"]
     norm_errors = [float("nan")]*3
@@ -411,9 +601,37 @@ def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float
                       for replica in range(len(replica_seeds))]
             norm_errors[k] = float(np.std(totals, ddof=1)/np.sqrt(len(totals)))
     return Figure4PanelResult(pair, tuple(energy_range_gev), edges.copy(),
-        tuple(certified), covariance, energy_order, sobol_power, replica_seeds,
-        "grid" if getattr(model, "strong_grid", None) is not None else "direct",
+        tuple(certified), covariance, energy_order, max(selected_powers), replica_seeds,
+        mode,
         *norm_errors)
+
+
+def certify_figure4_panel(model, pair: str, energy_range_gev: tuple[float, float],
+                          mass_edges_gev, *, energy_order: int, sobol_power: int,
+                          replica_seeds: tuple[int, ...] = tuple(range(2026, 2034)),
+                          adaptive_min_power: int | None = None,
+                          adaptive_max_power: int | None = None) -> Figure4PanelResult:
+    """Apply every fixed numerical gate to each conditional nominal bin."""
+    _validate_replica_seeds(replica_seeds)
+    _validate_panel_input(pair, energy_range_gev)
+    edges = _panel_edges(mass_edges_gev)
+    if (adaptive_min_power is None) != (adaptive_max_power is None):
+        raise ValueError("adaptive Sobol mode requires both minimum and maximum power")
+    checks = tuple(
+        adaptive_figure4_bin_checks(model, pair, energy_range_gev,
+            (float(low), float(high)), energy_order=energy_order,
+            min_power=adaptive_min_power, max_power=adaptive_max_power,
+            replica_seeds=replica_seeds)
+        if adaptive_min_power is not None else
+        calculate_figure4_bin_checks(model, pair, energy_range_gev,
+            (float(low), float(high)), energy_order=energy_order,
+            sobol_power=sobol_power, replica_seeds=replica_seeds)
+        for low, high in zip(edges[:-1], edges[1:]))
+    return assemble_figure4_panel(pair, energy_range_gev, edges, checks,
+        energy_order=energy_order,
+        sobol_power=adaptive_max_power if adaptive_max_power is not None else sobol_power,
+        replica_seeds=replica_seeds,
+        mode="grid" if getattr(model, "strong_grid", None) is not None else "direct")
 
 
 def apply_pair_total_gate(

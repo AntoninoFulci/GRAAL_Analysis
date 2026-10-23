@@ -137,25 +137,55 @@ def _figure4_panel_task(task):
     from .figure4_integration import certify_figure4_panel
     from .figure4_reference import PAIR_MASS_AXES
 
-    references, energy, pair, order, power, seeds, mode, q_order, angle_order = task
+    references, energy, pair, order, power, seeds, mode, q_order, angle_order, *adaptive = task
     model = _figure4_model(references, mode, q_order, angle_order)
     low, high = PAIR_MASS_AXES[pair]
     edges = np.linspace(low, high, 11)
     energy_range = (1.10+.10*energy, 1.20+.10*energy)
     panel = certify_figure4_panel(model, pair, energy_range, edges,
-        energy_order=order, sobol_power=power, replica_seeds=seeds)
+        energy_order=order, sobol_power=power, replica_seeds=seeds,
+        adaptive_min_power=adaptive[0] if adaptive else None,
+        adaptive_max_power=adaptive[1] if adaptive else None)
     return (energy, pair), panel
+
+
+def _figure4_bin_task(task):
+    import numpy as np
+    from .figure4_integration import (adaptive_figure4_bin_checks,
+                                      calculate_figure4_bin_checks)
+    from .figure4_reference import PAIR_MASS_AXES
+
+    references, energy, pair, index, order, power, seeds, mode, q_order, angle_order, *adaptive = task
+    model = _figure4_model(references, mode, q_order, angle_order)
+    low, high = PAIR_MASS_AXES[pair]
+    edges = np.linspace(low, high, 11)
+    energy_range = (1.10+.10*energy, 1.20+.10*energy)
+    interval = (float(edges[index]), float(edges[index+1]))
+    if adaptive and adaptive[0] is not None:
+        checks = adaptive_figure4_bin_checks(model, pair, energy_range, interval,
+            energy_order=order, min_power=adaptive[0], max_power=adaptive[1],
+            replica_seeds=seeds)
+    else:
+        checks = calculate_figure4_bin_checks(model, pair, energy_range,
+            interval, energy_order=order, sobol_power=power, replica_seeds=seeds)
+    return (energy, pair, index), checks
 
 
 def _figure4_full(args: argparse.Namespace) -> int:
     from .figure4_comparison import compare_figure4, write_figure4_run
-    from .figure4_integration import apply_pair_total_gate
-    from .figure4_reference import load_published_theory_curves
+    from .figure4_integration import apply_pair_total_gate, assemble_figure4_panel
+    from .figure4_reference import PAIR_MASS_AXES, load_published_theory_curves
+    import numpy as np
 
     if not 1 <= args.energy_order <= 64:
         raise ValueError("--energy-order must be between 1 and 64")
     if not 4 <= args.sobol_power <= 23:
         raise ValueError("--sobol-power must be between 4 and 23")
+    if (args.adaptive_min_power is None) != (args.adaptive_max_power is None):
+        raise ValueError("provide both --adaptive-min-power and --adaptive-max-power")
+    if (args.adaptive_min_power is not None and not
+            4 <= args.adaptive_min_power <= args.adaptive_max_power <= 22):
+        raise ValueError("adaptive Sobol powers require 4 <= min <= max <= 22")
     if not 8 <= args.replicas <= 64:
         raise ValueError("--replicas must be between 8 and 64")
     if not 1 <= args.workers <= 14:
@@ -167,15 +197,36 @@ def _figure4_full(args: argparse.Namespace) -> int:
     references = Path(_REFERENCES)
     seeds = tuple(range(2026, 2026+args.replicas))
     tasks = [(references, energy, pair, args.energy_order, args.sobol_power,
-              seeds, args.mode, args.q_order, args.angle_order)
+              seeds, args.mode, args.q_order, args.angle_order,
+              args.adaptive_min_power, args.adaptive_max_power)
              for energy in range(4)
              for pair in ("p_pi0", "p_eta", "eta_pi0")]
     if args.workers == 1:
         results = map(_figure4_panel_task, tasks)
         panels = dict(results)
     else:
+        bin_tasks = [(references, energy, pair, index, args.energy_order,
+                      args.sobol_power, seeds, args.mode, args.q_order, args.angle_order,
+                      args.adaptive_min_power, args.adaptive_max_power)
+                     for energy in range(4)
+                     for pair in ("p_pi0", "p_eta", "eta_pi0")
+                     for index in range(10)]
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
-            panels = dict(pool.map(_figure4_panel_task, tasks))
+            bin_results = dict(pool.map(_figure4_bin_task, bin_tasks))
+        panels = {}
+        for energy in range(4):
+            for pair in ("p_pi0", "p_eta", "eta_pi0"):
+                low, high = PAIR_MASS_AXES[pair]
+                edges = np.linspace(low, high, 11)
+                energy_range = (1.10+.10*energy, 1.20+.10*energy)
+                checks = tuple(bin_results[(energy, pair, index)]
+                               for index in range(10))
+                panels[(energy, pair)] = assemble_figure4_panel(
+                    pair, energy_range, edges, checks,
+                    energy_order=args.energy_order,
+                    sobol_power=(args.adaptive_max_power if args.adaptive_max_power is not None
+                                 else args.sobol_power),
+                    replica_seeds=seeds, mode=args.mode)
 
     panels = apply_pair_total_gate(panels)
     csv_path = references/"ajaka2008_figure4_theory.csv"
@@ -199,6 +250,10 @@ def _figure4_full(args: argparse.Namespace) -> int:
         "code_sha256": code_hasher.hexdigest(),
         "reference_csv_sha256": hashlib.sha256(csv_path.read_bytes()).hexdigest(),
         "energy_weighting": "uniform",
+        "sobol_policy": (f"adaptive_two_refinements_and_span:"
+                         f"{args.adaptive_min_power}..{args.adaptive_max_power}"
+                         if args.adaptive_min_power is not None else
+                         f"fixed:{args.sobol_power}"),
         "azimuth_integration": "analytic_global_rotation",
     }
     write_figure4_run(args.output, panels, comparison, provenance,
@@ -465,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
     figure4.add_argument("--output", type=Path, required=True)
     figure4.add_argument("--energy-order", type=int, default=4)
     figure4.add_argument("--sobol-power", type=int, default=8)
+    figure4.add_argument("--adaptive-min-power", type=int)
+    figure4.add_argument("--adaptive-max-power", type=int)
     figure4.add_argument("--replicas", type=int, default=8)
     figure4.add_argument("--workers", type=int, default=4)
     figure4.add_argument("--q-order", type=int, default=64)

@@ -9,6 +9,44 @@ Fig. 18. The extension is source use, with no quantified model uncertainty.
 Ajaka Figure 4 still has **not** been reproduced or validated: numerical
 publication-bin convergence and comparison remain open.
 
+Current 2026-10-06 status: stable Eq. (25)/(26) recoil endpoints and
+four-coordinate conditional integration pass the unchanged strict inner
+checks in two real `p_eta` pilot bins. At `E_gamma=[1.10,1.20]`,
+`M(p eta)=[1.52,1.56]`, base `p5` passes energy `n/2n`, deterministic
+`p5/p6`, eight-replica `SE(Sigma)=0.00912`, and direct/grid gates. At
+`E_gamma=[1.40,1.50]`, `M(p eta)=[1.60,1.64]`, base `p7` passes the same
+gates with `SE(Sigma)=0.001603`. These are **individual-bin** results;
+cross-bin covariance, three pair-mass total comparisons, 76 other
+accessible bins, and all twelve Ajaka residual panels remain open.
+The source-equivalent two-stratum `K+Lambda` sampler was removed after
+real `p5/p6` and `p6/p7` normalization drifts of `2.236%` and `2.640%`.
+The CLI now schedules by bin, but complete-bin 14-worker scaling and its
+`<=24 h` launch gate remain unmeasured.
+One interior nominal bin from each of the twelve Ajaka panels was screened
+at direct `n=4`, `64/48`: only `2/12` pass deterministic `p5/p6` `Sigma`
+and denominator gates. The ten failures were extended to `p6/p7`;
+`0/10` pass both gates. An old-code `eta_pi0` worker encountered Eq. (26)
+`log(0)` when a positive mapped distance below one ULP rounded onto a
+recoil root. A frozen-event RED/GREEN repair preserves that distance; the
+corrected full bin computes at `p7`, but its denominator still drifts
+`5.423%` versus `p6`. For low-energy `p_eta`, `M=[1.56,1.60]`, a coherent
+family/coordinate audit reproduces the `p6→p7` denominator change to
+`5e-12` absolute. All seven interference-allocated families and all four
+Sobol coordinate partitions contribute. No full-panel launch follows from
+these screens.
+
+One independent PRC73 Fig. 18 source guard has passed at `E_gamma=1.7 GeV`:
+direct seven-family `M(eta p)=[1.645,1.655]` density at Sobol `p7/p8`
+is `14.32913/14.22723 microbarn/GeV` (relative drift `0.711%`). Eight
+fixed scrambled `p7` replicas average `14.20144` with `SE=0.07828`;
+deterministic `p7` differs by `1.63 SE`. The numerical bound
+`0.10190` plus source reading bound `2.0` covers the `1.79856` residual
+to the independent `M(eta p)=1.65` trace value `16.0`. This is a
+compatible **single finite mass window**, not verification of the full
+Fig. 18 spectrum or a Figure 4 reproduction claim.
+Machine-readable pilot values and exact individual gate components are in
+the ignored local artifact `theory/outputs/figure4-pilot-audit-2026-10-06.json`.
+
 Current full-production pilot: analytic recoil-angle treatment resolves the
 historical Eq. (25) tangent-cut event at `E_gamma=1.4069431844202973 GeV`,
 `M(eta p)=1.61009316501 GeV`, using unchanged `64/48` and `1e-5/1e-10`
@@ -28,8 +66,9 @@ from `p7` by `0.003429`, within the `0.01` gate.
 `Sigma=-0.508868327`. Its measured runtime is
 `1288.9 s`. Extrapolating this bin cost to the upper `p_eta` panel's eight
 accessible bins and all 14 base-equivalent certification passes gives
-`40.1 h` on the current one-worker-per-panel scheduler. This is a
-same-cost estimate, not a measured full-panel runtime.
+`40.1 h` on the historical one-worker-per-panel scheduler. This is a
+same-cost estimate, not a measured full-panel runtime; the current CLI
+schedules by nominal bin.
 Fresh `p5/p6` diagnostic denominator contributions change by `-0.00994`
 below the `K+Lambda` threshold at `1.60936 GeV`, `+0.02570` between that
 threshold and `1.62 GeV`, and `+0.00492` above `1.62 GeV` in this bin.
@@ -40,19 +79,21 @@ An exact `K+Lambda` threshold split was tested and reverted: the Sobol zero
 point sampled the threshold exactly and Eq. (25) failed even at `512/384`;
 after a fixed digital shift, a nearby `1.60929498643 GeV` event failed at
 both `64/48` and `96/72`. Toy phase-space volume and nested-point tests
-passed, but no complete physical split-bin result exists. Resolving this
-near-threshold loop behavior precedes any mass-split production run.
-The measured `p6` bin cost is about `355 s`; even perfect four-worker scaling
+passed, but no complete physical split-bin result existed at that stage.
+The later shared Eq. (25)/(26) endpoint repair allowed a complete split
+trial, whose normalization gate failed as recorded above; the unsplit
+sampler is the active production path.
+At that stage the measured `p6` bin cost was about `355 s`; even perfect four-worker scaling
 projects at least `26.9 h` for 78 accessible bins and the mandatory base,
 energy doubling, Sobol doubling, eight replicas, and direct check. The
-24-hour launch gate fails on the measured four-worker setup. The host reports
+24-hour launch gate failed on the measured four-worker setup. The host reports
 14 logical CPUs; a separate warm-event benchmark measured
 `6.04/11.62/15.13` evaluations/s at 4/8/14 workers. That suggests about
 `10.8 h` for the same `p6` workload at 14 workers, but does not establish
 complete-bin scaling or convergence. No twelve-panel
 numerical or physical comparison
-has been run; the independent bounded PRC73 Fig. 18 trace is present but its
-full-model spectrum comparison also remains open.
+has been run. The bounded PRC73 Fig. 18 trace now has the one-point
+comparison above; its remaining spectrum is open.
 
 ## Source comparisons and counts
 

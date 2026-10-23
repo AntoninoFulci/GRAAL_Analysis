@@ -14,7 +14,6 @@ from typing import Callable
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import brentq
 
 from ..kinematics import cm_photon_momentum, invariant_mass, validate_final_state
 from ..phase_space import ThreeBodySample
@@ -25,6 +24,7 @@ from .production_loops import (
     _integrate_complex_2d,
     _integrate_complex_2d_array,
     _polarization, _quadrature_value, _radial_cut_density, _real_array,
+    _recoil_endpoint_data,
     eta_photoproduction_amplitude, pion_monopole,
 )
 
@@ -396,63 +396,8 @@ def internal_pi0_amplitude(
                            if p*meson > 0 and tangent_squared > 0 else np.inf)
 
                 def analytic_recoil_angle():
-                    def b_end(q, sign):
-                        omega_q = np.sqrt(meson*meson+q*q)
-                        recoil = np.sqrt(right*right+(q+sign*p)**2)
-                        return w-omega_q-pion[0]-recoil
-
-                    boundaries = [0., limit]
-                    endpoint_references = {}
-                    for sign in (-1, 1):
-                        def endpoint_slope(q):
-                            omega_q = np.sqrt(meson*meson+q*q)
-                            recoil = np.sqrt(right*right+(q+sign*p)**2)
-                            return -q/omega_q-(q+sign*p)/recoil
-
-                        # Each endpoint is concave in q; its sole stationary
-                        # point brackets both cuts even when they are narrow.
-                        segments = [0.]
-                        if endpoint_slope(0.)*endpoint_slope(limit) < 0:
-                            stationary = brentq(endpoint_slope, 0., limit, xtol=1e-14)
-                            segments.append(stationary)
-                            boundaries.append(stationary)
-                        segments.append(limit)
-                        roots = []
-                        for lower, upper in zip(segments[:-1], segments[1:]):
-                            if b_end(lower, sign)*b_end(upper, sign) < 0:
-                                root = brentq(lambda q: b_end(q, sign), lower, upper,
-                                              xtol=1e-14)
-                                roots.append(root)
-                                boundaries.append(root)
-                        endpoint_references[sign] = (roots, segments[1:-1])
-                    boundaries = sorted(set(boundaries))
-
-                    def stable_b_end(q, sign):
-                        # Direct c-E_right loses the small gap at a tangent.
-                        # Reconstruct it from an exact cut root, or from the
-                        # stationary point when the cut lies outside support.
-                        roots, stationary = endpoint_references[sign]
-                        references = roots or stationary
-                        if not references:
-                            return b_end(q, sign)
-                        reference = min(references, key=lambda value: abs(q-value))
-                        delta = q-reference
-                        omega_ref = np.sqrt(meson*meson+reference*reference)
-                        recoil_ref = np.sqrt(right*right+(reference+sign*p)**2)
-                        slope = (-reference/omega_ref
-                                 -(reference+sign*p)/recoil_ref)
-
-                        def convex_remainder(mass, origin):
-                            base = np.sqrt(mass*mass+origin*origin)
-                            shifted = np.sqrt(mass*mass+(origin+delta)**2)
-                            return (delta*delta*(base*(shifted+base)
-                                -origin*(2*origin+delta))
-                                /(base*(shifted+base)**2))
-
-                        residual = 0. if roots else b_end(reference, sign)
-                        return (residual+slope*delta
-                                -convex_remainder(meson, reference)
-                                -convex_remainder(right, reference+sign*p))
+                    boundaries, stable_b_end = _recoil_endpoint_data(
+                        available, meson, right, p, limit)
 
                     @lru_cache(maxsize=8192)
                     def angular_numerator(q):

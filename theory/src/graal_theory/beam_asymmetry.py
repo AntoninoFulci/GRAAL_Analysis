@@ -18,7 +18,7 @@ _HORIZONTAL = np.array([1.0, 0.0, 0.0])
 _VERTICAL = np.array([0.0, 1.0, 0.0])
 
 
-def fit_binned_asymmetry(vertical_counts, horizontal_counts, flux_vertical, flux_horizontal, polarization_vertical, polarization_horizontal, phi_edges_rad):
+def fit_binned_asymmetry(vertical_counts, horizontal_counts, flux_vertical, flux_horizontal, polarization_vertical, polarization_horizontal, phi_edges_rad, *, diagnostic_fit=False):
     """Nominal Stage-07-style inverse-variance cos(2φ) fit at bin centers."""
     v = np.asarray(vertical_counts, dtype=np.float64)
     h = np.asarray(horizontal_counts, dtype=np.float64)
@@ -53,6 +53,18 @@ def fit_binned_asymmetry(vertical_counts, horizontal_counts, flux_vertical, flux
     ratio = (yv[used] - yh[used]) / denominator[used]
     cosine = np.cos(edges[:-1] + edges[1:])[used]
     weight = 1.0 / variance[used]
+    if not isinstance(diagnostic_fit, (bool, np.bool_)):
+        raise ValueError("diagnostic_fit must be boolean")
+    if diagnostic_fit:
+        if np.count_nonzero(used) < 4:
+            raise ValueError("not enough populated phi bins for diagnostic fit")
+        angle = (edges[:-1]+edges[1:])[used]
+        design = np.column_stack((np.ones_like(cosine), cosine, np.sin(angle)))
+        solution, _, rank, _ = np.linalg.lstsq(design*np.sqrt(weight[:, None]),
+                                              ratio*np.sqrt(weight), rcond=None)
+        if rank != 3:
+            raise ValueError("diagnostic fit design is rank deficient")
+        return float(solution[1])
     return float(np.sum(weight * cosine * ratio) / np.sum(weight * cosine**2))
 
 
