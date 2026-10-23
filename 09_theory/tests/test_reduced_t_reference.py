@@ -34,7 +34,7 @@ PARAM = REFERENCES / "nstar1535_reduced_parameters.json"
 SOURCES = REFERENCES / "sources.json"
 FIG1_CSV = REFERENCES / "p73_fig1_reduced.csv"
 FIG1_META = REFERENCES / "p73_fig1_reduced.json"
-P73_PDF = ROOT / "tmp" / "pdfs" / "10.1103@PhysRevC.73.045209.pdf"
+P73_PDF = ROOT / "docs" / "papers" / "10.1103@PhysRevC.73.045209.pdf"
 
 
 def test_isospin_half_phase_is_fixed_by_charge_basis():

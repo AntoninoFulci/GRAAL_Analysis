@@ -5,7 +5,10 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 import pytest
 
@@ -467,3 +470,29 @@ proof = {'events': qa['entries'], 'lookup_rows': len(lookup), 'cells': len(cells
 print('installed native h80: 128 events; aliases/reload safe; header cache invalidation verified')
 """, fixture, scratch)
     assert 'header cache invalidation verified' in result.stdout
+
+
+def test_python310_toml_fallback_collects_with_conditional_test_dependency(tmp_path):
+    # Force only the absent-stdlib branch on the current interpreter. Vendored
+    # tomli is a real parser; this does not claim a Python 3.10 runtime test.
+    code = r'''
+import runpy, sys
+from pathlib import Path
+from pip._vendor import tomli
+from pip._vendor.packaging.requirements import Requirement
+sys.modules['tomllib'] = None
+sys.modules['tomli'] = tomli
+module = runpy.run_path(sys.argv[1])
+assert module['tomllib'] is tomli
+config = tomli.loads(Path(sys.argv[2]).read_text())
+assert config['project']['requires-python'] == '>=3.10'
+requirement = next(Requirement(item) for item in config['project']['optional-dependencies']['test'] if Requirement(item).name == 'tomli')
+assert requirement.marker.evaluate({'python_version': '3.10'})
+assert not requirement.marker.evaluate({'python_version': '3.11'})
+assert config['tool']['setuptools']['package-dir']['calibration'] == '06_calibration'
+print('Python 3.10 fallback branch and conditional test dependency verified on current interpreter')
+'''
+    result = subprocess.run([sys.executable, '-B', '-c', code, str(Path(__file__).resolve()),
+                             str(REPO / 'pyproject.toml')], cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'fallback branch' in result.stdout

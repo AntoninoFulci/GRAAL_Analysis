@@ -255,3 +255,91 @@ def test_installed_source_and_driver_relocation_preserve_content_identity(tmp_pa
     driver.parent.mkdir(parents=True)
     shutil.copyfile(SCRIPT, driver)
     assert cache.implementation_identity(driver) == before
+
+
+@pytest.mark.parametrize('kind', ['file', 'directory'])
+def test_external_cohort_links_reuse_after_original_paths_disappear(tmp_path, kind):
+    args = args_for(tmp_path)
+    farm = tmp_path / 'farm'
+    args.preanalysis_dir.rename(farm)
+    if kind == 'directory':
+        args.preanalysis_dir.symlink_to(farm, target_is_directory=True)
+    else:
+        args.preanalysis_dir.mkdir()
+        for path in farm.glob('*.root'):
+            (args.preanalysis_dir / path.name).symlink_to(path)
+    original_inputs = {str(p): p.read_bytes() for p in [*farm.glob('*.root'), args.flux, args.manifest]}
+    cache.run_cached_calibration(args, native_builder, driver=SCRIPT)
+    first = receipt(args)
+    qa = (args.output_dir / cache.QA_NAME).read_bytes()
+    root = (args.output_dir / cache.ROOT_NAME).read_bytes()
+    record_path = Path(first['bundle']) / 'bundle.json'
+    record = json.loads(record_path.read_text())
+    assert [row['resolved_path'] for row in record['producer_h80']] == [str(p) for p in sorted(farm.glob('*.root'))]
+    # The mapping must authenticate both logical labels and resolved QA sources.
+    for field, value in [('path', 'renamed.root'), ('resolved_path', str(farm / 'wrong.root')),
+                         ('sha256', '0' * 64), ('size', 0)]:
+        changed = json.loads(json.dumps(record))
+        changed['producer_h80'][0][field] = value
+        record_path.write_text(json.dumps(changed))
+        with pytest.raises(ValueError, match='cohort mismatch'):
+            cache._validate_bundle(Path(first['bundle']), first['signature'])
+    record_path.write_text(json.dumps(record))
+    assert {str(p): p.read_bytes() for p in [*farm.glob('*.root'), args.flux, args.manifest]} == original_inputs
+    moved = tmp_path / 'moved-farm'
+    farm.rename(moved)  # Original QA paths and input symlinks are now unavailable.
+    args.preanalysis_dir = moved
+    args.output_dir = tmp_path / 'campaign-b/common'
+    def forbidden(_):
+        pytest.fail('relocated linked cohort was rescanned')
+    cache.run_cached_calibration(args, forbidden, driver=SCRIPT)
+    assert receipt(args)['reused'] and receipt(args)['key'] == first['key']
+    assert (args.output_dir / cache.QA_NAME).read_bytes() == qa
+    assert (args.output_dir / cache.ROOT_NAME).read_bytes() == root
+    # Failure to republish a reused linked bundle cannot replace the campaign.
+    preserved = {p.name: p.read_bytes() for p in args.output_dir.iterdir()}
+    (Path(first['bundle']) / cache.QA_NAME).write_bytes(b'tampered')
+    with pytest.raises(RuntimeError, match='failed with exit'):
+        cache.run_cached_calibration(args, lambda _: 1, driver=SCRIPT)
+    assert {p.name: p.read_bytes() for p in args.output_dir.iterdir()} == preserved
+    assert {p.name: p.read_bytes() for p in moved.glob('*.root')} == {Path(p).name: b for p, b in original_inputs.items() if Path(p).parent == farm}
+
+
+@pytest.mark.parametrize('destination', ['output_dir', 'cache_root'])
+def test_cache_rejects_publication_over_individually_linked_inputs(tmp_path, destination):
+    args = args_for(tmp_path)
+    farm = tmp_path / 'farm'; farm.mkdir()
+    original = next(args.preanalysis_dir.glob('*.root'))
+    target = farm / original.name
+    original.rename(target); original.symlink_to(target)
+    before = target.read_bytes()
+    setattr(args, destination, farm)
+    with pytest.raises(ValueError, match='overlaps inputs'):
+        cache.run_cached_calibration(args, lambda _: pytest.fail('builder called'), driver=SCRIPT)
+    assert target.read_bytes() == before
+
+
+def test_existing_bundle_without_source_mapping_remains_valid(tmp_path):
+    args = args_for(tmp_path)
+    cache.run_cached_calibration(args, native_builder, driver=SCRIPT)
+    first = receipt(args)
+    path = Path(first['bundle']) / 'bundle.json'
+    record = json.loads(path.read_text())
+    del record['producer_h80']
+    path.write_text(json.dumps(record))
+    cache.run_cached_calibration(args, lambda _: pytest.fail('legacy valid bundle rebuilt'), driver=SCRIPT)
+    assert receipt(args)['reused']
+
+
+@pytest.mark.parametrize('destination', ['output_dir', 'cache_root'])
+def test_cache_preserves_input_directory_link_inside_publication_target(tmp_path, destination):
+    args = args_for(tmp_path)
+    target = tmp_path / 'publication'; target.mkdir()
+    link = target / 'preanalysis'
+    link.symlink_to(args.preanalysis_dir, target_is_directory=True)
+    args.preanalysis_dir = link
+    setattr(args, destination, target)
+    with pytest.raises(ValueError, match='overlaps inputs'):
+        cache.run_cached_calibration(args, lambda _: pytest.fail('builder called'), driver=SCRIPT)
+    assert link.is_symlink()
+    assert len(list(link.glob('*.root'))) == 2

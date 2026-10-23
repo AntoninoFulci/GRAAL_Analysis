@@ -116,7 +116,7 @@ def print_run_summary(
 ) -> None:
     """Show the validated campaign configuration before touching its outputs."""
     def relative(path: Path) -> str:
-        return str(path.relative_to(config.repo_root))
+        return str(path.relative_to(config.repo_root) if path.is_relative_to(config.repo_root) else path)
 
     rows = [
         ("Modalità", config.name),

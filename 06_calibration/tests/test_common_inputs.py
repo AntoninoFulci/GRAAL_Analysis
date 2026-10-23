@@ -46,3 +46,41 @@ def test_scanner_never_overwrites_manual_catalog(tmp_path):
         '--input-dir', str(tmp_path), '--output', str(catalog)], capture_output=True, text=True)
     assert result.returncode == 1 and 'new candidate' in result.stderr
     assert sha256_file(catalog) == digest
+
+
+@pytest.mark.parametrize('kind', ['file', 'directory'])
+def test_external_data_links_are_authenticated_for_flux_and_optional_counts(tmp_path, kind):
+    from calibration.common_inputs import verified_reference
+    checkout, farm = tmp_path / 'checkout', tmp_path / 'farm'
+    farm.mkdir()
+    (checkout / 'data').mkdir(parents=True)
+    target = farm / 'counts.json'
+    target.write_text('{"schema_version": 1, "diagnostic_only": true}')
+    if kind == 'file':
+        (checkout / 'data/counts.json').symlink_to(target)
+        relative = 'data/counts.json'
+    else:
+        (checkout / 'data/farm').symlink_to(farm, target_is_directory=True)
+        relative = 'data/farm/counts.json'
+    ref = dict(root='checkout', path=relative, sha256=sha256_file(target), diagnostic_only=True)
+    cache = checkout / 'results/_cache'
+    original = target.read_bytes()
+    assert verified_reference(ref, checkout=checkout, cache=cache) == target
+    common = dict(checkout=checkout, cache=cache, bundles={'inclusive_counts': {'farm': ref}})
+    assert common_counts_path(common, 'farm') == target
+    with pytest.raises(ValueError, match='diagnostic'):
+        common_counts_path(common, 'farm', production=True)
+    with pytest.raises(ValueError, match='identity mismatch'):
+        verified_reference({**ref, 'sha256': '0' * 64}, checkout=checkout, cache=cache)
+    assert target.read_bytes() == original
+
+
+@pytest.mark.parametrize('root,relative', [('cache', 'linked'), ('checkout', 'config/linked')])
+def test_external_links_do_not_relax_cache_or_configuration_containment(tmp_path, root, relative):
+    checkout, cache = tmp_path / 'checkout', tmp_path / 'cache'
+    external = tmp_path / 'external'; external.mkdir()
+    base = cache if root == 'cache' else checkout
+    link = base / relative; link.parent.mkdir(parents=True)
+    link.symlink_to(external, target_is_directory=True)
+    with pytest.raises(ValueError, match='escapes'):
+        resolve_reference(dict(root=root, path=relative + '/source'), checkout=checkout, cache=cache)

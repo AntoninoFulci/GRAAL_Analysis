@@ -58,13 +58,15 @@ def _input_paths(args: argparse.Namespace) -> dict[str, str]:
 
 def _validate_output_location(args: argparse.Namespace) -> None:
     sidecar = (args.output_dir / "flux_calibrated.qa.json").resolve()
-    for source in (args.manifest, args.flux):
+    sources = [args.manifest, args.flux,
+               *(p for p in args.preanalysis_dir.rglob('*.root') if p.is_file())]
+    for source in sources:
         if sidecar == Path(source).resolve():
             raise StripEnergyFluxError(f"QA output path overlaps input path: {source}")
     output_path = args.output_dir / "flux_calibrated.root"
     lexical_output = Path(os.path.abspath(output_path))
     resolved_output = output_path.resolve(strict=False)
-    for input_path in (args.manifest, args.flux):
+    for input_path in sources:
         lexical_input = Path(os.path.abspath(input_path))
         resolved_input = input_path.resolve(strict=False)
         if lexical_input == lexical_output or resolved_input == resolved_output:

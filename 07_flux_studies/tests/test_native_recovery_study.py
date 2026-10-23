@@ -85,3 +85,34 @@ def test_portable_count_provenance_roundtrips_to_campaign_cache(tmp_path):
     campaign = tmp_path / 'campaign.json'
     campaign.write_text(json.dumps(dict(counts=data['counts'], sources=sources)))
     assert load_cached_counts(campaign, expected_paths=[root], require_content=True)[0] == counts
+
+
+@pytest.mark.parametrize('kind', ['file', 'directory'])
+def test_portable_counts_follow_external_data_links_with_exact_cohort(tmp_path, monkeypatch, kind):
+    from calibration.calibration_qa import sha256_file
+    from pathlib import Path
+    path, data = cache_file(tmp_path)
+    source = Path(data['sources'][0]['path'])
+    checkout = tmp_path / 'checkout'
+    (checkout / 'data').mkdir(parents=True)
+    if kind == 'file':
+        relative = 'data/h80.root'
+        (checkout / relative).symlink_to(source)
+    else:
+        relative = 'data/farm/h80.root'
+        (checkout / 'data/farm').symlink_to(tmp_path, target_is_directory=True)
+    original = source.read_bytes()
+    data['sources'][0].update(root='checkout', path=relative, sha256=sha256_file(source))
+    path.write_text(json.dumps(data))
+    monkeypatch.setattr(uproot.behaviors.TBranch.HasBranches, 'arrays', lambda *a, **kw: pytest.fail('entry rescan'))
+    counts, sources = load_cached_counts(path, expected_paths=[checkout / relative], checkout=checkout, require_content=True)
+    assert counts == {(1, 'POL1'): 2}
+    assert sources[0]['path'] == str(source)
+    assert sources[0]['reference'] == dict(root='checkout', path=relative)
+    with pytest.raises(ValueError, match='cohort mismatch'):
+        load_cached_counts(path, expected_paths=[], checkout=checkout, require_content=True)
+    data['sources'][0]['sha256'] = '0' * 64
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match='content mismatch'):
+        load_cached_counts(path, expected_paths=[source], checkout=checkout, require_content=True)
+    assert source.read_bytes() == original

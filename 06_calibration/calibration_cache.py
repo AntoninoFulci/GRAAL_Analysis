@@ -123,10 +123,22 @@ def _validate_bundle(directory: Path, signature: dict) -> dict:
                              expected_inputs={k: signature[k] for k in ('manifest', 'raw_flux')})
     producer_root = Path(record['producer_inputs']['preanalysis_dir'])
     try:
-        cohort = [dict(path=Path(row[0]).relative_to(producer_root).as_posix(), size=row[1], sha256=row[3])
-                  for row in qa['inputs']['h80']]
+        if 'producer_h80' in record:
+            # Bind logical cohort labels to the producer's actual resolved files.
+            # Keep this mapping with the bundle so relocation needs neither old
+            # input paths nor a rewrite of the original QA's absolute labels.
+            sources = record['producer_h80']
+            cohort = [{k: row[k] for k in ('path', 'size', 'sha256')} for row in sources]
+            expected = [(row['resolved_path'], row['size'], row['sha256']) for row in sources]
+            actual = [(row[0], row[1], row[3]) for row in qa['inputs']['h80']]
+            if actual != expected or any(not Path(row[0]).is_absolute() for row in expected):
+                raise ValueError('calibration QA cohort mismatch')
+        else:
+            # Existing bundles with ordinary in-directory sources remain valid.
+            cohort = [dict(path=Path(row[0]).relative_to(producer_root).as_posix(), size=row[1], sha256=row[3])
+                      for row in qa['inputs']['h80']]
     except (KeyError, IndexError, TypeError, ValueError) as exc:
-        raise ValueError('calibration QA cohort provenance invalid') from exc
+        raise ValueError('calibration QA cohort mismatch: provenance invalid') from exc
     if cohort != signature['h80']:
         raise ValueError('calibration QA cohort mismatch')
     return record
@@ -138,13 +150,17 @@ def run_cached_calibration(args: argparse.Namespace, builder, *, driver: Path) -
     if args.cache_scope == 'diagnostic' and 'results_test' not in cache_root.parts:
         raise ValueError('diagnostic calibration cache must be under results_test')
     inputs = [Path(args.preanalysis_dir).resolve(), Path(args.manifest).resolve(), Path(args.flux).resolve()]
+    h80_sources = [p.resolve() for p in sorted(Path(args.preanalysis_dir).rglob('*.root')) if p.is_file()]
+    input_labels = [Path(p).absolute() for p in (args.preanalysis_dir, args.manifest, args.flux)]
     for destination in (cache_root, output):
-        for source in inputs:
+        for source in [*inputs, *h80_sources, *input_labels]:
             if destination == source or destination in source.parents or (source.is_dir() and source in destination.parents):
                 raise ValueError('calibration publication overlaps inputs')
     if cache_root == output or output in cache_root.parents or cache_root in output.parents:
         raise ValueError('campaign and calibration cache must not overlap')
     signature = calibration_signature(args, driver=driver)
+    producer_h80 = [dict(row, resolved_path=str((Path(args.preanalysis_dir) / row['path']).resolve()))
+                    for row in signature['h80']]
     key = content_key(signature)
     destination = cache_root / key
     resolved_inputs = dict(preanalysis_dir=str(inputs[0]), manifest=str(inputs[1]), raw_flux=str(inputs[2]),
@@ -165,6 +181,7 @@ def run_cached_calibration(args: argparse.Namespace, builder, *, driver: Path) -
                 load_calibration_qa(staged / QA_NAME, staged / ROOT_NAME,
                                     expected_inputs={k: signature[k] for k in ('manifest', 'raw_flux')})
                 record = dict(key=key, signature=signature, producer_inputs=resolved_inputs,
+                              producer_h80=producer_h80,
                               outputs={name: sha256_file(staged / name) for name in (ROOT_NAME, QA_NAME)})
                 (staged / 'bundle.json').write_text(json.dumps(record, indent=2, sort_keys=True) + '\n')
                 _validate_bundle(staged, signature)

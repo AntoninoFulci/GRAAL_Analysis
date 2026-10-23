@@ -23,7 +23,10 @@ def resolve_reference(reference: dict, *, checkout: Path, cache: Path) -> Path:
         raise ValueError('common input path must be relative without traversal')
     root = Path(checkout if reference['root'] == 'checkout' else cache).resolve()
     resolved = (root / relative).resolve()
-    if not resolved.is_relative_to(root):
+    # Only explicitly declared data inputs may follow links onto a farm/server.
+    # Cache references keep their containment contract, including through links.
+    external_input = reference['root'] == 'checkout' and Path(relative).parts[:1] == ('data',)
+    if not resolved.is_relative_to(root) and not external_input:
         raise ValueError('common input reference escapes its declared root')
     return resolved
 

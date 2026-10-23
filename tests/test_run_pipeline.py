@@ -971,3 +971,39 @@ def test_common_cache_reference_uses_test_campaign_root_during_planning(tmp_path
     planned = workflow_paths.build_paths(config)
     assert planned.raw_flux == original.output_root / 'artifacts/raw/flux.root'
     assert not planned.raw_flux.is_relative_to(tmp_path / 'results')
+
+
+@pytest.mark.parametrize('kind', ['file', 'directory'])
+def test_linked_external_inputs_reach_preflight_plan_and_summary(tmp_path, monkeypatch, kind):
+    from dataclasses import replace
+    config, original = _valid_preflight_tree(tmp_path / 'checkout')
+    farm = tmp_path / 'farm'; farm.mkdir()
+    raw = farm / 'flux.root'
+    original.raw_flux.rename(raw)
+    if kind == 'file':
+        original.raw_flux.symlink_to(raw)
+    else:
+        original.raw_flux.parent.rmdir()
+        original.raw_flux.parent.symlink_to(farm, target_is_directory=True)
+    source = farm / 'preanalysis'
+    original.preanalysis_dir.rename(source)
+    original.preanalysis_dir.symlink_to(source, target_is_directory=True)
+    config = replace(config, preanalysis_dir=source)
+    locations = workflow_paths.build_paths(config)
+    checked = workflow_paths.preflight(config, locations, import_module=_imports,
+                                       which=lambda _: '/usr/bin/root')
+    assert locations.raw_flux == raw
+    stages = planning.build_pipeline_plan(config, locations, checked)
+    calibration = models.flatten_stages(stages)[0]
+    assert str(raw) in calibration.argv and str(source) in calibration.argv
+    displayed = []
+    monkeypatch.setattr(cli, '_print_table', lambda title, rows: displayed.extend(rows))
+    args = cli.build_parser().parse_args(['--mode', 'test_data'])
+    cli.print_run_summary(config, locations, args, stages)
+    assert ('Flux input', str(raw)) in displayed
+    assert ('Input h80', str(source)) in displayed
+    workflow_paths.validate_test_output(locations)
+    with pytest.raises(models.PipelineError, match='overlap input through aliases'):
+        workflow_paths.validate_test_output(replace(locations, output_root=farm))
+    with pytest.raises(models.PipelineError, match='without symlinks'):
+        workflow_paths.validate_test_output(replace(locations, output_root=tmp_path / 'external-output'))

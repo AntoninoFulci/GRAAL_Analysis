@@ -1317,3 +1317,16 @@ def test_open_root_file_closes_truthy_zombie_before_raising(monkeypatch, tmp_pat
         root_io._open_root_file(tmp_path / "broken.root")
 
     assert zombie.closed is True
+
+
+def test_direct_output_cannot_overwrite_an_individually_linked_h80(tmp_path):
+    pre, flux, manifest, _ = make_complete_fixture(tmp_path)
+    farm = tmp_path / 'farm'; farm.mkdir()
+    source = next(pre.glob('*.root'))
+    target = farm / 'flux_calibrated.root'
+    source.rename(target); source.symlink_to(target)
+    original = target.read_bytes()
+    result = run_cli(pre, flux, manifest, target)
+    assert result.returncode == 1
+    assert 'output path overlaps input path' in result.stderr
+    assert target.read_bytes() == original
