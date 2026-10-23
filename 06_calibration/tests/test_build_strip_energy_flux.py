@@ -1,5 +1,4 @@
 from array import array
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,10 +17,11 @@ from calibration.strip_energy_flux import (
 )
 
 SCRIPT = Path(__file__).parents[1] / "build_strip_energy_flux.py"
-SPEC = importlib.util.spec_from_file_location("build_strip_energy_flux_task4", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
-cli = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(cli)
+from calibration import build_strip_energy_flux as cli
+from calibration import calibrated_flux_root as calibrated_root
+from calibration import flux_build
+from calibration import strip_energy_root as root_io
+from calibration.strip_energy_flux import CalibrationCell
 
 
 def write_h80(
@@ -238,10 +238,10 @@ def test_atomic_root_write_preserves_previous_file_on_failure(tmp_path, monkeypa
     def fail_write(*args, **kwargs):
         raise RuntimeError("ROOT write failed")
 
-    monkeypatch.setattr(cli, "write_calibrated_flux_root", fail_write)
+    monkeypatch.setattr(calibrated_root, "write_calibrated_flux_root", fail_write)
 
     with pytest.raises(RuntimeError, match="ROOT write failed"):
-        cli._write_calibrated_flux_root_atomic(
+        calibrated_root._write_calibrated_flux_root_atomic(
             tmp_path / "flux.root",
             output,
             (),
@@ -268,7 +268,7 @@ def test_calibration_qa_includes_nested_h80_inputs(tmp_path):
     for path in pre.glob("*.root"):
         path.rename(nested / path.name)
 
-    assert cli.run(_calibration_args(pre, flux, manifest, output)) == 0
+    assert flux_build.run(_calibration_args(pre, flux, manifest, output)) == 0
 
     qa = json.loads(output.with_suffix(".qa.json").read_text())
     assert [row[0] for row in qa["inputs"]["h80"]] == [
@@ -286,7 +286,7 @@ def test_input_change_preserves_previous_calibration(tmp_path, monkeypatch, chan
     output.write_bytes(b"previous calibrated file")
     qa_path = output.with_suffix(".qa.json")
     qa_path.write_bytes(b"previous QA")
-    original = cli.write_calibrated_flux_root
+    original = calibrated_root.write_calibrated_flux_root
 
     def changing_writer(*args, **kwargs):
         result = original(*args, **kwargs)
@@ -295,9 +295,9 @@ def test_input_change_preserves_previous_calibration(tmp_path, monkeypatch, chan
             stream.write(b"\n")
         return result
 
-    monkeypatch.setattr(cli, "write_calibrated_flux_root", changing_writer)
+    monkeypatch.setattr(calibrated_root, "write_calibrated_flux_root", changing_writer)
     with pytest.raises(StripEnergyFluxError, match="input identity changed"):
-        cli.run(_calibration_args(pre, flux, manifest, output))
+        flux_build.run(_calibration_args(pre, flux, manifest, output))
 
     assert output.read_bytes() == b"previous calibrated file"
     assert qa_path.read_bytes() == b"previous QA"
@@ -410,7 +410,7 @@ def test_calibration_profile_anchors_fractional_events_to_integer_strip():
     import ROOT
 
     cells = [
-        cli.CalibrationCell(
+        CalibrationCell(
             7,
             1,
             strip,
@@ -421,7 +421,7 @@ def test_calibration_profile_anchors_fractional_events_to_integer_strip():
         for strip in range(1, 129)
     ]
 
-    unused_h2, profile, unused_fit, unused_edges = cli._fit_calibration_group(
+    unused_h2, profile, unused_fit, unused_edges = calibrated_root._fit_calibration_group(
         ROOT,
         7,
         "POL1",
@@ -434,11 +434,11 @@ def test_calibration_profile_anchors_fractional_events_to_integer_strip():
 
 def test_calibration_requires_full_strip_span():
     cells = [
-        cli.CalibrationCell(7, 1, strip, 10, float(strip), 0.8 + 0.006 * strip)
+        CalibrationCell(7, 1, strip, 10, float(strip), 0.8 + 0.006 * strip)
         for strip in range(1, 128)
     ]
 
-    assert cli.has_full_calibration_span(cells) is False
+    assert calibrated_root.has_full_calibration_span(cells) is False
 
 
 def test_pol4_monotonicity_finds_narrow_negative_derivative_between_grid_points():
@@ -455,7 +455,7 @@ def test_pol4_monotonicity_finds_narrow_negative_derivative_between_grid_points(
         0.0,
     )
 
-    assert cli.minimum_pol4_derivative(fit, 0.5, 128.5) == pytest.approx(
+    assert calibrated_root.minimum_pol4_derivative(fit, 0.5, 128.5) == pytest.approx(
         -epsilon
     )
 
@@ -559,7 +559,7 @@ def test_flux_histogram_bin_errors_do_not_change_final_flux(tmp_path):
         bin_error=1.0e12,
     )
 
-    strips, _ = cli.read_flux_histograms(flux, [7])
+    strips, _ = root_io.read_flux_histograms(flux, [7])
 
     assert strips[11].flux_pol1 == 100.0
     assert strips[11].flux_pol2 == 80.0
@@ -567,11 +567,11 @@ def test_flux_histogram_bin_errors_do_not_change_final_flux(tmp_path):
 
 
 def test_parse_custom_binnings_rejects_duplicate_name():
-    custom = cli.parse_custom_binnings(["fine:1.0,1.1,1.2"])
+    custom = flux_build.parse_custom_binnings(["fine:1.0,1.1,1.2"])
 
     assert custom == (EnergyBinning("fine", (1.0, 1.1, 1.2)),)
     with pytest.raises(StripEnergyFluxError, match="duplicate binning name"):
-        cli.parse_custom_binnings(["fine:1.0,1.1", "fine:1.1,1.2"])
+        flux_build.parse_custom_binnings(["fine:1.0,1.1", "fine:1.1,1.2"])
 
 
 def test_cli_missing_h80_manifest_run_is_warning_only(tmp_path):
@@ -814,7 +814,7 @@ def test_run_preserves_existing_output_when_root_reading_raises(tmp_path):
     )
 
     with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli.run(args)
+        flux_build.run(args)
 
     assert output.read_text() == "old"
 
@@ -985,10 +985,10 @@ def test_root_adapters_read_h80_and_flux_triplet(tmp_path):
         "POL1": {12: 100}, "POL2": {12: 80}, "BREM": {12: 10},
     }})
 
-    lookup, h80_qa = cli.read_h80_lookup(
+    lookup, h80_qa = root_io.read_h80_lookup(
         pre, run_numbers=[7], samples_per_run_strip=256, threads=1
     )
-    strips, flux_qa = cli.read_flux_histograms(flux, [7])
+    strips, flux_qa = root_io.read_flux_histograms(flux, [7])
 
     assert [(row.run_number, row.xstrip) for row in lookup] == [
         (7, 12), (7, 13)
@@ -1007,7 +1007,7 @@ def test_h80_reader_recursively_sorts_root_files(tmp_path):
     write_h80(pre / "b" / "second.root", [(8, 2, 1.2)])
     write_h80(pre / "a" / "first.root", [(7, 1, 1.3)])
 
-    lookup, _ = cli.read_h80_lookup(
+    lookup, _ = root_io.read_h80_lookup(
         pre, run_numbers=[7, 8], samples_per_run_strip=256, threads=1
     )
 
@@ -1028,7 +1028,7 @@ def test_rdataframe_lookup_computes_sample_statistics_across_files_and_runs(
         [(7, 1, 1.4), (8, 2, 2.0), (7, 3, 1.5)],
     )
 
-    lookup, qa = cli.read_h80_lookup(
+    lookup, qa = root_io.read_h80_lookup(
         pre, run_numbers=[7, 8], samples_per_run_strip=256, threads=1
     )
 
@@ -1063,7 +1063,7 @@ def test_rdataframe_lookup_samples_once_and_reports_strip_conversion_qa(tmp_path
         ],
     )
 
-    lookup, qa = cli.read_h80_lookup(
+    lookup, qa = root_io.read_h80_lookup(
         pre,
         run_numbers=[7, 8],
         samples_per_run_strip=2,
@@ -1100,7 +1100,7 @@ def test_calibration_cells_skip_events_with_invalid_xstrip(tmp_path):
         ],
     )
 
-    cells, energy_bins = cli.read_calibration_cells(
+    cells, energy_bins = root_io.read_calibration_cells(
         pre, run_numbers=[7], threads=16
     )
 
@@ -1134,10 +1134,10 @@ def test_rdataframe_lookup_is_identical_with_one_and_multiple_threads(tmp_path):
         ],
     )
 
-    serial, serial_qa = cli.read_h80_lookup(
+    serial, serial_qa = root_io.read_h80_lookup(
         pre, run_numbers=[7, 8], samples_per_run_strip=100, threads=1
     )
-    parallel, parallel_qa = cli.read_h80_lookup(
+    parallel, parallel_qa = root_io.read_h80_lookup(
         pre, run_numbers=[7, 8], samples_per_run_strip=100, threads=2
     )
 
@@ -1150,7 +1150,7 @@ def test_h80_reader_rejects_no_root_files(tmp_path):
     pre.mkdir()
 
     with pytest.raises(StripEnergyFluxError, match="no ROOT files"):
-        cli.read_h80_lookup(
+        root_io.read_h80_lookup(
             pre, run_numbers=[7], samples_per_run_strip=256, threads=1
         )
 
@@ -1161,7 +1161,7 @@ def test_h80_reader_rejects_zombie_file(tmp_path):
     (pre / "broken.root").write_text("not a ROOT file")
 
     with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli.read_h80_lookup(
+        root_io.read_h80_lookup(
             pre, run_numbers=[7], samples_per_run_strip=256, threads=1
         )
 
@@ -1176,7 +1176,7 @@ def test_h80_reader_rejects_missing_tree(tmp_path):
     output.Close()
 
     with pytest.raises(StripEnergyFluxError, match="missing h80"):
-        cli.read_h80_lookup(
+        root_io.read_h80_lookup(
             pre, run_numbers=[7], samples_per_run_strip=256, threads=1
         )
 
@@ -1187,7 +1187,7 @@ def test_h80_reader_rejects_missing_required_branch(tmp_path):
     write_h80(pre / "missing_beam.root", [(7, 12, 1.2)], branches=("RunNumber", "Xstrip"))
 
     with pytest.raises(StripEnergyFluxError, match="missing branch beam"):
-        cli.read_h80_lookup(
+        root_io.read_h80_lookup(
             pre, run_numbers=[7], samples_per_run_strip=256, threads=1
         )
 
@@ -1197,7 +1197,7 @@ def test_flux_reader_rejects_missing_requested_triplet_member(tmp_path):
     write_flux(flux, {7: {"POL1": {}, "POL2": {}}})
 
     with pytest.raises(StripEnergyFluxError, match="run7_BREM"):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_rejects_wrong_bin_count(tmp_path):
@@ -1210,7 +1210,7 @@ def test_flux_reader_rejects_wrong_bin_count(tmp_path):
     )
 
     with pytest.raises(StripEnergyFluxError, match="run7_POL1.*128 bins"):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_rejects_wrong_axis_edges(tmp_path):
@@ -1223,7 +1223,7 @@ def test_flux_reader_rejects_wrong_axis_edges(tmp_path):
     )
 
     with pytest.raises(StripEnergyFluxError, match="run7_POL1.*x-axis edge"):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_reports_nonzero_underflow_and_overflow(tmp_path):
@@ -1232,7 +1232,7 @@ def test_flux_reader_reports_nonzero_underflow_and_overflow(tmp_path):
         "POL1": {0: 2.0, 129: 3.0}, "POL2": {}, "BREM": {},
     }})
 
-    _, qa = cli.read_flux_histograms(flux, [7])
+    _, qa = root_io.read_flux_histograms(flux, [7])
 
     assert qa["underflow_overflow"] == [
         {"histogram": "run7_POL1", "underflow": 2.0, "overflow": 3.0}
@@ -1244,7 +1244,7 @@ def test_flux_reader_rejects_requested_run_absent(tmp_path):
     write_flux(flux, {8: {"POL1": {}, "POL2": {}, "BREM": {}}})
 
     with pytest.raises(StripEnergyFluxError, match="run 7"):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_reports_complete_extra_run_and_incomplete_triplets(tmp_path):
@@ -1255,7 +1255,7 @@ def test_flux_reader_reports_complete_extra_run_and_incomplete_triplets(tmp_path
         9: {"POL1": {}, "POL2": {}},
     })
 
-    _, qa = cli.read_flux_histograms(flux, [7])
+    _, qa = root_io.read_flux_histograms(flux, [7])
 
     assert qa["extra_runs"] == [8]
     assert qa["malformed_triplets"] == [
@@ -1271,7 +1271,7 @@ def test_flux_reader_rejects_duplicate_root_key_cycles(tmp_path):
     with pytest.raises(
         StripEnergyFluxError, match=r"run7_POL1.*exactly one.*found 2"
     ):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_rejects_noncanonical_run_alias(tmp_path):
@@ -1282,7 +1282,7 @@ def test_flux_reader_rejects_noncanonical_run_alias(tmp_path):
     with pytest.raises(
         StripEnergyFluxError, match=r"noncanonical.*run007_POL1.*run7_POL1"
     ):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_flux_reader_rejects_nonfinite_axis_edge(tmp_path):
@@ -1294,7 +1294,7 @@ def test_flux_reader_rejects_nonfinite_axis_edge(tmp_path):
     with pytest.raises(
         StripEnergyFluxError, match=r"run7_POL1.*x-axis edge 64.*finite"
     ):
-        cli.read_flux_histograms(flux, [7])
+        root_io.read_flux_histograms(flux, [7])
 
 
 def test_open_root_file_closes_truthy_zombie_before_raising(monkeypatch, tmp_path):
@@ -1311,9 +1311,9 @@ def test_open_root_file_closes_truthy_zombie_before_raising(monkeypatch, tmp_pat
     root = SimpleNamespace(
         TFile=SimpleNamespace(Open=lambda path, mode: zombie),
     )
-    monkeypatch.setattr(cli, "_import_root", lambda: root)
+    monkeypatch.setattr(root_io, "_import_root", lambda: root)
 
     with pytest.raises(StripEnergyFluxError, match="zombie"):
-        cli._open_root_file(tmp_path / "broken.root")
+        root_io._open_root_file(tmp_path / "broken.root")
 
     assert zombie.closed is True

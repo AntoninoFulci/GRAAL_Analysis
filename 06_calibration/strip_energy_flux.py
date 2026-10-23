@@ -8,7 +8,7 @@ import json
 from math import isfinite
 from pathlib import Path
 from statistics import median
-from typing import Iterable, Sequence
+from typing import Iterable, NamedTuple, Sequence
 
 from graal_common.io.filesystem import atomic_output_directory
 
@@ -17,6 +17,25 @@ from calibration.run_manifest import RunRecord
 
 class StripEnergyFluxError(ValueError):
     pass
+
+
+class CalibrationCell(NamedTuple):
+    run_number: int
+    polarization: int
+    xstrip: int
+    event_count: int
+    xstrip_mean: float
+    energy_mean_gev: float
+
+
+
+class CalibrationEnergyBin(NamedTuple):
+    run_number: int
+    polarization: int
+    xstrip: int
+    energy_bin: int
+    event_count: int
+
 
 
 @dataclass(frozen=True)
@@ -659,3 +678,35 @@ def find_monotonic_inversions(
                     }
                 )
     return tuple(inversions)
+
+
+def clamp_negative_flux(
+    strips: Sequence[StripFlux],
+) -> tuple[list[StripFlux], list[dict[str, object]]]:
+    """Clamp unphysical negative histogram bins while preserving diagnostics."""
+    clamped: list[StripFlux] = []
+    findings: list[dict[str, object]] = []
+    component_names = ("flux_pol1", "flux_pol2", "flux_brem")
+    for strip in strips:
+        values = (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
+        for component, value in zip(component_names, values):
+            if value < 0.0:
+                findings.append(
+                    {
+                        "run_number": strip.run_number,
+                        "xstrip": strip.xstrip,
+                        "component": component,
+                        "value": value,
+                        "action": "clamped_to_zero",
+                    }
+                )
+        clamped.append(
+            StripFlux(
+                strip.run_number,
+                strip.xstrip,
+                max(strip.flux_pol1, 0.0),
+                max(strip.flux_pol2, 0.0),
+                max(strip.flux_brem, 0.0),
+            )
+        )
+    return clamped, findings

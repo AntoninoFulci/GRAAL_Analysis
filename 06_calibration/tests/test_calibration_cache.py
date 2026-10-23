@@ -9,12 +9,11 @@ import sys
 import pytest
 
 from calibration import calibration_cache as cache
-from calibration.tests.test_build_strip_energy_flux import make_complete_fixture, _calibration_args, cli, SCRIPT
+from calibration.tests.test_build_strip_energy_flux import make_complete_fixture, _calibration_args, SCRIPT
 
 
 def native_builder(args):
-    # A separate interpreter matches the workflow driver boundary and avoids
-    # duplicate Cling declarations when pytest imports fixture modules by aliases.
+    # A separate interpreter matches the workflow driver boundary.
     argv = [sys.executable, '-B', str(SCRIPT)]
     for key, value in vars(args).items():
         if key in ('cache_root', 'cache_scope') or value is None:

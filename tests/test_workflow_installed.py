@@ -30,6 +30,13 @@ def installed_workflow(tmp_path_factory):
             destination = source / original.relative_to(REPO)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(original, destination)
+    for package, patterns in manifest["tool"]["setuptools"].get("package-data", {}).items():
+        relative = manifest["tool"]["setuptools"]["package-dir"][package]
+        for pattern in patterns:
+            for original in (REPO / relative).glob(pattern):
+                destination = source / original.relative_to(REPO)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(original, destination)
     wheels = scratch / "wheels"
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PIP_DISABLE_PIP_VERSION_CHECK": "1"}
     commands = [
@@ -53,6 +60,7 @@ def installed_workflow(tmp_path_factory):
     with tarfile.open(next((scratch / "sdist").glob("*.tar.gz"))) as archive:
         assert any(name.endswith("/setup.cfg") for name in archive.getnames())
         assert any(name.endswith("/graal_workflow/cli.py") for name in archive.getnames())
+        assert any(name.endswith("/06_calibration/native/strip_energy_rdf.hxx") for name in archive.getnames())
     assert not (source / "build").exists()
     assert (source / "results_test/packaging/build").is_dir()
     (scratch / "commands.json").write_text(json.dumps(commands, indent=2))
@@ -406,3 +414,56 @@ finally:
 print('wheel common config, exact policy, installed calibration identity verified')
 """)
     assert 'exact policy' in result.stdout
+
+
+def test_wheel_calibration_native_resource_executes_outside_checkout(installed_workflow):
+    from calibration.tests.test_build_strip_energy_flux import write_h80
+    scratch, _, _ = installed_workflow
+    fixture = scratch / 'native-h80'
+    fixture.mkdir()
+    write_h80(fixture / 'h80.root', [(7, 1, strip, 0.75 + strip / 256)
+                                   for strip in range(1, 129)])
+    result = _installed(installed_workflow, """
+import importlib, importlib.util, json
+from importlib.resources import files
+import calibration, ROOT
+from calibration import strip_energy_root as owner
+from calibration.calibration_cache import implementation_identity, content_key
+installed = Path(sys.argv[1])
+assert Path(owner.__file__).is_relative_to(installed)
+resource = files('calibration').joinpath('native/strip_energy_rdf.hxx')
+assert resource.read_bytes().startswith(b'\\n#include <ROOT/RDataFrame.hxx>')
+lookup, qa = owner.read_h80_lookup(Path(sys.argv[3]), run_numbers=[7],
+    samples_per_run_strip=256, threads=1, progress_every_events=0)
+assert len(lookup) == 128 and qa['entries'] == 128
+cells, bins = owner.read_calibration_cells(Path(sys.argv[3]), run_numbers=[7], threads=4)
+assert len(cells) == 128 and len(bins) == 128
+assert cells[0].energy_mean_gev == 0.75 + 1/256
+def forbidden(*args):
+    raise AssertionError('native helpers redeclared')
+ROOT.gInterpreter.Declare = forbidden
+for name in ('wheel_calibration_alias_a', 'wheel_calibration_alias_b'):
+    spec = importlib.util.spec_from_file_location(name, owner.__file__)
+    alias = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(alias)
+    alias._declare_rdataframe_helpers(ROOT)
+importlib.reload(owner)._declare_rdataframe_helpers(ROOT)
+driver = Path(sys.argv[2]) / '06_calibration/build_strip_energy_flux.py'
+sources = implementation_identity(driver)
+assert sources and all(row['sha256'] for row in sources)
+native = [row for row in sources if row['source'] == 'calibration/native/strip_energy_rdf.hxx']
+assert len(native) == 1
+header = Path(str(resource))
+original = header.read_bytes()
+try:
+    header.write_bytes(original + b'\\n// installed native fingerprint mutation\\n')
+    assert content_key({'implementation': sources}) != content_key({'implementation': implementation_identity(driver)})
+finally:
+    header.write_bytes(original)
+proof = {'events': qa['entries'], 'lookup_rows': len(lookup), 'cells': len(cells),
+         'energy_bins': len(bins), 'source_files': sources,
+         'native_resource': str(resource), 'native_header': native}
+(Path(sys.argv[4]) / 'calibration-native-proof.json').write_text(json.dumps(proof, indent=2))
+print('installed native h80: 128 events; aliases/reload safe; header cache invalidation verified')
+""", fixture, scratch)
+    assert 'header cache invalidation verified' in result.stdout

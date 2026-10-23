@@ -44,6 +44,11 @@ def implementation_identity(driver: Path) -> list[dict]:
         sources = sorted(p for p in root.rglob('*.py') if 'tests' not in p.relative_to(root).parts)
         if not sources:
             raise ValueError(f'empty installed source inventory: {name}')
+        if name == 'calibration':
+            header = root / 'native/strip_energy_rdf.hxx'
+            if not header.is_file():
+                raise ValueError('missing installed calibration native resource')
+            sources = sorted([*sources, header])
         rows.extend(dict(source=f'{name}/{p.relative_to(root).as_posix()}', sha256=sha256_file(p)) for p in sources)
     rows.append(dict(source='executed_driver', sha256=sha256_file(driver)))
     return rows
