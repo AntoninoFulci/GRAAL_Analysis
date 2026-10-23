@@ -129,6 +129,13 @@ def test_mass_plot_roundtrip_keeps_raw_values_mask_and_exact_polygon(tmp_path):
         assert graph.GetPointX(0) == .4
         assert graph.GetPointY(0) == .1
         assert json.loads(source.Get("mass_selection").GetTitle())["polygon"] == region.to_dict()
+        canvas = source.Get("c_mass_selection")
+        for pad_index in (1, 2):
+            lines = [obj for obj in canvas.GetPad(pad_index).GetListOfPrimitives()
+                     if obj.InheritsFrom("TLine")]
+            assert len(lines) == 2
+            assert all(line.GetLineColor() == ROOT.kRed + 1 and line.GetLineStyle() == 2
+                       for line in lines)
     finally:
         source.Close()
     assert (tmp_path / "mass_selection.png").stat().st_size > 1000

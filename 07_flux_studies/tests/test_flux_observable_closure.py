@@ -65,11 +65,11 @@ def _mock_inputs(monkeypatch):
 def test_identity_predictions_equal_roundtrip_and_universe_is_paired(tmp_path, monkeypatch):
     closure, reads = _mock_inputs(monkeypatch)
     calls = []
-    original = closure._extract_sample
+    original = closure.extract_sample
     def extract(**kwargs):
         calls.append((id(kwargs['events']), set(kwargs['exposures'])))
         return original(**kwargs)
-    monkeypatch.setattr(closure, '_extract_sample', extract)
+    monkeypatch.setattr(closure, 'extract_sample', extract)
     predictions = [dict(run=811, state='POL1', period='uv_a', role='test', method=method,
                         truth=np.full(128, 1.2), estimate=np.full(128, 1.2))
                    for method in closure.DEFAULT_METHODS]
@@ -154,11 +154,11 @@ def test_native_identity_removes_whole_runs_and_never_loads_target_axes(tmp_path
     closure, _ = _mock_inputs(monkeypatch)
     monkeypatch.setattr(closure, 'load_known_axes', lambda *a: pytest.fail('native must not project'))
     calls = []
-    original = closure._extract_sample
+    original = closure.extract_sample
     def extract(**kwargs):
         calls.append((set(map(int, kwargs['events'].run_number)), set(kwargs['exposures'])))
         return original(**kwargs)
-    monkeypatch.setattr(closure, '_extract_sample', extract)
+    monkeypatch.setattr(closure, 'extract_sample', extract)
     predictions = [dict(run=811, state='POL1', period='uv_a', role='test', method='mlp_hybrid',
                         truth=np.full(128, 1.2), estimate=np.full(128, 1.2))]
     result = run_observable_closure(predictions, representation='native_strip',
@@ -224,7 +224,7 @@ def test_precision_ratio_uses_flux_spread_and_common_complete_covariance(monkeyp
                 diagnostics=SimpleNamespace(converged=True))
             outputs.append(SimpleNamespace(estimator=key[0], point=p))
         return SimpleNamespace(points=outputs)
-    monkeypatch.setattr(closure, '_extract_sample', extraction)
+    monkeypatch.setattr(closure, 'extract_sample', extraction)
     payloads = [{(811, 'POL1'): np.full(128, v)} for v in (1., 2., 3.)]
     native = {(811, 1): FluxExposure(811, 1, 1.15, 1.2, .9, .2, .6, .55)}
     closure._add_recovery_uncertainty(entry, scenarios, ('linear',),
@@ -260,11 +260,11 @@ def test_precision_ratio_uses_flux_spread_and_common_complete_covariance(monkeyp
 def test_brem_replica_validation_precedes_fit_reuse(tmp_path, monkeypatch):
     closure, _ = _mock_inputs(monkeypatch)
     calls = []
-    original = closure._extract_sample
+    original = closure.extract_sample
     def extract(**kwargs):
         calls.append(1)
         return original(**kwargs)
-    monkeypatch.setattr(closure, '_extract_sample', extract)
+    monkeypatch.setattr(closure, 'extract_sample', extract)
     predictions = [dict(run=811, state='BREM', period='uv_a', role='test', method='linear',
                         truth=np.full(128, .2), estimate=np.full(128, .3))]
     payloads = [{(811, 'BREM'): np.full(128, v)} for v in (.1, .4, -1.)]

@@ -17,7 +17,7 @@ from calibration.run_manifest import validate_manifest
 from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
-from observable_extraction.beam_asymmetry import SAMPLES
+from observable_extraction.samples import SAMPLES
 from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.compare_gate import (
@@ -93,7 +93,7 @@ def compare_mass_samples(before, exposures, periods, edges, polygon, *, replicas
 
 def write_mass_plot(output, events, mask, polygon):
     """Reuse the existing mass histogram; draw exact selection vertices."""
-    from plots.dalitz import _mass2d_hist, _draw_truth_cross
+    from plots.mass_histograms import mass2d_hist, draw_truth_cross
 
     ROOT.gROOT.SetBatch(True)
     ROOT.gStyle.SetOptStat(0)
@@ -104,7 +104,7 @@ def write_mass_plot(output, events, mask, polygon):
     canvas = None
     try:
         finite = np.isfinite(events.eta_mass_gev) & np.isfinite(events.pi0_mass_gev)
-        hists = [_mass2d_hist(f"masse_2d_{name}", name,
+        hists = [mass2d_hist(f"masse_2d_{name}", name,
                              events.eta_mass_gev[cut & finite], events.pi0_mass_gev[cut & finite])
                  for name, cut in zip(NAMES, (np.ones(len(events), dtype=bool), mask))]
         graph = None
@@ -126,7 +126,7 @@ def write_mass_plot(output, events, mask, polygon):
             hist.SetMaximum(maximum)
             hist.GetZaxis().SetTitle("events / bin")
             hist.Draw("colz")
-            keep.extend(_draw_truth_cross())
+            keep.extend(draw_truth_cross())
             if graph:
                 graph.Draw("L SAME")
             hist.Write()

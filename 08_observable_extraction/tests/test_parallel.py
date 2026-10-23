@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from observable_extraction import beam_asymmetry as beam
+from observable_extraction.extraction import extract_sample
 from observable_extraction.core.models import FitNotEstimableError, FluxExposure
 from observable_extraction.core.systematics import bootstrap_by_run, paired_bootstrap_by_run
 from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
@@ -35,8 +36,8 @@ def test_parallel_extraction_preserves_points_candidates_and_curves(best_binning
                   exposures={(811, 17): FluxExposure(811, 17, 1.15, 1.2, .9, .2, .6, .55)},
                   estimator='both', retain_ratio_objects=True,
                   energy_edges=np.array([1.1, 1.2, 1.3]), best_binning=best_binning)
-    serial = beam._extract_sample(**kwargs)
-    parallel = beam._extract_sample(**kwargs, workers=2)
+    serial = extract_sample(**kwargs)
+    parallel = extract_sample(**kwargs, workers=2)
     assert len(serial.points) == 6
     assert_same(serial, parallel)
 

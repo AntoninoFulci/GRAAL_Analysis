@@ -17,7 +17,7 @@ import numpy as np
 
 from calibration.run_manifest import validate_manifest
 from graal_common.physics.beam_profiles import get_beam_profile
-from observable_extraction.beam_asymmetry import _extract_sample
+from observable_extraction.extraction import extract_sample
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import PAIR_NAMES, pair_mass_edges, phi_edges_rad
 from observable_extraction.io.reconstructed_events import (
@@ -371,7 +371,7 @@ def run_observable_closure(predictions, *, common_edges_by_period=None, flux_pat
                                                     projections=projections, points=[])
                 continue
             started = time.perf_counter()
-            bundle = _extract_sample(sample_name='raw_bdt', events=scenario_events, exposures=exposures,
+            bundle = extract_sample(sample_name='raw_bdt', events=scenario_events, exposures=exposures,
                                      estimator='both', retain_ratio_objects=False, energy_edges=energy_edges,
                                      phi_edges=phi_edges_rad(12), best_binning=False, workers=workers)
             fitted = {_point_key(output): _point_record(output) for output in bundle.points
@@ -554,7 +554,7 @@ def _add_recovery_uncertainty(entry, scenario_points, methods, replicas_by_metho
                         if not targets else
                         'Only BREM changed; fixed ratio/likelihood estimators use polarized flux.')
                 else:
-                    bundle = _extract_sample(sample_name='raw_bdt', events=events, exposures=exposures,
+                    bundle = extract_sample(sample_name='raw_bdt', events=events, exposures=exposures,
                                              estimator='both', retain_ratio_objects=False,
                                              energy_edges=energy_edges, phi_edges=phi_edges_rad(12),
                                              best_binning=False, workers=workers)

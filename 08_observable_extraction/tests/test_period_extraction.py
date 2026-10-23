@@ -1,5 +1,7 @@
 from dataclasses import fields, replace
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -7,11 +9,32 @@ import ROOT
 
 from calibration.run_manifest import RunRecord, write_manifest
 from observable_extraction import beam_asymmetry
+from observable_extraction.extraction import ExtractionBundle
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import EventArrays
 from observable_extraction.io.root_input import read_output_points, read_output_uncertainties, read_output_contract
 from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
 from observable_extraction.tests.test_calibration_io import _write_flux_root
+
+
+def test_runtime_source_provenance_covers_new_modules_and_changes_with_their_bytes(tmp_path):
+    (tmp_path / 'beam_asymmetry.py').write_text('entrypoint = 1\n')
+    (tmp_path / 'core').mkdir()
+    (tmp_path / 'core/ratio_fit.py').write_text('ratio = 1\n')
+    first = beam_asymmetry._source_identities(tmp_path)
+    added = tmp_path / 'new_runtime_module.py'
+    added.write_text('algorithm = 1\n')
+    second = beam_asymmetry._source_identities(tmp_path)
+    added.write_text('algorithm = 2\n')
+    third = beam_asymmetry._source_identities(tmp_path)
+    assert {Path(row['path']).name for row in first} == {'beam_asymmetry.py', 'ratio_fit.py'}
+    assert {Path(row['path']).name for row in second} == {
+        'beam_asymmetry.py', 'ratio_fit.py', 'new_runtime_module.py'}
+    previous = next(row for row in second if row['path'] == str(added.resolve()))
+    current = next(row for row in third if row['path'] == str(added.resolve()))
+    assert previous['sha256'] != current['sha256']
+    assert current['sha256'] == hashlib.sha256(added.read_bytes()).hexdigest()
+    assert [row for row in second if row['path'] != str(added.resolve())] == first
 
 
 def _records():
@@ -109,6 +132,8 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         *(['--best-binning'] if best_binning else []),
     ]) == 0
     index = json.loads((output / 'periods/index.json').read_text())
+    assert {'extraction.py', 'samples.py'} <= {
+        Path(record['path']).name for record in index['source_files']}
     entries = {row['period']: row for row in index['periods']}
     assert entries['1998_uv']['status'] == 'estimable'
     assert entries['1999_uv']['status'] == 'estimable'
@@ -216,8 +241,8 @@ def test_unconverged_period_fit_is_recorded_but_not_published(tmp_path, monkeypa
     point = _point()
     failed = replace(point, sample='raw_bdt', estimator='likelihood',
                      point=replace(point.point, diagnostics=replace(point.point.diagnostics, converged=False)))
-    monkeypatch.setattr(beam_asymmetry, '_extract_sample',
-                        lambda **kwargs: beam_asymmetry.ExtractionBundle((failed,), ()))
+    monkeypatch.setattr(beam_asymmetry, 'extract_sample',
+                        lambda **kwargs: ExtractionBundle((failed,), ()))
     args = beam_asymmetry.build_parser().parse_args([
         '--raw-bdt', str(tmp_path / 'input.root'), '--raw', str(tmp_path / 'absent.root'),
         '--estimator', 'likelihood', '--output-dir', str(tmp_path / 'result')])

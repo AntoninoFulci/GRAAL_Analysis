@@ -19,7 +19,8 @@ from calibration.run_manifest import validate_manifest
 from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
-from observable_extraction.beam_asymmetry import SAMPLES, _extract_sample
+from observable_extraction.samples import SAMPLES
+from observable_extraction.extraction import extract_sample
 from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import PAIR_NAMES, PHI_EDGES_RAD
@@ -74,7 +75,7 @@ def _extract(samples, exposures, edges, *, workers=1):
     validate_workers(workers)
     if not exposures:
         return {name: () for name in samples}
-    return {name: _extract_sample(sample_name=name, events=events, exposures=exposures,
+    return {name: extract_sample(sample_name=name, events=events, exposures=exposures,
                                  estimator="both", retain_ratio_objects=False,
                                  energy_edges=edges, phi_edges=PHI_EDGES_RAD, workers=workers).points
             for name, events in samples.items()}

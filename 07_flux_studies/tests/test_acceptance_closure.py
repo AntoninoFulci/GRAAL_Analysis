@@ -48,7 +48,7 @@ def inputs(monkeypatch, tmp_path):
     monkeypatch.setattr(closure, 'read_reconstructed', lambda *a, **k: events)
     monkeypatch.setattr(closure, 'load_exposures', lambda *a, **k: native)
     monkeypatch.setattr(closure, 'select_sigma_events', lambda events, *a, **k: events)
-    monkeypatch.setattr(closure, '_extract_sample', extract)
+    monkeypatch.setattr(closure, 'extract_sample', extract)
     monkeypatch.setattr(closure, '_plot_closure', lambda *a: None)
     monkeypatch.setattr(closure, '_plot_recovery', lambda *a: None)
     rows = [dict(run=r, state=s, period='uv_a', role='test', method='linear',

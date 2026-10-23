@@ -8,18 +8,18 @@ from observable_extraction.core import ratio_fit
 
 def test_best_binning_reuses_projections_and_keeps_all_corrected_candidates(monkeypatch):
     import numpy as np
-    from observable_extraction import beam_asymmetry as beam
+    from observable_extraction import extraction as engine
     from observable_extraction.core.models import FluxExposure
     from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
 
     calls = []
-    project = beam.project_all_pairs
+    project = engine.project_all_pairs
     def project_once(*args):
         calls.append(1)
         return project(*args)
-    monkeypatch.setattr(beam, "project_all_pairs", project_once)
+    monkeypatch.setattr(engine, "project_all_pairs", project_once)
     events = _synthetic_events(beam_energy_gev=1.0, phi_bins=48)
-    bundle = beam._extract_sample(
+    bundle = engine.extract_sample(
         sample_name="raw_bdt", events=events,
         exposures={(811, 17): FluxExposure(811, 17, 1.0, 1.2, 0.9, 0.2, 0.6, 0.55)},
         estimator="both", retain_ratio_objects=True,
@@ -122,14 +122,14 @@ def test_best_binning_prefers_valid_nominal_and_has_stable_tie_break():
 
 def test_each_mass_point_selects_independently_and_missing_fixed_fit_stays_missing(monkeypatch):
     import numpy as np
-    from observable_extraction import beam_asymmetry as beam
+    from observable_extraction import extraction as engine
     from observable_extraction.core.models import FluxExposure
     from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
 
     events = _synthetic_events(beam_energy_gev=1.0, phi_bins=48)
     exposures = {(811, 17): FluxExposure(811, 17, 1.0, 1.2, 0.9, 0.2, 0.6, 0.55)}
-    masses, phis = beam.project_all_pairs(events.proton, events.eta, events.pi0)["p_pi0"]
-    real = beam.extract_ratio_grid(pair="p_pi0", mass_gev=masses, phi_rad=phis,
+    masses, phis = engine.project_all_pairs(events.proton, events.eta, events.pi0)["p_pi0"]
+    real = engine.extract_ratio_grid(pair="p_pi0", mass_gev=masses, phi_rad=phis,
         beam_energy_gev=events.beam_energy_gev, polarization=events.polarization,
         exposures=exposures, energy_edges=np.array([0.9313, 1.10]))[0]
 
@@ -146,13 +146,13 @@ def test_each_mass_point_selects_independently_and_missing_fixed_fit_stays_missi
                 fit=replace(real.fit, diagnostics=diag), counts_vertical=np.ones(n), counts_horizontal=np.ones(n)))
         return tuple(results)
 
-    monkeypatch.setattr(beam, "extract_ratio_grid", grid)
+    monkeypatch.setattr(engine, "extract_ratio_grid", grid)
     options = dict(sample_name="raw_bdt", events=events, exposures=exposures,
                    estimator="ratio", retain_ratio_objects=False, energy_edges=np.array([0.9313, 1.10]))
-    bundle = beam._extract_sample(**options, best_binning=True)
+    bundle = engine.extract_sample(**options, best_binning=True)
     assert [(p.point.mass_bin, p.phi_bins) for p in bundle.points] == [(0, 8), (1, 12)]
-    fixed = beam._extract_sample(**options, selected_phi_bins={
+    fixed = engine.extract_sample(**options, selected_phi_bins={
         ("p_pi0", 0, 0): 12, ("p_pi0", 0, 1): 16})
     assert [(p.point.mass_bin, p.phi_bins) for p in fixed.points] == [(0, 12)]
-    monkeypatch.setattr(beam, "extract_ratio_grid", lambda **kwargs: ())
-    assert beam._extract_sample(**options, best_binning=True).points == ()
+    monkeypatch.setattr(engine, "extract_ratio_grid", lambda **kwargs: ())
+    assert engine.extract_sample(**options, best_binning=True).points == ()

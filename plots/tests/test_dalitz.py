@@ -44,7 +44,7 @@ def test_histogram_names_titles_and_ranges_are_stable(monkeypatch):
 
     dalitz._dalitz_hist("dalitz_test", "sample", np.array([1.5]), np.array([1.1]))
     dalitz._mass_hist("mass_test", "mass", np.array([0.5]), 0.3, 0.8)
-    dalitz._mass2d_hist("mass2d_test", "sample", np.array([0.5]), np.array([0.13]))
+    dalitz.mass2d_hist("mass2d_test", "sample", np.array([0.5]), np.array([0.13]))
 
     assert created_2d[0].args == (
         "dalitz_test",

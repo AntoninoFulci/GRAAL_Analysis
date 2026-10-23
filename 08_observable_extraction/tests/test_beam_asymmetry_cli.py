@@ -6,6 +6,8 @@ import pytest
 
 from graal_common.physics.beam_profiles import VIS_PROFILE
 from observable_extraction import beam_asymmetry
+from observable_extraction.extraction import extract_sample
+from observable_extraction.samples import SAMPLES
 from observable_extraction.core.binning import ENERGY_EDGES_GEV, PHI_EDGES_RAD
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.reconstructed_events import EventArrays
@@ -20,7 +22,7 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     args = beam_asymmetry.build_parser().parse_args([])
 
     assert args.nominal_sample == "raw_bdt"
-    assert set(beam_asymmetry.SAMPLES) == {"raw", "raw_bdt"}
+    assert set(SAMPLES) == {"raw", "raw_bdt"}
     assert args.estimator == "both"
     assert args.profile == "uv"
     assert args.flux_file == Path("data/00_external/flux_calibrated.root")
@@ -87,7 +89,7 @@ def test_likelihood_metadata_survives_unestimable_ratio():
     })
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)}
 
-    bundle = beam_asymmetry._extract_sample(
+    bundle = extract_sample(
         sample_name="raw_bdt", events=events, exposures=exposures,
         estimator="both", retain_ratio_objects=False, energy_edges=ENERGY_EDGES_GEV,
     )
@@ -106,7 +108,7 @@ def test_likelihood_metadata_allows_exposure_energy_in_another_bin():
     events = _synthetic_events()
     exposures = {(811, 17): FluxExposure(811, 17, 1.25, 1.2, 0.9, 0.2, 0.6, 0.55)}
 
-    bundle = beam_asymmetry._extract_sample(
+    bundle = extract_sample(
         sample_name="raw_bdt", events=events, exposures=exposures,
         estimator="likelihood", retain_ratio_objects=False,
         energy_edges=ENERGY_EDGES_GEV, selected_phi_bins={},
@@ -231,7 +233,7 @@ def test_finite_bin_correction_leaves_unbinned_likelihood_unchanged():
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)}
     outputs = []
     for bins in (8, 12, 16):
-        bundle = beam_asymmetry._extract_sample(
+        bundle = extract_sample(
             sample_name="raw_bdt", events=events, exposures=exposures, estimator="both",
             retain_ratio_objects=False, energy_edges=ENERGY_EDGES_GEV,
             phi_edges=np.linspace(0.0, 2.0 * np.pi, bins + 1),
@@ -397,7 +399,7 @@ def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_bi
     events = replace(events, run_number=811 + np.arange(len(events)) % 2)
     exposures = {(run, 17): FluxExposure(run, 17, 1.15, .6, .45, .1, .6, .55) for run in (811, 812)}
     samples = {'raw': events, 'raw_bdt': events}
-    points = tuple(item for name in samples for item in beam_asymmetry._extract_sample(
+    points = tuple(item for name in samples for item in extract_sample(
         sample_name=name, events=events, exposures=exposures, estimator='ratio',
         retain_ratio_objects=False, energy_edges=ENERGY_EDGES_GEV, best_binning=best_binning).points)
     labels = tuple(point_key_label(key) for key in ordered_point_keys(points, {}))
@@ -459,7 +461,7 @@ def test_paired_diagnostic_retains_expected_optimizer_failures(monkeypatch):
 
     events = _synthetic_events()
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1.2, .9, .2, .6, .55)}
-    points = beam_asymmetry._extract_sample(sample_name='raw_bdt', events=events,
+    points = extract_sample(sample_name='raw_bdt', events=events,
         exposures=exposures, estimator='both', retain_ratio_objects=False,
         energy_edges=ENERGY_EDGES_GEV).points
     monkeypatch.setattr(conditional_likelihood, 'minimize_scalar',

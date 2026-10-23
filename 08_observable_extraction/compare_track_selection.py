@@ -21,7 +21,7 @@ from graal_common.io.filesystem import atomic_output_directory
 from graal_common.io.raw_tracks import has_raw_tracks, snapshot_raw_tracks
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
-from observable_extraction.beam_asymmetry import SAMPLES
+from observable_extraction.samples import SAMPLES
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.compare_gate import (
     _read, _extract, _phi_retention, _write_figures, bootstrap_comparison,

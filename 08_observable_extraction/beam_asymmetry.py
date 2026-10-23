@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, fields, replace
+from dataclasses import fields, replace
 import json
 from pathlib import Path
 import shutil
@@ -22,18 +22,16 @@ from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
 from graal_common.physics.channels import ETA_PI0_HYP, M_ETA, M_PI0, M_PROTON
 
+from observable_extraction.extraction import extract_sample
+from observable_extraction.samples import SAMPLES
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import (
     PHI_EDGES_RAD,
     PHI_BIN_CHOICES,
     phi_edges_rad,
     phi_bin_divisor,
-    energy_bin_index,
     PAIR_NAMES,
     pair_mass_edges,
-)
-from observable_extraction.core.conditional_likelihood import (
-    extract_likelihood_grid,
 )
 from observable_extraction.core.background import (
     BackgroundEstimate,
@@ -52,7 +50,6 @@ from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.core.photon_multiplicity import (
     compare_multiplicity_selections,
 )
-from observable_extraction.core.ratio_fit import extract_ratio_grid, binning_quality_key
 from observable_extraction.core.periods import partition_runs, selection_audit, exposure_summary
 from observable_extraction.core.systematics import (
     REQUIRED_SYSTEMATICS,
@@ -69,7 +66,6 @@ from observable_extraction.io.reconstructed_events import (
 )
 from observable_extraction.io.root_output import (
     OutputPoint,
-    RatioObject,
     RootOutputPayload,
     write_root_output,
     ordered_point_keys,
@@ -90,25 +86,6 @@ from observable_extraction.plotting.diagnostics import (
     write_period_stability_pdf,
 )
 
-
-@dataclass(frozen=True)
-class SampleInput:
-    tree: str
-    requires_bdt: bool
-
-
-@dataclass(frozen=True)
-class ExtractionBundle:
-    points: tuple[OutputPoint, ...]
-    ratio_objects: tuple[RatioObject, ...]
-    binning_candidates: tuple[OutputPoint, ...] = ()
-    candidate_ratio_objects: tuple[RatioObject, ...] = ()
-
-
-SAMPLES = {
-    "raw": SampleInput("reco_eta_pi0_chi2", False),
-    "raw_bdt": SampleInput("reco_eta_pi0_bdt", True),
-}
 
 SIDEBAND_TREE = "reco_eta_pi0_bdt_sideband"
 SIDEBAND_WINDOWS = SidebandWindows(
@@ -187,67 +164,6 @@ def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
         "raw": args.raw,
         "raw_bdt": args.raw_bdt,
     }[sample]
-
-
-def _ratio_output_point(sample: str, result) -> OutputPoint:
-    point = result.point
-    return OutputPoint(
-        sample=sample,
-        estimator="ratio",
-        phi_bins=len(result.counts_vertical),
-        point=point,
-        sigma_uncorrected=point.sigma,
-        systematic_total=0.0,
-        background_fraction=0.0,
-        count_vertical=int(np.sum(result.counts_vertical)),
-        count_horizontal=int(np.sum(result.counts_horizontal)),
-        flux_vertical=result.flux_vertical,
-        flux_horizontal=result.flux_horizontal,
-        polarization_vertical=result.polarization_vertical,
-        polarization_horizontal=result.polarization_horizontal,
-    )
-
-
-def _likelihood_output_point(
-    sample: str, result, *, events, masses, exposures, energy_edges,
-) -> OutputPoint:
-    point = result.point
-    energy = events.beam_energy_gev
-    energy_mask = (energy >= point.energy_low_gev) & (
-        (energy < point.energy_high_gev)
-        | ((point.energy_bin == len(energy_edges) - 2) & (energy <= point.energy_high_gev))
-    )
-    mass_mask = (masses >= point.mass_low_gev) & (
-        (masses < point.mass_high_gev)
-        | ((point.mass_bin == len(pair_mass_edges(point.pair)) - 2) & (masses <= point.mass_high_gev))
-    )
-    selected = energy_mask & mass_mask
-    # Count the likelihood's own events and all exposure strata in its energy
-    # bin, including when sparse phi bins cannot support a ratio fit.
-    selected_exposures = [
-        item for item in exposures.values()
-        if energy_bin_index(item.energy_gev, energy_edges) == point.energy_bin
-    ]
-    flux_vertical = float(sum(item.flux_vertical for item in selected_exposures))
-    flux_horizontal = float(sum(item.flux_horizontal for item in selected_exposures))
-    return OutputPoint(
-        sample=sample,
-        estimator="likelihood",
-        point=point,
-        sigma_uncorrected=point.sigma,
-        systematic_total=0.0,
-        background_fraction=0.0,
-        count_vertical=int(np.count_nonzero(selected & (events.polarization == 1))),
-        count_horizontal=int(np.count_nonzero(selected & (events.polarization == 2))),
-        flux_vertical=flux_vertical,
-        flux_horizontal=flux_horizontal,
-        polarization_vertical=float(sum(
-            item.flux_vertical * item.polarization_vertical for item in selected_exposures
-        ) / flux_vertical) if flux_vertical else 0.0,
-        polarization_horizontal=float(sum(
-            item.flux_horizontal * item.polarization_horizontal for item in selected_exposures
-        ) / flux_horizontal) if flux_horizontal else 0.0,
-    )
 
 
 def _apply_background_correction(
@@ -417,7 +333,7 @@ def _background_asymmetries(
     hard_events = broad_events.take(regions == Region.HARD_SIDEBAND)
     if len(hard_events) == 0:
         return {}
-    bundle = _extract_sample(
+    bundle = extract_sample(
         sample_name="hard_sideband",
         events=hard_events,
         exposures=exposures,
@@ -437,98 +353,6 @@ def _background_asymmetries(
         ): item
         for item in bundle.points
     }
-
-
-def _extract_sample(
-    *,
-    sample_name: str,
-    events,
-    exposures,
-    estimator: str,
-    retain_ratio_objects: bool,
-    energy_edges: np.ndarray,
-    phi_edges: np.ndarray = PHI_EDGES_RAD,
-    best_binning: bool = False,
-    selected_phi_bins: dict | None = None,
-    workers: int = 1,
-) -> ExtractionBundle:
-    """Project once, then fit all requested binnings on the same selected events.
-
-    selected_phi_bins freezes the nominal choice for sideband and systematic
-    controls. Missing fixed-bin fits remain missing; never substitute another
-    binning silently. Bootstrap replicas instead repeat the best-bin selection.
-    """
-    validate_workers(workers)
-    projections = project_all_pairs(events.proton, events.eta, events.pi0)
-    output_points, ratio_objects, candidates, candidate_objects = [], [], [], []
-    if selected_phi_bins is not None:
-        binnings = {n: phi_edges_rad(n) for n in sorted(set(selected_phi_bins.values()))}
-    elif best_binning:
-        binnings = {n: phi_edges_rad(n) for n in PHI_BIN_CHOICES}
-    else:
-        binnings = {len(phi_edges) - 1: phi_edges}
-
-    for pair in PAIR_NAMES:
-        masses, phis = projections[pair]
-        results_by_key = {}
-        for bins, edges in binnings.items():
-            results = extract_ratio_grid(
-                pair=pair, mass_gev=masses, phi_rad=phis,
-                beam_energy_gev=events.beam_energy_gev,
-                polarization=events.polarization, exposures=exposures,
-                energy_edges=energy_edges, phi_edges=edges,
-                workers=workers,
-            )
-            for item in results:
-                key = (pair, item.point.energy_bin, item.point.mass_bin)
-                results_by_key.setdefault(key, []).append((bins, item))
-                if best_binning and estimator in {"ratio", "both"}:
-                    candidates.append(_ratio_output_point(sample_name, item))
-                    if retain_ratio_objects:
-                        candidate_objects.append(_ratio_object(item, edges))
-        for key, available in results_by_key.items():
-            if selected_phi_bins is not None:
-                available = [(n, item) for n, item in available if n == selected_phi_bins.get(key)]
-            elif best_binning:
-                available = [(n, item) for n, item in available
-                             if item.fit.diagnostics.converged and item.fit.diagnostics.ndf > 0]
-                available.sort(key=lambda entry: binning_quality_key(entry[1].fit.diagnostics, entry[0]))
-            if not available:
-                continue
-            bins, item = available[0]
-            if estimator in {"ratio", "both"}:
-                output_points.append(_ratio_output_point(sample_name, item))
-                if retain_ratio_objects:
-                    ratio_objects.append(_ratio_object(item, binnings[bins]))
-        if estimator in {"likelihood", "both"}:
-            likelihood_results = extract_likelihood_grid(
-                pair=pair, mass_gev=masses, phi_rad=phis,
-                beam_energy_gev=events.beam_energy_gev,
-                polarization=events.polarization, run_number=events.run_number,
-                xstrip=events.xstrip, exposures=exposures, energy_edges=energy_edges,
-                workers=workers,
-            )
-            output_points.extend(
-                _likelihood_output_point(
-                    sample_name, item, events=events, masses=masses,
-                    exposures=exposures, energy_edges=energy_edges,
-                )
-                for item in likelihood_results
-            )
-    return ExtractionBundle(tuple(output_points), tuple(ratio_objects),
-                            tuple(candidates), tuple(candidate_objects))
-
-
-def _ratio_object(item, edges) -> RatioObject:
-    used = item.fit.used_mask
-    centers = 0.5 * (edges[:-1] + edges[1:])
-    return RatioObject(
-        pair=item.point.pair, energy_bin=item.point.energy_bin,
-        mass_bin=item.point.mass_bin, phi=centers[used],
-        value=item.fit.ratio[used], error=item.fit.ratio_error[used],
-        sigma=item.fit.sigma, phi_bins=len(edges) - 1,
-        c0=item.fit.diagnostics.c0 or 0.0, s2=item.fit.diagnostics.s2 or 0.0,
-    )
 
 
 def _selected_phi_bins(points, sample):
@@ -660,7 +484,7 @@ def _bootstrap_covariance_for_points(
         return None
 
     def estimate(replica_events, replica_exposures) -> np.ndarray:
-        bundle = _extract_sample(
+        bundle = extract_sample(
             sample_name=sample_name,
             events=replica_events,
             exposures=replica_exposures,
@@ -709,7 +533,7 @@ def _paired_bootstrap_diagnostics(
     def estimate(replica_samples, replica_exposures):
         fitted = {}
         for name in samples:
-            bundle = _extract_sample(
+            bundle = extract_sample(
                 sample_name=name, events=replica_samples[name], exposures=replica_exposures,
                 estimator=estimator, retain_ratio_objects=False,
                 energy_edges=energy_edges, phi_edges=phi_edges,
@@ -777,7 +601,7 @@ def _photon_multiplicity_component(
     ]
 
     def estimate(selected_events) -> np.ndarray:
-        bundle = _extract_sample(
+        bundle = extract_sample(
             sample_name=sample_name,
             events=selected_events,
             exposures=exposures,
@@ -877,7 +701,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         energy_range=grid.energy_range_gev,
         drop_missing=True,
     )
-    nominal = _extract_sample(
+    nominal = extract_sample(
         sample_name=args.nominal_sample,
         events=events,
         exposures=exposures,
@@ -949,7 +773,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             drop_missing=True,
         )
         samples[sample_name] = comparison_events
-        comparison = _extract_sample(
+        comparison = extract_sample(
             sample_name=sample_name,
             events=comparison_events,
             exposures=exposures,
@@ -1327,7 +1151,7 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
         if len(selected) != len(expected):
             raise ValueError("period selection differs from pooled selection")
         counts[name] = len(selected)
-        result = _extract_sample(sample_name=name, events=selected, exposures=rebuilt_exposures,
+        result = extract_sample(sample_name=name, events=selected, exposures=rebuilt_exposures,
                                  estimator=args.estimator, retain_ratio_objects=False,
                                  energy_edges=np.asarray(grid.edges_gev),
                                  phi_edges=phi_edges_rad(args.phi_bins),
@@ -1344,6 +1168,14 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
     return dict(same_estimable_bins=True, same_event_counts=True, same_exposure_strata=True,
                 selected_counts=counts, max_abs_sigma_difference=max(differences, default=0.0),
                 tolerance=1e-8, comparison="uncorrected fits before any common background correction")
+
+
+def _source_identities(source_root: Path) -> list[dict]:
+    """Hash runtime sources, including modules alongside the entry point."""
+    return file_identities(
+        path for folder in ("", "core", "calibration", "io", "plotting")
+        for path in (source_root / folder).glob("*.py")
+    )
 
 
 def _run_periods(args):
@@ -1428,9 +1260,7 @@ def _run_periods(args):
                  command_options={name: str(value) if isinstance(value, Path) else value for name, value in vars(args).items()},
                  periods=[], shared_nuisances={})
     source_root = Path(__file__).parent
-    index["source_files"] = file_identities([Path(__file__),
-        *(path for folder in ("core", "calibration", "io", "plotting")
-          for path in (source_root / folder).glob("*.py"))])
+    index["source_files"] = _source_identities(source_root)
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source_root,
                               capture_output=True, text=True, check=False)
     index["source_revision"] = revision.stdout.strip() or "unknown"
