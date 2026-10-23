@@ -1,8 +1,10 @@
 """Workflow configuration and stage value types."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from graal_common.physics.channels import CHANNEL_NAMES
 
 PROFILE_PATTERNS = {
@@ -86,6 +88,51 @@ class PreflightResult:
 class Stage:
     name: str
     argv: tuple[str, ...]
+    kind: str = "command"
+    profile: str | None = None
+    channel: str | None = None
+    seed_key: str = ""
+
+
+@dataclass(frozen=True)
+class ArtifactGroup:
+    """An indivisible cache publication unit, declared by the planner."""
+
+    kind: Literal["selected", "mc", "bdt"]
+    profile: str
+    stages: tuple[Stage, ...]
+    destination: Path
+    channel: str | None = None
+    energy_range: tuple[float, float] | None = None
+
+    def __post_init__(self) -> None:
+        expected = {"selected": ("select",), "mc": ("generate",),
+                    "bdt": ("beam_spectrum", "features", "train")}
+        if self.kind not in expected:
+            raise PipelineError(f"unknown artifact group kind: {self.kind}")
+        label = "BDT" if self.kind == "bdt" else self.kind
+        if tuple(stage.kind for stage in self.stages) != expected[self.kind]:
+            raise PipelineError(f"incomplete {self.profile} {label} stage group")
+        if self.profile not in PROFILE_PATTERNS or any(stage.profile != self.profile for stage in self.stages):
+            raise PipelineError(f"inconsistent profile in {label} stage group")
+        if self.kind == "mc":
+            if not self.channel or any(stage.channel != self.channel or not stage.seed_key for stage in self.stages):
+                raise PipelineError("MC stage group requires matching channel and explicit seed_key")
+        elif self.channel is not None or any(stage.channel is not None for stage in self.stages):
+            raise PipelineError(f"unexpected channel in {label} stage group")
+        if self.energy_range is not None:
+            low, high = self.energy_range
+            if not low < high:
+                raise PipelineError(f"invalid energy range in {label} stage group")
+
+
+PipelinePlan = tuple[Stage | ArtifactGroup, ...]
+
+
+def flatten_stages(plan: Sequence[Stage | ArtifactGroup]) -> tuple[Stage, ...]:
+    """Expose command order for dispatch, source inventory, and presentation."""
+    return tuple(stage for entry in plan
+                 for stage in (entry.stages if isinstance(entry, ArtifactGroup) else (entry,)))
 
 
 @dataclass(frozen=True)

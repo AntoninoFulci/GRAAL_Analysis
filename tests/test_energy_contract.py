@@ -52,7 +52,7 @@ def test_pipeline_propagates_domain_and_skips_closed_channels(tmp_path):
     paths = workflow_paths.build_paths(config)
     plan = planning.build_pipeline_plan(config, paths, models.PreflightResult("root"),
         energy_binnings={"uv": EnergyBinning((.9313, 1.1))})
-    stages = {s.name: s.argv for s in plan}
+    stages = {s.name: s.argv for s in models.flatten_stages(plan)}
     assert "uv:generate:etaprime" not in stages
     assert "uv:generate:eta_pi0" in stages
     assert "0.9313,1.1" in stages["uv:generate:eta_pi0"][-1]

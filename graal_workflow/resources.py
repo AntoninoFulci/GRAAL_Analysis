@@ -9,6 +9,7 @@ from pathlib import Path
 
 from graal_common.parallel import thread_environment, validate_workers
 from .logging import run_streamed
+from .models import ArtifactGroup, PipelinePlan, PipelineError, Stage
 
 
 def installed_package_sources(package_name: str) -> tuple[Path, ...]:
@@ -24,19 +25,21 @@ def installed_package_sources(package_name: str) -> tuple[Path, ...]:
     return sources
 
 
-def configure_resources(stages, *, cpus: int, seed: int, extraction_workers: int = 1):
+def configure_resources(stages: PipelinePlan, *, cpus: int, seed: int, extraction_workers: int = 1) -> PipelinePlan:
     validate_workers(cpus)
     validate_workers(extraction_workers)
     if extraction_workers > cpus:
         raise ValueError('extraction workers exceed the CPU budget')
     if isinstance(seed, bool) or not isinstance(seed, int) or not 1 <= seed < 2**32:
         raise ValueError('seed must be between 1 and 2**32-1')
-    result = []
-    for stage in stages:
+
+    def configure_stage(stage: Stage) -> Stage:
         argv = stage.argv
-        kind = stage.name.split(':')[-1]
-        if ':generate:' in stage.name:
-            digest = hashlib.sha256(f'{seed}:{stage.name}'.encode()).digest()
+        kind = stage.kind
+        if kind == 'generate':
+            if not stage.seed_key:
+                raise PipelineError('MC stage requires explicit seed_key')
+            digest = hashlib.sha256(f'{seed}:{stage.seed_key}'.encode()).digest()
             task_seed = int.from_bytes(digest[:4], 'big') or 1
             argv = (*argv[:-1], argv[-1][:-1] + f',{task_seed})')
         elif kind in ('select', 'calibrate_flux'):
@@ -49,8 +52,10 @@ def configure_resources(stages, *, cpus: int, seed: int, extraction_workers: int
             argv += ('--workers', str(extraction_workers))
         elif kind in ('reconstruct_chi2', 'reconstruct_bdt', 'flux_study', 'plots'):
             argv += ('--workers', str(cpus))
-        result.append(replace(stage, argv=argv))
-    return tuple(result)
+        return replace(stage, argv=argv)
+
+    return tuple(replace(entry, stages=tuple(configure_stage(stage) for stage in entry.stages))
+                 if isinstance(entry, ArtifactGroup) else configure_stage(entry) for entry in stages)
 
 
 def bounded_runner(argv, **kwargs):

@@ -100,7 +100,7 @@ for mode in ('test_data', 'production'):
         stages = planning.build_pipeline_plan(config, locations, models.PreflightResult('/root with spaces/bin/root'), python_executable='/python path/bin/python', phi_bins=bins)
         stages = resources.configure_resources(stages, cpus=4, seed=123, extraction_workers=2)
         records.append([dataclasses.asdict(stage) for stage in stages])
-print(json.dumps(records))
+print(json.dumps(records, default=str))
 """)
     expected = []
     from dataclasses import asdict
@@ -110,7 +110,7 @@ print(json.dumps(records))
         for bins in (8, 12, 16):
             stages = planning.build_pipeline_plan(config, locations, models.PreflightResult("/root with spaces/bin/root"), python_executable="/python path/bin/python", phi_bins=bins)
             expected.append([asdict(stage) for stage in resources.configure_resources(stages, cpus=4, seed=123, extraction_workers=2)])
-    assert json.loads(result.stdout) == json.loads(json.dumps(expected))
+    assert json.loads(result.stdout) == json.loads(json.dumps(expected, default=str))
 
 
 def test_wheel_module_script_and_console_help_from_external_cwd(installed_workflow):
@@ -193,11 +193,15 @@ config = replace(paths.mode_config('production', root), preanalysis_dir=root / '
 locations = replace(paths.build_paths(config), output_root=proof / 'campaign', artifact_root=proof / 'cache')
 paths.prepare_output_dirs(locations)
 mc = locations.mc_dir('uv') / get_channel('eta_pi0').mc_filename
-stage = models.Stage('uv:generate:eta_pi0', (shutil.which('root'), '-l', '-b', '-q', planning.root_macro_call(root / '03_mc_simulation/generators/generate_eta_pi0_dataset.C', 12, 1.1, 1.5, mc)))
-stages = resources.configure_resources((stage,), cpus=1, seed=123)
+stage = models.Stage('uv:generate:eta_pi0', (shutil.which('root'), '-l', '-b', '-q', planning.root_macro_call(root / '03_mc_simulation/generators/generate_eta_pi0_dataset.C', 12, 1.1, 1.5, mc)), kind='generate', profile='uv', channel='eta_pi0', seed_key='uv:generate:eta_pi0')
+group = models.ArtifactGroup('mc', 'uv', (stage,), mc, channel='eta_pi0', energy_range=(1.1, 1.5))
+stages = resources.configure_resources((group,), cpus=1, seed=123)
 execution.execute_cached_plan(stages, config, locations, runner=resources.bounded_runner)
 first = mc.stat().st_mtime_ns
-execution.execute_cached_plan(stages, config, locations, runner=resources.bounded_runner)
+renamed = replace(group, stages=(replace(stage, name='human-readable MC label'),))
+renamed_stages = resources.configure_resources((renamed,), cpus=1, seed=123)
+assert renamed_stages[0].stages[0].argv == stages[0].stages[0].argv
+execution.execute_cached_plan(renamed_stages, config, locations, runner=resources.bounded_runner)
 assert mc.stat().st_mtime_ns == first
 execution.execute_cached_plan(stages, config, locations, force_mc=True, runner=resources.bounded_runner)
 assert mc.stat().st_mtime_ns != first
@@ -312,7 +316,7 @@ expected = quality_module.load_run_quality(policy_path)
 quality_module.DEFAULT_RUN_QUALITY_PATH = work / 'forbidden-site-packages-policy.json'
 config = paths.mode_config('test_data', root)
 plan = planning.build_pipeline_plan(config, paths.build_paths(config), models.PreflightResult('root'))
-extract = next(stage for stage in plan if stage.name == 'uv:extract')
+extract = next(stage for stage in models.flatten_stages(plan) if stage.name == 'uv:extract')
 assert extract.argv[extract.argv.index('--run-quality') + 1] == str(policy_path)
 manifest = work / 'manifest.csv'
 write_manifest([RunRecord(run, 'period', 'P', 'UV', 'P_UV', 'manual', f'uv/run{run}.root') for run in (811, 1322)], manifest)

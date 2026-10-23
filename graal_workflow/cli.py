@@ -18,7 +18,7 @@ from graal_common.physics.channels import get_channel
 from observable_extraction.core.binning import PHI_BIN_CHOICES
 from . import artifact_manifest as cache
 from . import logging as console
-from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
+from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, ArtifactGroup, flatten_stages, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
 from .paths import mode_config, build_paths, preflight, pipeline_lock, prepare_output_dirs, validate_test_output, validate_production_output, _replace_test_output, resolve_repo_root
 from .planning import build_pipeline_plan
 from .execution import execute_cached_plan
@@ -112,7 +112,7 @@ def print_run_summary(
     config: ModeConfig,
     paths: PipelinePaths,
     args: argparse.Namespace,
-    stages: Sequence[Stage],
+    stages: Sequence[Stage | ArtifactGroup],
 ) -> None:
     """Show the validated campaign configuration before touching its outputs."""
     def relative(path: Path) -> str:
@@ -165,8 +165,9 @@ def print_run_summary(
             ("Flag force", "ignorati in test_data"),
             ("Sovrascrittura", "intermedi e risultati nella campagna results_test/"),
         ))
-    rows.append(("Stage previsti", str(len(stages))))
-    rows.extend((f"{index:02d}", stage.name) for index, stage in enumerate(stages, 1))
+    commands = flatten_stages(stages)
+    rows.append(("Stage previsti", str(len(commands))))
+    rows.extend((f"{index:02d}", stage.name) for index, stage in enumerate(commands, 1))
     _print_table("Riepilogo pipeline", rows)
 
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from itertools import groupby
 from pathlib import Path
 import json
 import os
@@ -14,10 +16,9 @@ import time
 from calibration.run_quality import load_run_quality
 from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import validate_workers
-from graal_common.physics.channels import get_channel
 from . import artifact_manifest as cache
 from . import logging as console
-from .models import ModeConfig, PipelineError, PipelinePaths, Stage, PROFILE_PATTERNS
+from .models import ModeConfig, PipelineError, PipelinePaths, Stage, ArtifactGroup, PipelinePlan, flatten_stages, PROFILE_PATTERNS
 from .resources import installed_package_sources
 
 
@@ -59,7 +60,7 @@ def run_cached_stages(
 
     def execute_at(staged: Path) -> None:
         rewritten = tuple(
-            Stage(stage.name, tuple(arg.replace(str(destination), str(staged)) for arg in stage.argv))
+            replace(stage, argv=tuple(arg.replace(str(destination), str(staged)) for arg in stage.argv))
             for stage in stages
         )
         execute_plan(rewritten, paths, runner=runner)
@@ -89,14 +90,15 @@ def run_cached_stages(
 
 
 def execute_plan(
-    stages: Sequence[Stage],
+    stages: PipelinePlan,
     paths: PipelinePaths,
     *,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> None:
-    for index, stage in enumerate(stages, start=1):
-        console.emit(f"\n[{index}/{len(stages)}] {stage.name}", "info")
+    commands = flatten_stages(stages)
+    for index, stage in enumerate(commands, start=1):
+        console.emit(f"\n[{index}/{len(commands)}] {stage.name}", "info")
         console.emit(f"$ {shlex.join(stage.argv)}", "detail")
         started = monotonic()
         result = runner(
@@ -134,7 +136,7 @@ def _source_files(paths: PipelinePaths, component: str) -> tuple[Path, ...]:
     return tuple(files)
 
 
-def _stage_sources(paths: PipelinePaths, stages: Sequence[Stage]) -> tuple[Path, ...]:
+def _stage_sources(paths: PipelinePaths, stages: PipelinePlan) -> tuple[Path, ...]:
     """Record installed modules and explicit checkout drivers actually dispatched."""
     sources = set(installed_package_sources("graal_workflow"))
     sources.update(installed_package_sources("graal_common"))
@@ -145,7 +147,7 @@ def _stage_sources(paths: PipelinePaths, stages: Sequence[Stage]) -> tuple[Path,
     # --calibration-qa is produced by the preceding calibration stage.
     static_options = {"--manifest", "--run-manifest", "--hyperparams",
                       "--published-csv", "--run-metadata", "--run-quality"}
-    for stage in stages:
+    for stage in flatten_stages(stages):
         for option, value in zip(stage.argv, stage.argv[1:]):
             if option in static_options:
                 path = Path(value)
@@ -195,7 +197,7 @@ def _write_campaign_artifacts(paths: PipelinePaths, outcomes: list[dict], source
 
 
 def execute_cached_plan(
-    stages: Sequence[Stage],
+    stages: PipelinePlan,
     config: ModeConfig,
     paths: PipelinePaths,
     *,
@@ -206,76 +208,71 @@ def execute_cached_plan(
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> None:
     validate_workers(cpus)
+    cache_kinds = {"select", "generate", "beam_spectrum", "features", "train"}
+    for entry in stages:
+        if isinstance(entry, Stage) and entry.kind in cache_kinds:
+            raise PipelineError(f"stage kind {entry.kind} requires an artifact group")
     production = config.name == "production"
     outcomes: list[dict] = []
-    stage_list = list(stages)
     sources = cache.inventory(_stage_sources(paths, stages))
-    index = 0
-    while index < len(stage_list):
-        stage = stage_list[index]
-        parts = stage.name.split(":")
-        profile = parts[0]
-        if profile in PROFILE_PATTERNS and len(parts) >= 2 and parts[1] == "select":
-            destination = paths.selected_dir(profile)
+
+    def run_group(group: ArtifactGroup) -> dict:
+        profile, destination = group.profile, group.destination
+        if group.kind == "selected":
             inputs = tuple(sorted(paths.preanalysis_dir.glob(PROFILE_PATTERNS[profile])))
             item = cache.CacheItem(
                 f"selected:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
-                {"inputs": cache.inventory(inputs), "options": stage.argv, "source": cache.source_fingerprint(_source_files(paths, "02_event_selector"))},
+                {"inputs": cache.inventory(inputs), "options": group.stages[0].argv,
+                 "source": cache.source_fingerprint(_source_files(paths, "02_event_selector"))},
             )
-            outcome = run_cached_stages((stage,), paths, item, destination,
-                                        lambda directory, source=inputs: cache.validate_selected(directory, source),
-                                        production=production, force=force_selected, runner=runner)
-        elif profile in PROFILE_PATTERNS and len(parts) == 3 and parts[1] == "generate":
-            group = []
-            while index < len(stage_list) and stage_list[index].name.startswith(f"{profile}:generate:"):
-                group.append(stage_list[index])
-                index += 1
+            return run_cached_stages(group.stages, paths, item, destination,
+                                     lambda directory: cache.validate_selected(directory, inputs),
+                                     production=production, force=force_selected, runner=runner)
+        if group.kind == "mc":
+            item = cache.CacheItem(
+                f"mc:{profile}:{group.channel}", destination.with_suffix(".manifest.json"), (destination,),
+                {"options": group.stages[0].argv,
+                 "source": cache.source_fingerprint(_source_files(paths, "03_mc_simulation"))},
+            )
+            return run_cached_stages(group.stages, paths, item, destination,
+                                     lambda path: cache.validate_mc(path, group.channel),
+                                     production=production, force=force_mc, runner=runner)
+        selected = tuple(entry.destination for entry in stages
+                         if isinstance(entry, ArtifactGroup) and entry.kind == "selected" and entry.profile == profile)
+        mc = tuple(entry.destination for entry in stages
+                   if isinstance(entry, ArtifactGroup) and entry.kind == "mc" and entry.profile == profile)
+        if len(selected) != 1 or not mc:
+            raise PipelineError(f"incomplete {profile} BDT upstream artifact groups")
+        item = cache.CacheItem(
+            f"bdt:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
+            {"selected": cache.inventory(selected), "mc": cache.inventory(mc),
+             "options": [entry.argv for entry in group.stages],
+             "hyperparams": cache.source_fingerprint((paths.hyperparams,)),
+             "source": cache.source_fingerprint(_source_files(paths, "04_bdt_training"))},
+        )
+        return run_cached_stages(group.stages, paths, item, destination,
+                                 lambda directory: cache.validate_bdt(directory, profile, energy_range=group.energy_range),
+                                 production=production, force=force_bdt, runner=runner)
 
-            def generate(entry):
-                channel = entry.name.split(":")[2]
-                destination = paths.mc_dir(profile) / get_channel(channel).mc_filename
-                item = cache.CacheItem(
-                    f"mc:{profile}:{channel}", destination.with_suffix(".manifest.json"), (destination,),
-                    {"options": entry.argv, "source": cache.source_fingerprint(_source_files(paths, "03_mc_simulation"))},
-                )
-                return run_cached_stages((entry,), paths, item, destination,
-                    lambda path: cache.validate_mc(path, channel),
-                    production=production, force=force_mc, runner=runner)
+    # Only consecutive MC units share a pool. Every group still owns one output;
+    # the ordered common/profile/plot phases remain unchanged.
+    def batch_key(entry: Stage | ArtifactGroup) -> tuple[bool, str | None]:
+        is_mc = isinstance(entry, ArtifactGroup) and entry.kind == "mc"
+        return is_mc, entry.profile if is_mc else None
 
-            with ThreadPoolExecutor(max_workers=min(cpus, len(group))) as pool:
-                outcomes.extend(pool.map(generate, group))
+    for (parallel_mc, _profile), entries in groupby(stages, key=batch_key):
+        if parallel_mc:
+            batch = tuple(entries)
+            with ThreadPoolExecutor(max_workers=min(cpus, len(batch))) as pool:
+                outcomes.extend(pool.map(run_group, batch))
             if production:
                 _write_campaign_artifacts(paths, outcomes, sources)
             continue
-        elif profile in PROFILE_PATTERNS and len(parts) >= 2 and parts[1] == "beam_spectrum":
-            group = tuple(stage_list[index:index + 3])
-            if [entry.name for entry in group] != [f"{profile}:beam_spectrum", f"{profile}:features", f"{profile}:train"]:
-                raise PipelineError(f"incomplete {profile} BDT stage group")
-            destination = paths.bdt_dir(profile)
-            selected_identity = cache.inventory((paths.selected_dir(profile),))
-            channels = tuple(entry.name.split(":")[2] for entry in stage_list
-                             if entry.name.startswith(f"{profile}:generate:"))
-            bounds = None
-            if "--energy-edges" in stage.argv:
-                edges = tuple(map(float, stage.argv[stage.argv.index("--energy-edges") + 1:]))
-                bounds = (edges[0], edges[-1])
-            mc_identity = cache.inventory(tuple(paths.mc_dir(profile) / get_channel(name).mc_filename for name in channels))
-            item = cache.CacheItem(
-                f"bdt:{profile}", destination.parent / f"{profile}.manifest.json", (destination,),
-                {"selected": selected_identity, "mc": mc_identity, "options": [entry.argv for entry in group],
-                 "hyperparams": cache.source_fingerprint((paths.hyperparams,)),
-                 "source": cache.source_fingerprint(_source_files(paths, "04_bdt_training"))},
-            )
-            outcome = run_cached_stages(group, paths, item, destination,
-                                        lambda directory, name=profile, domain=bounds: cache.validate_bdt(directory, name, energy_range=domain),
-                                        production=production, force=force_bdt, runner=runner)
-            index += 2
-        else:
-            _log_decision(paths.command_log, stage.name, "RUN", "campaign stage" if production else "test data always rebuilds")
-            execute_plan((stage,), paths, runner=runner)
-            index += 1
-            continue
-        outcomes.append(outcome)
-        if production:
-            _write_campaign_artifacts(paths, outcomes, sources)
-        index += 1
+        for entry in entries:
+            if isinstance(entry, ArtifactGroup):
+                outcomes.append(run_group(entry))
+                if production:
+                    _write_campaign_artifacts(paths, outcomes, sources)
+            else:
+                _log_decision(paths.command_log, entry.name, "RUN", "campaign stage" if production else "test data always rebuilds")
+                execute_plan((entry,), paths, runner=runner)

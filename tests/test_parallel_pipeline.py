@@ -13,7 +13,7 @@ def test_budget_reaches_native_and_process_stages(tmp_path):
     paths = workflow_paths.build_paths(config)
     stages = planning.build_pipeline_plan(config, paths, models.PreflightResult('root'))
     configured = configure_resources(stages, cpus=40, seed=123)
-    by_name = {stage.name: stage.argv for stage in configured}
+    by_name = {stage.name: stage.argv for stage in models.flatten_stages(configured)}
     for name, flag in [('common:calibrate_flux', '--threads'), ('uv:select', '--threads'),
                        ('vis:train', '--nthread'), ('uv:features', '--workers'),
                        ('uv:reconstruct_chi2', '--workers')]:
@@ -23,7 +23,7 @@ def test_budget_reaches_native_and_process_stages(tmp_path):
         argv = by_name[f'{profile}:extract']
         assert argv[argv.index('--workers') + 1] == '1'
     assert '--seed-policy' in by_name['uv:features']
-    generated = [stage.argv[-1] for stage in configured if ':generate:' in stage.name]
+    generated = [stage.argv[-1] for stage in models.flatten_stages(configured) if stage.kind == 'generate']
     assert len(generated) == len(set(generated))
     assert all(call.endswith(')') and call.rsplit(',', 1)[-1][:-1].isdigit() for call in generated)
     assert configured == configure_resources(stages, cpus=40, seed=123)
@@ -34,7 +34,7 @@ def test_extraction_override_preserves_other_stage_budgets(tmp_path):
     stages = planning.build_pipeline_plan(config, workflow_paths.build_paths(config),
                                           models.PreflightResult('root'))
     configured = configure_resources(stages, cpus=40, seed=123, extraction_workers=8)
-    by_name = {stage.name: stage.argv for stage in configured}
+    by_name = {stage.name: stage.argv for stage in models.flatten_stages(configured)}
     for profile in ('uv', 'vis'):
         extract = by_name[f'{profile}:extract']
         reco = by_name[f'{profile}:reconstruct_bdt']
@@ -75,7 +75,10 @@ def test_parallel_mc_bounded_and_published_with_manifests(tmp_path, monkeypatch)
     config = workflow_paths.mode_config('production', tmp_path)
     paths = workflow_paths.build_paths(config)
     workflow_paths.prepare_output_dirs(paths)
-    stages = tuple(models.Stage(f'uv:generate:{name}', (name,)) for name in ('eta_pi0', 'pi0pi0', '3pi0'))
+    stages = tuple(models.ArtifactGroup('mc', 'uv',
+                   (models.Stage(f'uv:generate:{name}', (name,), kind='generate', profile='uv', channel=name, seed_key=f'uv:generate:{name}'),),
+                   paths.mc_dir('uv') / f'{name}.root', channel=name)
+                   for name in ('eta_pi0', 'pi0pi0', '3pi0'))
     lock = threading.Lock()
     active = peak = 0
     gate = threading.Barrier(2)
@@ -87,6 +90,9 @@ def test_parallel_mc_bounded_and_published_with_manifests(tmp_path, monkeypatch)
             peak = max(peak, active)
             ordinal = len(seen)
             seen.append(item.name)
+            assert len(group) == 1
+            assert item.outputs == (destination,)
+            assert destination.name == f"{group[0].channel}.root"
         if ordinal < 2:
             gate.wait(timeout=5)
         with lock:

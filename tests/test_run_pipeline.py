@@ -206,11 +206,11 @@ def _plan(tmp_path: Path, mode: str = "test_data"):
     stages = planning.build_pipeline_plan(
         config, paths, result, python_executable="/venv/bin/python"
     )
-    return config, paths, stages
+    return config, paths, models.flatten_stages(stages)
 
 
 def _stage(stages, name: str):
-    return next(item for item in stages if item.name == name)
+    return next(item for item in models.flatten_stages(stages) if item.name == name)
 
 
 @pytest.mark.parametrize("mode", ["production", "test_data"])
@@ -225,7 +225,7 @@ def test_launch_phi_binning_reaches_both_extractions_only(tmp_path, mode, phi_bi
     stages = planning.build_pipeline_plan(config, paths, checked, phi_bins=args.phi_bins)
     default_stages = planning.build_pipeline_plan(config, paths, checked)
     assert len(stages) == len(default_stages)
-    for stage, default in zip(stages, default_stages):
+    for stage, default in zip(models.flatten_stages(stages), models.flatten_stages(default_stages)):
         if stage.name.endswith(":extract"):
             assert stage.argv[stage.argv.index("--phi-bins") + 1] == str(phi_bins)
             assert default.argv[default.argv.index("--phi-bins") + 1] == "12"
@@ -246,7 +246,7 @@ def test_best_binning_changes_only_extraction_commands(tmp_path):
     checked = models.PreflightResult("/usr/bin/root")
     before = planning.build_pipeline_plan(config, paths, checked)
     after = planning.build_pipeline_plan(config, paths, checked, best_binning=args.best_binning)
-    for fixed, best in zip(before, after, strict=True):
+    for fixed, best in zip(models.flatten_stages(before), models.flatten_stages(after), strict=True):
         if best.name.endswith(":extract"):
             assert best.argv == (*fixed.argv, "--best-binning")
         else:
@@ -553,6 +553,7 @@ def test_cached_stage_skips_valid_output_and_force_rebuilds(tmp_path):
 
 
 def test_production_selection_reuses_across_campaigns_and_force_rebuilds(tmp_path):
+    from dataclasses import replace
     from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
     policy = tmp_path / "config/run_quality_exclusions.json"
     policy.parent.mkdir()
@@ -579,7 +580,8 @@ def test_production_selection_reuses_across_campaigns_and_force_rebuilds(tmp_pat
         paths = workflow_paths.build_paths(config, tmp_path / "results" / campaign)
         workflow_paths.prepare_output_dirs(paths)
         stage = models.Stage("uv:select", ("selector", "--output-dir", str(paths.selected_dir("uv"))))
-        execution.execute_cached_plan((stage,), config, paths, force_selected=force, runner=runner)
+        group = models.ArtifactGroup("selected", "uv", (replace(stage, kind="select", profile="uv"),), paths.selected_dir("uv"))
+        execution.execute_cached_plan((group,), config, paths, force_selected=force, runner=runner)
     assert len(calls) == 2
     assert "SKIP" in (tmp_path / "results/second/pipeline_commands.log").read_text()
     assert "RUN" in (tmp_path / "results/forced/pipeline_commands.log").read_text()
@@ -703,7 +705,7 @@ def test_summary_shows_settings_and_all_planned_stages_before_prompt(
     monkeypatch.setattr("builtins.input", approve)
     monkeypatch.setattr(
         cli, "execute_cached_plan",
-        lambda stages, *_args, **_kwargs: executed.append(tuple(stage.name for stage in stages)),
+        lambda stages, *_args, **_kwargs: executed.append(tuple(stage.name for stage in models.flatten_stages(stages))),
     )
     args = cli.build_parser().parse_args(
         ["--mode", "production", "--output-dir", str(tmp_path / "results/october"), "--force-mc"]
@@ -818,7 +820,7 @@ def test_flux_audit_is_opt_in_and_after_calibration(tmp_path):
     checked=models.PreflightResult('/usr/bin/root')
     default=planning.build_pipeline_plan(config,paths,checked)
     enabled=planning.build_pipeline_plan(config,paths,checked,flux_study='audit')
-    assert not any(s.name.startswith('common:flux_') for s in default)
+    assert not any(s.name.startswith('common:flux_') for s in models.flatten_stages(default))
     assert enabled[0]==default[0]
     assert enabled[1].name=='common:flux_audit'
     assert enabled[2:]==default[1:]
@@ -846,7 +848,7 @@ def test_production_flux_study_uses_diagnostic_output(tmp_path):
     config = workflow_paths.mode_config('production', tmp_path)
     paths = workflow_paths.build_paths(config, tmp_path / 'results/october')
     stages = planning.build_pipeline_plan(config, paths, models.PreflightResult('root'), flux_study='audit')
-    stage = next(s for s in stages if s.name == 'common:flux_audit')
+    stage = next(s for s in models.flatten_stages(stages) if s.name == 'common:flux_audit')
     assert stage.argv[stage.argv.index('--output-dir') + 1] == str(tmp_path / 'results_test/diagnostics/october/missing_flux')
     assert stage.argv[stage.argv.index('--calibrated-flux') + 1] == str(paths.calibrated_flux)
 

@@ -1,6 +1,7 @@
 """Construct the ordered UV/VIS stage commands."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import sys
 
@@ -8,7 +9,7 @@ from graal_common.physics.beam_profiles import get_beam_profile
 from graal_common.physics.energy_binning import EnergyBinning
 from graal_common.physics.channels import get_channel
 from observable_extraction.core.binning import phi_edges_rad
-from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
+from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, ArtifactGroup, PipelinePlan, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
 
 
 def _argv(*values: object) -> tuple[str, ...]:
@@ -50,6 +51,7 @@ def _common_stages(python: str, paths: PipelinePaths) -> list[Stage]:
                 "--output-dir",
                 paths.calibrated_flux.parent,
             ),
+            kind='calibrate_flux', profile=None, channel=None, seed_key="common:calibrate_flux",
         )
     ]
 
@@ -63,7 +65,7 @@ def _profile_stages(
     python: str,
     phi_bins: int,
     energy_binning: EnergyBinning | None = None,
-) -> list[Stage]:
+) -> list[Stage | ArtifactGroup]:
     profile = get_beam_profile(profile_name)
     grid = (energy_binning or EnergyBinning(profile.energy_edges_gev)).validate_profile(profile)
     channels = tuple(name for name in channels
@@ -78,21 +80,23 @@ def _profile_stages(
     chi2_reco = root / "reco/reco_eta_pi0_chi2.root"
     bdt_reco = root / "reco/reco_eta_pi0_bdt.root"
     asymmetry = root / "beam_asymmetry"
-    stages = [
-        Stage(
-            f"{profile_name}:select",
-            _argv(
-                python,
-                "-m",
-                "event_selector.select_events",
-                "--input-dir",
-                paths.preanalysis_dir,
-                "--output-dir",
-                selected,
-                "--pattern",
-                PROFILE_PATTERNS[profile_name],
-            ),
-        )
+    selected_stage = Stage(
+        f"{profile_name}:select",
+        _argv(
+            python,
+            "-m",
+            "event_selector.select_events",
+            "--input-dir",
+            paths.preanalysis_dir,
+            "--output-dir",
+            selected,
+            "--pattern",
+            PROFILE_PATTERNS[profile_name],
+        ),
+        kind='select', profile=profile_name, channel=None, seed_key=f"{profile_name}:select",
+    )
+    stages: list[Stage | ArtifactGroup] = [
+        ArtifactGroup("selected", profile_name, (selected_stage,), selected)
     ]
     for channel_name in channels:
         channel = get_channel(channel_name)
@@ -101,24 +105,25 @@ def _profile_stages(
             / "03_mc_simulation/generators"
             / f"generate_{channel_name}_dataset.C"
         )
-        stages.append(
-            Stage(
-                f"{profile_name}:generate:{channel_name}",
-                _argv(
-                    preflight_result.root_executable,
-                    "-l",
-                    "-b",
-                    "-q",
-                    root_macro_call(
-                        macro,
-                        config.mc_events,
-                        grid.energy_range_gev[0],
-                        grid.energy_range_gev[1],
-                        mc_dir / channel.mc_filename,
-                    ),
+        generated = Stage(
+            f"{profile_name}:generate:{channel_name}",
+            _argv(
+                preflight_result.root_executable,
+                "-l",
+                "-b",
+                "-q",
+                root_macro_call(
+                    macro,
+                    config.mc_events,
+                    grid.energy_range_gev[0],
+                    grid.energy_range_gev[1],
+                    mc_dir / channel.mc_filename,
                 ),
-            )
+            ),
+            kind="generate", profile=profile_name, channel=channel_name, seed_key=f"{profile_name}:generate:{channel_name}",
         )
+        stages.append(ArtifactGroup("mc", profile_name, (generated,),
+                                    mc_dir / channel.mc_filename, channel_name, grid.energy_range_gev))
     backgrounds = tuple(name for name in channels if name != "eta_pi0")
     stages.extend(
         [
@@ -133,54 +138,64 @@ def _profile_stages(
                     "--channels",
                     *channels,
                 ),
+                kind='mc_status', profile=profile_name, channel=None, seed_key=f"{profile_name}:mc_status",
             ),
-            Stage(
-                f"{profile_name}:beam_spectrum",
-                _argv(
-                    python,
-                    "-m",
-                    "bdt_training.beam_spectrum",
-                    "--selected-dir",
-                    selected,
-                    "--profile",
-                    profile_name,
-                    "--output",
-                    bdt_dir / "beam_spectrum.npz",
+            ArtifactGroup(
+                "bdt", profile_name, (
+                    Stage(
+                        f"{profile_name}:beam_spectrum",
+                        _argv(
+                            python,
+                            "-m",
+                            "bdt_training.beam_spectrum",
+                            "--selected-dir",
+                            selected,
+                            "--profile",
+                            profile_name,
+                            "--output",
+                            bdt_dir / "beam_spectrum.npz",
+                        ),
+                        kind='beam_spectrum', profile=profile_name, channel=None, seed_key=f"{profile_name}:beam_spectrum",
+                    ),
+                    Stage(
+                        f"{profile_name}:features",
+                        _argv(
+                            python,
+                            "-m",
+                            "bdt_training.build_background_features",
+                            "--mc-dir",
+                            mc_dir,
+                            "--signal-channel",
+                            "eta_pi0",
+                            "--background-channels",
+                            *backgrounds,
+                            "--beam-spectrum",
+                            bdt_dir / "beam_spectrum.npz",
+                            "--profile",
+                            profile_name,
+                            "--output",
+                            bdt_dir / "features_stage1.npz",
+                        ),
+                        kind='features', profile=profile_name, channel=None, seed_key=f"{profile_name}:features",
+                    ),
+                    Stage(
+                        f"{profile_name}:train",
+                        _argv(
+                            python,
+                            "-m",
+                            "bdt_training.train_bdt_stage1",
+                            "--features",
+                            bdt_dir / "features_stage1.npz",
+                            "--hyperparams",
+                            paths.hyperparams,
+                            "--out-dir",
+                            model_dir,
+                        ),
+                        kind='train', profile=profile_name, channel=None, seed_key=f"{profile_name}:train",
+                    ),
                 ),
-            ),
-            Stage(
-                f"{profile_name}:features",
-                _argv(
-                    python,
-                    "-m",
-                    "bdt_training.build_background_features",
-                    "--mc-dir",
-                    mc_dir,
-                    "--signal-channel",
-                    "eta_pi0",
-                    "--background-channels",
-                    *backgrounds,
-                    "--beam-spectrum",
-                    bdt_dir / "beam_spectrum.npz",
-                    "--profile",
-                    profile_name,
-                    "--output",
-                    bdt_dir / "features_stage1.npz",
-                ),
-            ),
-            Stage(
-                f"{profile_name}:train",
-                _argv(
-                    python,
-                    "-m",
-                    "bdt_training.train_bdt_stage1",
-                    "--features",
-                    bdt_dir / "features_stage1.npz",
-                    "--hyperparams",
-                    paths.hyperparams,
-                    "--out-dir",
-                    model_dir,
-                ),
+                bdt_dir,
+                energy_range=grid.energy_range_gev if energy_binning is not None else None,
             ),
             Stage(
                 f"{profile_name}:reconstruct_chi2",
@@ -195,6 +210,7 @@ def _profile_stages(
                     "--profile",
                     profile_name,
                 ),
+                kind='reconstruct_chi2', profile=profile_name, channel=None, seed_key=f"{profile_name}:reconstruct_chi2",
             ),
             Stage(
                 f"{profile_name}:reconstruct_bdt",
@@ -211,6 +227,7 @@ def _profile_stages(
                     "--profile",
                     profile_name,
                 ),
+                kind='reconstruct_bdt', profile=profile_name, channel=None, seed_key=f"{profile_name}:reconstruct_bdt",
             ),
             Stage(
                 f"{profile_name}:extract",
@@ -227,8 +244,8 @@ def _profile_stages(
                     paths.calibrated_flux,
                     "--run-manifest",
                     paths.manifest,
-                "--run-quality",
-                paths.repo_root / "config/run_quality_exclusions.json",
+                    "--run-quality",
+                    paths.repo_root / "config/run_quality_exclusions.json",
                     "--by-period",
                     "--output-dir",
                     asymmetry,
@@ -241,14 +258,19 @@ def _profile_stages(
                     "--bootstrap-replicas",
                     "0",
                 ),
+                kind='extract', profile=profile_name, channel=None, seed_key=f"{profile_name}:extract",
             ),
         ]
     )
     if energy_binning is not None:
         energy_args = ("--energy-edges", *(str(edge) for edge in grid.edges_gev))
         consumers = {"beam_spectrum", "features", "reconstruct_chi2", "reconstruct_bdt", "extract"}
-        stages = [Stage(stage.name, stage.argv + energy_args)
-                  if stage.name.split(":")[-1] in consumers else stage for stage in stages]
+
+        def with_energy(stage: Stage) -> Stage:
+            return replace(stage, argv=stage.argv + energy_args) if stage.kind in consumers else stage
+
+        stages = [replace(entry, stages=tuple(with_energy(stage) for stage in entry.stages))
+                  if isinstance(entry, ArtifactGroup) else with_energy(entry) for entry in stages]
     return stages
 
 
@@ -263,14 +285,14 @@ def build_pipeline_plan(
     best_binning: bool = False,
     flux_study: str = "off",
     flux_study_metadata: Path | None = None,
-) -> tuple[Stage, ...]:
+) -> PipelinePlan:
     if flux_study not in ("off", "audit", "study"):
         raise PipelineError(f"invalid flux study mode: {flux_study}")
     if flux_study == "off" and flux_study_metadata is not None:
         raise PipelineError("--flux-study-metadata requires --flux-study audit or study")
     phi_edges_rad(phi_bins)
     energy_binnings = energy_binnings or {}
-    stages = _common_stages(python_executable, paths)
+    stages: list[Stage | ArtifactGroup] = list(_common_stages(python_executable, paths))
     if flux_study != "off":
         module = "audit_flux" if flux_study == "audit" else "study_missing_flux"
         command = _argv(python_executable, "-m", f"flux_studies.{module}",
@@ -280,7 +302,7 @@ def build_pipeline_plan(
                         "--output-dir", paths.repo_root / "results_test/diagnostics" / paths.output_root.name / "missing_flux")
         if flux_study_metadata is not None:
             command += _argv("--run-metadata", flux_study_metadata)
-        stages.append(Stage(f"common:flux_{flux_study}", command))
+        stages.append(Stage(f"common:flux_{flux_study}", command, kind=f"flux_{flux_study}", profile=None, channel=None, seed_key=f"common:flux_{flux_study}"))
     stages.extend(
         _profile_stages(
             "uv", UV_CHANNELS, config, paths, preflight_result, python_executable, phi_bins, energy_binnings.get("uv")
@@ -292,8 +314,8 @@ def build_pipeline_plan(
         )
     )
     if best_binning:
-        stages = [Stage(stage.name, (*stage.argv, "--best-binning"))
-                  if stage.name.endswith(":extract") else stage for stage in stages]
+        stages = [replace(stage, argv=(*stage.argv, "--best-binning"))
+                  if isinstance(stage, Stage) and stage.kind == "extract" else stage for stage in stages]
     stages.append(
         Stage(
             "campaign:plots",
@@ -305,6 +327,7 @@ def build_pipeline_plan(
                 "--published-csv",
                 paths.ajaka_reference,
             ),
+            kind='plots', profile=None, channel=None, seed_key="campaign:plots",
         )
     )
     return tuple(stages)
