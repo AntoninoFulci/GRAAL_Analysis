@@ -8,6 +8,7 @@ import pytest
 import ROOT
 
 from calibration.run_manifest import RunRecord, write_manifest
+from observable_extraction import period_workflow, workflow
 from observable_extraction import beam_asymmetry
 from observable_extraction.extraction import ExtractionBundle
 from observable_extraction.core.models import FluxExposure
@@ -21,12 +22,12 @@ def test_runtime_source_provenance_covers_new_modules_and_changes_with_their_byt
     (tmp_path / 'beam_asymmetry.py').write_text('entrypoint = 1\n')
     (tmp_path / 'core').mkdir()
     (tmp_path / 'core/ratio_fit.py').write_text('ratio = 1\n')
-    first = beam_asymmetry._source_identities(tmp_path)
+    first = period_workflow._source_identities(tmp_path)
     added = tmp_path / 'new_runtime_module.py'
     added.write_text('algorithm = 1\n')
-    second = beam_asymmetry._source_identities(tmp_path)
+    second = period_workflow._source_identities(tmp_path)
     added.write_text('algorithm = 2\n')
-    third = beam_asymmetry._source_identities(tmp_path)
+    third = period_workflow._source_identities(tmp_path)
     assert {Path(row['path']).name for row in first} == {'beam_asymmetry.py', 'ratio_fit.py'}
     assert {Path(row['path']).name for row in second} == {
         'beam_asymmetry.py', 'ratio_fit.py', 'new_runtime_module.py'}
@@ -96,7 +97,7 @@ def test_flux_audit_records_missing_state_and_all_missing_is_representable(tmp_p
 @pytest.mark.parametrize("workers", [1, 2])
 def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_path, monkeypatch, best_binning, workers):
     # This test mocks input ROOT I/O; real energy-domain guards have dedicated tests.
-    monkeypatch.setattr(beam_asymmetry, "_validate_energy_inputs", lambda args: None)
+    monkeypatch.setattr(period_workflow, "_validate_energy_inputs", lambda args: None)
     nominal = tmp_path / 'nominal.root'
     nominal.write_bytes(b'test input identity')
     flux = tmp_path / 'flux.root'
@@ -111,8 +112,8 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
     events = _join(first, first, second, missing)
     exposures = {(run, 17): FluxExposure(run, 17, 1.15, 1.2, .9, .2, .6, .55)
                  for run in (811, 812, 814)}
-    monkeypatch.setattr(beam_asymmetry, 'read_reconstructed', lambda *a, **k: events)
-    monkeypatch.setattr(beam_asymmetry, 'read_run_universe',
+    monkeypatch.setattr(period_workflow, 'read_reconstructed', lambda *a, **k: events)
+    monkeypatch.setattr(period_workflow, 'read_run_universe',
                         lambda path: ({811, 812, 813, 814}, []))
 
     def load(path, **kwargs):
@@ -122,7 +123,7 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         kwargs['audit']['813'] = {'status': 'missing_flux', 'problems': ['missing POL2']}
         return exposures
 
-    monkeypatch.setattr(beam_asymmetry, 'load_exposures', load)
+    monkeypatch.setattr(period_workflow, 'load_exposures', load)
     output = tmp_path / 'output'
     assert beam_asymmetry.main([
         '--by-period', '--raw-bdt', str(nominal), '--raw', str(tmp_path / 'absent.root'),
@@ -132,7 +133,8 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         *(['--best-binning'] if best_binning else []),
     ]) == 0
     index = json.loads((output / 'periods/index.json').read_text())
-    assert {'extraction.py', 'samples.py'} <= {
+    assert {'extraction.py', 'samples.py', 'workflow.py', 'period_workflow.py',
+            'extraction_background.py', 'extraction_systematics.py'} <= {
         Path(record['path']).name for record in index['source_files']}
     entries = {row['period']: row for row in index['periods']}
     assert entries['1998_uv']['status'] == 'estimable'
@@ -177,15 +179,15 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
 
 def test_period_mode_rejects_unknown_input_before_writing(tmp_path, monkeypatch):
     # This test mocks input ROOT I/O; real energy-domain guards have dedicated tests.
-    monkeypatch.setattr(beam_asymmetry, "_validate_energy_inputs", lambda args: None)
+    monkeypatch.setattr(period_workflow, "_validate_energy_inputs", lambda args: None)
     nominal = tmp_path / 'nominal.root'
     nominal.touch()
     manifest = tmp_path / 'manifest.csv'
     write_manifest(_records(), manifest)
     events = _synthetic_events()
     events = replace(events, run_number=np.full(len(events), 999))
-    monkeypatch.setattr(beam_asymmetry, 'read_reconstructed', lambda *a, **k: events)
-    monkeypatch.setattr(beam_asymmetry, 'read_run_universe', lambda path: ({999}, []))
+    monkeypatch.setattr(period_workflow, 'read_reconstructed', lambda *a, **k: events)
+    monkeypatch.setattr(period_workflow, 'read_run_universe', lambda path: ({999}, []))
     output = tmp_path / 'result'
     with pytest.raises(ValueError, match='unknown'):
         beam_asymmetry.main(['--by-period', '--raw-bdt', str(nominal),
@@ -205,14 +207,14 @@ def test_csv_period_must_agree_with_canonical_manifest(tmp_path):
 
 def test_sideband_requires_same_inclusive_universe(tmp_path, monkeypatch):
     # This test mocks input ROOT I/O; real energy-domain guards have dedicated tests.
-    monkeypatch.setattr(beam_asymmetry, "_validate_energy_inputs", lambda args: None)
+    monkeypatch.setattr(period_workflow, "_validate_energy_inputs", lambda args: None)
     nominal, sideband, mc = [tmp_path / name for name in ('nominal.root', 'sideband.root', 'mc.root')]
     for path in (nominal, sideband, mc):
         path.touch()
     manifest = tmp_path / 'manifest.csv'
     write_manifest(_records(), manifest)
-    monkeypatch.setattr(beam_asymmetry, 'read_reconstructed', lambda *a, **k: _synthetic_events())
-    monkeypatch.setattr(beam_asymmetry, 'read_run_universe',
+    monkeypatch.setattr(period_workflow, 'read_reconstructed', lambda *a, **k: _synthetic_events())
+    monkeypatch.setattr(period_workflow, 'read_run_universe',
                         lambda path: ({811} if path == sideband else {811, 812}, []))
     with pytest.raises(ValueError, match='sideband.*universe'):
         beam_asymmetry.main(['--by-period', '--raw-bdt', str(nominal),
@@ -241,7 +243,7 @@ def test_unconverged_period_fit_is_recorded_but_not_published(tmp_path, monkeypa
     point = _point()
     failed = replace(point, sample='raw_bdt', estimator='likelihood',
                      point=replace(point.point, diagnostics=replace(point.point.diagnostics, converged=False)))
-    monkeypatch.setattr(beam_asymmetry, 'extract_sample',
+    monkeypatch.setattr(workflow, 'extract_sample',
                         lambda **kwargs: ExtractionBundle((failed,), ()))
     args = beam_asymmetry.build_parser().parse_args([
         '--raw-bdt', str(tmp_path / 'input.root'), '--raw', str(tmp_path / 'absent.root'),
@@ -249,7 +251,7 @@ def test_unconverged_period_fit_is_recorded_but_not_published(tmp_path, monkeypa
     events = _synthetic_events()
     inputs = {(args.raw_bdt, 'reco_eta_pi0_bdt'): events}
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1., 1., .2, .6, .6)}
-    payload = beam_asymmetry._run_single(args, prepared=(inputs, exposures),
+    payload = workflow._run_single(args, prepared=(inputs, exposures),
                                          period='1998_uv', metadata={}, campaign='toy')
     assert payload.points == ()
     assert payload.extraction_metadata['status'] == 'not_estimable'

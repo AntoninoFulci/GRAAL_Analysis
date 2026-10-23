@@ -4,7 +4,8 @@ import inspect
 
 import numpy as np
 
-from observable_extraction import beam_asymmetry, compare_gate, extraction
+from observable_extraction import extraction_background, extraction_systematics, period_workflow, workflow
+from observable_extraction import compare_gate, extraction
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.samples import SAMPLES, SampleInput
 from observable_extraction.tests.test_beam_asymmetry_cli import _synthetic_events
@@ -17,7 +18,10 @@ def test_public_extraction_bundle_and_sample_contract():
     assert all(isinstance(getattr(empty, field.name), tuple) for field in fields(empty))
     assert SAMPLES == {'raw': SampleInput('reco_eta_pi0_chi2', False),
                        'raw_bdt': SampleInput('reco_eta_pi0_bdt', True)}
-    assert beam_asymmetry.extract_sample is extraction.extract_sample
+    assert workflow.extract_sample is extraction.extract_sample
+    assert period_workflow.extract_sample is extraction.extract_sample
+    assert extraction_background.extract_sample is extraction.extract_sample
+    assert extraction_systematics.extract_sample is extraction.extract_sample
     assert compare_gate.extract_sample is extraction.extract_sample
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in
                inspect.signature(extraction.extract_sample).parameters.values())

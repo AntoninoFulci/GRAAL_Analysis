@@ -2,6 +2,7 @@ from dataclasses import replace
 
 import pytest
 
+from observable_extraction import workflow
 from observable_extraction.core.models import FitDiagnostics
 from observable_extraction.core import ratio_fit
 
@@ -64,8 +65,8 @@ def test_best_binning_workflow_persists_choice_candidates_and_matching_controls(
     def read(*args, **kwargs):
         reads.append(args[0])
         return events
-    monkeypatch.setattr(beam, "read_reconstructed", read)
-    monkeypatch.setattr(beam, "load_exposures", lambda *a, **k: {
+    monkeypatch.setattr(workflow, "read_reconstructed", read)
+    monkeypatch.setattr(workflow, "load_exposures", lambda *a, **k: {
         (811, 17): FluxExposure(811, 17, 1.0, 1.2, 0.9, 0.2, 0.6, 0.55)})
     out = tmp_path / "best"
     beam.main(["--raw-bdt", str(tmp_path / "nominal.root"),

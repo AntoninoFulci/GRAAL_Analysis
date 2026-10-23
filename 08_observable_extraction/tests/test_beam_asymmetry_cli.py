@@ -5,6 +5,7 @@ import ROOT
 import pytest
 
 from graal_common.physics.beam_profiles import VIS_PROFILE
+from observable_extraction import extraction_background, extraction_systematics, workflow
 from observable_extraction import beam_asymmetry
 from observable_extraction.extraction import extract_sample
 from observable_extraction.samples import SAMPLES
@@ -141,12 +142,12 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
         return exposures
 
     monkeypatch.setattr(
-        beam_asymmetry,
+        workflow,
         "load_exposures",
         load_nominal_run_exposures,
     )
     monkeypatch.setattr(
-        beam_asymmetry,
+        workflow,
         "read_reconstructed",
         lambda _path, _tree, **kwargs: events,
     )
@@ -274,7 +275,7 @@ def test_background_correction_keeps_uncorrected_value_and_propagates_error():
         1.0, 1.0, 0.5, 0.5,
     )
 
-    corrected = beam_asymmetry._apply_background_correction(
+    corrected = extraction_background._apply_background_correction(
         [point],
         {0: BackgroundEstimate(0.2, 0.03, 1.0, True)},
         {("p_pi0", 0, 0): background},
@@ -286,14 +287,14 @@ def test_background_correction_keeps_uncorrected_value_and_propagates_error():
 
 def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        beam_asymmetry,
+        workflow,
         "load_exposures",
         lambda _path, **_kwargs: {
             (811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)
         },
     )
     monkeypatch.setattr(
-        beam_asymmetry,
+        workflow,
         "read_reconstructed",
         lambda _path, _tree, **kwargs: _synthetic_events(),
     )
@@ -313,7 +314,7 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
 def _mass_only_events(pulls):
     pulls = np.asarray(pulls, dtype=float)
     count = len(pulls)
-    windows = beam_asymmetry.SIDEBAND_WINDOWS
+    windows = extraction_background.SIDEBAND_WINDOWS
     vectors = np.zeros((count, 4), dtype=float)
     return EventArrays(
         run_number=np.full(count, 811),
@@ -351,7 +352,7 @@ def test_three_dimensional_sideband_fit_produces_signal_region_fraction():
     )
     signal_mc = _mass_only_events(signal_pulls)
 
-    estimates, leakage = beam_asymmetry._estimate_background_fractions(
+    estimates, leakage = extraction_background._estimate_background_fractions(
         broad,
         signal_mc,
         ENERGY_EDGES_GEV,
@@ -369,17 +370,17 @@ def test_source_inventory_distinguishes_measured_zero_missing_and_retired():
     ratio = replace(_point(), sigma_uncorrected=.3, background_fraction=0.)
     likelihood = replace(ratio, estimator='likelihood')
     points = [ratio, likelihood]
-    covariances = beam_asymmetry._systematic_covariances(points)
+    covariances = extraction_systematics._systematic_covariances(points)
     assert 'estimator_ratio_vs_likelihood' in covariances
     np.testing.assert_array_equal(covariances['estimator_ratio_vs_likelihood'], np.zeros((2, 2)))
-    inventory = beam_asymmetry._systematic_inventory(points, covariances)
+    inventory = extraction_systematics._systematic_inventory(points, covariances)
     assert inventory['estimator_ratio_vs_likelihood']['status'] == 'executed'
     assert inventory['flux_balance']['status'] == 'unavailable'
     assert 'raw_vs_kinematic_fit' not in inventory
-    missing = beam_asymmetry._systematic_inventory([ratio], beam_asymmetry._systematic_covariances([ratio]))
+    missing = extraction_systematics._systematic_inventory([ratio], extraction_systematics._systematic_covariances([ratio]))
     assert missing['estimator_ratio_vs_likelihood']['status'] == 'unavailable'
     archived = replace(ratio, sample='raw_bdt_fit', point=replace(ratio.point, sigma=.4))
-    assert 'raw_vs_kinematic_fit' not in beam_asymmetry._systematic_covariances([ratio, archived])
+    assert 'raw_vs_kinematic_fit' not in extraction_systematics._systematic_covariances([ratio, archived])
 
 
 def test_diagnostic_bootstrap_requires_explicit_universe_before_reading_inputs(tmp_path):
@@ -403,7 +404,7 @@ def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_bi
         sample_name=name, events=events, exposures=exposures, estimator='ratio',
         retain_ratio_objects=False, energy_edges=ENERGY_EDGES_GEV, best_binning=best_binning).points)
     labels = tuple(point_key_label(key) for key in ordered_point_keys(points, {}))
-    result = beam_asymmetry._paired_bootstrap_diagnostics(
+    result = extraction_systematics._paired_bootstrap_diagnostics(
         points=points, samples=samples, exposures=exposures,
         run_strata={811: 'uv:1998', 812: 'uv:1998'}, point_keys=labels,
         nominal_sample='raw_bdt', estimator='ratio', replicas=4, seed=8,
@@ -416,7 +417,7 @@ def test_paired_diagnostic_reextracts_both_samples_with_shared_run_draws(best_bi
 
 def test_cli_persists_paired_diagnostic_without_combining_it(tmp_path, monkeypatch):
     # This test mocks input ROOT I/O; real energy-domain guards have dedicated tests.
-    monkeypatch.setattr(beam_asymmetry, "_validate_energy_inputs", lambda args: None)
+    monkeypatch.setattr(workflow, "_validate_energy_inputs", lambda args: None)
     from dataclasses import replace
     from calibration.run_manifest import RunRecord, write_manifest
     from observable_extraction.io.root_input import read_output_uncertainties, read_bootstrap_diagnostics
@@ -429,10 +430,11 @@ def test_cli_persists_paired_diagnostic_without_combining_it(tmp_path, monkeypat
     flux.write_bytes(b'synthetic exposures read by test adapter')
     write_manifest([RunRecord(run, '1999_vis', 'P', 'VIS', 'P_VIS', 'automatic', f'1999_vis/run{run}.root')
                     for run, _ in exposures], manifest)
-    monkeypatch.setattr(beam_asymmetry, 'read_reconstructed', lambda *args, **kwargs: events)
-    monkeypatch.setattr(beam_asymmetry, 'load_exposures',
+    monkeypatch.setattr(workflow, 'read_reconstructed', lambda *args, **kwargs: events)
+    monkeypatch.setattr(workflow, 'load_exposures',
                         lambda *args, **kwargs: {key: value for key, value in exposures.items()
                                                  if key[0] in set(kwargs['run_numbers'])})
+    monkeypatch.setattr(extraction_systematics, 'load_exposures', workflow.load_exposures)
     output = tmp_path / 'output'
     args = beam_asymmetry.build_parser().parse_args([
         '--raw-bdt', str(nominal), '--raw', str(tmp_path / 'absent.root'),
@@ -466,7 +468,7 @@ def test_paired_diagnostic_retains_expected_optimizer_failures(monkeypatch):
         energy_edges=ENERGY_EDGES_GEV).points
     monkeypatch.setattr(conditional_likelihood, 'minimize_scalar',
         lambda *args, **kwargs: SimpleNamespace(success=False, fun=float('inf'), message='forced optimizer failure'))
-    result = beam_asymmetry._paired_bootstrap_diagnostics(
+    result = extraction_systematics._paired_bootstrap_diagnostics(
         points=points, samples={'raw_bdt': events}, exposures=exposures,
         run_strata={811: 'uv:1998'}, point_keys=tuple(point_key_label(key) for key in ordered_point_keys(points, {})),
         nominal_sample='raw_bdt', estimator='both', replicas=3, seed=8,
@@ -480,6 +482,6 @@ def test_diagnostic_universe_cannot_drop_previously_selected_runs():
     from observable_extraction.tests.test_systematics import _run_events
 
     with pytest.raises(ValueError, match='omits selected runs'):
-        beam_asymmetry._validate_diagnostic_universe(
+        extraction_systematics._validate_diagnostic_universe(
             {'nominal': _run_events([811, 812]), 'sideband': _run_events([813])},
             {811: 'uv:1998', 812: 'uv:1998'})

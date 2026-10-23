@@ -310,7 +310,7 @@ import hashlib, json
 import numpy as np
 import calibration.run_quality as quality_module
 from calibration.run_manifest import RunRecord, write_manifest
-from observable_extraction import beam_asymmetry as beam
+from observable_extraction import beam_asymmetry as beam, workflow, period_workflow
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.periods import selection_audit
 from observable_extraction.io.reconstructed_events import EventArrays, select_sigma_events, select_brem_control
@@ -337,10 +337,10 @@ events = EventArrays(**values)
 raw, bdt = work / 'raw.root', work / 'bdt.root'
 raw.write_bytes(b'fixture'); bdt.write_bytes(b'fixture')
 args = beam.build_parser().parse_args(['--raw', str(raw), '--raw-bdt', str(bdt), '--flux-file', str(flux), '--run-manifest', str(manifest), '--run-quality', str(policy_path), '--output-dir', str(work / 'output'), '--by-period'])
-beam._validate_energy_inputs = lambda _: None
-beam.read_reconstructed = lambda *_: events
-beam.read_run_universe = lambda *_a, **_k: ({811, 1322}, [])
-original_single = beam._run_single
+workflow._validate_energy_inputs = period_workflow._validate_energy_inputs = lambda _: None
+workflow.read_reconstructed = period_workflow.read_reconstructed = lambda *_: events
+period_workflow.read_run_universe = lambda *_a, **_k: ({811, 1322}, [])
+original_single = period_workflow._run_single
 captured = {}
 class ReachedInference(Exception): pass
 def inspect_single(args, **kwargs):
@@ -350,12 +350,12 @@ def inspect_single(args, **kwargs):
     assert identity['sha256'] == expected['sha256']
     captured['metadata'] = metadata
     return original_single(args, **kwargs)
-beam._run_single = inspect_single
+period_workflow._run_single = inspect_single
 def inspect_inference(**kwargs):
     assert kwargs['events'].run_number.tolist() == [811, 811]
     assert {key[0] for key in kwargs['exposures']} == {811}
     raise ReachedInference
-beam.extract_sample = inspect_inference
+workflow.extract_sample = inspect_inference
 try:
     beam.run(args)
 except ReachedInference:
@@ -369,7 +369,7 @@ exposures = load_exposures(flux, manifest_path=manifest, run_quality=expected)
 assert select_brem_control(events, exposures, run_quality=expected).run_number.tolist() == [811]
 assert selection_audit(events, exposures, (1.1, 1.5), run_quality=expected)['quality_excluded'] == 3
 # Non-period entry also reaches inference with the declared policy.
-beam._run_single = original_single
+period_workflow._run_single = original_single
 args.by_period = False
 try:
     beam.run(args)

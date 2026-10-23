@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pytest
 
+from observable_extraction import workflow
 from observable_extraction import beam_asymmetry, combine_profiles
 from observable_extraction.core.models import FluxExposure
 from observable_extraction.io.root_input import read_output_contract, read_output_points
@@ -14,8 +15,8 @@ from observable_extraction.tests.test_figure4 import _points
 
 def test_split_vis_cli_round_trip_and_combiner_validation(tmp_path, monkeypatch):
     events = _synthetic_events(beam_energy_gev=1.04)
-    monkeypatch.setattr(beam_asymmetry, "read_reconstructed", lambda *a, **k: events)
-    monkeypatch.setattr(beam_asymmetry, "load_exposures", lambda *a, **k: {
+    monkeypatch.setattr(workflow, "read_reconstructed", lambda *a, **k: events)
+    monkeypatch.setattr(workflow, "load_exposures", lambda *a, **k: {
         (811, 17): FluxExposure(811, 17, 1.04, 1.2, .9, .2, .6, .55)})
     output = tmp_path / "output"
     beam_asymmetry.main(["--profile", "vis", "--energy-edges", ".9313", "1.01565", "1.1",
@@ -74,7 +75,7 @@ def test_nominal_extraction_rejects_explicitly_truncated_reconstruction(tmp_path
     args = beam_asymmetry.build_parser().parse_args([
         "--raw", str(root), "--nominal-sample", "raw", "--raw-bdt", str(tmp_path / "absent.root")])
     with pytest.raises(ValueError, match="cover"):
-        beam_asymmetry._validate_energy_inputs(args)
+        workflow._validate_energy_inputs(args)
 
 
 def test_expanded_extraction_checks_signal_mc_template_domain(tmp_path):
@@ -92,4 +93,4 @@ def test_expanded_extraction_checks_signal_mc_template_domain(tmp_path):
         "--raw", str(low), "--nominal-sample", "raw", "--raw-bdt", str(tmp_path / "absent.root"),
         "--energy-edges", ".9313", "1.1", "--sideband", str(low), "--signal-mc", str(mc)])
     with pytest.raises(ValueError, match="cover"):
-        beam_asymmetry._validate_energy_inputs(args)
+        workflow._validate_energy_inputs(args)
