@@ -19,4 +19,20 @@ The analysis test paths are declared in [pyproject.toml](https://github.com/Anto
 
 Graphify output is generated evidence. Rebuild it after source/document changes before treating it as current architecture; the pre-refactor graph is stale. Do not ingest archived plans, generated reports or the graph itself as current source. The active refactor [specification](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/plans/2026-10-23-repository-refactor-spec.md) and [plan](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/plans/2026-10-23-repository-refactor-plan.md) remain while this work is in progress.
 
+The [Graphify corpus policy](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/reference/graph-corpus.json) explicitly selects current code, tests, configuration, wiki and scientific text references. A fresh build uses the installed Graphify interpreter (override with `GRAPHIFY_PYTHON`) and a new diagnostic directory:
+
+```bash
+GRAPH_RUN="$PWD/results_test/manual-graph-rebuild"
+bash scripts/rebuild_graph.sh prepare --run-dir "$GRAPH_RUN"
+# Inspect detection.json and every detection shard before extraction.
+bash scripts/rebuild_graph.sh ast --run-dir "$GRAPH_RUN"
+# Run each prompts/chunk-NN.txt with the host agent, writing its exact JSON output.
+# All chunks are disjoint, freshly read and bound to corpus/spec hashes.
+bash scripts/rebuild_graph.sh build --run-dir "$GRAPH_RUN"
+bash scripts/rebuild_graph.sh verify --run-dir "$GRAPH_RUN"
+bash scripts/rebuild_graph.sh publish --run-dir "$GRAPH_RUN"
+```
+
+Host semantic extraction is a required manual agent step; the shell command cannot invoke the conversation model. It must follow the installed Graphify extraction specification. Missing chunks, missing document coverage or source changes stop the build. Start a new run after source changes. AST caches are fresh for each extraction invocation, and cross-stage resolution uses only that invocation's corpus. Review `health.txt`, `community-summary.json`, candidate coverage and source-cited queries before publishing. HTML above 5,000 nodes uses an aggregated community view. Publication verifies and archives every previous active output by SHA-256; generated graph output remains reproducible evidence, not normative documentation. Host token counters are explicitly unknown when the orchestrator does not expose usage.
+
 If a command fails, check the selected PyROOT-compatible interpreter, declared checkout root, input digests/cohort, BDT coverage and ROOT provenance before recomputation. Retain the failing log and existing valid artifacts. Missing calibration/flux coverage is a scientific input issue, not a reason to substitute synthetic flux.
