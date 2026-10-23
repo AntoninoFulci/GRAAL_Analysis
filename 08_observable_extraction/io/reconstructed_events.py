@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import json
-import sys
-from collections import Counter
 from dataclasses import dataclass, fields
 from pathlib import Path
+import json
+import sys
 from typing import Mapping
 
 import numpy as np
 import ROOT
+
 from calibration.run_quality import excluded_run_numbers
 from observable_extraction.core.models import FluxExposure
 from reconstruction.runtime.provenance import validate_no_fit
@@ -162,7 +162,6 @@ def _select_by_polarization(
     *,
     energy_range: tuple[float, float],
     drop_missing: bool = False,
-    audit: dict | None = None,
 ) -> EventArrays:
     low, high = energy_range
     if not np.isfinite((low, high)).all() or high <= low:
@@ -180,25 +179,6 @@ def _select_by_polarization(
             if (int(run), int(strip)) not in exposures
         }
     )
-    if audit is not None:
-        missing_counts = Counter(
-            (int(run), int(strip))
-            for run, strip in zip(events.run_number[base], events.xstrip[base])
-            if (int(run), int(strip)) not in exposures
-        )
-        eligible = int(np.count_nonzero(base))
-        lost = sum(missing_counts.values())
-        audit.update(
-            input_events=len(events),
-            eligible_events=eligible,
-            rejected_before_exposure=len(events) - eligible,
-            missing_exposure_events=lost,
-            missing_exposure_strata=[
-                {"run": run, "strip": strip, "events": count}
-                for (run, strip), count in sorted(missing_counts.items())
-            ],
-            selected_events=eligible - lost,
-        )
     if missing:
         if drop_missing:
             has_exposure = np.array(
@@ -226,7 +206,6 @@ def select_sigma_events(
     *,
     energy_range: tuple[float, float] = (1.1, 1.5),
     drop_missing: bool = False,
-    audit: dict | None = None,
 ) -> EventArrays:
     return _select_by_polarization(
         events,
@@ -234,7 +213,6 @@ def select_sigma_events(
         (1, 2),
         energy_range=energy_range,
         drop_missing=drop_missing,
-        audit=audit,
     )
 
 

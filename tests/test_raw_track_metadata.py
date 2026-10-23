@@ -84,6 +84,8 @@ def write_fixture(path, *, metadata=True, partial=False, wrong_type=False):
         t.Branch(n, v)
     charged = ROOT.std.vector("double")([0.1])
     t.Branch("fcharged_theta", charged)
+    pions = ROOT.std.vector("double")()
+    t.Branch("pions_theta", pions)
     scalars = {"RunNumber": array("i", [1321]), "Polarization": array("i", [1]),
                "Xstrip": array("f", [17])}
     if metadata:

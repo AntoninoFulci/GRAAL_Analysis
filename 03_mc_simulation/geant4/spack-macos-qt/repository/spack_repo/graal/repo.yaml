@@ -1,0 +1,3 @@
+repo:
+  namespace: 'graal'
+  api: v2.7

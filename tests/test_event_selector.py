@@ -1,6 +1,7 @@
 """Publication behavior for event-selection outputs."""
 
 from array import array
+import math
 from pathlib import Path
 import sys
 
@@ -9,7 +10,7 @@ import pytest
 from event_selector import select_events
 
 
-def _write_preanalysis_fixture(path: Path) -> None:
+def _write_preanalysis_fixture(path: Path, *, events=None, omit=()) -> None:
     import ROOT
 
     output = ROOT.TFile(str(path), "RECREATE")
@@ -18,26 +19,91 @@ def _write_preanalysis_fixture(path: Path) -> None:
     vector = getattr(ROOT, vector_type)
     vector_list = ROOT.std.vector(vector_type)
     gammas = vector_list()
+    protons = vector_list()
+    pions_theta = ROOT.std.vector("double")()
     charged_theta = ROOT.std.vector("float")()
     run_number = array("i", [1321])
     polarization = array("i", [1])
     xstrip = array("f", [3.75])
     tree.Branch("gammas", vector_list.__cpp_name__, gammas)
+    if "protons" not in omit:
+        tree.Branch("protons", vector_list.__cpp_name__, protons)
+    if "pions_theta" not in omit:
+        tree.Branch("pions_theta", pions_theta)
     tree.Branch("fcharged_theta", charged_theta)
     tree.Branch("RunNumber", run_number, "RunNumber/I")
     tree.Branch("Polarization", polarization, "Polarization/I")
     tree.Branch("Xstrip", xstrip, "Xstrip/F")
 
-    charged_theta.push_back(0.1)
-    for px in (0.1, -0.1):
-        photon = vector()
-        photon.SetPxPyPzE(px, 0.0, 0.2, 0.3)
-        gammas.push_back(photon)
-    tree.Fill()
-    gammas.resize(1)
-    tree.Fill()
+    if events is None:
+        events = [(4, [10.0], 1, []), (1, [10.0], 1, [])]
+    for ngamma, proton_angles, nforward, pion_angles in events:
+        gammas.clear()
+        protons.clear()
+        charged_theta.clear()
+        pions_theta.clear()
+        for _ in range(ngamma):
+            gammas.push_back(vector(0.1, 0.0, 0.2, 0.3))
+        for angle in proton_angles:
+            theta = math.radians(angle)
+            protons.push_back(vector(math.sin(theta), 0.0, math.cos(theta), 1.4))
+        for _ in range(nforward):
+            charged_theta.push_back(0.1)
+        for angle in pion_angles:
+            pions_theta.push_back(angle)
+        tree.Fill()
     tree.Write()
     output.Close()
+
+
+@pytest.mark.parametrize("event, accepted", [
+    ((4, [10.0], 1, []), True),
+    ((4, [60.0], 0, []), True),
+    ((4, [24.999], 1, []), True),
+    ((4, [25.0], 0, []), True),
+    ((4, [25.001], 0, []), True),
+    ((4, [25.0], 1, []), False),
+    ((4, [10.0], 0, []), False),
+    ((4, [10.0], 2, []), False),
+    ((4, [60.0], 1, []), False),
+    ((3, [10.0], 1, []), False),
+    ((5, [10.0], 1, []), False),
+    ((4, [], 1, []), False),
+    ((4, [10.0, 60.0], 1, []), False),
+    ((4, [10.0], 1, [5.0]), False),
+    ((4, [60.0], 0, [60.0]), False),
+])
+def test_recoil_topology_selection(tmp_path, event, accepted):
+    import ROOT
+
+    source = tmp_path / "pre_sample.root"
+    target = tmp_path / "selected.root"
+    _write_preanalysis_fixture(source, events=[event])
+
+    select_events._select_file(source, target)
+
+    selected = ROOT.TFile.Open(str(target))
+    try:
+        assert selected.Get("h85").GetEntries() == int(accepted)
+    finally:
+        selected.Close()
+
+
+@pytest.mark.parametrize("missing", ["protons", "pions_theta"])
+def test_missing_pid_branch_preserves_previous_dataset(tmp_path, missing):
+    source_dir = tmp_path / "pre"
+    source_dir.mkdir()
+    _write_preanalysis_fixture(source_dir / "pre_sample.root", omit=[missing])
+    output_dir = tmp_path / "selected"
+    output_dir.mkdir()
+    sentinel = output_dir / "previous.root"
+    sentinel.write_text("previous complete dataset")
+
+    with pytest.raises(RuntimeError, match=f"missing branches:.*{missing}"):
+        select_events.run(source_dir, output_dir)
+
+    assert sentinel.read_text() == "previous complete dataset"
+    assert list(output_dir.iterdir()) == [sentinel]
 
 
 def test_cli_defaults_follow_numbered_data_layout(monkeypatch):

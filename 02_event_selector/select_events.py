@@ -5,12 +5,14 @@
 # Runs AFTER the pre-analysis and BEFORE the reconstruct_* scripts.
 # Reads the pre-analysis ROOT files (tree "h80", named "pre_*.root"),
 # keeps only the events that can feed the two-meson reconstruction
-# (more than one photon and exactly one forward charged track), and writes the
+# (exactly four central photons, one proton, no identified pions, and no
+# additional forward charged tracks), and writes the
 # surviving events to a new file as tree "h85", dropping the "pre_"
 # filename prefix.
 # ============================================================
 
 import argparse
+import math
 import os
 from pathlib import Path
 
@@ -20,6 +22,14 @@ from graal_common.io.filesystem import atomic_output_directory
 
 INPUT_TREE = "h80"   # written by 01_pre_analysis/PreAnalysis.C
 OUTPUT_TREE = "h85"  # read by 05_reconstruction/runtime/reco_core.py
+
+# Theta() returns radians. Exactly 25 degrees belongs to the central branch.
+_FORWARD_THETA_LIMIT = math.radians(25.0)
+PRESELECTION = (
+    "gammas.size() == 4 && protons.size() == 1 && pions_theta.size() == 0 && ("
+    f"(protons[0].Theta() < {_FORWARD_THETA_LIMIT!r} && fcharged_theta.size() == 1) || "
+    f"(protons[0].Theta() >= {_FORWARD_THETA_LIMIT!r} && fcharged_theta.size() == 0))"
+)
 
 
 def parse_args():
@@ -60,6 +70,8 @@ def _select_file(input_path: Path, output_path: Path) -> None:
 
         required = (
             "gammas",
+            "protons",
+            "pions_theta",
             "fcharged_theta",
             "RunNumber",
             "Polarization",
@@ -81,7 +93,7 @@ def _select_file(input_path: Path, output_path: Path) -> None:
 
     frame = ROOT.RDataFrame(INPUT_TREE, str(input_path))
     selected = frame.Filter(
-        "gammas.size() > 1 && fcharged_theta.size() == 1",
+        PRESELECTION,
         "event preselection",
     )
     options = ROOT.RDF.RSnapshotOptions()

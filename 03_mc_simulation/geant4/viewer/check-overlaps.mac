@@ -1,0 +1,7 @@
+# Same sampling and reporting tolerance as the certified geometry conversion.
+/geometry/test/tolerance 0.001 mm
+/geometry/test/resolution 10000
+/geometry/test/recursion_start 0
+/geometry/test/recursion_depth -1
+/geometry/test/verbosity true
+/geometry/test/run placed

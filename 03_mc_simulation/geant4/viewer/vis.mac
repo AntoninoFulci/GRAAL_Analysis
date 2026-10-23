@@ -1,0 +1,263 @@
+# Visualization of the certified GRAAL_26 GDML; geometry is never modified.
+# Colours follow view_geometry.py. Air envelopes and BGO supports start hidden.
+/vis/verbose warnings
+/vis/open OGLSQt 1200x850-0+0
+/vis/viewer/set/autoRefresh false
+/vis/drawVolume
+/vis/geometry/set/colour BGO__2 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__3 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__4 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__5 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__6 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__7 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__8 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__9 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__10 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__11 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__12 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__13 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__14 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__15 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour BGO__16 0 0.2314 0.5098 0.9647 0.6
+/vis/geometry/set/colour ARI1__17 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARI1__17 0 false
+/vis/geometry/set/colour ARI2__18 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARI2__18 0 false
+/vis/geometry/set/colour ARIB__19 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIB__19 0 false
+/vis/geometry/set/colour ARIB__20 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIB__20 0 false
+/vis/geometry/set/colour ARIC__21 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__21 0 false
+/vis/geometry/set/colour ARIC__22 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__22 0 false
+/vis/geometry/set/colour ARIC__23 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__23 0 false
+/vis/geometry/set/colour ARIC__24 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__24 0 false
+/vis/geometry/set/colour ARIC__25 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__25 0 false
+/vis/geometry/set/colour ARIC__26 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__26 0 false
+/vis/geometry/set/colour ARIC__27 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__27 0 false
+/vis/geometry/set/colour ARIC__28 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__28 0 false
+/vis/geometry/set/colour ARIC__29 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__29 0 false
+/vis/geometry/set/colour ARIC__30 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__30 0 false
+/vis/geometry/set/colour ARIC__31 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__31 0 false
+/vis/geometry/set/colour ARIC__32 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__32 0 false
+/vis/geometry/set/colour ARIC__33 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__33 0 false
+/vis/geometry/set/colour ARIC__34 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__34 0 false
+/vis/geometry/set/colour ARIC__35 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__35 0 false
+/vis/geometry/set/colour ARIC__36 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__36 0 false
+/vis/geometry/set/colour ARIC__37 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__37 0 false
+/vis/geometry/set/colour ARIC__38 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__38 0 false
+/vis/geometry/set/colour ARIC__39 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__39 0 false
+/vis/geometry/set/colour ARIC__40 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__40 0 false
+/vis/geometry/set/colour ARIC__41 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__41 0 false
+/vis/geometry/set/colour ARIC__42 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__42 0 false
+/vis/geometry/set/colour ARIC__43 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__43 0 false
+/vis/geometry/set/colour ARIC__44 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__44 0 false
+/vis/geometry/set/colour ARIC__45 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__45 0 false
+/vis/geometry/set/colour ARIC__46 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__46 0 false
+/vis/geometry/set/colour ARIC__47 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__47 0 false
+/vis/geometry/set/colour ARIC__48 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__48 0 false
+/vis/geometry/set/colour NID1__1 0 0.3922 0.4549 0.5451 0.2
+/vis/geometry/set/visibility NID1__1 0 false
+/vis/geometry/set/colour ARI3__50 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARI3__50 0 false
+/vis/geometry/set/colour ARI4__51 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARI4__51 0 false
+/vis/geometry/set/colour ARIB__52 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIB__52 0 false
+/vis/geometry/set/colour ARIB__53 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIB__53 0 false
+/vis/geometry/set/colour ARIC__54 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__54 0 false
+/vis/geometry/set/colour ARIC__55 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__55 0 false
+/vis/geometry/set/colour ARIC__56 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__56 0 false
+/vis/geometry/set/colour ARIC__57 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__57 0 false
+/vis/geometry/set/colour ARIC__58 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__58 0 false
+/vis/geometry/set/colour ARIC__59 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__59 0 false
+/vis/geometry/set/colour ARIC__60 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__60 0 false
+/vis/geometry/set/colour ARIC__61 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__61 0 false
+/vis/geometry/set/colour ARIC__62 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__62 0 false
+/vis/geometry/set/colour ARIC__63 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__63 0 false
+/vis/geometry/set/colour ARIC__64 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__64 0 false
+/vis/geometry/set/colour ARIC__65 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__65 0 false
+/vis/geometry/set/colour ARIC__66 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__66 0 false
+/vis/geometry/set/colour ARIC__67 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__67 0 false
+/vis/geometry/set/colour ARIC__68 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__68 0 false
+/vis/geometry/set/colour ARIC__69 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__69 0 false
+/vis/geometry/set/colour ARIC__70 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__70 0 false
+/vis/geometry/set/colour ARIC__71 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__71 0 false
+/vis/geometry/set/colour ARIC__72 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__72 0 false
+/vis/geometry/set/colour ARIC__73 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__73 0 false
+/vis/geometry/set/colour ARIC__74 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__74 0 false
+/vis/geometry/set/colour ARIC__75 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__75 0 false
+/vis/geometry/set/colour ARIC__76 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__76 0 false
+/vis/geometry/set/colour ARIC__77 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__77 0 false
+/vis/geometry/set/colour ARIC__78 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__78 0 false
+/vis/geometry/set/colour ARIC__79 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__79 0 false
+/vis/geometry/set/colour ARIC__80 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__80 0 false
+/vis/geometry/set/colour ARIC__81 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility ARIC__81 0 false
+/vis/geometry/set/colour NID2__49 0 0.3922 0.4549 0.5451 0.2
+/vis/geometry/set/visibility NID2__49 0 false
+/vis/geometry/set/colour CIBM__82 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour FEN3__83 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour ENVM__84 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour ENVI__85 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour REF1__86 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour FEN1__87 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour REF2__88 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour FEN2__89 0 0.9176 0.7020 0.0314 0.9
+/vis/geometry/set/colour DEDX__90 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__91 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__92 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__93 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__94 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__95 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__96 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__97 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__98 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__99 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__100 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__101 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__102 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__103 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__104 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__105 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__106 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__107 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__108 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__109 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__110 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__111 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__112 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__113 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__114 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__115 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__116 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__117 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__118 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__119 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__120 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour DEDX__121 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYG1__122 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYG2__123 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYL1__124 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ROI1__125 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ROI2__126 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour RCA1__127 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CMY1__128 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMT1__129 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMU2__130 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMT2__131 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMN1__132 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMN2__133 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZM21__134 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMA1__135 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMS1__136 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMO1__137 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYG3__138 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYG4__139 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CYL2__140 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ROI3__141 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ROI4__142 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour RCA2__143 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour CMY2__144 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMT3__145 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMU4__146 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMT4__147 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMN3__148 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMN4__149 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZM22__150 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMA2__151 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMS2__152 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour ZMO2__153 0 0.0784 0.7216 0.6510 0.65
+/vis/geometry/set/colour PLN1__155 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour PLG1__154 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour PLF1__156 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour CAA1__157 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour CAS1__158 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour PLN2__160 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour PLG2__159 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour PLF2__161 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour CAA2__162 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour CAS2__163 0 0.6588 0.3333 0.9686 0.6
+/vis/geometry/set/colour CES1__165 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour CEL1__166 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour WAL1__164 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour CEL2__168 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour WAL2__167 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour TROM__169 0 0.9765 0.4510 0.0863 0.55
+/vis/geometry/set/colour PLOM__171 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour GMMR__172 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour CASC__170 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour FE1__173 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour FE2__174 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour TROC__175 0 0.9373 0.2667 0.2667 0.5
+/vis/geometry/set/colour DSK1__176 0 0.9255 0.2824 0.6000 0.65
+/vis/geometry/set/colour CTL1__177 0 0.9255 0.2824 0.6000 0.65
+/vis/geometry/set/colour CTL2__178 0 0.9255 0.2824 0.6000 0.65
+/vis/geometry/set/colour DSK2__179 0 0.9255 0.2824 0.6000 0.65
+/vis/geometry/set/colour LAGR__0 0 0.5804 0.6392 0.7216 0.15
+/vis/geometry/set/visibility LAGR__0 0 false
+/vis/viewer/set/background white
+/vis/viewer/set/style surface
+/vis/viewer/set/auxiliaryEdge true
+/vis/viewer/set/lineSegmentsPerCircle 64
+/vis/drawVolume
+/vis/scene/add/axes 0 0 0 30 cm
+/vis/viewer/set/viewpointThetaPhi 70 25 deg
+/vis/viewer/zoomTo 1.3
+/vis/viewer/set/autoRefresh true
+/vis/viewer/flush

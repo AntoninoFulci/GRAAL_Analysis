@@ -863,3 +863,34 @@ changed the script location; explicit-path wrapper fixed launch. Checkpoints:
 `/data/graal/GRAAL_Analysis/results/angular-native-pilot-20261021-v2/timing/precompute/0_p_pi0_3/`.
 Logs: sibling `logs/ppi-20.out` and `logs/ppi-20.err` under campaign root.
 Numerical convergence results, resource scaling and actual fit remain pending.
+
+### October23 continuation
+
+Job20 reached its two-hour wall limit after saving base/angular/mass stages.
+Verified timings:25.3min /1.9s /50.5min. Angular refinement changes Sigma by at
+most1.33e-5; mass4→8 changes it by at most0.0043564 among source and two off-source
+controls, near the data-derived0.00445438 tolerance. Energy and inner refinement
+remain incomplete; no completed convergence diagnostic or fit is claimed.
+
+Unchanged frozen campaign resumed as **job22**, one CPU/4GB/four-hour limit,
+verified RUNNING at00:22 without errors. Job21 failed before computation due to
+a log-directory typo, corrected in job22. Three valid checkpoints are reused.
+Added external supervisor with verified exit codes0/1/143. The old job20 exit
+file incorrectly contains0 despite scheduler TIME_LIMIT; completion must be
+established from final checkpoint integrity, not that exit file.
+
+Audit/status: worktree `theory/outputs/angular-native-20261023/`.
+
+### October23: pilot complete; all-bin parallel verification started
+
+Job22 completed successfully. Energy refinement took2806.39s; inner refinement
+2755.01s. Final p_pi0 checkpoint is complete and `diagnostic_converged`, with
+source/off-source prediction guards independently rerun. User then requested
+verification of all bins together and generous time limits on the dedicated farm.
+
+**Slurm array23 launched101 remaining bins**, up to48 concurrent jobs,1CPU/2GB
+and24h per task. Initial observation confirmed48RUNNING and no startup stderr.
+The completed pilot is reused. Original coarse diagnostic resolution remains
+subject to all per-bin guards; failed bins need refinement, kinematic masks are
+explicit, and no full fit is claimed or automatically launched yet.
+Latest local status: worktree `theory/outputs/angular-native-20261023/all-native-status.json`.

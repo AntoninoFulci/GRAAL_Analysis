@@ -37,7 +37,7 @@
 
 ## Execution ledger
 
-- Ruling: shared checkout, new study-specific files only — existing event reader and cross-section work are concurrent; no worktree/branch changes or cumulative commit.
+- Ruling: shared checkout, new study-specific files only — preserve the existing event reader and unrelated concurrent work; no worktree/branch changes or cumulative commit.
 - Ruling: the exclusive topology removes the need to reconstruct all legacy ICENTR_CLASS categories. Current PID plus the raw inventory suffices for this subset. This does not validate neutral/photon purity.
 - Verification: 18 new tests failed with the absent study module, then passed. Selection/comparison suite: 40 passed; raw-metadata, event-reader and systematic suite: 33 passed. One existing empty-plot legend warning; no failed tests.
 - Independent review: no actionable findings; reviewer independently ran the 18 new tests and inspected completed VIS BDT output. No nominal source files modified by this experiment.

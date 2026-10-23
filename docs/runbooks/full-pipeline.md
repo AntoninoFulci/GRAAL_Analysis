@@ -33,6 +33,18 @@ Stage-1 hyperparameters remain required.
 
 ## Baseline without kinematic fit (13 October 2026)
 
+Stage-02 preselection, updated on 23 October 2026, requires exactly four
+central photons (`gammas.size() == 4`), exactly one identified proton, and
+zero identified central or forward pions (`pions_theta.size() == 0`). A proton
+with `Theta() < 25 degrees` requires exactly one forward charged track;
+`Theta() >= 25 degrees` requires zero. `Theta()` is evaluated in radians.
+This recovers central recoil protons while vetoing additional forward charges.
+It assumes disjoint proton/pion PID cuts and that the angular boundary
+separates the detector regions. When the forward detector is excluded in
+preanalysis, an empty forward-charge vector does not establish a physical
+absence of charged tracks. Rebuild selection from h80 to recover previously
+discarded central-proton events; filtering old h85 alone cannot recover them.
+
 The launcher and direct reconstruction CLIs default to **no 6C fit**. Both
 pairing and BDT+pairing use the same profile energy range, first four photons
 of events with at least four photons, and exactly one measured proton.
