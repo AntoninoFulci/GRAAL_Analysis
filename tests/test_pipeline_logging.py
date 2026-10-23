@@ -8,8 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from scripts import run_pipeline as pipeline
-from scripts.parallel_pipeline import bounded_runner
+from graal_workflow import cli, execution, models, paths as workflow_paths
+from graal_workflow.resources import bounded_runner
 
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
@@ -18,10 +18,10 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")
 def test_cli_forces_color_for_errors_on_redirected_stderr(monkeypatch, capsys):
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setattr(
-        pipeline, "run",
-        lambda args: (_ for _ in ()).throw(pipeline.PipelineError("broken")),
+        cli, "run",
+        lambda args: (_ for _ in ()).throw(models.PipelineError("broken")),
     )
-    assert pipeline.main(["--mode", "test_data", "--color", "always"]) == 1
+    assert cli.main(["--mode", "test_data", "--color", "always"]) == 1
     error = capsys.readouterr().err
     assert "\x1b[" in error
     assert ANSI.sub("", error) == "ERROR: broken\n"
@@ -30,10 +30,10 @@ def test_cli_forces_color_for_errors_on_redirected_stderr(monkeypatch, capsys):
 @pytest.mark.parametrize("mode", ["auto", "never"])
 def test_cli_keeps_redirected_errors_plain(monkeypatch, capsys, mode):
     monkeypatch.setattr(
-        pipeline, "run",
-        lambda args: (_ for _ in ()).throw(pipeline.PipelineError("broken")),
+        cli, "run",
+        lambda args: (_ for _ in ()).throw(models.PipelineError("broken")),
     )
-    assert pipeline.main(["--mode", "test_data", "--color", mode]) == 1
+    assert cli.main(["--mode", "test_data", "--color", mode]) == 1
     assert capsys.readouterr().err == "ERROR: broken\n"
 
 
@@ -57,8 +57,8 @@ def test_color_policy_respects_stream_and_environment(
         monkeypatch.setenv("NO_COLOR", "")
     stream = io.StringIO()
     monkeypatch.setattr(stream, "isatty", lambda: tty)
-    with pipeline.console.color_mode(mode):
-        assert pipeline.console.use_color(stream) is want
+    with cli.console.color_mode(mode):
+        assert cli.console.use_color(stream) is want
 
 
 def test_message_roles_keep_content_and_differentiate_severity(monkeypatch):
@@ -68,8 +68,8 @@ def test_message_roles_keep_content_and_differentiate_severity(monkeypatch):
         "ValueError: invalid input\n", "Saved model to artifacts\n",
         "warning counts: 0; error estimate: 0.02\n",
     )
-    with pipeline.console.color_mode("always"):
-        rendered = [pipeline.console.format_message(line) for line in messages]
+    with cli.console.color_mode("always"):
+        rendered = [cli.console.format_message(line) for line in messages]
     assert [ANSI.sub("", line) for line in rendered] == list(messages)
     assert len({ANSI.match(line).group() for line in rendered[:4]}) == 4
     assert not ANSI.match(rendered[-1])  # Ordinary metrics are not errors.
@@ -78,12 +78,12 @@ def test_message_roles_keep_content_and_differentiate_severity(monkeypatch):
 @pytest.mark.parametrize("mode", ["always", "never"])
 def test_stage_colors_never_enter_command_log(tmp_path, monkeypatch, capsys, mode):
     monkeypatch.delenv("NO_COLOR", raising=False)
-    paths = pipeline.build_paths(pipeline.mode_config("test_data", tmp_path))
-    pipeline.prepare_output_dirs(paths)
-    with pipeline.console.color_mode(mode):
-        pipeline._log_decision(paths.command_log, "selection", "RUN", "fresh input")
-        pipeline.execute_plan(
-            (pipeline.Stage("example", ("tool",)),), paths,
+    paths = workflow_paths.build_paths(workflow_paths.mode_config("test_data", tmp_path))
+    workflow_paths.prepare_output_dirs(paths)
+    with cli.console.color_mode(mode):
+        execution._log_decision(paths.command_log, "selection", "RUN", "fresh input")
+        execution.execute_plan(
+            (models.Stage("example", ("tool",)),), paths,
             runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0),
         )
     output = capsys.readouterr().out
@@ -102,7 +102,7 @@ def test_streamed_child_preserves_both_streams_exit_and_environment(monkeypatch,
         "sys.stderr.write('Warning in <ROOT>: check input\\n'); "
         "sys.stderr.write('ERROR: failed\\n'); sys.exit(7)"
     )
-    with pipeline.console.color_mode(mode):
+    with cli.console.color_mode(mode):
         result = bounded_runner((sys.executable, "-c", script), check=False, shell=False)
     captured = capsys.readouterr()
     assert result.returncode == 7
@@ -132,7 +132,7 @@ while not ack.exists() and time.monotonic() < deadline:
     time.sleep(0.01)
 sys.exit(0 if ack.exists() else 9)
 """
-    with pipeline.console.color_mode("always"):
+    with cli.console.color_mode("always"):
         result = bounded_runner((sys.executable, "-c", script, str(acknowledgement)))
     assert result.returncode == 0
     assert output.getvalue() == "ready\n"
@@ -146,7 +146,7 @@ def test_large_parallel_output_does_not_deadlock_or_mix_color_sequences(monkeypa
         "print('WARNING: ' + sys.argv[1] + ' ' + str(i), file=sys.stderr)) "
         "for i in range(2000)]"
     )
-    with pipeline.console.color_mode("always"):
+    with cli.console.color_mode("always"):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(
                 lambda name: bounded_runner((sys.executable, "-c", script, name)),
@@ -161,13 +161,13 @@ def test_large_parallel_output_does_not_deadlock_or_mix_color_sequences(monkeypa
 
 
 def test_plain_streaming_removes_child_ansi(monkeypatch, capsys):
-    with pipeline.console.color_mode("never"):
+    with cli.console.color_mode("never"):
         bounded_runner((sys.executable, "-c", "print('\\x1b[31mERROR: child\\x1b[0m')"))
     assert capsys.readouterr().out == "ERROR: child\n"
 
 
 def test_streamed_runner_propagates_check_failure(capsys):
-    with pipeline.console.color_mode("never"):
+    with cli.console.color_mode("never"):
         with pytest.raises(subprocess.CalledProcessError) as error:
             bounded_runner((sys.executable, "-c", "print('last output'); exit(3)"), check=True)
     assert error.value.returncode == 3

@@ -159,15 +159,28 @@ def _build_chain(input_dir: Path, input_tree: str, *, files=None) -> ROOT.TChain
 def _snapshot_inputs(cfg: RecoConfig) -> dict:
     """Capture one authoritative provenance snapshot before dispatching work."""
     # Snapshot executable inputs before processing; later edits must not relabel this run.
-    repo = Path(__file__).resolve().parents[2]
-    revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
-                              capture_output=True, text=True, check=False)
-    source_files = file_identities(
-        p for base in (repo / "05_reconstruction", repo / "00_common")
-        for p in base.rglob("*.py") if "tests" not in p.parts)
+    import graal_common
+    import reconstruction
+    sources = []
+    for package in (reconstruction, graal_common):
+        base = Path(package.__file__).resolve().parent
+        files = tuple(p for p in base.rglob("*.py") if "tests" not in p.relative_to(base).parts)
+        if not files or Path(package.__file__).resolve() not in files:
+            raise ValueError(f"source inventory is empty or incomplete: {base}")
+        sources.extend(files)
+    source_files = file_identities(sources)
+    # Only a source checkout has a meaningful repository revision. Installed
+    # modules are identified by the actual files above, never sibling stage dirs.
+    repo = Path(reconstruction.__file__).resolve().parent.parent
+    revision = "unknown"
+    if (repo / "pyproject.toml").is_file() and (repo / ".git").exists():
+        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                                capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            revision = result.stdout.strip()
     model_inputs = file_identities(cfg.model_dir / name for name in
         ("bdt_stage1.json", "stage1_threshold.txt", "stage1_provenance.json")) if cfg.model_dir else []
-    return {"source_revision": revision.stdout.strip(), "source_files": source_files,
+    return {"source_revision": revision, "source_files": source_files,
             "model_inputs": model_inputs,
             "inputs": file_identities(Path(cfg.input_dir).glob("*.root")),
             "command": list(sys.argv)}

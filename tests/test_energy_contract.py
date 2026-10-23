@@ -13,7 +13,7 @@ from bdt_training.dataset.stage1_dataset import Stage1Dataset, Stage1DatasetMeta
 from bdt_training.beam_spectrum import BeamSpectrum
 from reconstruction.runtime.stage1_gate import Stage1Gate
 from observable_extraction.plotting.figure4 import profile_energy_rows
-from scripts import run_pipeline
+from graal_workflow import models, paths as workflow_paths, planning
 
 
 def test_low_uv_domain_survives_dataset_and_model_contract(tmp_path):
@@ -48,9 +48,9 @@ def test_rows_use_actual_grid():
 
 
 def test_pipeline_propagates_domain_and_skips_closed_channels(tmp_path):
-    config = run_pipeline.mode_config("test_data", tmp_path)
-    paths = run_pipeline.build_paths(config)
-    plan = run_pipeline.build_pipeline_plan(config, paths, run_pipeline.PreflightResult("root"),
+    config = workflow_paths.mode_config("test_data", tmp_path)
+    paths = workflow_paths.build_paths(config)
+    plan = planning.build_pipeline_plan(config, paths, models.PreflightResult("root"),
         energy_binnings={"uv": EnergyBinning((.9313, 1.1))})
     stages = {s.name: s.argv for s in plan}
     assert "uv:generate:etaprime" not in stages

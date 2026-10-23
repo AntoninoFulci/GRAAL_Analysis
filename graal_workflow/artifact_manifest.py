@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -12,17 +11,11 @@ from pathlib import Path
 import tempfile
 from typing import Callable, Iterable
 
+from .models import CacheItem
+
 
 MAX_AGE = timedelta(days=10)
 PREANALYSIS_BRANCHES = ("gammas", "fcharged_theta", "RunNumber", "Polarization", "Xstrip")
-
-
-@dataclass(frozen=True)
-class CacheItem:
-    name: str
-    manifest: Path
-    outputs: tuple[Path, ...]
-    signature: dict
 
 
 def inventory(paths: Iterable[Path]) -> list[dict]:
@@ -45,8 +38,11 @@ def inventory(paths: Iterable[Path]) -> list[dict]:
 
 
 def source_fingerprint(paths: Iterable[Path]) -> str:
+    paths = tuple(Path(path) for path in paths)
+    if not paths:
+        raise ValueError("source inventory is empty")
     digest = hashlib.sha256()
-    for path in sorted((Path(path) for path in paths), key=str):
+    for path in sorted(paths, key=str):
         digest.update(str(path.resolve()).encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()

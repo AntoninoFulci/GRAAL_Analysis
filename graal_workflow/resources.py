@@ -3,10 +3,25 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
+import importlib
 import os
+from pathlib import Path
 
 from graal_common.parallel import thread_environment, validate_workers
-from scripts.pipeline_logging import run_streamed
+from .logging import run_streamed
+
+
+def installed_package_sources(package_name: str) -> tuple[Path, ...]:
+    """Inventory the Python package selected by this interpreter, including wheels."""
+    package = importlib.import_module(package_name)
+    location = getattr(package, "__file__", None)
+    if location is None:
+        raise ValueError(f"source location unavailable for package {package_name}")
+    root = Path(location).resolve().parent
+    sources = tuple(sorted(path for path in root.rglob("*.py") if "tests" not in path.relative_to(root).parts))
+    if not sources or Path(location).resolve() not in sources:
+        raise ValueError(f"source inventory is empty or incomplete for package {package_name}: {root}")
+    return sources
 
 
 def configure_resources(stages, *, cpus: int, seed: int, extraction_workers: int = 1):

@@ -92,7 +92,7 @@ def test_raw_parallel_equivalence_and_skip_counts(tmp_path, only_untagged):
             outputs.append(ak.to_list(tree.arrays()))
             assert file['preanalysis_skipped_no_tagger'].member('fVal') > 0
             assert 'preanalysis_provenance' in file
-        from scripts.artifact_manifest import validate_current_preanalysis
+        from graal_workflow.artifact_manifest import validate_current_preanalysis
         validate_current_preanalysis([out / 'pre_analisi_1998_uv.root'])
         from event_selector.select_events import run as select
         select(out, tmp_path / f'h85-{cpus}', threads=cpus, pattern='pre_*.root')

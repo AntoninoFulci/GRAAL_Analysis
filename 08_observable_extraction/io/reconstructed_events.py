@@ -11,7 +11,7 @@ from typing import Mapping
 import numpy as np
 import ROOT
 
-from calibration.run_quality import excluded_run_numbers
+from calibration.run_quality import load_run_quality
 from observable_extraction.core.models import FluxExposure
 from reconstruction.runtime.provenance import validate_reconstruction_selection
 
@@ -152,12 +152,15 @@ def _select_by_polarization(
     *,
     energy_range: tuple[float, float],
     drop_missing: bool = False,
+    run_quality: dict | None = None,
 ) -> EventArrays:
     low, high = energy_range
     if not np.isfinite((low, high)).all() or high <= low:
         raise ValueError("energy range must be finite and increasing")
+    quality = load_run_quality() if run_quality is None else run_quality
+    excluded = {item['run'] for item in quality['excluded_runs']}
     base = (
-        ~np.isin(events.run_number, sorted(excluded_run_numbers()))
+        ~np.isin(events.run_number, sorted(excluded))
         & np.isin(events.polarization, accepted_polarizations)
         & (events.beam_energy_gev >= low)
         & (events.beam_energy_gev <= high)
@@ -196,6 +199,7 @@ def select_sigma_events(
     *,
     energy_range: tuple[float, float] = (1.1, 1.5),
     drop_missing: bool = False,
+    run_quality: dict | None = None,
 ) -> EventArrays:
     return _select_by_polarization(
         events,
@@ -203,6 +207,7 @@ def select_sigma_events(
         (1, 2),
         energy_range=energy_range,
         drop_missing=drop_missing,
+        run_quality=run_quality,
     )
 
 
@@ -212,6 +217,7 @@ def select_brem_control(
     *,
     energy_range: tuple[float, float] = (1.1, 1.5),
     drop_missing: bool = False,
+    run_quality: dict | None = None,
 ) -> EventArrays:
     return _select_by_polarization(
         events,
@@ -219,4 +225,5 @@ def select_brem_control(
         (0,),
         energy_range=energy_range,
         drop_missing=drop_missing,
+        run_quality=run_quality,
     )

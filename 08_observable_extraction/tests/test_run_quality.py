@@ -56,6 +56,8 @@ def test_period_audit_carries_shared_policy_identity():
     from observable_extraction.beam_asymmetry import _period_metadata
     from graal_common.physics.beam_profiles import get_beam_profile
     profile = get_beam_profile('uv')
+    from calibration.run_quality import load_run_quality
+    quality = {**load_run_quality(), 'sha256': 'frozen'}
     metadata = _period_metadata('p', [1322], {'data': _events()}, {},
-                                {'_run_quality': {'sha256': 'frozen'}}, {}, profile, profile)
+                                {'_run_quality': quality}, {}, profile, profile)
     assert metadata['run_quality']['sha256'] == 'frozen'

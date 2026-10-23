@@ -125,7 +125,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workers", type=int, default=1, help="isolated profile/common plot processes (up to 3)")
     parser.add_argument("--campaign", required=True, type=Path)
-    parser.add_argument("--published-csv", type=Path, default=combine_profiles.AJAKA_REFERENCE)
+    parser.add_argument("--published-csv", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv")
     return parser
 
 

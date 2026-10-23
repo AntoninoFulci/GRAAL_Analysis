@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from scripts import artifact_manifest as pipeline_cache
+from graal_workflow import artifact_manifest as pipeline_cache
 import numpy as np
 import uproot
 

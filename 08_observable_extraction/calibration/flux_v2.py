@@ -54,8 +54,9 @@ def load_exposures(
     skip_invalid: bool = False,
     audit: dict | None = None,
     allow_empty: bool = False,
+    run_quality: dict | None = None,
 ) -> dict[tuple[int, int], FluxExposure]:
-    quality = load_run_quality()
+    quality = load_run_quality() if run_quality is None else run_quality
     excluded = {item["run"]: item for item in quality["excluded_runs"]}
     if audit is not None:
         audit["_run_quality"] = quality

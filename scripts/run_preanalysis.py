@@ -18,7 +18,7 @@ if __package__ in (None, ""):
 
 from graal_common.io.filesystem import atomic_output_directory
 from graal_common.parallel import available_cpus, thread_environment, validate_workers
-from scripts.artifact_manifest import inventory, source_fingerprint
+from graal_workflow.artifact_manifest import inventory, source_fingerprint
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

@@ -4,7 +4,7 @@ import re
 
 import numpy as np
 
-from calibration.run_quality import excluded_run_numbers
+from calibration.run_quality import load_run_quality
 
 
 def partition_runs(records, input_runs, *, target, beam_type):
@@ -28,14 +28,15 @@ def partition_runs(records, input_runs, *, target, beam_type):
     return dict(sorted(groups.items()))
 
 
-def selection_audit(events, exposures, energy_range):
+def selection_audit(events, exposures, energy_range, *, run_quality=None):
     low, high = energy_range
     energy = (events.beam_energy_gev >= low) & (events.beam_energy_gev <= high)
     sigma = np.isin(events.polarization, (1, 2))
     brem = events.polarization == 0
     exposed = np.array([(int(run), int(strip)) in exposures
                         for run, strip in zip(events.run_number, events.xstrip)], dtype=bool)
-    quality = np.isin(events.run_number, sorted(excluded_run_numbers()))
+    policy = load_run_quality() if run_quality is None else run_quality
+    quality = np.isin(events.run_number, sorted(item['run'] for item in policy['excluded_runs']))
     selected = energy & sigma & exposed & ~quality
     control = energy & brem & exposed & ~quality
     return dict(

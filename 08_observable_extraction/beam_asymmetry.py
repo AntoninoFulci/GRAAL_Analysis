@@ -122,6 +122,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("config/run_manifest.csv"),
     )
+    parser.add_argument("--run-quality", type=Path, default=DEFAULT_RUN_QUALITY_PATH,
+                        help="explicit frozen run-quality policy JSON")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -662,7 +664,9 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     if best_binning:
         binning_options["best_binning"] = True
     phi_edges = phi_edges_rad(12 if best_binning else args.phi_bins)
-    quality = load_run_quality()
+    quality = None if metadata is None else metadata.get("run_quality")
+    if quality is None:
+        quality = load_run_quality(getattr(args, "run_quality", None))
     quality_excluded_runs = {item["run"] for item in quality["excluded_runs"]}
     quality_provenance = f"run_quality={json.dumps(quality, sort_keys=True)}\n"
     phi_provenance = ("phi_bins=best-binning\nphi_bin_divisor=per_point\n"
@@ -694,12 +698,14 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         target=profile.target,
         beam_type=profile.beam_type,
         energy_range=grid.energy_range_gev,
+        run_quality=quality,
     )
     events = select_sigma_events(
         all_nominal_events,
         exposures,
         energy_range=grid.energy_range_gev,
         drop_missing=True,
+        run_quality=quality,
     )
     nominal = extract_sample(
         sample_name=args.nominal_sample,
@@ -727,6 +733,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             exposures,
             energy_range=grid.energy_range_gev,
             drop_missing=True,
+            run_quality=quality,
         )
         signal_mc = read_sample(
             args.signal_mc,
@@ -771,6 +778,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             exposures,
             energy_range=grid.energy_range_gev,
             drop_missing=True,
+            run_quality=quality,
         )
         samples[sample_name] = comparison_events
         comparison = extract_sample(
@@ -913,15 +921,15 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         diagnostic_exposures = load_exposures(
             args.flux_file, manifest_path=args.run_manifest, run_numbers=run_strata,
             polarization_model=profile.polarization, target=profile.target,
-            beam_type=profile.beam_type, energy_range=grid.energy_range_gev)
+            beam_type=profile.beam_type, energy_range=grid.energy_range_gev, run_quality=quality)
         exposed = {exposure.run_number for exposure in diagnostic_exposures.values()}
         if exposed != set(run_strata):
             raise ValueError(f"bootstrap universe has missing exposures: {sorted(set(run_strata) - exposed)}")
         diagnostic_samples = {name: select_sigma_events(
-            sample_events, diagnostic_exposures, energy_range=grid.energy_range_gev, drop_missing=True)
+            sample_events, diagnostic_exposures, energy_range=grid.energy_range_gev, drop_missing=True, run_quality=quality)
             for name, sample_events in input_samples.items()}
         diagnostic_broad = None if broad_input_events is None else select_sigma_events(
-            broad_input_events, diagnostic_exposures, energy_range=grid.energy_range_gev, drop_missing=True)
+            broad_input_events, diagnostic_exposures, energy_range=grid.energy_range_gev, drop_missing=True, run_quality=quality)
         diagnostic = _paired_bootstrap_diagnostics(
             points=output_points, samples=diagnostic_samples, exposures=diagnostic_exposures,
             run_strata=run_strata,
@@ -1036,6 +1044,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         exposures,
         energy_range=grid.energy_range_gev,
         drop_missing=True,
+        run_quality=quality,
     )
     brem_phi = {}
     if len(brem_events):
@@ -1112,7 +1121,8 @@ def _period_metadata(period, runs, samples, exposures, flux_audit, cutflows, pro
         run_quality=flux_audit["_run_quality"],
         exposed_runs=sorted({key[0] for key in exposures}),
         missing_exposure_runs=sorted(set(runs) - {key[0] for key in exposures}),
-        samples={name: selection_audit(events, exposures, grid.energy_range_gev)
+        samples={name: selection_audit(events, exposures, grid.energy_range_gev,
+                                      run_quality=flux_audit["_run_quality"])
                  for name, events in samples.items()},
         exposure=exposure_summary(exposures),
         # Retain zero-yield strata and enough information to reconstruct normalization.
@@ -1123,8 +1133,9 @@ def _period_metadata(period, runs, samples, exposures, flux_audit, cutflows, pro
     )
 
 
-def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, profile):
+def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, profile, *, run_quality=None):
     """Re-extract the disjoint union; compare estimates, not means of estimates."""
+    quality = load_run_quality(getattr(args, "run_quality", None)) if run_quality is None else run_quality
     grid = energy_binning_from_args(args, profile.name)
     rebuilt_exposures = {}
     for runs in groups.values():
@@ -1145,9 +1156,9 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
         if len(joined) != len(original):
             raise ValueError("period event union differs from pooled input")
         selected = select_sigma_events(joined, rebuilt_exposures,
-                                       energy_range=grid.energy_range_gev, drop_missing=True)
+                                       energy_range=grid.energy_range_gev, drop_missing=True, run_quality=quality)
         expected = select_sigma_events(original, exposures,
-                                       energy_range=grid.energy_range_gev, drop_missing=True)
+                                       energy_range=grid.energy_range_gev, drop_missing=True, run_quality=quality)
         if len(selected) != len(expected):
             raise ValueError("period selection differs from pooled selection")
         counts[name] = len(selected)
@@ -1179,6 +1190,7 @@ def _source_identities(source_root: Path) -> list[dict]:
 
 
 def _run_periods(args):
+    quality = load_run_quality(getattr(args, "run_quality", None))
     profile = get_beam_profile(args.profile)
     grid = energy_binning_from_args(args, args.profile)
     records = validate_manifest(args.run_manifest)
@@ -1241,14 +1253,14 @@ def _run_periods(args):
         if set(map(int, inputs[broad_key].run_number)) - runs:
             raise ValueError("sideband input runs outside inclusive universe")
         paths.extend([args.sideband, args.signal_mc])
-    flux_audit = {"_run_quality": load_run_quality()}
+    flux_audit = {"_run_quality": quality}
     exposures = load_exposures(args.flux_file, manifest_path=args.run_manifest, run_numbers=runs,
                               polarization_model=profile.polarization, target=profile.target,
                               beam_type=profile.beam_type, energy_range=grid.energy_range_gev,
-                              audit=flux_audit, allow_empty=True)
+                              audit=flux_audit, allow_empty=True, run_quality=quality)
     if {key[0] for key in exposures} - runs:
         raise ValueError("exposures outside inclusive run universe")
-    paths.append(DEFAULT_RUN_QUALITY_PATH)
+    paths.append(Path(quality["path"]))
     identities = file_identities(set(paths))
     campaign = str(args.output_dir.resolve())
     all_periods = sorted({record.source_period for record in records
@@ -1287,7 +1299,8 @@ def _run_periods(args):
             metadata["estimable_points"] = len(payload.points)
             if period == "pooled":
                 index["aggregate"] = metadata
-                index["closure"] = _partition_closure(args, groups, inputs, sample_keys, exposures, payload, profile)
+                index["closure"] = _partition_closure(args, groups, inputs, sample_keys, exposures, payload, profile,
+                                                       run_quality=quality)
             else:
                 metadata["root"] = f"{period}/beam_asymmetry.root"
                 index["periods"].append(metadata)

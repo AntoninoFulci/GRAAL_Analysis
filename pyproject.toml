@@ -18,6 +18,9 @@ dependencies = [
     "scipy>=1.10",
 ]
 
+[project.scripts]
+graal-workflow = "graal_workflow.cli:main"
+
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
 
@@ -29,6 +32,7 @@ test = ["pytest>=8.0"]
 # it because the BDT-gated entry point consumes the trained model.
 [tool.setuptools]
 packages = [
+    "graal_workflow",
     "graal_common",
     "graal_common.physics",
     "graal_common.io",
@@ -63,6 +67,7 @@ packages = [
 [tool.setuptools.package-dir]
 # 00 is not a pipeline stage: it is what the stages agree on (meson masses, the
 # channel registry). Numbered anyway so it sorts above the stages that use it.
+graal_workflow = "graal_workflow"
 graal_common   = "00_common"
 event_selector = "02_event_selector"
 mc_simulation  = "03_mc_simulation"
