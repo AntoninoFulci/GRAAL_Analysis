@@ -38,7 +38,7 @@ Each component has conservative absolute reading bound `+/-0.020`.
 Reproduction command, from `theory/`:
 
 ```bash
-PYTHONPATH=src python -c 'from pathlib import Path; from graal_theory.amplitudes.nstar1535_reduced import load_reduced_parameters; from graal_theory.amplitudes.nstar1535_charge_zero import load_charge_zero_parameters; from graal_theory.reduced_t_reference import load_fig1_reduced, compare_fig1_reduced, compare_fig1_charge_zero; r=Path("references"); p=load_reduced_parameters(r/"nstar1535_reduced_parameters.json",r/"sources.json"); z=load_charge_zero_parameters(r/"nstar1535_reduced_parameters.json",r/"sources.json",r/"nstar1535_charge_zero_extra.json"); pts=load_fig1_reduced(r/"p73_fig1_reduced.csv",r/"p73_fig1_reduced.json",Path("../tmp/pdfs/10.1103@PhysRevC.73.045209.pdf")); print("+1 thresholds",[round(m+b,9) for m,b in zip(p.meson_masses_gev,p.baryon_masses_gev)]); print("0 thresholds",[round(m+b,9) for m,b in zip(z.meson_masses_gev,z.baryon_masses_gev)]); [print(name,row) for name,rows in (("+1",compare_fig1_reduced(p,pts)),("0",compare_fig1_charge_zero(z,pts))) for row in rows]'
+PYTHONPATH=src python -c 'from pathlib import Path; from graal_theory.amplitudes.nstar1535_reduced import load_reduced_parameters; from graal_theory.amplitudes.nstar1535_charge_zero import load_charge_zero_parameters; from graal_theory.reduced_t_reference import load_fig1_reduced, compare_fig1_reduced, compare_fig1_charge_zero; r=Path("references"); p=load_reduced_parameters(r/"nstar1535_reduced_parameters.json",r/"sources.json"); z=load_charge_zero_parameters(r/"nstar1535_reduced_parameters.json",r/"sources.json",r/"nstar1535_charge_zero_extra.json"); pts=load_fig1_reduced(r/"p73_fig1_reduced.csv",r/"p73_fig1_reduced.json",Path("../docs/papers/10.1103@PhysRevC.73.045209.pdf")); print("+1 thresholds",[round(m+b,9) for m,b in zip(p.meson_masses_gev,p.baryon_masses_gev)]); print("0 thresholds",[round(m+b,9) for m,b in zip(z.meson_masses_gev,z.baryon_masses_gev)]); [print(name,row) for name,rows in (("+1",compare_fig1_reduced(p,pts)),("0",compare_fig1_charge_zero(z,pts))) for row in rows]'
 ```
 
 The explicit PDG 2024 mass policy gives these physical thresholds, in the
@@ -104,8 +104,8 @@ and other experimental nuisances.
 SHA-256 of exact inputs:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  tmp/pdfs/PhysRevC.65.035204.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  tmp/pdfs/10.1103@PhysRevC.73.045209.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
 8e0a34e9f7b8e490f3987bf71755106210ec48e02c6b68a751095c7cec253358  theory/references/nstar1535_reduced_parameters.json
 1848ed42bd8ab7bd00f8f9b0e4d057249b7a199b8dfb88db6bc64d3e13a47962  theory/references/p73_fig1_reduced.csv
 ```

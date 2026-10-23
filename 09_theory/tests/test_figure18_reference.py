@@ -10,7 +10,7 @@ from graal_theory.figure18_reference import load_figure18_full_1700
 
 
 REFERENCES = Path(__file__).resolve().parents[1]/"references"
-PDF = Path(__file__).resolve().parents[2]/"tmp/pdfs/10.1103@PhysRevC.73.045209.pdf"
+PDF = Path(__file__).resolve().parents[2]/"docs/papers/10.1103@PhysRevC.73.045209.pdf"
 
 
 def test_figure18_full_source_is_bounded_and_pdf_authenticated(tmp_path):

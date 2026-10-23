@@ -30,8 +30,8 @@ Keep P65 Eq. (9), P73 Table I, and the current signed Eq. (10) projection fixed.
 The printed equations/tables and Fig. 1 were checked on rendered pages, alongside text extraction: P65 PDF pp. 2, 3, 8, 12 (printed 035204-2, -3, -8, -12); P73 PDF pp. 2, 3 (printed 045209-2, -3). SHA-256 of the exact local PDFs:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  tmp/pdfs/PhysRevC.65.035204.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  tmp/pdfs/10.1103@PhysRevC.73.045209.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
 ```
 
 **Unresolved reproduction inputs:** the ten exact mass values (and their historical source), whether the basic P65 stage reused the later charge-split masses, which charge basis generated P73 Fig. 1, and the complete signed Fig. 1 isospin projection. The sources support a sensitivity test, but not an exact numerical reproduction claim or a mass-only explanation of the current residual.

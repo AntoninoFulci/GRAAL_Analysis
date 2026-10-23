@@ -15,7 +15,7 @@ PHI_BIN_CHOICES = (8, 12, 16)
 # Sigma and its error are divided by these fixed values, not a computed sinc.
 # Uniform full-circle bins and common, approximately constant within-bin
 # acceptance are assumed; see Zachariou et al., PRC 91, 055202 (2015),
-# Eqs. (15)-(17), and docs/research/2026-10-09-finite-phi-bin-correction.md.
+# Eqs. (15)-(17), and wiki/finite-bin-correction.md.
 PHI_BIN_DIVISORS = {8: 0.9003, 12: 0.9549, 16: 0.9745}
 PAIR_NAMES = ("p_pi0", "p_eta", "eta_pi0")
 

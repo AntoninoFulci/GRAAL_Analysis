@@ -16,14 +16,14 @@ Primary sources are Inoue, Oset, Vicente Vacas, *Phys. Rev. C* **65**, 035204
 (2002), Eqs. (25)-(30) and Fig. 11 on printed p. 035204-8; and Döring, Oset,
 Strottman, *Phys. Rev. C* **73**, 045209 (2006), Eqs. (5)-(6). See the
 [equation source map](nstar_1535_tmatrix_source_map.md) and
-[approved design](../docs/2026-10-02-nstar1535-pipi-n-design.md).
+[approved design](../../results_test/repository-refactor-20261023/task-9/archive/09_theory/docs/2026-10-02-nstar1535-pipi-n-design.md).
 
 SHA-256 values, paths relative to repository root:
 
 | Input | SHA-256 |
 | --- | --- |
-| `tmp/pdfs/PhysRevC.65.035204.pdf` | `e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac` |
-| `tmp/pdfs/10.1103@PhysRevC.73.045209.pdf` | `19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb` |
+| `docs/papers/PhysRevC.65.035204.pdf` | `e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac` |
+| `docs/papers/10.1103@PhysRevC.73.045209.pdf` | `19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb` |
 | `theory/references/nstar1535_reduced_parameters.json` | `8e0a34e9f7b8e490f3987bf71755106210ec48e02c6b68a751095c7cec253358` |
 | `theory/references/nstar1535_final_subtractions.json` | `dc1affec4b469b6d9f77f24b1145967fa02adca49e193ae117c1a154c84987fc` |
 | `theory/src/graal_theory/amplitudes/pipi_n.py` | `23a42c50f45366f687a15be62a9e813296e7214e0b3b92a85ee409fa7904d76b` |
@@ -31,7 +31,7 @@ SHA-256 values, paths relative to repository root:
 Hash verification from repository root:
 
 ```bash
-shasum -a 256 tmp/pdfs/PhysRevC.65.035204.pdf tmp/pdfs/10.1103@PhysRevC.73.045209.pdf theory/references/nstar1535_reduced_parameters.json theory/references/nstar1535_final_subtractions.json theory/src/graal_theory/amplitudes/pipi_n.py
+shasum -a 256 docs/papers/PhysRevC.65.035204.pdf docs/papers/10.1103@PhysRevC.73.045209.pdf theory/references/nstar1535_reduced_parameters.json theory/references/nstar1535_final_subtractions.json theory/src/graal_theory/amplitudes/pipi_n.py
 ```
 
 The common loop masses are modern **PDG-2024 implementation conventions**, not
@@ -76,7 +76,8 @@ its Eq. (26), units, caption, and printed page number. A larger Fig. 11 crop
 was also inspected. Reproduce the crop from repository root:
 
 ```bash
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 8 -l 8 -r 300 -x 1310 -y 2350 -W 1020 -H 650 -png -singlefile tmp/pdfs/PhysRevC.65.035204.pdf tmp/pdfs/pipi_n_fig11_crop
+mkdir -p results_test/pipi-n-paper-inspection/cache
+XDG_CACHE_HOME=results_test/pipi-n-paper-inspection/cache pdftoppm -f 8 -l 8 -r 300 -x 1310 -y 2350 -W 1020 -H 650 -png -singlefile docs/papers/PhysRevC.65.035204.pdf results_test/pipi-n-paper-inspection/pipi_n_fig11_crop
 ```
 
 The plot extends approximately from 1000 to 1800 MeV, with labeled energy

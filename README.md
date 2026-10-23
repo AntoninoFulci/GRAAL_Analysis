@@ -1,107 +1,36 @@
 # GRAAL Analysis
 
-Analysis pipeline for GRAAL photoproduction data, focused on
-**γp → pηπ⁰** with η → γγ and π⁰ → γγ. It compares standard photon pairing
-by χ² with the same reconstruction preceded by a Stage-1 BDT background gate,
-then applies a 6C kinematic fit.
+Analysis of γp → pηπ⁰ with η, π⁰ → γγ. The pipeline compares χ² photon pairing with a Stage-1 BDT gate followed by the same pairing and missing-mass selection, then extracts beam asymmetry from measured calibrated flux. Standalone theory is an explicit stage 09 calculation after observable extraction.
 
-## Documentation
+The [GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki) is the current technical guide; its [source index](wiki/Home.md) is versioned here. Start with [setup](wiki/getting-started.md), [workflow](wiki/workflow.md), [commands](wiki/commands-and-configuration.md), and [scientific status](wiki/status.md).
 
-See the [GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki)
-for the architecture, scientific workflow, stage guides, data contracts,
-commands, testing strategy, troubleshooting, and known limitations.
-
-## Requirements
-
-- Python 3.10 or newer, using the interpreter compatible with PyROOT
-- CERN ROOT with PyROOT
-- Python dependencies from `04_bdt_training/requirements.txt`
-
-## Setup
-
-Load the ROOT environment first, then run repository setup from any directory:
+Use Python ≥3.10 compatible with CERN ROOT/PyROOT. Load ROOT, then:
 
 ```bash
 ./scripts/setup.sh --mode local
-```
-
-On the analysis farm, select the PyROOT-compatible interpreter and link the
-external detector data:
-
-```bash
-./scripts/setup.sh --mode farm \
-  --python /path/to/python3.10 \
-  --raw-target /farm/path/graal_data
-
 source .venv/bin/activate
+python scripts/run_pipeline.py --help
 ```
 
-Setup creates or reuses `.venv` with system site packages, installs
-dependencies and the editable project, prepares `data/`, and validates runtime
-imports. Copy `pre_analisi_*.root` files directly into `data/02_pre_analyzed/`.
-Setup never replaces an existing data path or mismatched link.
-
-For persistent packages outside a venv, use the farm's base Python:
-
-```bash
-./scripts/setup.sh --mode farm \
-  --python /path/to/pyroot-compatible-python \
-  --raw-target /farm/path/graal_data --install user
-```
-
-This uses `pip install --user` for dependencies and the editable repository.
-It leaves any existing `.venv` alone. No activation or reinstall is needed for
-each session: load ROOT and use the same base interpreter. User packages are
-shared with other projects for that Python major/minor version; changing that
-version requires installing again. A selected venv or disabled user site is
-refused. A Python marked externally managed may also refuse `--user`; use a
-farm-managed Python that supports user installs, or the default venv mode.
-
-## Run
-
-The supported full launcher begins from pre-analysis `h80` ROOT files. Test
-mode uses the local UV/VIS fixtures; production uses every matching period:
+For a farm use `--mode farm --python /path/to/pyroot-compatible-python --raw-target /farm/path/graal_data`. Setup validates imports and input links. See the wiki for user-site installation and wheel checkout requirements.
 
 ```bash
 python scripts/run_pipeline.py --mode test_data
-python scripts/run_pipeline.py --mode production
+python scripts/run_pipeline.py --mode production --output-dir results/my-campaign
 ```
 
-Both modes accept `--phi-bins 8|12|16` (default: `12`). Each launch produces
-one binning for UV/VIS ratio fits, preserving the campaign output layout.
-To change binning using a completed campaign's reconstruction and calibrated
-flux, follow [extraction-only commands](docs/runbooks/full-pipeline.md#change-phi-binning-without-rerunning-earlier-stages).
-Ratio Sigma and its error use the fixed finite-bin divisors `0.9003`,
-`0.9549`, and `0.9745`, respectively; likelihood remains unscaled. See the
-[scientific verification and convention](docs/research/2026-10-09-finite-phi-bin-correction.md).
+These commands run scientific campaigns after preflight and confirmation. `--phi-bins 8|12|16` defaults to 12; `--best-binning` chooses per point. [Finite-bin correction](wiki/finite-bin-correction.md) applies only to the ratio estimator. The reduced UV+VIS input is diagnostic, not a normalized production dataset. Optional flux recovery remains experimental.
 
-Calibration runs once. Production reuses validated selection, MC, and BDT
-artifacts in `data/` for up to ten days; `test_data` rebuilds its parallel
-artifacts on every run. Reconstruction, asymmetry extraction, and plots live
-under the named campaign in `results/`. See the
-[full pipeline runbook](docs/runbooks/full-pipeline.md) for server setup,
-outputs, and failure behavior.
+| Path | Contents |
+| --- | --- |
+| `00_common/`–`08_observable_extraction/` | Shared contracts and numbered analysis components |
+| `09_theory/` | Independent `graal_theory` package / `graal-theory` CLI |
+| `graal_workflow/`, `scripts/`, `plots/` | Orchestration, entry points and output rendering |
+| `config/` | Curated manifests, policy and authenticated common inputs |
+| `data/`, `data_test/` | Production inputs and one immutable UV+VIS test cohort |
+| `results/`, `results/_cache/` | Production campaigns and validated reusable products |
+| `results_test/` | Tests, diagnostics, reports and explicit temporary/build roots |
+| `wiki/` | Current technical documentation |
+| `docs/papers/`, `docs/plans/`, `docs/reference/` | Original papers, active plans and scientific evidence |
 
-Each numbered directory still owns one analysis step. For advanced or manual
-operation, run stage entry points directly and use `--help` for inputs and
-output options.
-
-```bash
-python 06_calibration/build_run_manifest.py --help
-python 06_calibration/build_strip_energy_flux.py --help
-python 08_observable_extraction/beam_asymmetry.py --help
-python plots/dalitz.py --help
-```
-
-Calibration is step 06. Optional flux studies are step 07; observable extraction
-follows as step 08. Plotting is
-an unnumbered consumer of completed analysis outputs and writes generated files
-under ignored `results/` paths.
-
-## Test
-
-```bash
-pytest -q
-```
-
-Optional [stage 07 flux studies](docs/runbooks/missing-flux.md) audit missing flux and compare experimental reconstructions. Observable extraction source now lives in `08_observable_extraction/`; its Python package remains `observable_extraction`. Refresh the editable installation after updating.
+See [maintenance and tests](wiki/maintenance.md) for isolated verification commands and wiki synchronization. Scientific sources and historical results retain their provenance; software tests do not establish detector acceptance, theory convergence or a complete uncertainty budget.

@@ -1,96 +1,36 @@
-# Getting Started
+# Getting started
 
-This guide takes a new analyst from a ROOT-enabled Python installation to a
-verified editable checkout. It covers both local development and the analysis
-farm, where raw and pre-analysis datasets remain external to the repository.
-
-## Requirements
-
-- Python 3.10 or newer. On the analysis farm, use the interpreter against
-  which PyROOT was built.
-- CERN ROOT with `import ROOT` available from the selected interpreter.
-- Git and a POSIX shell for setup and development commands.
-- Python packages listed in `04_bdt_training/requirements.txt`.
-- External experiment data for production runs; the repository does not
-  download raw, pre-analysis, or flux inputs.
-
-The setup script creates `.venv` with `--system-site-packages` so the virtual
-environment can reuse the selected interpreter's PyROOT installation. It then
-installs the training requirements and the repository in editable mode.
-
-Load the ROOT environment before running setup. If the base interpreter cannot
-import ROOT, setup stops before creating a misleading environment.
-
-## Local Setup
-
-From any directory, invoke the repository script with an explicit mode:
+Use Python ≥3.10 compatible with the installed CERN ROOT/PyROOT, and load the ROOT environment before setup. Run commands from the repository root unless an explicit checkout path is supplied. The pinned Python dependencies are in [pyproject.toml](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/pyproject.toml); theory has its own package metadata.
 
 ```bash
 ./scripts/setup.sh --mode local
 source .venv/bin/activate
+python scripts/run_pipeline.py --help
 ```
 
-Local mode creates or reuses these directories:
-
-```text
-data/00_external/
-data/01_raw/
-data/02_pre_analyzed/
-data/03_selected/
-```
-
-It does not invent or download detector data. If
-`data/00_external/flux.root` is absent, setup completes with a warning because
-many development and unit-test tasks do not need the production flux file.
-
-Use a non-default compatible interpreter when needed:
+For a farm installation, choose the interpreter and external raw-data location:
 
 ```bash
-./scripts/setup.sh --mode local --python /path/to/python3.10
+./scripts/setup.sh --mode farm --python /path/to/pyroot-compatible-python --raw-target /farm/path/graal_data
 ```
 
-## Farm Setup
+Setup defaults to a venv with system site packages. The optional `--install user` uses the selected base Python and leaves an existing venv alone; it requires an enabled user site and a Python installation that permits user installs. Setup refuses mismatched data links. Run `./scripts/setup.sh --help` for supported options.
 
-Farm mode creates the same environment and a checked link to raw detector data:
+Production h80 files belong under `data/02_pre_analyzed/`; external raw flux is `data/00_external/flux.root`. The common manifest [config/common_inputs.json](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/common_inputs.json) authenticates the curated run catalog, quality policy, and raw flux. Missing files or digest mismatches must be resolved before a campaign.
+
+The reduced UV+VIS cohort in `data_test/sample/` is immutable diagnostic input. It is not a production normalization sample. Start its campaign with:
 
 ```bash
-./scripts/setup.sh --mode farm \
-  --python /path/to/python3.10 \
-  --raw-target /farm/path/graal_data
-
-source .venv/bin/activate
+python scripts/run_pipeline.py --mode test_data
 ```
 
-The raw target must already be a directory. Setup creates:
+The launcher displays validated configuration and asks before starting. This is a scientific computation, not an installation smoke test. Use `--help` for a non-computing check. Wheel installations of `graal-workflow` need `--repo-root /path/to/GRAAL_Analysis` to locate native checkout resources; editable installations can resolve their source checkout.
 
-- `data/01_raw/graal_data` -> the supplied raw-data target;
-- `data/02_pre_analyzed/` as an ordinary directory. Copy farm
-  `pre_analisi_*.root` files directly into it.
-
-Rerunning the command with the same target is safe. Setup refuses a broken
-link, a link to another target, or an existing non-link path; it never replaces
-data silently.
-
-## Verify the Installation
-
-Setup performs a final import check for ROOT and all installed project
-packages. You can repeat the essential checks directly:
+Install theory separately only when needed:
 
 ```bash
-python -c 'import ROOT, graal_common, event_selector, mc_simulation, bdt_training, reconstruction, calibration, observable_extraction, plots'
-pytest -q
+python -m pip install -e './09_theory[flux,test]'
+graal-theory --help
 ```
 
-Inspect individual entry points before supplying production inputs:
-
-```bash
-python 06_calibration/build_run_manifest.py --help
-python 06_calibration/build_strip_energy_flux.py --help
-python 08_observable_extraction/beam_asymmetry.py --help
-python plots/dalitz.py --help
-```
-
-The project intentionally exposes stage commands rather than a central
-orchestrator. Read the [workflow](workflow) before production execution and use
-the [troubleshooting guide](troubleshooting) when an environment or data guard
-fails.
+See [commands](commands-and-configuration) for production and manual extraction, and [maintenance](maintenance) for isolated tests.

@@ -12,7 +12,7 @@ from graal_theory.figure4_reference import PAIR_MASS_AXES, load_published_theory
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT.parent / "tmp/pdfs/PhysRevLett.100.052003.pdf"
+SOURCE = ROOT.parent / "docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf"
 POINTS = load_published_theory_curves(
     ROOT / "references/ajaka2008_figure4_theory.csv",
     ROOT / "references/ajaka2008_figure4_theory.json",

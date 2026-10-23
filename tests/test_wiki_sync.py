@@ -66,7 +66,9 @@ def test_sync_publishes_exact_page_set_to_empty_local_remote(tmp_path: Path):
         cwd=tmp_path,
     )
     (stale_checkout / "Stale.md").write_text("obsolete\n")
-    _git("add", "Stale.md", cwd=stale_checkout)
+    (stale_checkout / "old").mkdir()
+    (stale_checkout / "old/Nested.md").write_text("obsolete nested page\n")
+    _git("add", "Stale.md", "old/Nested.md", cwd=stale_checkout)
     _git(
         "-c", "user.name=Wiki Test", "-c", "user.email=wiki@example.invalid",
         "commit", "-m", "add stale page", cwd=stale_checkout,
@@ -92,5 +94,17 @@ def test_sync_publishes_exact_page_set_to_empty_local_remote(tmp_path: Path):
     checkout = tmp_path / "checkout"
     _git("clone", "--branch", "master", str(remote), str(checkout), cwd=tmp_path)
     expected = {path.name for path in (ROOT / "wiki").glob("*.md")}
-    actual = {path.name for path in checkout.glob("*.md")}
+    actual = {str(path.relative_to(checkout)) for path in checkout.rglob("*.md")}
     assert actual == expected
+
+    for name in expected:
+        assert (checkout / name).read_bytes() == (ROOT / "wiki" / name).read_bytes()
+
+
+def test_sync_stops_when_clone_fails(tmp_path: Path):
+    env = {**os.environ, "WIKI_REMOTE": str(tmp_path / "does-not-exist.git")}
+    result = subprocess.run(["bash", str(SCRIPT)], cwd=ROOT, env=env,
+                            text=True, capture_output=True)
+    assert result.returncode != 0
+    assert "starting a fresh checkout" not in result.stderr
+    assert "Wiki pushed" not in result.stdout

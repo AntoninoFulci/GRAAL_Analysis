@@ -14,8 +14,8 @@ The [source map](nstar_1535_tmatrix_source_map.md) defines P65 and P73.
 The exact local bytes were rehashed:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  tmp/pdfs/PhysRevC.65.035204.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  tmp/pdfs/10.1103@PhysRevC.73.045209.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
 ```
 
 P65 PDF page 5 (printed 035204-5) and P73 PDF page 13 (printed
@@ -24,13 +24,13 @@ than inspected only through extracted text. Reproduction commands from
 the repository root:
 
 ```bash
-shasum -a 256 tmp/pdfs/PhysRevC.65.035204.pdf tmp/pdfs/10.1103@PhysRevC.73.045209.pdf
+shasum -a 256 docs/papers/PhysRevC.65.035204.pdf docs/papers/10.1103@PhysRevC.73.045209.pdf
 VMD_FIG_DIR=$(mktemp -d)
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -png -singlefile tmp/pdfs/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/p65_page5"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 300 -png -singlefile tmp/pdfs/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/p73_page13"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -x 450 -y 2460 -W 1650 -H 570 -png -singlefile tmp/pdfs/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/fig5"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 900 -y 555 -W 1530 -H 950 -png -singlefile tmp/pdfs/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_left"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 2780 -y 555 -W 1530 -H 950 -png -singlefile tmp/pdfs/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_right"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -png -singlefile docs/papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/p65_page5"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 300 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/p73_page13"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -x 450 -y 2460 -W 1650 -H 570 -png -singlefile docs/papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/fig5"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 900 -y 555 -W 1530 -H 950 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_left"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 2780 -y 555 -W 1530 -H 950 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_right"
 ```
 
 Full-page rasters are 2550×3300 (P65) and 2475×3300 (P73) pixels at
@@ -96,7 +96,7 @@ is unchanged and K* when it changes between channels 1–3 and 4–6.
 This six-by-six family rule is an implementation convention; P65 prints
 the two examples, not an exhaustive assignment. Zero C entries stay zero.
 The real angular continuation and switches implement the
-[design](../docs/2026-10-02-nstar1535-vmd-design.md).
+[design](../../results_test/repository-refactor-20261023/task-9/archive/09_theory/docs/2026-10-02-nstar1535-vmd-design.md).
 
 Command, from `theory/` (the float conversion only standardizes display):
 
@@ -228,7 +228,7 @@ would be required.
 4. **All twelve Ajaka Figure 4 curves:** not calculated by this milestone.
    They require component and coherent cross-section checks followed by
    publication-binning validation and the
-   [Figure 4 claim gate](../docs/2026-10-01-figure4-theory-design.md).
+   [Figure 4 claim gate](../../results_test/repository-refactor-20261023/task-9/archive/09_theory/docs/2026-10-01-figure4-theory-design.md).
 5. **Native-bin fit:** a later, separate task using our higher-statistics
    asymmetries after publication validation. No parameters were fitted to
    these figures or our data. No Stage 07/08 merge or overlay is implied.

@@ -11,7 +11,7 @@
     "version": "Journal PDF; arXiv v2 2006-03-27",
     "primary_url": "https://doi.org/10.1103/PhysRevC.73.045209",
     "evidence_locator": "pp. 045209-13–15; Eq. (47) p. 13; Figs. 18–19 pp. 14–15",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "nucl-th/0510015"
   },
   "doering_2006_plb": {
@@ -26,7 +26,7 @@
     "version": "Journal PDF; arXiv v2 2006-05-02",
     "primary_url": "https://doi.org/10.1016/j.physletb.2006.06.022",
     "evidence_locator": "pp. 64–65, Fig. 5",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "nucl-th/0602055"
   },
   "inoue_2002": {
@@ -41,7 +41,7 @@
     "version": "Journal PDF; arXiv v2 2001-10-29",
     "primary_url": "https://doi.org/10.1103/PhysRevC.65.035204",
     "evidence_locator": "pp. 035204-14–15; Eq. (37) and Fig. 19 p. 14; Table III p. 15",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "hep-ph/0110333"
   },
   "nacher_2001": {
@@ -57,7 +57,7 @@
     "version": "arXiv v2 2001-05-24",
     "primary_url": "https://doi.org/10.1016/S0375-9474(01)01110-1",
     "evidence_locator": "arXiv metadata/abstract; local PDF available",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
   },
   "sarkar_2005": {
     "doi": "10.1016/j.nuclphysa.2005.01.006",
@@ -72,7 +72,7 @@
     "version": "arXiv v2 2005-01-04; local typesetting date 2018 is not version date",
     "primary_url": "https://doi.org/10.1016/j.nuclphysa.2005.01.006",
     "evidence_locator": "Local preprint pp. 14–15, Fig. 5, section 4.3, Table 10",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "erratum": "Nuclear Physics A 780, 90(E) (2006), cited in Ajaka 2008 Ref. [10]. arXiv gives conflicting 78–89. Erratum text and DOI not verified on primary source; no parameters changed."
   },
   "pdg_2024": {
@@ -87,7 +87,7 @@
     "version": "2024 edition; local meson table created 2025-04-24; baryon table 2024-10-03",
     "primary_url": "https://doi.org/10.1103/PhysRevD.110.030001",
     "evidence_locator": "Local summary tables: mesons pp. 2–3; baryons p. 1",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv_status": "not_identified_in_this_audit"
   },
   "fix_2010_isobar": {
@@ -102,7 +102,7 @@
     "version": "arXiv v1 2010-04-29",
     "primary_url": "https://doi.org/10.1103/PhysRevC.82.035207",
     "evidence_locator": "Section III.2, Eqs. (34)–(39), Figs. 9–10",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "1004.5240"
   },
   "fix_2011_polarization": {
@@ -117,7 +117,7 @@
     "version": "arXiv v2 2011-01-20",
     "primary_url": "https://doi.org/10.1103/PhysRevC.83.015503",
     "evidence_locator": "PDF pp. 8–10 and 15; Eqs. (60), (80)–(82), (95)–(101); PDF pagination differs from abstract count",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "1010.4213"
   },
   "doering_2010_polarization": {
@@ -132,7 +132,7 @@
     "version": "arXiv v2 2010-09-24",
     "primary_url": "https://doi.org/10.1140/epja/i2010-11047-4",
     "evidence_locator": "Sections 2.1–3.2, Eqs. (1)–(3), (12)–(15), Figs. 4–7, section 3 note 1",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "1003.0097"
   },
   "ajaka_2008": {
@@ -147,7 +147,7 @@
     "version": "Journal PDF, pp. 052003-1–5",
     "primary_url": "https://doi.org/10.1103/PhysRevLett.100.052003",
     "evidence_locator": "pp. 052003-1–5; Fig. 4; Ref. [14]",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv_status": "not_identified_in_this_audit"
   },
   "kashevarov_2009": {
@@ -162,7 +162,7 @@
     "version": "arXiv v5 2009-11-09",
     "primary_url": "https://doi.org/10.1140/epja/i2009-10868-4",
     "evidence_locator": "Section 2, Eqs. (1)–(2), Figs. 2–5",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv": "0901.3888"
   },
   "gutz_2010": {
@@ -177,7 +177,7 @@
     "version": "arXiv v2 2010-02-26",
     "primary_url": "https://doi.org/10.1016/j.physletb.2010.02.076",
     "evidence_locator": "Eqs. (2)–(3), Figs. 1–6, experimental paragraphs",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv": "0912.2632"
   },
   "gutz_2014": {
@@ -192,7 +192,7 @@
     "version": "arXiv v1 2014-02-17",
     "primary_url": "https://doi.org/10.1140/epja/i2014-14074-1",
     "evidence_locator": "Sections 4.5–6.6; normalization section 6.1; Eqs. (19)–(21)",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv": "1402.4125"
   },
   "kashevarov_2010_circular": {
@@ -207,7 +207,7 @@
     "version": "arXiv v2 2010-09-24",
     "primary_url": "https://doi.org/10.1016/j.physletb.2010.09.028",
     "evidence_locator": "Eqs. (1)–(7), experimental text near Figs. 1–3",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv": "1009.4093"
   },
   "sokhoyan_2018": {
@@ -222,7 +222,7 @@
     "version": "arXiv v2 2018-06-02; journal title differs from abbreviated arXiv title",
     "primary_url": "https://doi.org/10.1103/PhysRevC.97.055212",
     "evidence_locator": "Sections I–III,V; Fig. 1",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
     "arxiv": "1803.00727"
   },
   "ajaka_1998": {
@@ -237,7 +237,7 @@
     "version": "Journal PDF",
     "primary_url": "https://doi.org/10.1103/PhysRevLett.81.1797",
     "evidence_locator": "pp. 1798–1799, Eqs. (1)–(2)",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-literature.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-literature.md",
     "arxiv_status": "not_identified_in_this_audit"
   },
   "zachariou_2015": {
@@ -252,7 +252,7 @@
     "version": "arXiv v1 2015-03-18; journal published 2015-05-13",
     "primary_url": "https://doi.org/10.1103/PhysRevC.91.055202",
     "evidence_locator": "Manuscript section V pp. 10–11, Eqs. (15)–(17); section VI p. 12",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-literature.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-literature.md",
     "arxiv": "1503.05435"
   },
   "doering_2004_secondary_ingredient": {
@@ -267,7 +267,7 @@
     "version": "Journal PDF; arXiv not searched",
     "primary_url": "https://doi.org/10.1103/PhysRevC.70.045203",
     "evidence_locator": "Local journal title page; prior model source maps",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv_status": "not_identified_in_this_audit"
   },
   "butler_1992_secondary_ingredient": {
@@ -282,7 +282,7 @@
     "version": "arXiv v1 1992-11-14; journal 1993; final-text equivalence not checked",
     "primary_url": "https://doi.org/10.1016/0550-3213(93)90617-X",
     "evidence_locator": "arXiv metadata and local preprint title page",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md",
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md",
     "arxiv": "hep-ph/9211247"
   },
   "gutz_2008": {
@@ -299,6 +299,6 @@
     "full_text_url": "https://www.cb.uni-bonn.de/fileadmin/user_upload/internal/Publication/Publication_EurPhysJA_2008_GutzEEtAl.pdf",
     "arxiv_status": "not_identified_in_this_audit",
     "evidence_locator": "Author manuscript pp. 1–3; sections 2–3; Eq. (3) p. 2; Fig. 3 p. 3",
-    "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+    "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
   }
 }

@@ -1,31 +1,11 @@
-# 07 — Flux studies
+# Stage 07: optional flux studies
 
-## Inputs and Preconditions
+`--flux-study off` is the workflow default. `audit` checks missing/invalid coverage after calibration; `study` runs the declared offline study. `--flux-study-metadata` supplies acquisition conditions and independent exposure metadata and is rejected when studies are off.
 
-Read measured raw flux and the run manifest. Calibrated ROOT and its identity-bound
-QA sidecar add coverage information. Acquisition conditions and independent
-exposures are external evidence; run numbers do not establish time proximity.
-Use [the runbook](../docs/runbooks/missing-flux.md) for the metadata schema and commands.
+[07_flux_studies](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/07_flux_studies) contains `audit_flux.py`, `study_missing_flux.py`, native-recovery preparation/studies, calibrated-neighbor studies, realistic-gap/observable closure and acceptance-scan tools. These products diagnose support, uncertainty and possible bias; they do not replace measured production flux automatically.
 
-## Audit and Study Modes
+A missing calibrated histogram can reflect missing calibration coverage even when raw flux exists. Distinguish absent raw data, invalid/anomalous input, strip-energy calibration failure and incomplete cohort coverage. Retain run/state cutflows, the frozen exclusion policy, explicit donor support and independent energy-axis provenance.
 
-`python -m flux_studies.audit_flux` inventories every run/state, key cycle and
-strip. `python -m flux_studies.study_missing_flux` compares compatible donors,
-mean/median templates, interpolation and Ridge on blocked masked measurements.
-Launcher option `--flux-study off|audit|study` defaults to off.
+The optional authenticated inclusive-count bundle avoids a new event scan only for its exact original local UV/VIS cohort. Consumers inspect ROOT headers and reject mismatched identities. Counts are not a good-run list. A different production cohort needs its own measured evidence.
 
-## Validation
-
-Separate offline interpolation from causal prediction. Fit/scaling/tuning and
-interval calibration exclude outer hold-outs. Paired metrics include failure
-and availability denominators. Shared replicas preserve strip/target covariance.
-Without independent exposure, reconstruction concerns shape only. Without
-acquisition evidence, produce inventory and protocol without synthetic numbers.
-
-## Products and Limits
-
-`results/<campaign>/missing_flux/` contains audit CSV/JSON and, when feasible,
-study ROOT, validation tables and diagnostic plots. Candidate flux stays in a
-separate synthetic namespace. Originals are hash-checked and never overwritten.
-Scientific outcomes can be negative. [Stage 08](08-observable-extraction)
-continues using measured flux only; no automated synthetic propagation into Σ.
+Recovery remains experimental. Energy-axis independence, uncertainty/coverage calibration, correlated donors and residuals, and observable bias must be validated before adoption. See [status](status) for dated evidence and unresolved acceptance-policy results.

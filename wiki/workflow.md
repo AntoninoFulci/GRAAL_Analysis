@@ -1,127 +1,27 @@
-# End-to-End Workflow
+# Workflow and reuse
 
-The workflow begins with detector ROOT files and branches into event
-preparation, Monte Carlo and classifier training, calibration,
-reconstruction, observable extraction, and plotting. Stages are run through
-their own entry points and communicate through validated files. The sequential
-`scripts/run_pipeline.py` launcher coordinates the supported UV/VIS campaign
-from pre-analysis onward.
-
-## Execution Model
-
-There is one central runner, `scripts/run_pipeline.py`, with a ten-day
-production cache for selected, MC, and BDT artifacts. It has no DAG,
-scheduler, queue integration, or campaign resume. It validates inputs, records
-RUN/SKIP decisions, and stops on the first failed stage. Numbered directories
-still own stage behavior and file contracts.
-
-The launcher supports `test_data` and `production`, both beginning with
-`pre_analisi_*.root` files containing `h80`. Raw `h70` pre-analysis remains a
-separate operation. Manual stage invocation remains supported for diagnostics.
-
-## Main Data Flow
+The full launcher starts from existing h80 pre-analysis, not raw h70. `python scripts/run_pipeline.py --mode production` and `graal-workflow --mode production --repo-root /path/to/checkout` use the same application.
 
 ```mermaid
-flowchart LR
-    RAW[Raw detector ROOT files] --> PRE[01 Pre-analysis]
-    PRE -->|h80 trees| SEL[02 Event selection]
-    SEL -->|h85 trees| BEAM[Beam spectrum]
-    SEL --> CHI2[05 Chi-square reconstruction]
-    SEL --> GATE[Stage-1 BDT gate]
-
-    MC[03 Monte Carlo generation] -->|mc trees| FEATURES[04 Feature dataset]
-    BEAM --> FEATURES
-    FEATURES --> SEARCH[Hyperparameter search]
-    FEATURES --> TRAIN[BDT training]
-    SEARCH --> TRAIN
-    TRAIN -->|model, threshold, provenance| GATE
-    GATE --> BDT[05 BDT-gated reconstruction]
-
-    PRE --> CAL[06 Strip-energy and flux calibration]
-    MANIFEST[Run manifest] --> CAL
-    FLUX[External tagger flux] --> CAL
-
-    CHI2 --> OBS[08 Observable extraction]
-    BDT --> OBS
-    CAL --> STUDY[07 Optional flux studies]
-    STUDY --> AUDIT[Offline audit and experimental artifacts]
-    CAL --> OBS
-    OBS --> RESULTS[Beam-asymmetry ROOT and PDF products]
-
-    CHI2 --> PLOTS[Diagnostic and publication plots]
-    BDT --> PLOTS
+flowchart TD
+  raw[01: h70 to h80] --> h80[Inclusive h80]
+  h80 --> cal[06: measured calibration and QA]
+  h80 --> select[02: h85 selection]
+  mc[03: channel MC] --> train[04: weighted features and BDT]
+  select --> train
+  select --> reco[05: pairing and missing mass]
+  train --> reco
+  cal --> extract[08: asymmetry and covariance]
+  reco --> extract
+  cal --> audit[07: optional flux audit or study]
+  extract --> plots[Plotting]
+  extract -. explicit command .-> theory[09: theory basis and comparison]
 ```
 
-| Producer | Artifact | Consumer |
-|---|---|---|
-| Pre-analysis | ROOT `h80` trees | Event selection, calibration |
-| Event selection | ROOT `h85` trees | Beam spectrum, reconstruction |
-| MC generators | ROOT `mc` trees | Feature builder, fit validation |
-| Beam-spectrum builder | `beam_spectrum.npz` | Channel weighting and features |
-| Feature builder | `features_stage1.npz` | Grid search and final training |
-| Grid search | `best_hyperparams.json` | Final training |
-| Final training | Model, threshold, provenance | Stage-1 runtime gate |
-| Reconstruction | Reconstructed and sideband ROOT trees | Observable extraction, plots |
-| Calibration | Calibrated ROOT flux (`data/00_external/` standalone; `results/<campaign>/common/` launcher) | Observable extraction |
-| Observable extraction | Result ROOT and PDF products | Scientific review and publication |
+Calibration is common to UV/VIS. Each profile then owns selected inputs, MC, beam spectrum/features, BDT, reconstruction, extraction and plots. Optional stage 07 is requested by `--flux-study audit` or `--flux-study study` and never silently replaces measured flux. [Stage 09](09-theory) is always an explicit command after stage 08 with declared input files; it is not part of launcher execution.
 
-## Training Branch
+Production intermediates live in `results/_cache/`. Selection, MC and BDT can be reused for ten days only when their signatures and products validate. `--force-selected`, `--force-mc`, and `--force-bdt` request rebuilding these groups. Changing a stage display label does not change its random seed/cache grouping. `--cpus`, `--seed` and `--extraction-workers` bound resources and reproducibility.
 
-The training branch can be prepared independently of detector reconstruction
-once registered Monte Carlo and a measured beam spectrum exist. It performs:
+Calibration uses its own content-bound ROOT+QA cache without a TTL. See [stage 06](06-calibration). In `test_data`, selection/MC/BDT rebuild under the campaign's `artifacts/`; calibration reuse is confined to the diagnostic artifact root. Outputs default to `results/production` or `results_test/test_data`. Production requires an empty or absent destination; diagnostic replacement is staged and preserves prior valid output on failure. A mode-specific lock prevents overlapping launcher runs.
 
-1. registered channel generation or completeness checking;
-2. beam-spectrum construction from selected data;
-3. identical photon-loss and acceptance processing for all classes;
-4. fixed-schema Stage-1 feature construction;
-5. hyperparameter search;
-6. final fit and threshold selection;
-7. publication of model, threshold, and provenance as one runtime contract.
-
-The full launcher skips a new hyperparameter search, reuses the checked-in
-`best_hyperparams.json`, and trains independent fresh UV and VIS bundles.
-
-Only the BDT-gated reconstruction path consumes that bundle. Standard
-chi-square reconstruction remains a model-independent comparison.
-
-## Calibration Branch
-
-Calibration can proceed after pre-analysis and does not require selected
-`h85` events or a trained classifier. It joins:
-
-- a run manifest describing run groups and polarization state;
-- tagger observations from `h80` files;
-- external per-run tagger-flux histograms.
-
-It derives strip energies, validates run/strip flux consistency, aggregates
-flux into configured energy bins, and atomically publishes the configured ROOT
-output. Diagnostics stay in the process log. Standalone runs default to
-`data/00_external/flux_calibrated.root`; the launcher writes shared
-`common/flux_calibrated.root` and passes it with the checked-in run manifest to
-both profile-local Stage-08 extractors.
-
-## Reuse and Failure Boundaries
-
-Stages do not implement a global freshness database. Reuse is explicit:
-operators point commands at existing artifacts after confirming their inputs,
-schemas, and provenance still match.
-
-Local safeguards prevent the most dangerous silent reuse:
-
-- event selection refuses to leave stale output in place when no valid
-  `pre_*.root` input exists;
-- atomic directory publication preserves previous selected data until new
-  output validates;
-- Monte Carlo status distinguishes missing channels from an internal status
-  failure and reports old files without declaring them absent;
-- the Stage-1 gate validates all runtime-bundle members and hypothesis
-  provenance before scoring;
-- calibration separates warning-only quality findings from fatal structural or
-  numerical invalidity and atomically replaces one ROOT output;
-- observable estimators validate exposure, polarization, fit, and physical
-  domains before reporting a result.
-
-For exact schemas, see [Data and artifacts](data-and-artifacts). For recovery
-actions, see [Troubleshooting](troubleshooting).
-
-[Stage 07 flux studies](07-flux-studies) is optional between calibration and stage 08 extraction; `--flux-study off|audit|study` defaults to off.
+`--preanalysis-dir` selects a different h80 cohort; `--require-current-preanalysis` checks fresh tagger-discard markers and raw identities. The reduced diagnostic sample is rejected for production. [Data contracts](data-and-artifacts) and [status](status) distinguish execution success from physics validation.

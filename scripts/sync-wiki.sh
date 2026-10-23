@@ -17,18 +17,10 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# Clone the wiki if it has pages; otherwise start an empty checkout. A brand-new
-# wiki with no pages cannot always be cloned by every Git host. Clone errors
-# remain visible so an authentication or network failure is not hidden.
-if git clone "$WIKI_REMOTE" "$WORK/wiki"; then
-  cd "$WORK/wiki"
-else
-  echo "Clone failed (empty wiki or unreachable) — starting a fresh checkout." >&2
-  mkdir -p "$WORK/wiki"
-  cd "$WORK/wiki"
-  git init -q
-  git remote add origin "$WIKI_REMOTE"
-fi
+# Git supports cloning an empty local/remote repository. Authentication and
+# network failures must stop here, never masquerade as an empty wiki.
+git clone "$WIKI_REMOTE" "$WORK/wiki"
+cd "$WORK/wiki"
 
 if git show-ref --verify --quiet refs/remotes/origin/master; then
   git checkout -q -B master origin/master

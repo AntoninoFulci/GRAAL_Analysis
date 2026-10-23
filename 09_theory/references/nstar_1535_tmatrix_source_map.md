@@ -8,24 +8,24 @@ All paths are relative to the repository root. A citation to a key below identif
 
 | Key | Primary source and local PDF | Role |
 | --- | --- | --- |
-| **P73** | M. Döring, E. Oset, D. Strottman, *Chiral dynamics in the gamma p -> pi0 eta p and gamma p -> pi0 K0 Sigma+ reactions*, Phys. Rev. C **73**, 045209 (2006), [PDF](../../tmp/pdfs/10.1103@PhysRevC.73.045209.pdf) | Target: channel order, charge +1 coefficients, effective pi-pi-N correction, full/reduced definitions. |
-| **P65** | T. Inoue, E. Oset, M. J. Vicente Vacas, *Chiral unitary approach to S-wave meson baryon scattering in the strangeness S=0 sector*, Phys. Rev. C **65**, 035204 (2002), [PDF](../../tmp/pdfs/PhysRevC.65.035204.pdf) | P73 Ref. [8]: two-body kernel/loops and fitted pi-pi-N model. |
-| **P70** | M. Döring, E. Oset, M. J. Vicente Vacas, *s-wave pion nucleon scattering lengths from pi N, pionic hydrogen, and deuteron data*, Phys. Rev. C **70**, 045203 (2004), [PDF](../../tmp/pdfs/PhysRevC.70.045203.pdf) | P73 Ref. [25]: incorporation of pi-pi-N into an effective pi-N kernel, specialized there to low energies. |
-| **BSS-v1** | M. N. Butler, M. J. Savage, R. P. Springer, *Strong and Electromagnetic Decays of the Baryon Decuplet*, **hep-ph/9211247v1**, 14 Nov 1992, [PDF](../../tmp/pdfs/9211247v1.pdf) | Local preprint associated with P73 Ref. [40], which cites Nucl. Phys. B **399**, 69 (1993). Journal-final equivalence has **not** been verified. |
-| **SOV-v2** | S. Sarkar, E. Oset, M. J. Vicente Vacas, *Baryonic Resonances from Baryon Decuplet-Meson Octet Interaction*, **nucl-th/0407025v2**, 4 Jan 2005, [PDF](../../tmp/pdfs/nucl-th-0407025.pdf) | Local preprint associated with P73 Ref. [21], Nucl. Phys. A **750**, 294 (2005); a separate decuplet-baryon model. The PDF also carries an internal date of October 23, 2018. |
-| **PLB639** | M. Döring, E. Oset, D. Strottman, *Clues to the nature of the Delta*(1700) resonance from pion- and photon-induced reactions*, Phys. Lett. B **639**, 59-67 (2006), [PDF](../../tmp/pdfs/10.1016@j.physletb.2006.06.022.pdf) | Later production-model update; its Ref. [25] is **P73**, not P70. |
+| **P73** | M. Döring, E. Oset, D. Strottman, *Chiral dynamics in the gamma p -> pi0 eta p and gamma p -> pi0 K0 Sigma+ reactions*, Phys. Rev. C **73**, 045209 (2006), [PDF](../../docs/papers/10.1103@PhysRevC.73.045209.pdf) | Target: channel order, charge +1 coefficients, effective pi-pi-N correction, full/reduced definitions. |
+| **P65** | T. Inoue, E. Oset, M. J. Vicente Vacas, *Chiral unitary approach to S-wave meson baryon scattering in the strangeness S=0 sector*, Phys. Rev. C **65**, 035204 (2002), [PDF](../../docs/papers/PhysRevC.65.035204.pdf) | P73 Ref. [8]: two-body kernel/loops and fitted pi-pi-N model. |
+| **P70** | M. Döring, E. Oset, M. J. Vicente Vacas, *s-wave pion nucleon scattering lengths from pi N, pionic hydrogen, and deuteron data*, Phys. Rev. C **70**, 045203 (2004), [PDF](../../docs/papers/PhysRevC.70.045203.pdf) | P73 Ref. [25]: incorporation of pi-pi-N into an effective pi-N kernel, specialized there to low energies. |
+| **BSS-v1** | M. N. Butler, M. J. Savage, R. P. Springer, *Strong and Electromagnetic Decays of the Baryon Decuplet*, **hep-ph/9211247v1**, 14 Nov 1992, [PDF](../../docs/papers/9211247v1.pdf) | Local preprint associated with P73 Ref. [40], which cites Nucl. Phys. B **399**, 69 (1993). Journal-final equivalence has **not** been verified. |
+| **SOV-v2** | S. Sarkar, E. Oset, M. J. Vicente Vacas, *Baryonic Resonances from Baryon Decuplet-Meson Octet Interaction*, **nucl-th/0407025v2**, 4 Jan 2005, [PDF](../../docs/papers/nucl-th-0407025.pdf) | Local preprint associated with P73 Ref. [21], Nucl. Phys. A **750**, 294 (2005); a separate decuplet-baryon model. The PDF also carries an internal date of October 23, 2018. |
+| **PLB639** | M. Döring, E. Oset, D. Strottman, *Clues to the nature of the Delta*(1700) resonance from pion- and photon-induced reactions*, Phys. Lett. B **639**, 59-67 (2006), [PDF](../../docs/papers/10.1016@j.physletb.2006.06.022.pdf) | Later production-model update; its Ref. [25] is **P73**, not P70. |
 
 Reference numbers are local to each paper: P73 [8] = P65; P73 [25] = P70; P70 [25] = P65; PLB639 [25] = P73. Sources: each paper's reference list; P70 Sec. II explicitly describes its use of P65.
 
 SHA-256 of the audited bytes:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  tmp/pdfs/PhysRevC.65.035204.pdf
-7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f  tmp/pdfs/PhysRevC.70.045203.pdf
-a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29  tmp/pdfs/9211247v1.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  tmp/pdfs/10.1103@PhysRevC.73.045209.pdf
-c1def91b01ee5750aca4124ae2469178b204d99649075d7d4f4277facab9d430  tmp/pdfs/10.1016@j.physletb.2006.06.022.pdf
-1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af  tmp/pdfs/nucl-th-0407025.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
+7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f  docs/papers/PhysRevC.70.045203.pdf
+a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29  docs/papers/9211247v1.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
+c1def91b01ee5750aca4124ae2469178b204d99649075d7d4f4277facab9d430  docs/papers/10.1016@j.physletb.2006.06.022.pdf
+1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af  docs/papers/nucl-th-0407025.pdf
 ```
 
 ## 1. Channel basis and charge coefficients

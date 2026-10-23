@@ -783,45 +783,27 @@ def test_color_detection_respects_tty_and_no_color(monkeypatch):
 
 def test_pipeline_documentation_names_current_launcher_and_handoff():
     root = Path(__file__).parents[1]
-    required = (
-        root / "README.md",
-        root / "docs/runbooks/full-pipeline.md",
-        root / "wiki/workflow.md",
-        root / "wiki/commands-and-configuration.md",
-        root / "wiki/data-and-artifacts.md",
-        root / "wiki/known-limitations.md",
-        root / "wiki/08-observable-extraction.md",
-    )
-    for path in required:
-        text = path.read_text(encoding="utf-8")
-        assert "scripts/run_pipeline.py" in text, path
-    corpus = "\n".join(path.read_text(encoding="utf-8") for path in required)
-    assert "adapter pending" not in corpus.lower()
-    assert "still expects a legacy exposure CSV" not in corpus
-    assert "run_pipeline.sh" not in corpus
+    for relative in ("README.md", "wiki/workflow.md", "wiki/commands-and-configuration.md"):
+        assert "scripts/run_pipeline.py" in (root / relative).read_text()
+    workflow = (root / "wiki/workflow.md").read_text()
+    assert "[Stage 09](09-theory)" in workflow
+    assert "results/_cache/" in workflow and "results_test/test_data" in workflow
 
 
-def test_vis_runbook_combines_its_stage7_output():
-    text = (
-        Path(__file__).parents[1] / "docs/runbooks/vis-local-analysis.md"
-    ).read_text(encoding="utf-8")
-    extraction = re.search(
-        r"python 08_observable_extraction/beam_asymmetry\.py \\\n(.*?)\n```",
-        text,
-        flags=re.DOTALL,
-    )
-    combination = re.search(
-        r"python -m observable_extraction\.combine_profiles \\\n(.*?)\n```",
-        text,
-        flags=re.DOTALL,
-    )
-    assert extraction is not None
-    assert combination is not None
-    output_dir = re.search(r"--output-dir\s+(\S+)", extraction.group(1))
-    vis_root = re.search(r"--vis-root\s+(\S+)", combination.group(1))
-    assert output_dir is not None
-    assert vis_root is not None
-    assert Path(vis_root.group(1)) == Path(output_dir.group(1)) / "beam_asymmetry.root"
+def test_manual_extraction_example_combines_its_actual_output():
+    import shlex
+    from observable_extraction.beam_asymmetry import build_parser as extraction_parser
+    from observable_extraction.combine_profiles import build_parser as combination_parser
+
+    text = (Path(__file__).parents[1] / "wiki/commands-and-configuration.md").read_text()
+    commands = re.findall(r"```bash\n(.*?)\n```", text, flags=re.DOTALL)
+    extraction = next(c for c in commands if c.startswith("python 08_observable_extraction/beam_asymmetry.py "))
+    combination = next(c for c in commands if c.startswith("python -m observable_extraction.combine_profiles "))
+    extract_args = extraction_parser().parse_args(shlex.split(extraction.replace("\\\n", " "))[2:])
+    combine_args = combination_parser().parse_args(shlex.split(combination.replace("\\\n", " "))[3:])
+    assert combine_args.vis_root == extract_args.output_dir / "beam_asymmetry.root"
+    assert str(extract_args.output_dir).startswith("results_test/")
+    assert extract_args.profile == "vis" and extract_args.phi_bins == 16
 
 
 def test_flux_audit_is_opt_in_and_after_calibration(tmp_path):

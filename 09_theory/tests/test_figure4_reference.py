@@ -112,7 +112,7 @@ def test_extra_csv_field_fails(tmp_path):
 
 def test_reviewed_ajaka_figure4_theory_reference_loads():
     root = Path(__file__).resolve().parents[1]
-    source = root.parent / "tmp/pdfs/PhysRevLett.100.052003.pdf"
+    source = root.parent / "docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf"
     metadata_path = root / "references/ajaka2008_figure4_theory.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["source_pdf_sha256"] == "7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb"

@@ -3,8 +3,8 @@
   "date": "2026-10-13",
   "timezone": "Europe/Rome",
   "scope": "Targeted literature audit for free-proton gamma p -> p eta pi0; method and model ingredients identified separately. Not systematic/exhaustive.",
-  "plan": "docs/plans/2026-10-12-graal/13-letteratura.md",
-  "report": "docs/research/2026-10-13-eta-pi0-literature.md",
+  "plan": "results_test/repository-refactor-20261023/task-9/archive/docs/plans/2026-10-12-graal/13-letteratura.md",
+  "report": "docs/reference/research/2026-10-13-eta-pi0-literature.md",
   "baseline_git_head": "f568c6b5fdeef1d12fc241aecb2cea810e6bb574",
   "initial_source_registry_sha256": "5f9ae09379ea3c35ebacc5daca7537dd7375e854d2053dd68a819bd6f5176136",
   "graphify": {
@@ -26,7 +26,7 @@
   "local_inventory": [
     {
       "source_key": "doering_2006_prc",
-      "path": "tmp/pdfs/10.1103@PhysRevC.73.045209.pdf",
+      "path": "docs/papers/10.1103@PhysRevC.73.045209.pdf",
       "bytes": 503983,
       "sha256": "19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb",
       "initial_status": "previously_read_locators_available",
@@ -35,7 +35,7 @@
     },
     {
       "source_key": "doering_2006_plb",
-      "path": "tmp/pdfs/10.1016@j.physletb.2006.06.022.pdf",
+      "path": "docs/papers/10.1016@j.physletb.2006.06.022.pdf",
       "bytes": 384426,
       "sha256": "c1def91b01ee5750aca4124ae2469178b204d99649075d7d4f4277facab9d430",
       "initial_status": "previously_read_locators_available",
@@ -44,7 +44,7 @@
     },
     {
       "source_key": "inoue_2002",
-      "path": "tmp/pdfs/PhysRevC.65.035204.pdf",
+      "path": "docs/papers/PhysRevC.65.035204.pdf",
       "bytes": 670836,
       "sha256": "e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac",
       "initial_status": "previously_read_locators_available",
@@ -53,7 +53,7 @@
     },
     {
       "source_key": "nacher_2001",
-      "path": "tmp/pdfs/nucl-th-0012065.pdf",
+      "path": "docs/papers/nucl-th-0012065.pdf",
       "bytes": 397115,
       "sha256": "0227c86bdf98deb6a7674df6720d5db80a4242fe56cdff431c507729bd7b144e",
       "initial_status": "previously_read_locators_available",
@@ -62,7 +62,7 @@
     },
     {
       "source_key": "sarkar_2005",
-      "path": "tmp/pdfs/nucl-th-0407025.pdf",
+      "path": "docs/papers/nucl-th-0407025.pdf",
       "bytes": 345270,
       "sha256": "1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af",
       "initial_status": "previously_read_locators_available",
@@ -71,7 +71,7 @@
     },
     {
       "source_key": "pdg_2024",
-      "path": "tmp/pdfs/rpp2024-sum-mesons.pdf",
+      "path": "docs/papers/rpp2024-sum-mesons.pdf",
       "bytes": 972387,
       "sha256": "e0fb948b7a8a3e43a7ba4baa5c8d554568f3bb9bdb956c4c0b968a124cde1dbc",
       "initial_status": "previously_cited",
@@ -80,7 +80,7 @@
     },
     {
       "source_key": "pdg_2024",
-      "path": "tmp/pdfs/rpp2024-sum-baryons.pdf",
+      "path": "docs/papers/rpp2024-sum-baryons.pdf",
       "bytes": 340026,
       "sha256": "c3e2c86fe4c7c80d39e52352ed1578d5a1468c301346ae66b4827e50934d54fb",
       "initial_status": "previously_cited",
@@ -89,7 +89,7 @@
     },
     {
       "source_key": "ajaka_2008",
-      "path": "tmp/pdfs/PhysRevLett.100.052003.pdf",
+      "path": "docs/papers/Ajaka_2008_EtaPi0_Photoproduction_PRL100_052003.pdf",
       "bytes": 253926,
       "sha256": "7fdf85fe56fa8b0e232d070269e3e58d4d7ca542dcd9ac2287291abaa6b4f1cb",
       "initial_status": "previously_read_locators_available",
@@ -98,7 +98,7 @@
     },
     {
       "source_key": "ajaka_1998",
-      "path": "tmp/pdfs/PhysRevLett.81.1797.pdf",
+      "path": "docs/papers/PhysRevLett.81.1797.pdf",
       "bytes": 189158,
       "sha256": "635672dcc58dda3216690749151ffcb7c7bca987a7abca5d492e6a26ebc994b6",
       "initial_status": "available_not_recertified",
@@ -107,7 +107,7 @@
     },
     {
       "source_key": "doering_2004_secondary_ingredient",
-      "path": "tmp/pdfs/PhysRevC.70.045203.pdf",
+      "path": "docs/papers/PhysRevC.70.045203.pdf",
       "bytes": 449698,
       "sha256": "7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f",
       "initial_status": "previously_read_locators_available",
@@ -116,7 +116,7 @@
     },
     {
       "source_key": "butler_1992_secondary_ingredient",
-      "path": "tmp/pdfs/9211247v1.pdf",
+      "path": "docs/papers/9211247v1.pdf",
       "bytes": 151760,
       "sha256": "a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29",
       "initial_status": "previously_read_locators_available",
@@ -125,7 +125,7 @@
     },
     {
       "source_key": "bdt_teaching_material",
-      "path": "tmp/pdfs/BDT.pdf",
+      "path": "docs/papers/BDT.pdf",
       "bytes": 4157154,
       "sha256": "c8ab18cffa1234e76cd85035e8ee12391b6c7dbaebcdabf9c3233deb5847159d",
       "initial_status": "out_of_scope",
@@ -176,8 +176,8 @@
     }
   ],
   "search_logs": [
-    "docs/research/2026-10-13-eta-pi0-experiments.md",
-    "docs/research/2026-10-13-eta-pi0-theory.md"
+    "docs/reference/research/2026-10-13-eta-pi0-experiments.md",
+    "docs/reference/research/2026-10-13-eta-pi0-theory.md"
   ],
   "excluded": [
     {
@@ -194,7 +194,7 @@
       "reason": "Thesis 2023, metadata revised 2024; Egamma 8.5 GeV, outside GRAAL comparison."
     },
     {
-      "identifier": "tmp/pdfs/BDT.pdf",
+      "identifier": "docs/papers/BDT.pdf",
       "inspected": "title page",
       "reason": "Boosted Decision Trees teaching material, not primary eta pi0 physics."
     }
@@ -222,27 +222,27 @@
   },
   "local_document_inputs": [
     {
-      "path": "theory/references/figure4_amplitude_inventory.md",
+      "path": "09_theory/references/figure4_amplitude_inventory.md",
       "bytes": 13526,
       "sha256": "b073f989b36740eaffdc5379172fc009f6ee119681fc150ba86ecc0482d03bf2"
     },
     {
-      "path": "theory/references/nstar_1535_tmatrix_source_map.md",
+      "path": "09_theory/references/nstar_1535_tmatrix_source_map.md",
       "bytes": 24581,
       "sha256": "92b18ecca19f15947b00e19d3b17c7e7302d64cb0137a629ce7222ec75067900"
     },
     {
-      "path": "theory/README.md",
+      "path": "results_test/repository-refactor-20261023/task-9/archive/09_theory/README.md",
       "bytes": 9898,
       "sha256": "bc4cd0c067a353f3c6fc4f6e00f86d9c6e56add34bfa0ccb17fa366e8cbc28a0"
     },
     {
-      "path": "docs/research/2026-10-09-finite-phi-bin-correction.md",
+      "path": "docs/reference/research/2026-10-09-finite-phi-bin-correction.md",
       "bytes": 6850,
       "sha256": "c2ca03317d547f6adfc325502541303c04d035cda3d1110d4dadf877a6918849"
     },
     {
-      "path": "docs/research/2026-10-13-bdt-background-sources.md",
+      "path": "docs/reference/research/2026-10-13-bdt-background-sources.md",
       "bytes": 8268,
       "sha256": "e9bf78af625248f20e874dae4254380c9f8c5cd4cfc2ed91ea63dd5950f708e1"
     }
@@ -252,121 +252,121 @@
       "role": "reaction_model",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "Journal PDF; arXiv v2 2006-03-27",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "doering_2006_plb": {
       "role": "reaction_model_update_not_polarization_measurement",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "Journal PDF; arXiv v2 2006-05-02",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "inoue_2002": {
       "role": "model_ingredient_not_channel_measurement",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "Journal PDF; arXiv v2 2001-10-29",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "nacher_2001": {
       "role": "model_ingredient_other_final_state",
       "verification_status": "metadata_and_abstract_checked_full_text_not_rechecked",
       "version": "arXiv v2 2001-05-24",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "sarkar_2005": {
       "role": "model_ingredient_with_unread_erratum",
       "verification_status": "metadata_and_cited_passages_checked_erratum_unresolved",
       "version": "arXiv v2 2005-01-04; local typesetting date 2018 is not version date",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "pdg_2024": {
       "role": "reference_constants",
       "verification_status": "edition_and_selected_local_table_entries_checked",
       "version": "2024 edition; local meson table created 2025-04-24; baryon table 2024-10-03",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "fix_2010_isobar": {
       "role": "reaction_model",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v1 2010-04-29",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "fix_2011_polarization": {
       "role": "polarization_formalism",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v2 2011-01-20",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "doering_2010_polarization": {
       "role": "reaction_model_linear_polarization",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v2 2010-09-24",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "ajaka_2008": {
       "role": "free_proton_measurement_linear_sigma",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "Journal PDF, pp. 052003-1–5",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "kashevarov_2009": {
       "role": "free_proton_measurement_cross_sections",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v5 2009-11-09",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "gutz_2010": {
       "role": "free_proton_measurement_linear_three_body",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v2 2010-02-26",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "gutz_2014": {
       "role": "free_proton_measurement_cross_sections_and_linear_polarization",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v1 2014-02-17",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "kashevarov_2010_circular": {
       "role": "free_proton_measurement_circular_not_linear_sigma",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v2 2010-09-24",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "sokhoyan_2018": {
       "role": "free_proton_measurement_cross_sections_and_dalitz",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v2 2018-06-02; journal title differs from abbreviated arXiv title",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     },
     "ajaka_1998": {
       "role": "method_other_final_state_eta_p",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "Journal PDF",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-literature.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-literature.md"
     },
     "zachariou_2015": {
       "role": "method_other_target_deuteron_photodisintegration",
       "verification_status": "metadata_and_cited_passages_checked",
       "version": "arXiv v1 2015-03-18; journal published 2015-05-13",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-literature.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-literature.md"
     },
     "doering_2004_secondary_ingredient": {
       "role": "secondary_model_ingredient_not_channel_measurement",
       "verification_status": "local_title_page_checked_content_not_rechecked",
       "version": "Journal PDF; arXiv not searched",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "butler_1992_secondary_ingredient": {
       "role": "secondary_model_ingredient_not_channel_measurement",
       "verification_status": "metadata_and_local_title_page_checked_content_not_rechecked",
       "version": "arXiv v1 1992-11-14; journal 1993; final-text equivalence not checked",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-theory.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-theory.md"
     },
     "gutz_2008": {
       "role": "free_proton_measurement_linear_sigma",
       "verification_status": "publisher_metadata_and_author_manuscript_passages_checked",
       "version": "Publisher online 2008-04-02; author manuscript with unfilled dates; final-text equivalence not checked",
-      "evidence_note": "docs/research/2026-10-13-eta-pi0-experiments.md"
+      "evidence_note": "docs/reference/research/2026-10-13-eta-pi0-experiments.md"
     }
   },
   "canonical_registry": "theory/references/sources.json",
