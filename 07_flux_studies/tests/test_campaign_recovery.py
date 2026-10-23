@@ -84,7 +84,7 @@ def test_campaign_policy_applies_to_dataset_and_rejects_closure_truth(tmp_path):
                               methods=('linear',), run_quality_path=quality)
 
 
-def test_preparation_counts_full_fixture_and_freezes_recovery_inputs(tmp_path):
+def test_preparation_counts_full_fixture_and_freezes_recovery_inputs(tmp_path, monkeypatch):
     from flux_studies.prepare_native_recovery import main
     from flux_studies.study_native_recovery import load_cached_counts
     manifest = tmp_path / 'manifest.csv'
@@ -116,3 +116,12 @@ def test_preparation_counts_full_fixture_and_freezes_recovery_inputs(tmp_path):
     assert not design['test_masks']
     assert all(r['run'] != 4010 for r in design['split_plan']['period_uv'])
     assert json.loads((output / 'input_integrity.json').read_text())['unchanged']
+    import flux_studies.prepare_native_recovery as producer
+    def forbidden(*args, **kwargs):
+        raise AssertionError('reused count manifest must not rescan h80 entries')
+    monkeypatch.setattr(producer, 'count_h80', forbidden)
+    reused = tmp_path / 'prepared-reused'
+    assert main(['--manifest', str(manifest), '--raw-flux', str(raw), '--calibrated-flux', str(flux),
+                 '--h80-dir', str(tmp_path), '--output-dir', str(reused),
+                 '--counts-cache', str(output / 'h80_counts.json')]) == 0
+    assert load_cached_counts(reused / 'h80_counts.json')[0] == counts

@@ -33,7 +33,7 @@ def root_macro_call(
     )
 
 
-def _common_stages(python: str, paths: PipelinePaths) -> list[Stage]:
+def _common_stages(python: str, paths: PipelinePaths, config: ModeConfig) -> list[Stage]:
     return [
         Stage(
             "common:calibrate_flux",
@@ -50,6 +50,8 @@ def _common_stages(python: str, paths: PipelinePaths) -> list[Stage]:
                 "P",
                 "--output-dir",
                 paths.calibrated_flux.parent,
+                "--cache-root", paths.artifact_root / "06_calibration",
+                "--cache-scope", "production" if config.name == "production" else "diagnostic",
             ),
             kind='calibrate_flux', profile=None, channel=None, seed_key="common:calibrate_flux",
         )
@@ -245,7 +247,7 @@ def _profile_stages(
                     "--run-manifest",
                     paths.manifest,
                     "--run-quality",
-                    paths.repo_root / "config/run_quality_exclusions.json",
+                    paths.quality_path,
                     "--by-period",
                     "--output-dir",
                     asymmetry,
@@ -292,7 +294,7 @@ def build_pipeline_plan(
         raise PipelineError("--flux-study-metadata requires --flux-study audit or study")
     phi_edges_rad(phi_bins)
     energy_binnings = energy_binnings or {}
-    stages: list[Stage | ArtifactGroup] = list(_common_stages(python_executable, paths))
+    stages: list[Stage | ArtifactGroup] = list(_common_stages(python_executable, paths, config))
     if flux_study != "off":
         module = "audit_flux" if flux_study == "audit" else "study_missing_flux"
         command = _argv(python_executable, "-m", f"flux_studies.{module}",

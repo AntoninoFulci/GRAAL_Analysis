@@ -25,28 +25,58 @@ from flux_studies.realistic_gaps import recovery_targets
 METHODS = ('linear', 'extra_trees_hybrid', 'kernel_ridge_hybrid')
 
 
-def load_cached_counts(path):
-    """Validate the previously scanned inclusive cache against local h80 identity."""
+def load_cached_counts(path, *, expected_paths=None, checkout=None, require_content=False):
+    """Reuse inclusive counts after exact cohort/content and header validation.
+
+    No event branches are read. Legacy campaign caches retain their original
+    absolute provenance; common portable references require SHA256 identities.
+    """
     import uproot
-    cache = json.loads(Path(path).read_text())
+    from calibration.calibration_qa import sha256_file
+    from calibration.common_inputs import resolve_reference
+    from calibration.run_quality import _unique_object
+    cache = json.loads(Path(path).read_text(), object_pairs_hook=_unique_object)
     counts = {}
     for row in cache['counts']:
         if any(isinstance(row[k], bool) or not isinstance(row[k], int) or row[k] <= 0 for k in ('run', 'count')):
             raise ValueError('inclusive run and event counts must be positive integers')
         key = (int(row['run']), row['state'])
-        if key in counts or row['state'] not in ('POL1', 'POL2', 'BREM') or row['count'] <= 0:
+        if key in counts or row['state'] not in ('POL1', 'POL2', 'BREM'):
             raise ValueError('invalid or duplicate inclusive count cache entry')
         counts[key] = int(row['count'])
+    if not cache['sources']:
+        raise ValueError('inclusive cache has no source cohort')
+    sources = []
+    for original in cache['sources']:
+        source = dict(original)
+        if 'root' in source:
+            if checkout is None or source['root'] != 'checkout':
+                raise ValueError('portable count source requires explicit checkout root')
+            source['path'] = str(resolve_reference(source, checkout=Path(checkout), cache=Path(checkout)))
+            source['reference'] = dict(root=source.pop('root'), path=original['path'])
+        source_path = Path(source['path']).resolve()
+        if require_content and 'sha256' not in source:
+            raise ValueError('common count source requires content identity')
+        if 'sha256' in source and sha256_file(source_path) != source['sha256']:
+            raise ValueError('inclusive cache h80 content mismatch')
+        sources.append(source)
+    actual_paths = [Path(s['path']).resolve() for s in sources]
+    if len(set(actual_paths)) != len(actual_paths):
+        raise ValueError('duplicate inclusive source path')
+    if expected_paths is not None and sorted(actual_paths) != sorted(Path(p).resolve() for p in expected_paths):
+        raise ValueError('inclusive cache cohort mismatch')
     uuids = set()
-    for source in cache['sources']:
+    for source in sources:
+        if type(source['entries']) is not int or source['entries'] < 0:
+            raise ValueError('invalid inclusive source entry count')
         with uproot.open(source['path']) as f:
             uuid = str(f.file.uuid)
             if uuid != source['uuid'] or int(f['h80'].num_entries) != source['entries'] or uuid in uuids:
                 raise ValueError('inclusive cache h80 provenance mismatch')
             uuids.add(uuid)
-    if sum(counts.values()) != sum(s['entries'] for s in cache['sources']):
+    if sum(counts.values()) != sum(s['entries'] for s in sources):
         raise ValueError('inclusive count cache does not cover all h80 entries')
-    return counts, cache['sources']
+    return counts, sources
 
 
 def _uncertainty_plots(directory, uncertainty, study):
@@ -115,9 +145,13 @@ def main(argv=None):
     parser.add_argument('--manifest', type=Path, default=Path('config/run_manifest.csv'))
     parser.add_argument('--raw-flux', type=Path, default=Path('data/00_external/flux.root'))
     parser.add_argument('--calibrated-flux', type=Path, default=Path('data/00_external/flux_calibrated.root'))
-    parser.add_argument('--counts-cache', type=Path, default=Path('results_test/archive/calibrated-neighbor-inputs-20261019/h80_counts.json'))
+    parser.add_argument('--counts-cache', type=Path)
+    parser.add_argument('--common-inputs', type=Path)
+    parser.add_argument('--count-bundle')
+    parser.add_argument('--repo-root', type=Path)
+    parser.add_argument('--h80-dir', type=Path, help='exact cohort required with a common count bundle')
     parser.add_argument('--reference-study', type=Path, default=Path('results_test/archive/realistic-flux-closure-20261019'))
-    parser.add_argument('--run-quality', type=Path, default=DEFAULT_RUN_QUALITY_PATH)
+    parser.add_argument('--run-quality', type=Path)
     parser.add_argument('--reco-uv', type=Path, default=Path('results/uv/reco/reco_eta_pi0_bdt.root'))
     parser.add_argument('--reco-vis', type=Path, default=Path('results/vis/reco/reco_eta_pi0_bdt.root'))
     parser.add_argument('--output-dir', type=Path, required=True)
@@ -126,7 +160,21 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.replicas < 2:
         parser.error('--replicas must be >=2')
-    counts, sources = load_cached_counts(args.counts_cache)
+    if args.common_inputs is not None:
+        from calibration.common_inputs import load_common_inputs, common_counts_path
+        if args.repo_root is None or not args.count_bundle or args.h80_dir is None or args.counts_cache is not None:
+            parser.error('--common-inputs requires --repo-root, --count-bundle, --h80-dir and no --counts-cache')
+        common = load_common_inputs(args.repo_root, path=args.common_inputs)
+        args.counts_cache = common_counts_path(common, args.count_bundle)
+        if args.run_quality is None:
+            args.run_quality = common['inputs']['run_quality']
+    elif args.count_bundle is not None or args.counts_cache is None:
+        parser.error('supply --counts-cache or an explicit common count bundle')
+    if args.run_quality is None:
+        args.run_quality = DEFAULT_RUN_QUALITY_PATH
+    counts, sources = load_cached_counts(args.counts_cache,
+        expected_paths=sorted(args.h80_dir.rglob('*.root')) if args.h80_dir is not None else None,
+        checkout=args.repo_root, require_content=args.common_inputs is not None)
     design_path = args.reference_study / 'realistic_design.json'
     inventory_path = args.reference_study / 'gap_inventory.json'
     design = json.loads(design_path.read_text())

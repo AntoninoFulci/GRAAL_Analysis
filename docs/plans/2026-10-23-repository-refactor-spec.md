@@ -154,3 +154,39 @@ già previste dagli algoritmi. Un solo README; nessuna funzione/CLI/branch attiv
 del fitter rimosso; nessun output di prova nei dati o nei risultati di produzione.
 Wiki senza link rotti; grafo senza fonti eliminate o autoingestione. Solo `main`
 fra branch del repository e remoto dopo integrazione e backup verificati.
+
+## Addendum Task 6a — input comuni e riuso misurato (richiesta utente)
+
+`config/common_inputs.json` è il manifest leggibile comune: schema1, riferimenti
+relativi a checkout/cache espliciti e SHA256 del catalogo manuale, policy congelata
+e flusso raw. I cinque file di configurazione esistenti restano byteimmutati.
+Nessun elenco good-run viene inferito e nessuna politica diagnostica è adottata.
+La validazione usa i validator proprietari; lo scanner può creare soltanto un nuovo
+candidato e rifiuta la sovrascrittura di un catalogo esistente.
+
+Stage06 possiede una cache misurata ROOT+QA in `results/_cache/06_calibration/<key>`.
+La chiave include contenuto/coorte h80 ricorsiva, catalogo, raw flux, opzioni e
+binnings, thread, schema e sorgenti installate/driver realmente eseguiti. I thread
+restano nella firma perché sample claims e merge floating point dipendono dallo
+scheduling. Cache calibrazione senza TTL; TTL10giorni selected/MC/BDT invariato.
+Lock per chiave e pubblicazione directory atomica proteggono ROOT+QA+manifest;
+la campagna riceve copia coerente e `calibration_reuse.json` con chiave, origine,
+riuso e percorsi effettivi. QA originale non viene riscritta per simulare una
+provenienza diversa dopo relocation. Cambi input/sorgenti durante calcolo o copia
+rifiutano la pubblicazione. QA/ROOT manomessi invalidano. Policy non letta dalla
+calibrazione non entra nella chiave; eventi/esposizioni mantengono la policy
+esplicitamente applicata. Diagnostica usa cache locale sotto `results_test`, scope
+distinto e marker campione rifiutato in produzione.
+
+Il bundle opzionale `config/inclusive_counts_local_1998uv_1999vis.json` riusa i
+conteggi completi già misurati dai due h80 locali originali, attraverso proiezione
+senza nuova scansione degli eventi dall'audit esistente. Fonte, SHA, UUID, entry,
+coorte e provenienza dell'audit sono espliciti; `diagnostic_only=true` vieta
+l'adozione produzione. La normale risoluzione comune non richiede questo dataset.
+Solo una selezione esplicita del bundle richiede coorte esatta e hash; Stage07
+riusa conteggi con lettura dei soli header ROOT. Nessun nuovo recupero sperimentale,
+nessuna nuova view eligibility o framework generale.
+
+Viewer GEANT4 usa `results_test/build/graal-geant4-viewer`; build storico conservato
+nell'archivio verificato dall'integratore. Documentazione finale resta Task9 nella
+wiki; nessun README aggiuntivo.

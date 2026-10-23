@@ -373,3 +373,36 @@ else:
 print('Installed extraction: explicit checkout policy applied to exposure/event/control/audit readers; recorded path and SHA-256 match')
 ''', scratch)
     (scratch / 'extraction-policy.log').write_text(result.stdout + result.stderr)
+
+
+def test_wheel_common_config_and_calibration_fingerprint_from_external_cwd(installed_workflow):
+    result = _installed(installed_workflow, """
+import calibration
+from calibration.common_inputs import load_common_inputs
+from calibration.calibration_cache import implementation_identity, content_key
+from calibration.run_quality import load_run_quality
+from graal_workflow import paths, planning, models
+root = paths.resolve_repo_root(Path(sys.argv[2]))
+common = load_common_inputs(root)
+assert Path(calibration.__file__).is_relative_to(Path(sys.argv[1]))
+assert common['inputs']['run_quality'] == root / 'config/run_quality_exclusions.json'
+locations = paths.build_paths(paths.mode_config('production', root))
+assert locations.quality_path == common['inputs']['run_quality']
+assert load_run_quality(locations.quality_path)['sha256'] == '52533f31d2ef0fb946ff60947712e516ecc94b8a98091a2ac51bcfbcf61ccc35'
+plan = models.flatten_stages(planning.build_pipeline_plan(paths.mode_config('production', root), locations, models.PreflightResult('root')))
+for stage in plan:
+    if stage.kind == 'extract':
+        assert stage.argv[stage.argv.index('--run-quality') + 1] == str(locations.quality_path)
+driver = root / '06_calibration/build_strip_energy_flux.py'
+initial = implementation_identity(driver)
+assert all(not Path(row['source']).is_absolute() for row in initial)
+installed = Path(calibration.__file__).parent / 'strip_energy_flux.py'
+original = installed.read_bytes()
+try:
+    installed.write_bytes(original + b'\\n# installed mutation\\n')
+    assert implementation_identity(driver) != initial
+finally:
+    installed.write_bytes(original)
+print('wheel common config, exact policy, installed calibration identity verified')
+""")
+    assert 'exact policy' in result.stdout

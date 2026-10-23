@@ -30,9 +30,11 @@ def rebin_counts(values, old_edges, new_edges):
 
 def count_h80(paths):
     import uproot
+    from calibration.calibration_qa import sha256_file
     counts, sources, uuids = Counter(), [], set()
     for path in map(Path, paths):
         local = Counter()
+        before = sha256_file(path)
         with uproot.open(path) as source:
             uuid = str(source.file.uuid)
             if uuid in uuids:
@@ -49,7 +51,9 @@ def count_h80(paths):
                 for key, number in zip(keys, numbers, strict=True):
                     local[(int(key // 4), STATES[int(key % 4)])] += int(number)
             sources.append(dict(path=str(path.resolve()), uuid=uuid, entries=int(tree.num_entries),
-                                sample='all supplied h80 entries; no additional channel selection'))
+                                sample='all supplied h80 entries; no additional channel selection', sha256=before))
+        if sha256_file(path) != before:
+            raise ValueError(f'h80 content changed during inclusive scan: {path}')
         if counts.keys() & local.keys():
             raise ValueError(f'duplicate run/state coverage across h80 files: {path}')
         counts.update(local)

@@ -42,6 +42,10 @@ def main() -> int:
             print(f"Valid manifest: {len(records)} runs ({groups})")
             return 0
 
+        # Scanner cannot reconstruct curated deuterium classifications. It may
+        # create a separate candidate only, never replace any existing catalog.
+        if args.output.exists() or args.output.is_symlink():
+            raise ManifestError("refusing to overwrite a run catalog; choose a new candidate output")
         records = scan_runs(args.input_dir)
         write_manifest(records, args.output)
         unresolved = sum(

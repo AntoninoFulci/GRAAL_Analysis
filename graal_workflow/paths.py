@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 from calibration.run_manifest import validate_manifest
+from calibration.common_inputs import load_common_inputs
 from calibration.run_quality import load_run_quality
 from .artifact_manifest import validate_preanalysis
 from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, PROFILE_PATTERNS
@@ -89,14 +90,19 @@ def build_paths(
         if output_override is None
         else Path(output_override).expanduser().absolute()
     )
+    artifact_root = config.repo_root / "results/_cache" if config.name == "production" else output / "artifacts"
+    common_path = config.repo_root / "config/common_inputs.json"
+    common = (load_common_inputs(config.repo_root, path=common_path, cache=artifact_root, verify=False)["inputs"]
+              if common_path.is_file() else {})
     return PipelinePaths(
         repo_root=config.repo_root,
         preanalysis_dir=config.preanalysis_dir,
         data_root=config.repo_root / ("data" if config.name == "production" else "data_test"),
-        artifact_root=(config.repo_root / "results/_cache" if config.name == "production" else output / "artifacts"),
+        artifact_root=artifact_root,
         output_root=output,
-        manifest=config.repo_root / "config/run_manifest.csv",
-        raw_flux=config.repo_root / "data/00_external/flux.root",
+        manifest=common.get("run_catalog", config.repo_root / "config/run_manifest.csv"),
+        run_quality=common.get("run_quality", config.repo_root / "config/run_quality_exclusions.json"),
+        raw_flux=common.get("raw_flux", config.repo_root / "data/00_external/flux.root"),
         hyperparams=(
             config.repo_root
             / "04_bdt_training/artifacts/stage1/best_hyperparams.json"
@@ -126,7 +132,8 @@ def required_repository_files(paths: PipelinePaths) -> tuple[Path, ...]:
     )
     return (
         paths.manifest,
-        paths.repo_root / "config/run_quality_exclusions.json",
+        paths.quality_path,
+        paths.repo_root / "config/common_inputs.json",
         paths.raw_flux,
         paths.hyperparams,
         paths.ajaka_reference,
@@ -215,7 +222,11 @@ def preflight(
     if root_executable is None:
         raise PipelineError("root executable not found on PATH")
     try:
-        load_run_quality(paths.repo_root / "config/run_quality_exclusions.json")
+        load_run_quality(paths.quality_path)
+        common = load_common_inputs(paths.repo_root, cache=paths.artifact_root)
+        if common["inputs"] != {"run_catalog": paths.manifest.resolve(),
+                                "run_quality": paths.quality_path.resolve(), "raw_flux": paths.raw_flux.resolve()}:
+            raise ValueError("planned common inputs differ from verified manifest")
     except (ValueError, OSError) as exc:
         raise PipelineError(f"invalid run quality policy: {exc}") from exc
     try:

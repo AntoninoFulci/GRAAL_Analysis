@@ -1,0 +1,4354 @@
+{
+  "schema_version": 1,
+  "diagnostic_only": true,
+  "description": "Inclusive counts from the complete original local 1998 UV + 1999 VIS h80 files. Partial campaign; not the reduced diagnostic sample. Explicit cohort selection only; no production adoption or run-quality classification.",
+  "provenance": {
+    "method": "lossless projection of existing complete scalar audit; current SHA256 and ROOT UUID/entry headers verified without event rescan",
+    "evidence": {
+      "results_test/repository-refactor-20261023/sample-preflight/scalar-audit.json": "d700dea97a4d5bd4953211ab4b5f5d41575e79e9f56e0581388f78388e628242",
+      "results_test/repository-refactor-20261023/sample-preflight/scalar_audit.py": "54d5568f1a1b9b520be09a77fb1f3a05478ecb0b0fd85396979595481e6671cc",
+      "results_test/repository-refactor-20261023/sample-preflight/input-identities.json": "c89598e3ced8613ec8603ad815d3439c6c55e86615986e82671fb022b22e6f7c",
+      "results_test/repository-refactor-20261023/task-2/relocations.json": "087c41d105b9287464bad3ddbac5db514250ab460b360cab250eb44c12cdcb44"
+    }
+  },
+  "sources": [
+    {
+      "root": "checkout",
+      "path": "data/local_sources/pre_analyzed/pre_analisi_1998_uv.root",
+      "sha256": "9f99ac60ce49c6b3c8c51a49f3d9ae727baf06f86ef910dc80319e6463874525",
+      "uuid": "108a480c-a5f0-11f1-ab17-2b0210acbeef",
+      "entries": 90279078,
+      "sample": "all original h80 entries in this explicit two-file local cohort"
+    },
+    {
+      "root": "checkout",
+      "path": "data/local_sources/pre_analyzed/pre_analisi_1999_vis.root",
+      "sha256": "117855c1dc0553189b06612d5ee0c0695369545c07fb9b3db97dcf1ec1c53a52",
+      "uuid": "8088f410-a5fe-11f1-ab17-2b0210acbeef",
+      "entries": 94402268,
+      "sample": "all original h80 entries in this explicit two-file local cohort"
+    }
+  ],
+  "counts": [
+    {
+      "run": 1321,
+      "state": "BREM",
+      "count": 2020
+    },
+    {
+      "run": 1321,
+      "state": "POL1",
+      "count": 336997
+    },
+    {
+      "run": 1321,
+      "state": "POL2",
+      "count": 246596
+    },
+    {
+      "run": 1322,
+      "state": "BREM",
+      "count": 1881
+    },
+    {
+      "run": 1322,
+      "state": "POL1",
+      "count": 422964
+    },
+    {
+      "run": 1322,
+      "state": "POL2",
+      "count": 338627
+    },
+    {
+      "run": 1324,
+      "state": "BREM",
+      "count": 1683
+    },
+    {
+      "run": 1324,
+      "state": "POL1",
+      "count": 309330
+    },
+    {
+      "run": 1324,
+      "state": "POL2",
+      "count": 336993
+    },
+    {
+      "run": 1325,
+      "state": "BREM",
+      "count": 2119
+    },
+    {
+      "run": 1325,
+      "state": "POL1",
+      "count": 356370
+    },
+    {
+      "run": 1325,
+      "state": "POL2",
+      "count": 291641
+    },
+    {
+      "run": 1326,
+      "state": "BREM",
+      "count": 652
+    },
+    {
+      "run": 1326,
+      "state": "POL1",
+      "count": 201822
+    },
+    {
+      "run": 1326,
+      "state": "POL2",
+      "count": 205761
+    },
+    {
+      "run": 1328,
+      "state": "BREM",
+      "count": 2821
+    },
+    {
+      "run": 1328,
+      "state": "POL1",
+      "count": 256166
+    },
+    {
+      "run": 1328,
+      "state": "POL2",
+      "count": 260579
+    },
+    {
+      "run": 1329,
+      "state": "BREM",
+      "count": 4863
+    },
+    {
+      "run": 1329,
+      "state": "POL1",
+      "count": 399237
+    },
+    {
+      "run": 1329,
+      "state": "POL2",
+      "count": 315517
+    },
+    {
+      "run": 1330,
+      "state": "BREM",
+      "count": 2896
+    },
+    {
+      "run": 1330,
+      "state": "POL1",
+      "count": 262067
+    },
+    {
+      "run": 1330,
+      "state": "POL2",
+      "count": 318913
+    },
+    {
+      "run": 1331,
+      "state": "BREM",
+      "count": 2880
+    },
+    {
+      "run": 1331,
+      "state": "POL1",
+      "count": 183927
+    },
+    {
+      "run": 1331,
+      "state": "POL2",
+      "count": 233469
+    },
+    {
+      "run": 1332,
+      "state": "BREM",
+      "count": 3275
+    },
+    {
+      "run": 1332,
+      "state": "POL1",
+      "count": 274836
+    },
+    {
+      "run": 1332,
+      "state": "POL2",
+      "count": 288250
+    },
+    {
+      "run": 1333,
+      "state": "BREM",
+      "count": 3504
+    },
+    {
+      "run": 1333,
+      "state": "POL1",
+      "count": 266557
+    },
+    {
+      "run": 1333,
+      "state": "POL2",
+      "count": 281383
+    },
+    {
+      "run": 1334,
+      "state": "BREM",
+      "count": 3145
+    },
+    {
+      "run": 1334,
+      "state": "POL1",
+      "count": 242394
+    },
+    {
+      "run": 1334,
+      "state": "POL2",
+      "count": 256678
+    },
+    {
+      "run": 1335,
+      "state": "BREM",
+      "count": 1466
+    },
+    {
+      "run": 1335,
+      "state": "POL1",
+      "count": 139708
+    },
+    {
+      "run": 1335,
+      "state": "POL2",
+      "count": 119048
+    },
+    {
+      "run": 1336,
+      "state": "BREM",
+      "count": 2365
+    },
+    {
+      "run": 1336,
+      "state": "POL1",
+      "count": 271825
+    },
+    {
+      "run": 1336,
+      "state": "POL2",
+      "count": 274103
+    },
+    {
+      "run": 1337,
+      "state": "BREM",
+      "count": 2230
+    },
+    {
+      "run": 1337,
+      "state": "POL1",
+      "count": 242240
+    },
+    {
+      "run": 1337,
+      "state": "POL2",
+      "count": 243144
+    },
+    {
+      "run": 1339,
+      "state": "BREM",
+      "count": 4670
+    },
+    {
+      "run": 1339,
+      "state": "POL1",
+      "count": 158681
+    },
+    {
+      "run": 1339,
+      "state": "POL2",
+      "count": 242238
+    },
+    {
+      "run": 1340,
+      "state": "BREM",
+      "count": 3174
+    },
+    {
+      "run": 1340,
+      "state": "POL1",
+      "count": 241258
+    },
+    {
+      "run": 1340,
+      "state": "POL2",
+      "count": 242787
+    },
+    {
+      "run": 1341,
+      "state": "BREM",
+      "count": 2109
+    },
+    {
+      "run": 1341,
+      "state": "POL1",
+      "count": 214820
+    },
+    {
+      "run": 1341,
+      "state": "POL2",
+      "count": 242563
+    },
+    {
+      "run": 1342,
+      "state": "BREM",
+      "count": 2652
+    },
+    {
+      "run": 1342,
+      "state": "POL1",
+      "count": 296041
+    },
+    {
+      "run": 1342,
+      "state": "POL2",
+      "count": 323056
+    },
+    {
+      "run": 1343,
+      "state": "BREM",
+      "count": 4154
+    },
+    {
+      "run": 1343,
+      "state": "POL1",
+      "count": 360346
+    },
+    {
+      "run": 1343,
+      "state": "POL2",
+      "count": 251437
+    },
+    {
+      "run": 1344,
+      "state": "BREM",
+      "count": 2183
+    },
+    {
+      "run": 1344,
+      "state": "POL1",
+      "count": 333323
+    },
+    {
+      "run": 1344,
+      "state": "POL2",
+      "count": 313033
+    },
+    {
+      "run": 1345,
+      "state": "BREM",
+      "count": 2032
+    },
+    {
+      "run": 1345,
+      "state": "POL1",
+      "count": 345771
+    },
+    {
+      "run": 1345,
+      "state": "POL2",
+      "count": 297696
+    },
+    {
+      "run": 1346,
+      "state": "BREM",
+      "count": 3916
+    },
+    {
+      "run": 1346,
+      "state": "POL1",
+      "count": 331547
+    },
+    {
+      "run": 1346,
+      "state": "POL2",
+      "count": 359445
+    },
+    {
+      "run": 1347,
+      "state": "BREM",
+      "count": 3648
+    },
+    {
+      "run": 1347,
+      "state": "POL1",
+      "count": 296028
+    },
+    {
+      "run": 1347,
+      "state": "POL2",
+      "count": 312332
+    },
+    {
+      "run": 1348,
+      "state": "BREM",
+      "count": 3182
+    },
+    {
+      "run": 1348,
+      "state": "POL1",
+      "count": 287006
+    },
+    {
+      "run": 1348,
+      "state": "POL2",
+      "count": 302837
+    },
+    {
+      "run": 1350,
+      "state": "BREM",
+      "count": 2937
+    },
+    {
+      "run": 1350,
+      "state": "POL1",
+      "count": 244540
+    },
+    {
+      "run": 1350,
+      "state": "POL2",
+      "count": 252432
+    },
+    {
+      "run": 1352,
+      "state": "BREM",
+      "count": 2307
+    },
+    {
+      "run": 1352,
+      "state": "POL1",
+      "count": 270880
+    },
+    {
+      "run": 1352,
+      "state": "POL2",
+      "count": 291487
+    },
+    {
+      "run": 1353,
+      "state": "BREM",
+      "count": 1978
+    },
+    {
+      "run": 1353,
+      "state": "POL1",
+      "count": 203429
+    },
+    {
+      "run": 1353,
+      "state": "POL2",
+      "count": 257564
+    },
+    {
+      "run": 1354,
+      "state": "BREM",
+      "count": 1380
+    },
+    {
+      "run": 1354,
+      "state": "POL1",
+      "count": 256710
+    },
+    {
+      "run": 1354,
+      "state": "POL2",
+      "count": 257254
+    },
+    {
+      "run": 1355,
+      "state": "BREM",
+      "count": 1545
+    },
+    {
+      "run": 1355,
+      "state": "POL1",
+      "count": 256009
+    },
+    {
+      "run": 1355,
+      "state": "POL2",
+      "count": 204032
+    },
+    {
+      "run": 1356,
+      "state": "BREM",
+      "count": 898
+    },
+    {
+      "run": 1356,
+      "state": "POL1",
+      "count": 170162
+    },
+    {
+      "run": 1356,
+      "state": "POL2",
+      "count": 119966
+    },
+    {
+      "run": 1357,
+      "state": "BREM",
+      "count": 4464
+    },
+    {
+      "run": 1357,
+      "state": "POL1",
+      "count": 336107
+    },
+    {
+      "run": 1357,
+      "state": "POL2",
+      "count": 252600
+    },
+    {
+      "run": 1358,
+      "state": "BREM",
+      "count": 4435
+    },
+    {
+      "run": 1358,
+      "state": "POL1",
+      "count": 266349
+    },
+    {
+      "run": 1358,
+      "state": "POL2",
+      "count": 256353
+    },
+    {
+      "run": 1359,
+      "state": "BREM",
+      "count": 4444
+    },
+    {
+      "run": 1359,
+      "state": "POL1",
+      "count": 299490
+    },
+    {
+      "run": 1359,
+      "state": "POL2",
+      "count": 250310
+    },
+    {
+      "run": 1360,
+      "state": "BREM",
+      "count": 3811
+    },
+    {
+      "run": 1360,
+      "state": "POL1",
+      "count": 270728
+    },
+    {
+      "run": 1360,
+      "state": "POL2",
+      "count": 251776
+    },
+    {
+      "run": 1361,
+      "state": "BREM",
+      "count": 4169
+    },
+    {
+      "run": 1361,
+      "state": "POL1",
+      "count": 367943
+    },
+    {
+      "run": 1361,
+      "state": "POL2",
+      "count": 291550
+    },
+    {
+      "run": 1362,
+      "state": "BREM",
+      "count": 3750
+    },
+    {
+      "run": 1362,
+      "state": "POL1",
+      "count": 232228
+    },
+    {
+      "run": 1362,
+      "state": "POL2",
+      "count": 244802
+    },
+    {
+      "run": 1363,
+      "state": "BREM",
+      "count": 3684
+    },
+    {
+      "run": 1363,
+      "state": "POL1",
+      "count": 297754
+    },
+    {
+      "run": 1363,
+      "state": "POL2",
+      "count": 302506
+    },
+    {
+      "run": 1364,
+      "state": "BREM",
+      "count": 2826
+    },
+    {
+      "run": 1364,
+      "state": "POL1",
+      "count": 166044
+    },
+    {
+      "run": 1364,
+      "state": "POL2",
+      "count": 186799
+    },
+    {
+      "run": 1365,
+      "state": "BREM",
+      "count": 4129
+    },
+    {
+      "run": 1365,
+      "state": "POL1",
+      "count": 313602
+    },
+    {
+      "run": 1365,
+      "state": "POL2",
+      "count": 295377
+    },
+    {
+      "run": 1366,
+      "state": "BREM",
+      "count": 3312
+    },
+    {
+      "run": 1366,
+      "state": "POL1",
+      "count": 296286
+    },
+    {
+      "run": 1366,
+      "state": "POL2",
+      "count": 257496
+    },
+    {
+      "run": 1367,
+      "state": "BREM",
+      "count": 2195
+    },
+    {
+      "run": 1367,
+      "state": "POL1",
+      "count": 204216
+    },
+    {
+      "run": 1367,
+      "state": "POL2",
+      "count": 211900
+    },
+    {
+      "run": 1368,
+      "state": "BREM",
+      "count": 1942
+    },
+    {
+      "run": 1368,
+      "state": "POL1",
+      "count": 202432
+    },
+    {
+      "run": 1368,
+      "state": "POL2",
+      "count": 204800
+    },
+    {
+      "run": 1369,
+      "state": "BREM",
+      "count": 1953
+    },
+    {
+      "run": 1369,
+      "state": "POL1",
+      "count": 194975
+    },
+    {
+      "run": 1369,
+      "state": "POL2",
+      "count": 202092
+    },
+    {
+      "run": 1370,
+      "state": "BREM",
+      "count": 2178
+    },
+    {
+      "run": 1370,
+      "state": "POL1",
+      "count": 174969
+    },
+    {
+      "run": 1370,
+      "state": "POL2",
+      "count": 190035
+    },
+    {
+      "run": 1371,
+      "state": "BREM",
+      "count": 967
+    },
+    {
+      "run": 1371,
+      "state": "POL1",
+      "count": 186419
+    },
+    {
+      "run": 1371,
+      "state": "POL2",
+      "count": 169138
+    },
+    {
+      "run": 1372,
+      "state": "BREM",
+      "count": 4610
+    },
+    {
+      "run": 1372,
+      "state": "POL1",
+      "count": 231968
+    },
+    {
+      "run": 1372,
+      "state": "POL2",
+      "count": 236447
+    },
+    {
+      "run": 1373,
+      "state": "BREM",
+      "count": 4215
+    },
+    {
+      "run": 1373,
+      "state": "POL1",
+      "count": 239970
+    },
+    {
+      "run": 1373,
+      "state": "POL2",
+      "count": 257162
+    },
+    {
+      "run": 1374,
+      "state": "BREM",
+      "count": 4919
+    },
+    {
+      "run": 1374,
+      "state": "POL1",
+      "count": 302519
+    },
+    {
+      "run": 1374,
+      "state": "POL2",
+      "count": 243932
+    },
+    {
+      "run": 1375,
+      "state": "BREM",
+      "count": 4223
+    },
+    {
+      "run": 1375,
+      "state": "POL1",
+      "count": 210852
+    },
+    {
+      "run": 1375,
+      "state": "POL2",
+      "count": 176632
+    },
+    {
+      "run": 1376,
+      "state": "BREM",
+      "count": 3136
+    },
+    {
+      "run": 1376,
+      "state": "POL1",
+      "count": 249292
+    },
+    {
+      "run": 1376,
+      "state": "POL2",
+      "count": 249332
+    },
+    {
+      "run": 1377,
+      "state": "BREM",
+      "count": 2414
+    },
+    {
+      "run": 1377,
+      "state": "POL1",
+      "count": 235121
+    },
+    {
+      "run": 1377,
+      "state": "POL2",
+      "count": 231014
+    },
+    {
+      "run": 1379,
+      "state": "BREM",
+      "count": 3408
+    },
+    {
+      "run": 1379,
+      "state": "POL1",
+      "count": 273832
+    },
+    {
+      "run": 1379,
+      "state": "POL2",
+      "count": 280129
+    },
+    {
+      "run": 1380,
+      "state": "BREM",
+      "count": 2625
+    },
+    {
+      "run": 1380,
+      "state": "POL1",
+      "count": 281061
+    },
+    {
+      "run": 1380,
+      "state": "POL2",
+      "count": 278800
+    },
+    {
+      "run": 1381,
+      "state": "BREM",
+      "count": 2426
+    },
+    {
+      "run": 1381,
+      "state": "POL1",
+      "count": 262751
+    },
+    {
+      "run": 1381,
+      "state": "POL2",
+      "count": 264700
+    },
+    {
+      "run": 1382,
+      "state": "BREM",
+      "count": 1954
+    },
+    {
+      "run": 1382,
+      "state": "POL1",
+      "count": 128907
+    },
+    {
+      "run": 1382,
+      "state": "POL2",
+      "count": 132598
+    },
+    {
+      "run": 1383,
+      "state": "BREM",
+      "count": 4631
+    },
+    {
+      "run": 1383,
+      "state": "POL1",
+      "count": 270242
+    },
+    {
+      "run": 1383,
+      "state": "POL2",
+      "count": 273980
+    },
+    {
+      "run": 1385,
+      "state": "BREM",
+      "count": 2032
+    },
+    {
+      "run": 1385,
+      "state": "POL1",
+      "count": 239167
+    },
+    {
+      "run": 1385,
+      "state": "POL2",
+      "count": 260507
+    },
+    {
+      "run": 1386,
+      "state": "BREM",
+      "count": 1370
+    },
+    {
+      "run": 1386,
+      "state": "POL1",
+      "count": 222443
+    },
+    {
+      "run": 1386,
+      "state": "POL2",
+      "count": 226102
+    },
+    {
+      "run": 1387,
+      "state": "BREM",
+      "count": 1550
+    },
+    {
+      "run": 1387,
+      "state": "POL1",
+      "count": 209431
+    },
+    {
+      "run": 1387,
+      "state": "POL2",
+      "count": 238440
+    },
+    {
+      "run": 1388,
+      "state": "BREM",
+      "count": 330
+    },
+    {
+      "run": 1388,
+      "state": "POL1",
+      "count": 114759
+    },
+    {
+      "run": 1388,
+      "state": "POL2",
+      "count": 118963
+    },
+    {
+      "run": 1389,
+      "state": "BREM",
+      "count": 2526
+    },
+    {
+      "run": 1389,
+      "state": "POL1",
+      "count": 120301
+    },
+    {
+      "run": 1389,
+      "state": "POL2",
+      "count": 107422
+    },
+    {
+      "run": 1390,
+      "state": "BREM",
+      "count": 1293
+    },
+    {
+      "run": 1390,
+      "state": "POL1",
+      "count": 241014
+    },
+    {
+      "run": 1390,
+      "state": "POL2",
+      "count": 266750
+    },
+    {
+      "run": 1391,
+      "state": "BREM",
+      "count": 1212
+    },
+    {
+      "run": 1391,
+      "state": "POL1",
+      "count": 240364
+    },
+    {
+      "run": 1391,
+      "state": "POL2",
+      "count": 257013
+    },
+    {
+      "run": 1392,
+      "state": "BREM",
+      "count": 1179
+    },
+    {
+      "run": 1392,
+      "state": "POL1",
+      "count": 243697
+    },
+    {
+      "run": 1392,
+      "state": "POL2",
+      "count": 257434
+    },
+    {
+      "run": 1393,
+      "state": "BREM",
+      "count": 3819
+    },
+    {
+      "run": 1393,
+      "state": "POL1",
+      "count": 167475
+    },
+    {
+      "run": 1393,
+      "state": "POL2",
+      "count": 347459
+    },
+    {
+      "run": 1394,
+      "state": "BREM",
+      "count": 2075
+    },
+    {
+      "run": 1394,
+      "state": "POL1",
+      "count": 210226
+    },
+    {
+      "run": 1394,
+      "state": "POL2",
+      "count": 225849
+    },
+    {
+      "run": 1395,
+      "state": "BREM",
+      "count": 2599
+    },
+    {
+      "run": 1395,
+      "state": "POL1",
+      "count": 219668
+    },
+    {
+      "run": 1395,
+      "state": "POL2",
+      "count": 238159
+    },
+    {
+      "run": 1396,
+      "state": "BREM",
+      "count": 2713
+    },
+    {
+      "run": 1396,
+      "state": "POL1",
+      "count": 195518
+    },
+    {
+      "run": 1396,
+      "state": "POL2",
+      "count": 199201
+    },
+    {
+      "run": 1397,
+      "state": "BREM",
+      "count": 2720
+    },
+    {
+      "run": 1397,
+      "state": "POL1",
+      "count": 235271
+    },
+    {
+      "run": 1397,
+      "state": "POL2",
+      "count": 259498
+    },
+    {
+      "run": 1398,
+      "state": "BREM",
+      "count": 2835
+    },
+    {
+      "run": 1398,
+      "state": "POL1",
+      "count": 249182
+    },
+    {
+      "run": 1398,
+      "state": "POL2",
+      "count": 245694
+    },
+    {
+      "run": 1399,
+      "state": "BREM",
+      "count": 2706
+    },
+    {
+      "run": 1399,
+      "state": "POL1",
+      "count": 252059
+    },
+    {
+      "run": 1399,
+      "state": "POL2",
+      "count": 268132
+    },
+    {
+      "run": 1400,
+      "state": "BREM",
+      "count": 2845
+    },
+    {
+      "run": 1400,
+      "state": "POL1",
+      "count": 370955
+    },
+    {
+      "run": 1400,
+      "state": "POL2",
+      "count": 392079
+    },
+    {
+      "run": 1401,
+      "state": "BREM",
+      "count": 3072
+    },
+    {
+      "run": 1401,
+      "state": "POL1",
+      "count": 238806
+    },
+    {
+      "run": 1401,
+      "state": "POL2",
+      "count": 255808
+    },
+    {
+      "run": 1402,
+      "state": "BREM",
+      "count": 2888
+    },
+    {
+      "run": 1402,
+      "state": "POL1",
+      "count": 227397
+    },
+    {
+      "run": 1402,
+      "state": "POL2",
+      "count": 243591
+    },
+    {
+      "run": 1403,
+      "state": "BREM",
+      "count": 2838
+    },
+    {
+      "run": 1403,
+      "state": "POL1",
+      "count": 175909
+    },
+    {
+      "run": 1403,
+      "state": "POL2",
+      "count": 235505
+    },
+    {
+      "run": 1405,
+      "state": "BREM",
+      "count": 4024
+    },
+    {
+      "run": 1405,
+      "state": "POL1",
+      "count": 264639
+    },
+    {
+      "run": 1405,
+      "state": "POL2",
+      "count": 286100
+    },
+    {
+      "run": 1406,
+      "state": "BREM",
+      "count": 3874
+    },
+    {
+      "run": 1406,
+      "state": "POL1",
+      "count": 279097
+    },
+    {
+      "run": 1406,
+      "state": "POL2",
+      "count": 156133
+    },
+    {
+      "run": 1407,
+      "state": "BREM",
+      "count": 2837
+    },
+    {
+      "run": 1407,
+      "state": "POL1",
+      "count": 301878
+    },
+    {
+      "run": 1407,
+      "state": "POL2",
+      "count": 263222
+    },
+    {
+      "run": 1408,
+      "state": "BREM",
+      "count": 1997
+    },
+    {
+      "run": 1408,
+      "state": "POL1",
+      "count": 293857
+    },
+    {
+      "run": 1408,
+      "state": "POL2",
+      "count": 263174
+    },
+    {
+      "run": 1409,
+      "state": "BREM",
+      "count": 1056
+    },
+    {
+      "run": 1409,
+      "state": "POL1",
+      "count": 144144
+    },
+    {
+      "run": 1409,
+      "state": "POL2",
+      "count": 153972
+    },
+    {
+      "run": 1410,
+      "state": "BREM",
+      "count": 2309
+    },
+    {
+      "run": 1410,
+      "state": "POL1",
+      "count": 286871
+    },
+    {
+      "run": 1410,
+      "state": "POL2",
+      "count": 353321
+    },
+    {
+      "run": 1411,
+      "state": "BREM",
+      "count": 1521
+    },
+    {
+      "run": 1411,
+      "state": "POL1",
+      "count": 267284
+    },
+    {
+      "run": 1411,
+      "state": "POL2",
+      "count": 310702
+    },
+    {
+      "run": 1412,
+      "state": "BREM",
+      "count": 1012
+    },
+    {
+      "run": 1412,
+      "state": "POL1",
+      "count": 278526
+    },
+    {
+      "run": 1412,
+      "state": "POL2",
+      "count": 300829
+    },
+    {
+      "run": 1414,
+      "state": "BREM",
+      "count": 1254
+    },
+    {
+      "run": 1414,
+      "state": "POL1",
+      "count": 68816
+    },
+    {
+      "run": 1414,
+      "state": "POL2",
+      "count": 186156
+    },
+    {
+      "run": 1415,
+      "state": "BREM",
+      "count": 1076
+    },
+    {
+      "run": 1415,
+      "state": "POL1",
+      "count": 156788
+    },
+    {
+      "run": 1415,
+      "state": "POL2",
+      "count": 170952
+    },
+    {
+      "run": 1416,
+      "state": "BREM",
+      "count": 604
+    },
+    {
+      "run": 1416,
+      "state": "POL1",
+      "count": 161229
+    },
+    {
+      "run": 1416,
+      "state": "POL2",
+      "count": 171470
+    },
+    {
+      "run": 1417,
+      "state": "BREM",
+      "count": 1317
+    },
+    {
+      "run": 1417,
+      "state": "POL1",
+      "count": 151766
+    },
+    {
+      "run": 1417,
+      "state": "POL2",
+      "count": 174989
+    },
+    {
+      "run": 1418,
+      "state": "BREM",
+      "count": 1633
+    },
+    {
+      "run": 1418,
+      "state": "POL1",
+      "count": 292656
+    },
+    {
+      "run": 1418,
+      "state": "POL2",
+      "count": 318766
+    },
+    {
+      "run": 1419,
+      "state": "BREM",
+      "count": 2825
+    },
+    {
+      "run": 1419,
+      "state": "POL1",
+      "count": 298878
+    },
+    {
+      "run": 1419,
+      "state": "POL2",
+      "count": 307246
+    },
+    {
+      "run": 1420,
+      "state": "BREM",
+      "count": 3155
+    },
+    {
+      "run": 1420,
+      "state": "POL1",
+      "count": 164884
+    },
+    {
+      "run": 1420,
+      "state": "POL2",
+      "count": 183329
+    },
+    {
+      "run": 1421,
+      "state": "BREM",
+      "count": 2751
+    },
+    {
+      "run": 1421,
+      "state": "POL1",
+      "count": 146488
+    },
+    {
+      "run": 1421,
+      "state": "POL2",
+      "count": 159173
+    },
+    {
+      "run": 1422,
+      "state": "BREM",
+      "count": 2289
+    },
+    {
+      "run": 1422,
+      "state": "POL1",
+      "count": 326378
+    },
+    {
+      "run": 1422,
+      "state": "POL2",
+      "count": 180230
+    },
+    {
+      "run": 1425,
+      "state": "BREM",
+      "count": 65
+    },
+    {
+      "run": 1425,
+      "state": "POL1",
+      "count": 162090
+    },
+    {
+      "run": 1425,
+      "state": "POL2",
+      "count": 174909
+    },
+    {
+      "run": 1426,
+      "state": "BREM",
+      "count": 1629
+    },
+    {
+      "run": 1426,
+      "state": "POL1",
+      "count": 226577
+    },
+    {
+      "run": 1426,
+      "state": "POL2",
+      "count": 349723
+    },
+    {
+      "run": 1427,
+      "state": "BREM",
+      "count": 729
+    },
+    {
+      "run": 1427,
+      "state": "POL1",
+      "count": 315808
+    },
+    {
+      "run": 1427,
+      "state": "POL2",
+      "count": 224066
+    },
+    {
+      "run": 1428,
+      "state": "BREM",
+      "count": 1907
+    },
+    {
+      "run": 1428,
+      "state": "POL1",
+      "count": 321368
+    },
+    {
+      "run": 1428,
+      "state": "POL2",
+      "count": 351148
+    },
+    {
+      "run": 1429,
+      "state": "BREM",
+      "count": 1949
+    },
+    {
+      "run": 1429,
+      "state": "POL1",
+      "count": 312044
+    },
+    {
+      "run": 1429,
+      "state": "POL2",
+      "count": 333861
+    },
+    {
+      "run": 1430,
+      "state": "BREM",
+      "count": 2554
+    },
+    {
+      "run": 1430,
+      "state": "POL1",
+      "count": 302236
+    },
+    {
+      "run": 1430,
+      "state": "POL2",
+      "count": 322827
+    },
+    {
+      "run": 1431,
+      "state": "BREM",
+      "count": 1225
+    },
+    {
+      "run": 1431,
+      "state": "POL1",
+      "count": 279275
+    },
+    {
+      "run": 1431,
+      "state": "POL2",
+      "count": 289686
+    },
+    {
+      "run": 1432,
+      "state": "BREM",
+      "count": 1588
+    },
+    {
+      "run": 1432,
+      "state": "POL1",
+      "count": 241061
+    },
+    {
+      "run": 1432,
+      "state": "POL2",
+      "count": 272189
+    },
+    {
+      "run": 1433,
+      "state": "BREM",
+      "count": 1320
+    },
+    {
+      "run": 1433,
+      "state": "POL1",
+      "count": 312620
+    },
+    {
+      "run": 1433,
+      "state": "POL2",
+      "count": 253309
+    },
+    {
+      "run": 1434,
+      "state": "BREM",
+      "count": 2903
+    },
+    {
+      "run": 1434,
+      "state": "POL1",
+      "count": 277490
+    },
+    {
+      "run": 1434,
+      "state": "POL2",
+      "count": 329377
+    },
+    {
+      "run": 1435,
+      "state": "BREM",
+      "count": 1166
+    },
+    {
+      "run": 1435,
+      "state": "POL1",
+      "count": 150591
+    },
+    {
+      "run": 1435,
+      "state": "POL2",
+      "count": 140687
+    },
+    {
+      "run": 1436,
+      "state": "BREM",
+      "count": 2306
+    },
+    {
+      "run": 1436,
+      "state": "POL1",
+      "count": 274597
+    },
+    {
+      "run": 1436,
+      "state": "POL2",
+      "count": 302548
+    },
+    {
+      "run": 1437,
+      "state": "BREM",
+      "count": 4815
+    },
+    {
+      "run": 1437,
+      "state": "POL1",
+      "count": 285387
+    },
+    {
+      "run": 1437,
+      "state": "POL2",
+      "count": 217780
+    },
+    {
+      "run": 1438,
+      "state": "BREM",
+      "count": 4811
+    },
+    {
+      "run": 1438,
+      "state": "POL1",
+      "count": 348035
+    },
+    {
+      "run": 1438,
+      "state": "POL2",
+      "count": 324054
+    },
+    {
+      "run": 1439,
+      "state": "BREM",
+      "count": 2679
+    },
+    {
+      "run": 1439,
+      "state": "POL1",
+      "count": 289930
+    },
+    {
+      "run": 1439,
+      "state": "POL2",
+      "count": 318705
+    },
+    {
+      "run": 1440,
+      "state": "BREM",
+      "count": 3015
+    },
+    {
+      "run": 1440,
+      "state": "POL1",
+      "count": 299961
+    },
+    {
+      "run": 1440,
+      "state": "POL2",
+      "count": 309465
+    },
+    {
+      "run": 1441,
+      "state": "BREM",
+      "count": 2177
+    },
+    {
+      "run": 1441,
+      "state": "POL1",
+      "count": 265209
+    },
+    {
+      "run": 1441,
+      "state": "POL2",
+      "count": 287243
+    },
+    {
+      "run": 1442,
+      "state": "BREM",
+      "count": 1003
+    },
+    {
+      "run": 1442,
+      "state": "POL1",
+      "count": 130783
+    },
+    {
+      "run": 1442,
+      "state": "POL2",
+      "count": 129888
+    },
+    {
+      "run": 1443,
+      "state": "BREM",
+      "count": 1863
+    },
+    {
+      "run": 1443,
+      "state": "POL1",
+      "count": 294542
+    },
+    {
+      "run": 1443,
+      "state": "POL2",
+      "count": 340340
+    },
+    {
+      "run": 1444,
+      "state": "BREM",
+      "count": 3114
+    },
+    {
+      "run": 1444,
+      "state": "POL1",
+      "count": 424201
+    },
+    {
+      "run": 1444,
+      "state": "POL2",
+      "count": 314196
+    },
+    {
+      "run": 1445,
+      "state": "BREM",
+      "count": 1919
+    },
+    {
+      "run": 1445,
+      "state": "POL1",
+      "count": 308537
+    },
+    {
+      "run": 1445,
+      "state": "POL2",
+      "count": 269832
+    },
+    {
+      "run": 1446,
+      "state": "BREM",
+      "count": 1562
+    },
+    {
+      "run": 1446,
+      "state": "POL1",
+      "count": 329811
+    },
+    {
+      "run": 1446,
+      "state": "POL2",
+      "count": 284386
+    },
+    {
+      "run": 1447,
+      "state": "BREM",
+      "count": 2834
+    },
+    {
+      "run": 1447,
+      "state": "POL1",
+      "count": 351695
+    },
+    {
+      "run": 1447,
+      "state": "POL2",
+      "count": 231328
+    },
+    {
+      "run": 1448,
+      "state": "BREM",
+      "count": 1602
+    },
+    {
+      "run": 1448,
+      "state": "POL1",
+      "count": 267251
+    },
+    {
+      "run": 1448,
+      "state": "POL2",
+      "count": 291266
+    },
+    {
+      "run": 1450,
+      "state": "BREM",
+      "count": 1171
+    },
+    {
+      "run": 1450,
+      "state": "POL1",
+      "count": 165143
+    },
+    {
+      "run": 1450,
+      "state": "POL2",
+      "count": 173609
+    },
+    {
+      "run": 1451,
+      "state": "BREM",
+      "count": 1135
+    },
+    {
+      "run": 1451,
+      "state": "POL1",
+      "count": 161955
+    },
+    {
+      "run": 1451,
+      "state": "POL2",
+      "count": 160624
+    },
+    {
+      "run": 1452,
+      "state": "BREM",
+      "count": 1122
+    },
+    {
+      "run": 1452,
+      "state": "POL1",
+      "count": 158148
+    },
+    {
+      "run": 1452,
+      "state": "POL2",
+      "count": 168381
+    },
+    {
+      "run": 1453,
+      "state": "BREM",
+      "count": 2336
+    },
+    {
+      "run": 1453,
+      "state": "POL1",
+      "count": 299476
+    },
+    {
+      "run": 1453,
+      "state": "POL2",
+      "count": 293084
+    },
+    {
+      "run": 1454,
+      "state": "BREM",
+      "count": 3457
+    },
+    {
+      "run": 1454,
+      "state": "POL1",
+      "count": 249177
+    },
+    {
+      "run": 1454,
+      "state": "POL2",
+      "count": 292821
+    },
+    {
+      "run": 1455,
+      "state": "BREM",
+      "count": 3209
+    },
+    {
+      "run": 1455,
+      "state": "POL1",
+      "count": 301087
+    },
+    {
+      "run": 1455,
+      "state": "POL2",
+      "count": 326648
+    },
+    {
+      "run": 1456,
+      "state": "BREM",
+      "count": 3453
+    },
+    {
+      "run": 1456,
+      "state": "POL1",
+      "count": 293852
+    },
+    {
+      "run": 1456,
+      "state": "POL2",
+      "count": 316869
+    },
+    {
+      "run": 1457,
+      "state": "BREM",
+      "count": 3045
+    },
+    {
+      "run": 1457,
+      "state": "POL1",
+      "count": 287944
+    },
+    {
+      "run": 1457,
+      "state": "POL2",
+      "count": 308876
+    },
+    {
+      "run": 1458,
+      "state": "BREM",
+      "count": 2437
+    },
+    {
+      "run": 1458,
+      "state": "POL1",
+      "count": 274464
+    },
+    {
+      "run": 1458,
+      "state": "POL2",
+      "count": 296504
+    },
+    {
+      "run": 1459,
+      "state": "BREM",
+      "count": 1195
+    },
+    {
+      "run": 1459,
+      "state": "POL1",
+      "count": 128060
+    },
+    {
+      "run": 1459,
+      "state": "POL2",
+      "count": 241309
+    },
+    {
+      "run": 1460,
+      "state": "BREM",
+      "count": 1291
+    },
+    {
+      "run": 1460,
+      "state": "POL1",
+      "count": 248710
+    },
+    {
+      "run": 1460,
+      "state": "POL2",
+      "count": 171195
+    },
+    {
+      "run": 1461,
+      "state": "BREM",
+      "count": 1178
+    },
+    {
+      "run": 1461,
+      "state": "POL1",
+      "count": 163410
+    },
+    {
+      "run": 1461,
+      "state": "POL2",
+      "count": 174393
+    },
+    {
+      "run": 1462,
+      "state": "BREM",
+      "count": 1262
+    },
+    {
+      "run": 1462,
+      "state": "POL1",
+      "count": 157554
+    },
+    {
+      "run": 1462,
+      "state": "POL2",
+      "count": 171553
+    },
+    {
+      "run": 1463,
+      "state": "BREM",
+      "count": 1341
+    },
+    {
+      "run": 1463,
+      "state": "POL1",
+      "count": 159830
+    },
+    {
+      "run": 1463,
+      "state": "POL2",
+      "count": 164737
+    },
+    {
+      "run": 1464,
+      "state": "BREM",
+      "count": 2462
+    },
+    {
+      "run": 1464,
+      "state": "POL1",
+      "count": 262963
+    },
+    {
+      "run": 1464,
+      "state": "POL2",
+      "count": 244346
+    },
+    {
+      "run": 1465,
+      "state": "BREM",
+      "count": 2301
+    },
+    {
+      "run": 1465,
+      "state": "POL1",
+      "count": 255924
+    },
+    {
+      "run": 1465,
+      "state": "POL2",
+      "count": 328721
+    },
+    {
+      "run": 1466,
+      "state": "BREM",
+      "count": 2396
+    },
+    {
+      "run": 1466,
+      "state": "POL1",
+      "count": 289775
+    },
+    {
+      "run": 1466,
+      "state": "POL2",
+      "count": 312145
+    },
+    {
+      "run": 1467,
+      "state": "BREM",
+      "count": 2176
+    },
+    {
+      "run": 1467,
+      "state": "POL1",
+      "count": 262611
+    },
+    {
+      "run": 1467,
+      "state": "POL2",
+      "count": 289379
+    },
+    {
+      "run": 1468,
+      "state": "BREM",
+      "count": 1992
+    },
+    {
+      "run": 1468,
+      "state": "POL1",
+      "count": 287134
+    },
+    {
+      "run": 1468,
+      "state": "POL2",
+      "count": 296700
+    },
+    {
+      "run": 1470,
+      "state": "BREM",
+      "count": 1316
+    },
+    {
+      "run": 1470,
+      "state": "POL1",
+      "count": 149630
+    },
+    {
+      "run": 1470,
+      "state": "POL2",
+      "count": 176220
+    },
+    {
+      "run": 1471,
+      "state": "BREM",
+      "count": 1229
+    },
+    {
+      "run": 1471,
+      "state": "POL1",
+      "count": 165086
+    },
+    {
+      "run": 1471,
+      "state": "POL2",
+      "count": 171726
+    },
+    {
+      "run": 1472,
+      "state": "BREM",
+      "count": 1177
+    },
+    {
+      "run": 1472,
+      "state": "POL1",
+      "count": 159251
+    },
+    {
+      "run": 1472,
+      "state": "POL2",
+      "count": 169454
+    },
+    {
+      "run": 1473,
+      "state": "BREM",
+      "count": 985
+    },
+    {
+      "run": 1473,
+      "state": "POL1",
+      "count": 154427
+    },
+    {
+      "run": 1473,
+      "state": "POL2",
+      "count": 167989
+    },
+    {
+      "run": 1474,
+      "state": "BREM",
+      "count": 1013
+    },
+    {
+      "run": 1474,
+      "state": "POL1",
+      "count": 149890
+    },
+    {
+      "run": 1474,
+      "state": "POL2",
+      "count": 165632
+    },
+    {
+      "run": 1475,
+      "state": "BREM",
+      "count": 4313
+    },
+    {
+      "run": 1475,
+      "state": "POL1",
+      "count": 301056
+    },
+    {
+      "run": 1475,
+      "state": "POL2",
+      "count": 317222
+    },
+    {
+      "run": 1476,
+      "state": "BREM",
+      "count": 4114
+    },
+    {
+      "run": 1476,
+      "state": "POL1",
+      "count": 297435
+    },
+    {
+      "run": 1476,
+      "state": "POL2",
+      "count": 320868
+    },
+    {
+      "run": 1477,
+      "state": "BREM",
+      "count": 3487
+    },
+    {
+      "run": 1477,
+      "state": "POL1",
+      "count": 292161
+    },
+    {
+      "run": 1477,
+      "state": "POL2",
+      "count": 316288
+    },
+    {
+      "run": 1478,
+      "state": "BREM",
+      "count": 2196
+    },
+    {
+      "run": 1478,
+      "state": "POL1",
+      "count": 280557
+    },
+    {
+      "run": 1478,
+      "state": "POL2",
+      "count": 305091
+    },
+    {
+      "run": 1479,
+      "state": "BREM",
+      "count": 2056
+    },
+    {
+      "run": 1479,
+      "state": "POL1",
+      "count": 253397
+    },
+    {
+      "run": 1479,
+      "state": "POL2",
+      "count": 266663
+    },
+    {
+      "run": 1480,
+      "state": "BREM",
+      "count": 2228
+    },
+    {
+      "run": 1480,
+      "state": "POL1",
+      "count": 289210
+    },
+    {
+      "run": 1480,
+      "state": "POL2",
+      "count": 259806
+    },
+    {
+      "run": 1481,
+      "state": "BREM",
+      "count": 1933
+    },
+    {
+      "run": 1481,
+      "state": "POL1",
+      "count": 253883
+    },
+    {
+      "run": 1481,
+      "state": "POL2",
+      "count": 314003
+    },
+    {
+      "run": 1482,
+      "state": "BREM",
+      "count": 5953
+    },
+    {
+      "run": 1482,
+      "state": "POL1",
+      "count": 435398
+    },
+    {
+      "run": 1482,
+      "state": "POL2",
+      "count": 484297
+    },
+    {
+      "run": 1485,
+      "state": "BREM",
+      "count": 983
+    },
+    {
+      "run": 1485,
+      "state": "POL1",
+      "count": 45860
+    },
+    {
+      "run": 1485,
+      "state": "POL2",
+      "count": 56811
+    },
+    {
+      "run": 1486,
+      "state": "BREM",
+      "count": 2700
+    },
+    {
+      "run": 1486,
+      "state": "POL1",
+      "count": 203961
+    },
+    {
+      "run": 1486,
+      "state": "POL2",
+      "count": 231916
+    },
+    {
+      "run": 1487,
+      "state": "BREM",
+      "count": 2131
+    },
+    {
+      "run": 1487,
+      "state": "POL1",
+      "count": 127831
+    },
+    {
+      "run": 1487,
+      "state": "POL2",
+      "count": 145451
+    },
+    {
+      "run": 1488,
+      "state": "BREM",
+      "count": 1158
+    },
+    {
+      "run": 1488,
+      "state": "POL1",
+      "count": 115128
+    },
+    {
+      "run": 1488,
+      "state": "POL2",
+      "count": 124694
+    },
+    {
+      "run": 1489,
+      "state": "BREM",
+      "count": 3714
+    },
+    {
+      "run": 1489,
+      "state": "POL1",
+      "count": 275549
+    },
+    {
+      "run": 1489,
+      "state": "POL2",
+      "count": 316432
+    },
+    {
+      "run": 1490,
+      "state": "BREM",
+      "count": 3988
+    },
+    {
+      "run": 1490,
+      "state": "POL1",
+      "count": 315194
+    },
+    {
+      "run": 1490,
+      "state": "POL2",
+      "count": 394952
+    },
+    {
+      "run": 1491,
+      "state": "BREM",
+      "count": 2584
+    },
+    {
+      "run": 1491,
+      "state": "POL1",
+      "count": 250300
+    },
+    {
+      "run": 1491,
+      "state": "POL2",
+      "count": 301904
+    },
+    {
+      "run": 1492,
+      "state": "BREM",
+      "count": 709
+    },
+    {
+      "run": 1492,
+      "state": "POL1",
+      "count": 114837
+    },
+    {
+      "run": 1492,
+      "state": "POL2",
+      "count": 93573
+    },
+    {
+      "run": 1493,
+      "state": "BREM",
+      "count": 5207
+    },
+    {
+      "run": 1493,
+      "state": "POL1",
+      "count": 269123
+    },
+    {
+      "run": 1493,
+      "state": "POL2",
+      "count": 324521
+    },
+    {
+      "run": 1494,
+      "state": "BREM",
+      "count": 3459
+    },
+    {
+      "run": 1494,
+      "state": "POL1",
+      "count": 195656
+    },
+    {
+      "run": 1494,
+      "state": "POL2",
+      "count": 230607
+    },
+    {
+      "run": 1496,
+      "state": "BREM",
+      "count": 3833
+    },
+    {
+      "run": 1496,
+      "state": "POL1",
+      "count": 242447
+    },
+    {
+      "run": 1496,
+      "state": "POL2",
+      "count": 286931
+    },
+    {
+      "run": 1497,
+      "state": "BREM",
+      "count": 5144
+    },
+    {
+      "run": 1497,
+      "state": "POL1",
+      "count": 227086
+    },
+    {
+      "run": 1497,
+      "state": "POL2",
+      "count": 277374
+    },
+    {
+      "run": 1498,
+      "state": "BREM",
+      "count": 4314
+    },
+    {
+      "run": 1498,
+      "state": "POL1",
+      "count": 307782
+    },
+    {
+      "run": 1498,
+      "state": "POL2",
+      "count": 358498
+    },
+    {
+      "run": 1499,
+      "state": "BREM",
+      "count": 4552
+    },
+    {
+      "run": 1499,
+      "state": "POL1",
+      "count": 421100
+    },
+    {
+      "run": 1499,
+      "state": "POL2",
+      "count": 505432
+    },
+    {
+      "run": 1500,
+      "state": "BREM",
+      "count": 2056
+    },
+    {
+      "run": 1500,
+      "state": "POL1",
+      "count": 219681
+    },
+    {
+      "run": 1500,
+      "state": "POL2",
+      "count": 278488
+    },
+    {
+      "run": 1501,
+      "state": "BREM",
+      "count": 6605
+    },
+    {
+      "run": 1501,
+      "state": "POL1",
+      "count": 324924
+    },
+    {
+      "run": 1501,
+      "state": "POL2",
+      "count": 380718
+    },
+    {
+      "run": 1502,
+      "state": "BREM",
+      "count": 3807
+    },
+    {
+      "run": 1502,
+      "state": "POL1",
+      "count": 187595
+    },
+    {
+      "run": 1502,
+      "state": "POL2",
+      "count": 215508
+    },
+    {
+      "run": 1503,
+      "state": "BREM",
+      "count": 2346
+    },
+    {
+      "run": 1503,
+      "state": "POL1",
+      "count": 120052
+    },
+    {
+      "run": 1503,
+      "state": "POL2",
+      "count": 137238
+    },
+    {
+      "run": 1504,
+      "state": "BREM",
+      "count": 4183
+    },
+    {
+      "run": 1504,
+      "state": "POL1",
+      "count": 233855
+    },
+    {
+      "run": 1504,
+      "state": "POL2",
+      "count": 280913
+    },
+    {
+      "run": 1505,
+      "state": "BREM",
+      "count": 1008
+    },
+    {
+      "run": 1505,
+      "state": "POL1",
+      "count": 56184
+    },
+    {
+      "run": 1505,
+      "state": "POL2",
+      "count": 69721
+    },
+    {
+      "run": 1506,
+      "state": "BREM",
+      "count": 3699
+    },
+    {
+      "run": 1506,
+      "state": "POL1",
+      "count": 257649
+    },
+    {
+      "run": 1506,
+      "state": "POL2",
+      "count": 289301
+    },
+    {
+      "run": 1507,
+      "state": "BREM",
+      "count": 3302
+    },
+    {
+      "run": 1507,
+      "state": "POL1",
+      "count": 239187
+    },
+    {
+      "run": 1507,
+      "state": "POL2",
+      "count": 272679
+    },
+    {
+      "run": 1508,
+      "state": "BREM",
+      "count": 4406
+    },
+    {
+      "run": 1508,
+      "state": "POL1",
+      "count": 464150
+    },
+    {
+      "run": 1508,
+      "state": "POL2",
+      "count": 512956
+    },
+    {
+      "run": 1510,
+      "state": "BREM",
+      "count": 4183
+    },
+    {
+      "run": 1510,
+      "state": "POL1",
+      "count": 310685
+    },
+    {
+      "run": 1510,
+      "state": "POL2",
+      "count": 346620
+    },
+    {
+      "run": 1511,
+      "state": "BREM",
+      "count": 2992
+    },
+    {
+      "run": 1511,
+      "state": "POL1",
+      "count": 234673
+    },
+    {
+      "run": 1511,
+      "state": "POL2",
+      "count": 275381
+    },
+    {
+      "run": 1512,
+      "state": "BREM",
+      "count": 2899
+    },
+    {
+      "run": 1512,
+      "state": "POL1",
+      "count": 220265
+    },
+    {
+      "run": 1512,
+      "state": "POL2",
+      "count": 259868
+    },
+    {
+      "run": 1513,
+      "state": "BREM",
+      "count": 2940
+    },
+    {
+      "run": 1513,
+      "state": "POL1",
+      "count": 212091
+    },
+    {
+      "run": 1513,
+      "state": "POL2",
+      "count": 263587
+    },
+    {
+      "run": 1514,
+      "state": "BREM",
+      "count": 2490
+    },
+    {
+      "run": 1514,
+      "state": "POL1",
+      "count": 241831
+    },
+    {
+      "run": 1514,
+      "state": "POL2",
+      "count": 290388
+    },
+    {
+      "run": 1515,
+      "state": "BREM",
+      "count": 2777
+    },
+    {
+      "run": 1515,
+      "state": "POL1",
+      "count": 290544
+    },
+    {
+      "run": 1515,
+      "state": "POL2",
+      "count": 336989
+    },
+    {
+      "run": 1964,
+      "state": "BREM",
+      "count": 3366
+    },
+    {
+      "run": 1964,
+      "state": "POL1",
+      "count": 394282
+    },
+    {
+      "run": 1964,
+      "state": "POL2",
+      "count": 331548
+    },
+    {
+      "run": 1965,
+      "state": "BREM",
+      "count": 4607
+    },
+    {
+      "run": 1965,
+      "state": "POL1",
+      "count": 327304
+    },
+    {
+      "run": 1965,
+      "state": "POL2",
+      "count": 429911
+    },
+    {
+      "run": 1970,
+      "state": "BREM",
+      "count": 19256
+    },
+    {
+      "run": 1970,
+      "state": "POL1",
+      "count": 361490
+    },
+    {
+      "run": 1970,
+      "state": "POL2",
+      "count": 362793
+    },
+    {
+      "run": 1973,
+      "state": "BREM",
+      "count": 7066
+    },
+    {
+      "run": 1973,
+      "state": "POL1",
+      "count": 410203
+    },
+    {
+      "run": 1973,
+      "state": "POL2",
+      "count": 432316
+    },
+    {
+      "run": 1974,
+      "state": "BREM",
+      "count": 6627
+    },
+    {
+      "run": 1974,
+      "state": "POL1",
+      "count": 402223
+    },
+    {
+      "run": 1974,
+      "state": "POL2",
+      "count": 426930
+    },
+    {
+      "run": 1975,
+      "state": "BREM",
+      "count": 4171
+    },
+    {
+      "run": 1975,
+      "state": "POL1",
+      "count": 388265
+    },
+    {
+      "run": 1975,
+      "state": "POL2",
+      "count": 416171
+    },
+    {
+      "run": 1976,
+      "state": "BREM",
+      "count": 8350
+    },
+    {
+      "run": 1976,
+      "state": "POL1",
+      "count": 568635
+    },
+    {
+      "run": 1976,
+      "state": "POL2",
+      "count": 612908
+    },
+    {
+      "run": 1978,
+      "state": "BREM",
+      "count": 2030
+    },
+    {
+      "run": 1978,
+      "state": "POL1",
+      "count": 406061
+    },
+    {
+      "run": 1978,
+      "state": "POL2",
+      "count": 438518
+    },
+    {
+      "run": 1979,
+      "state": "BREM",
+      "count": 1763
+    },
+    {
+      "run": 1979,
+      "state": "POL1",
+      "count": 402821
+    },
+    {
+      "run": 1979,
+      "state": "POL2",
+      "count": 432171
+    },
+    {
+      "run": 1983,
+      "state": "BREM",
+      "count": 752
+    },
+    {
+      "run": 1983,
+      "state": "POL1",
+      "count": 372864
+    },
+    {
+      "run": 1983,
+      "state": "POL2",
+      "count": 341699
+    },
+    {
+      "run": 1988,
+      "state": "BREM",
+      "count": 16195
+    },
+    {
+      "run": 1988,
+      "state": "POL1",
+      "count": 517326
+    },
+    {
+      "run": 1988,
+      "state": "POL2",
+      "count": 574850
+    },
+    {
+      "run": 1990,
+      "state": "BREM",
+      "count": 90781
+    },
+    {
+      "run": 1990,
+      "state": "POL1",
+      "count": 492762
+    },
+    {
+      "run": 1990,
+      "state": "POL2",
+      "count": 583206
+    },
+    {
+      "run": 1992,
+      "state": "BREM",
+      "count": 44565
+    },
+    {
+      "run": 1992,
+      "state": "POL1",
+      "count": 455097
+    },
+    {
+      "run": 1992,
+      "state": "POL2",
+      "count": 531186
+    },
+    {
+      "run": 1993,
+      "state": "BREM",
+      "count": 48226
+    },
+    {
+      "run": 1993,
+      "state": "POL1",
+      "count": 369490
+    },
+    {
+      "run": 1993,
+      "state": "POL2",
+      "count": 391585
+    },
+    {
+      "run": 1995,
+      "state": "BREM",
+      "count": 19654
+    },
+    {
+      "run": 1995,
+      "state": "POL1",
+      "count": 345102
+    },
+    {
+      "run": 1995,
+      "state": "POL2",
+      "count": 370253
+    },
+    {
+      "run": 1996,
+      "state": "BREM",
+      "count": 32789
+    },
+    {
+      "run": 1996,
+      "state": "POL1",
+      "count": 368763
+    },
+    {
+      "run": 1996,
+      "state": "POL2",
+      "count": 363835
+    },
+    {
+      "run": 1997,
+      "state": "BREM",
+      "count": 17684
+    },
+    {
+      "run": 1997,
+      "state": "POL1",
+      "count": 322726
+    },
+    {
+      "run": 1997,
+      "state": "POL2",
+      "count": 357113
+    },
+    {
+      "run": 1999,
+      "state": "BREM",
+      "count": 32201
+    },
+    {
+      "run": 1999,
+      "state": "POL1",
+      "count": 637182
+    },
+    {
+      "run": 1999,
+      "state": "POL2",
+      "count": 592907
+    },
+    {
+      "run": 2000,
+      "state": "BREM",
+      "count": 29541
+    },
+    {
+      "run": 2000,
+      "state": "POL1",
+      "count": 346832
+    },
+    {
+      "run": 2000,
+      "state": "POL2",
+      "count": 391295
+    },
+    {
+      "run": 2001,
+      "state": "BREM",
+      "count": 14090
+    },
+    {
+      "run": 2001,
+      "state": "POL1",
+      "count": 284860
+    },
+    {
+      "run": 2001,
+      "state": "POL2",
+      "count": 202397
+    },
+    {
+      "run": 2002,
+      "state": "BREM",
+      "count": 44336
+    },
+    {
+      "run": 2002,
+      "state": "POL1",
+      "count": 458241
+    },
+    {
+      "run": 2002,
+      "state": "POL2",
+      "count": 545966
+    },
+    {
+      "run": 2010,
+      "state": "BREM",
+      "count": 19748
+    },
+    {
+      "run": 2010,
+      "state": "POL1",
+      "count": 530503
+    },
+    {
+      "run": 2010,
+      "state": "POL2",
+      "count": 582204
+    },
+    {
+      "run": 2011,
+      "state": "BREM",
+      "count": 15709
+    },
+    {
+      "run": 2011,
+      "state": "POL1",
+      "count": 544292
+    },
+    {
+      "run": 2011,
+      "state": "POL2",
+      "count": 595277
+    },
+    {
+      "run": 2012,
+      "state": "BREM",
+      "count": 14733
+    },
+    {
+      "run": 2012,
+      "state": "POL1",
+      "count": 552271
+    },
+    {
+      "run": 2012,
+      "state": "POL2",
+      "count": 589281
+    },
+    {
+      "run": 2014,
+      "state": "BREM",
+      "count": 13228
+    },
+    {
+      "run": 2014,
+      "state": "POL1",
+      "count": 528394
+    },
+    {
+      "run": 2014,
+      "state": "POL2",
+      "count": 564481
+    },
+    {
+      "run": 2015,
+      "state": "BREM",
+      "count": 10025
+    },
+    {
+      "run": 2015,
+      "state": "POL1",
+      "count": 482210
+    },
+    {
+      "run": 2015,
+      "state": "POL2",
+      "count": 529800
+    },
+    {
+      "run": 2017,
+      "state": "BREM",
+      "count": 13480
+    },
+    {
+      "run": 2017,
+      "state": "POL1",
+      "count": 378091
+    },
+    {
+      "run": 2017,
+      "state": "POL2",
+      "count": 412317
+    },
+    {
+      "run": 2018,
+      "state": "BREM",
+      "count": 16557
+    },
+    {
+      "run": 2018,
+      "state": "POL1",
+      "count": 549928
+    },
+    {
+      "run": 2018,
+      "state": "POL2",
+      "count": 597178
+    },
+    {
+      "run": 2021,
+      "state": "BREM",
+      "count": 3893
+    },
+    {
+      "run": 2021,
+      "state": "POL1",
+      "count": 176782
+    },
+    {
+      "run": 2021,
+      "state": "POL2",
+      "count": 191601
+    },
+    {
+      "run": 2022,
+      "state": "BREM",
+      "count": 39412
+    },
+    {
+      "run": 2022,
+      "state": "POL1",
+      "count": 502003
+    },
+    {
+      "run": 2022,
+      "state": "POL2",
+      "count": 560684
+    },
+    {
+      "run": 2023,
+      "state": "BREM",
+      "count": 19591
+    },
+    {
+      "run": 2023,
+      "state": "POL1",
+      "count": 325495
+    },
+    {
+      "run": 2023,
+      "state": "POL2",
+      "count": 411989
+    },
+    {
+      "run": 2025,
+      "state": "BREM",
+      "count": 17717
+    },
+    {
+      "run": 2025,
+      "state": "POL1",
+      "count": 384493
+    },
+    {
+      "run": 2025,
+      "state": "POL2",
+      "count": 418826
+    },
+    {
+      "run": 2026,
+      "state": "BREM",
+      "count": 18017
+    },
+    {
+      "run": 2026,
+      "state": "POL1",
+      "count": 376736
+    },
+    {
+      "run": 2026,
+      "state": "POL2",
+      "count": 417040
+    },
+    {
+      "run": 2028,
+      "state": "BREM",
+      "count": 14484
+    },
+    {
+      "run": 2028,
+      "state": "POL1",
+      "count": 309787
+    },
+    {
+      "run": 2028,
+      "state": "POL2",
+      "count": 330746
+    },
+    {
+      "run": 2029,
+      "state": "BREM",
+      "count": 17885
+    },
+    {
+      "run": 2029,
+      "state": "POL1",
+      "count": 581221
+    },
+    {
+      "run": 2029,
+      "state": "POL2",
+      "count": 537244
+    },
+    {
+      "run": 2032,
+      "state": "BREM",
+      "count": 9898
+    },
+    {
+      "run": 2032,
+      "state": "POL1",
+      "count": 388113
+    },
+    {
+      "run": 2032,
+      "state": "POL2",
+      "count": 420095
+    },
+    {
+      "run": 2034,
+      "state": "BREM",
+      "count": 13140
+    },
+    {
+      "run": 2034,
+      "state": "POL1",
+      "count": 517331
+    },
+    {
+      "run": 2034,
+      "state": "POL2",
+      "count": 539919
+    },
+    {
+      "run": 2037,
+      "state": "BREM",
+      "count": 2591
+    },
+    {
+      "run": 2037,
+      "state": "POL1",
+      "count": 327203
+    },
+    {
+      "run": 2037,
+      "state": "POL2",
+      "count": 406038
+    },
+    {
+      "run": 2039,
+      "state": "BREM",
+      "count": 2484
+    },
+    {
+      "run": 2039,
+      "state": "POL1",
+      "count": 377110
+    },
+    {
+      "run": 2039,
+      "state": "POL2",
+      "count": 396558
+    },
+    {
+      "run": 2040,
+      "state": "BREM",
+      "count": 2906
+    },
+    {
+      "run": 2040,
+      "state": "POL1",
+      "count": 546316
+    },
+    {
+      "run": 2040,
+      "state": "POL2",
+      "count": 494300
+    },
+    {
+      "run": 2041,
+      "state": "BREM",
+      "count": 3567
+    },
+    {
+      "run": 2041,
+      "state": "POL1",
+      "count": 353966
+    },
+    {
+      "run": 2041,
+      "state": "POL2",
+      "count": 388386
+    },
+    {
+      "run": 2042,
+      "state": "BREM",
+      "count": 5152
+    },
+    {
+      "run": 2042,
+      "state": "POL1",
+      "count": 513635
+    },
+    {
+      "run": 2042,
+      "state": "POL2",
+      "count": 554631
+    },
+    {
+      "run": 2043,
+      "state": "BREM",
+      "count": 12515
+    },
+    {
+      "run": 2043,
+      "state": "POL1",
+      "count": 388672
+    },
+    {
+      "run": 2043,
+      "state": "POL2",
+      "count": 406682
+    },
+    {
+      "run": 2047,
+      "state": "BREM",
+      "count": 12853
+    },
+    {
+      "run": 2047,
+      "state": "POL1",
+      "count": 377114
+    },
+    {
+      "run": 2047,
+      "state": "POL2",
+      "count": 393061
+    },
+    {
+      "run": 2048,
+      "state": "BREM",
+      "count": 9673
+    },
+    {
+      "run": 2048,
+      "state": "POL1",
+      "count": 326213
+    },
+    {
+      "run": 2048,
+      "state": "POL2",
+      "count": 339530
+    },
+    {
+      "run": 2049,
+      "state": "BREM",
+      "count": 9628
+    },
+    {
+      "run": 2049,
+      "state": "POL1",
+      "count": 274039
+    },
+    {
+      "run": 2049,
+      "state": "POL2",
+      "count": 283900
+    },
+    {
+      "run": 2050,
+      "state": "BREM",
+      "count": 22744
+    },
+    {
+      "run": 2050,
+      "state": "POL1",
+      "count": 399318
+    },
+    {
+      "run": 2050,
+      "state": "POL2",
+      "count": 456914
+    },
+    {
+      "run": 2051,
+      "state": "BREM",
+      "count": 27379
+    },
+    {
+      "run": 2051,
+      "state": "POL1",
+      "count": 614579
+    },
+    {
+      "run": 2051,
+      "state": "POL2",
+      "count": 629363
+    },
+    {
+      "run": 2052,
+      "state": "BREM",
+      "count": 10801
+    },
+    {
+      "run": 2052,
+      "state": "POL1",
+      "count": 378920
+    },
+    {
+      "run": 2052,
+      "state": "POL2",
+      "count": 421754
+    },
+    {
+      "run": 2054,
+      "state": "BREM",
+      "count": 23658
+    },
+    {
+      "run": 2054,
+      "state": "POL1",
+      "count": 557867
+    },
+    {
+      "run": 2054,
+      "state": "POL2",
+      "count": 572860
+    },
+    {
+      "run": 2055,
+      "state": "BREM",
+      "count": 14604
+    },
+    {
+      "run": 2055,
+      "state": "POL1",
+      "count": 376615
+    },
+    {
+      "run": 2055,
+      "state": "POL2",
+      "count": 387063
+    },
+    {
+      "run": 2057,
+      "state": "BREM",
+      "count": 3273
+    },
+    {
+      "run": 2057,
+      "state": "POL1",
+      "count": 366506
+    },
+    {
+      "run": 2057,
+      "state": "POL2",
+      "count": 397082
+    },
+    {
+      "run": 2058,
+      "state": "BREM",
+      "count": 2927
+    },
+    {
+      "run": 2058,
+      "state": "POL1",
+      "count": 361247
+    },
+    {
+      "run": 2058,
+      "state": "POL2",
+      "count": 383582
+    },
+    {
+      "run": 2059,
+      "state": "BREM",
+      "count": 2095
+    },
+    {
+      "run": 2059,
+      "state": "POL1",
+      "count": 373444
+    },
+    {
+      "run": 2059,
+      "state": "POL2",
+      "count": 397130
+    },
+    {
+      "run": 2061,
+      "state": "BREM",
+      "count": 570
+    },
+    {
+      "run": 2061,
+      "state": "POL1",
+      "count": 488348
+    },
+    {
+      "run": 2061,
+      "state": "POL2",
+      "count": 557687
+    },
+    {
+      "run": 2063,
+      "state": "BREM",
+      "count": 326
+    },
+    {
+      "run": 2063,
+      "state": "POL1",
+      "count": 331122
+    },
+    {
+      "run": 2063,
+      "state": "POL2",
+      "count": 364697
+    },
+    {
+      "run": 2064,
+      "state": "BREM",
+      "count": 1693
+    },
+    {
+      "run": 2064,
+      "state": "POL1",
+      "count": 353846
+    },
+    {
+      "run": 2064,
+      "state": "POL2",
+      "count": 392981
+    },
+    {
+      "run": 2066,
+      "state": "BREM",
+      "count": 1727
+    },
+    {
+      "run": 2066,
+      "state": "POL1",
+      "count": 401440
+    },
+    {
+      "run": 2066,
+      "state": "POL2",
+      "count": 465509
+    },
+    {
+      "run": 2067,
+      "state": "BREM",
+      "count": 646
+    },
+    {
+      "run": 2067,
+      "state": "POL1",
+      "count": 357310
+    },
+    {
+      "run": 2067,
+      "state": "POL2",
+      "count": 377952
+    },
+    {
+      "run": 2070,
+      "state": "BREM",
+      "count": 1040
+    },
+    {
+      "run": 2070,
+      "state": "POL1",
+      "count": 487104
+    },
+    {
+      "run": 2070,
+      "state": "POL2",
+      "count": 495706
+    },
+    {
+      "run": 2071,
+      "state": "BREM",
+      "count": 232
+    },
+    {
+      "run": 2071,
+      "state": "POL1",
+      "count": 318455
+    },
+    {
+      "run": 2071,
+      "state": "POL2",
+      "count": 167467
+    },
+    {
+      "run": 2072,
+      "state": "BREM",
+      "count": 24046
+    },
+    {
+      "run": 2072,
+      "state": "POL1",
+      "count": 565719
+    },
+    {
+      "run": 2072,
+      "state": "POL2",
+      "count": 614090
+    },
+    {
+      "run": 2074,
+      "state": "BREM",
+      "count": 11904
+    },
+    {
+      "run": 2074,
+      "state": "POL1",
+      "count": 564173
+    },
+    {
+      "run": 2074,
+      "state": "POL2",
+      "count": 495298
+    },
+    {
+      "run": 2075,
+      "state": "BREM",
+      "count": 13205
+    },
+    {
+      "run": 2075,
+      "state": "POL1",
+      "count": 569326
+    },
+    {
+      "run": 2075,
+      "state": "POL2",
+      "count": 522683
+    },
+    {
+      "run": 2076,
+      "state": "BREM",
+      "count": 17716
+    },
+    {
+      "run": 2076,
+      "state": "POL1",
+      "count": 505261
+    },
+    {
+      "run": 2076,
+      "state": "POL2",
+      "count": 555468
+    },
+    {
+      "run": 2077,
+      "state": "BREM",
+      "count": 5692
+    },
+    {
+      "run": 2077,
+      "state": "POL1",
+      "count": 355028
+    },
+    {
+      "run": 2077,
+      "state": "POL2",
+      "count": 239464
+    },
+    {
+      "run": 2080,
+      "state": "BREM",
+      "count": 5755
+    },
+    {
+      "run": 2080,
+      "state": "POL1",
+      "count": 453151
+    },
+    {
+      "run": 2080,
+      "state": "POL2",
+      "count": 489960
+    },
+    {
+      "run": 2081,
+      "state": "BREM",
+      "count": 5402
+    },
+    {
+      "run": 2081,
+      "state": "POL1",
+      "count": 456407
+    },
+    {
+      "run": 2081,
+      "state": "POL2",
+      "count": 500750
+    },
+    {
+      "run": 2083,
+      "state": "BREM",
+      "count": 5333
+    },
+    {
+      "run": 2083,
+      "state": "POL1",
+      "count": 461786
+    },
+    {
+      "run": 2083,
+      "state": "POL2",
+      "count": 484239
+    },
+    {
+      "run": 2085,
+      "state": "BREM",
+      "count": 4709
+    },
+    {
+      "run": 2085,
+      "state": "POL1",
+      "count": 332989
+    },
+    {
+      "run": 2085,
+      "state": "POL2",
+      "count": 226832
+    },
+    {
+      "run": 2087,
+      "state": "BREM",
+      "count": 28087
+    },
+    {
+      "run": 2087,
+      "state": "POL1",
+      "count": 458195
+    },
+    {
+      "run": 2087,
+      "state": "POL2",
+      "count": 495832
+    },
+    {
+      "run": 2088,
+      "state": "BREM",
+      "count": 23991
+    },
+    {
+      "run": 2088,
+      "state": "POL1",
+      "count": 608371
+    },
+    {
+      "run": 2088,
+      "state": "POL2",
+      "count": 480483
+    },
+    {
+      "run": 2089,
+      "state": "BREM",
+      "count": 15280
+    },
+    {
+      "run": 2089,
+      "state": "POL1",
+      "count": 448533
+    },
+    {
+      "run": 2089,
+      "state": "POL2",
+      "count": 481563
+    },
+    {
+      "run": 2090,
+      "state": "BREM",
+      "count": 17720
+    },
+    {
+      "run": 2090,
+      "state": "POL1",
+      "count": 442813
+    },
+    {
+      "run": 2090,
+      "state": "POL2",
+      "count": 474005
+    },
+    {
+      "run": 2091,
+      "state": "BREM",
+      "count": 13511
+    },
+    {
+      "run": 2091,
+      "state": "POL1",
+      "count": 442005
+    },
+    {
+      "run": 2091,
+      "state": "POL2",
+      "count": 466515
+    },
+    {
+      "run": 2092,
+      "state": "BREM",
+      "count": 8105
+    },
+    {
+      "run": 2092,
+      "state": "POL1",
+      "count": 423819
+    },
+    {
+      "run": 2092,
+      "state": "POL2",
+      "count": 440609
+    },
+    {
+      "run": 2096,
+      "state": "BREM",
+      "count": 17273
+    },
+    {
+      "run": 2096,
+      "state": "POL1",
+      "count": 508571
+    },
+    {
+      "run": 2096,
+      "state": "POL2",
+      "count": 511532
+    },
+    {
+      "run": 2097,
+      "state": "BREM",
+      "count": 11565
+    },
+    {
+      "run": 2097,
+      "state": "POL1",
+      "count": 463054
+    },
+    {
+      "run": 2097,
+      "state": "POL2",
+      "count": 477534
+    },
+    {
+      "run": 2098,
+      "state": "BREM",
+      "count": 16157
+    },
+    {
+      "run": 2098,
+      "state": "POL1",
+      "count": 553654
+    },
+    {
+      "run": 2098,
+      "state": "POL2",
+      "count": 442444
+    },
+    {
+      "run": 2099,
+      "state": "BREM",
+      "count": 27128
+    },
+    {
+      "run": 2099,
+      "state": "POL1",
+      "count": 509548
+    },
+    {
+      "run": 2099,
+      "state": "POL2",
+      "count": 591160
+    },
+    {
+      "run": 2101,
+      "state": "BREM",
+      "count": 23208
+    },
+    {
+      "run": 2101,
+      "state": "POL1",
+      "count": 407498
+    },
+    {
+      "run": 2101,
+      "state": "POL2",
+      "count": 384625
+    },
+    {
+      "run": 2103,
+      "state": "BREM",
+      "count": 18698
+    },
+    {
+      "run": 2103,
+      "state": "POL1",
+      "count": 440858
+    },
+    {
+      "run": 2103,
+      "state": "POL2",
+      "count": 438204
+    },
+    {
+      "run": 2110,
+      "state": "BREM",
+      "count": 16629
+    },
+    {
+      "run": 2110,
+      "state": "POL1",
+      "count": 433473
+    },
+    {
+      "run": 2110,
+      "state": "POL2",
+      "count": 477584
+    },
+    {
+      "run": 2112,
+      "state": "BREM",
+      "count": 15997
+    },
+    {
+      "run": 2112,
+      "state": "POL1",
+      "count": 392909
+    },
+    {
+      "run": 2112,
+      "state": "POL2",
+      "count": 413031
+    },
+    {
+      "run": 2114,
+      "state": "BREM",
+      "count": 16766
+    },
+    {
+      "run": 2114,
+      "state": "POL1",
+      "count": 395749
+    },
+    {
+      "run": 2114,
+      "state": "POL2",
+      "count": 433977
+    },
+    {
+      "run": 2115,
+      "state": "BREM",
+      "count": 14712
+    },
+    {
+      "run": 2115,
+      "state": "POL1",
+      "count": 401595
+    },
+    {
+      "run": 2115,
+      "state": "POL2",
+      "count": 447293
+    },
+    {
+      "run": 2116,
+      "state": "BREM",
+      "count": 6781
+    },
+    {
+      "run": 2116,
+      "state": "POL1",
+      "count": 413553
+    },
+    {
+      "run": 2116,
+      "state": "POL2",
+      "count": 445017
+    },
+    {
+      "run": 2121,
+      "state": "BREM",
+      "count": 8225
+    },
+    {
+      "run": 2121,
+      "state": "POL1",
+      "count": 514424
+    },
+    {
+      "run": 2121,
+      "state": "POL2",
+      "count": 466199
+    },
+    {
+      "run": 2122,
+      "state": "BREM",
+      "count": 10863
+    },
+    {
+      "run": 2122,
+      "state": "POL1",
+      "count": 421220
+    },
+    {
+      "run": 2122,
+      "state": "POL2",
+      "count": 450873
+    },
+    {
+      "run": 2123,
+      "state": "BREM",
+      "count": 10835
+    },
+    {
+      "run": 2123,
+      "state": "POL1",
+      "count": 393516
+    },
+    {
+      "run": 2123,
+      "state": "POL2",
+      "count": 418746
+    },
+    {
+      "run": 2125,
+      "state": "BREM",
+      "count": 15652
+    },
+    {
+      "run": 2125,
+      "state": "POL1",
+      "count": 376151
+    },
+    {
+      "run": 2125,
+      "state": "POL2",
+      "count": 420523
+    },
+    {
+      "run": 2126,
+      "state": "BREM",
+      "count": 21061
+    },
+    {
+      "run": 2126,
+      "state": "POL1",
+      "count": 502630
+    },
+    {
+      "run": 2126,
+      "state": "POL2",
+      "count": 518711
+    },
+    {
+      "run": 2128,
+      "state": "BREM",
+      "count": 17695
+    },
+    {
+      "run": 2128,
+      "state": "POL1",
+      "count": 664387
+    },
+    {
+      "run": 2128,
+      "state": "POL2",
+      "count": 714364
+    },
+    {
+      "run": 2132,
+      "state": "BREM",
+      "count": 5066
+    },
+    {
+      "run": 2132,
+      "state": "POL1",
+      "count": 174559
+    },
+    {
+      "run": 2132,
+      "state": "POL2",
+      "count": 153815
+    },
+    {
+      "run": 2133,
+      "state": "BREM",
+      "count": 18680
+    },
+    {
+      "run": 2133,
+      "state": "POL1",
+      "count": 276330
+    },
+    {
+      "run": 2133,
+      "state": "POL2",
+      "count": 317106
+    },
+    {
+      "run": 2135,
+      "state": "BREM",
+      "count": 24357
+    },
+    {
+      "run": 2135,
+      "state": "POL1",
+      "count": 381146
+    },
+    {
+      "run": 2135,
+      "state": "POL2",
+      "count": 419866
+    },
+    {
+      "run": 2136,
+      "state": "BREM",
+      "count": 17483
+    },
+    {
+      "run": 2136,
+      "state": "POL1",
+      "count": 328306
+    },
+    {
+      "run": 2136,
+      "state": "POL2",
+      "count": 355923
+    },
+    {
+      "run": 2139,
+      "state": "BREM",
+      "count": 26283
+    },
+    {
+      "run": 2139,
+      "state": "POL1",
+      "count": 400192
+    },
+    {
+      "run": 2139,
+      "state": "POL2",
+      "count": 436895
+    },
+    {
+      "run": 2141,
+      "state": "BREM",
+      "count": 23179
+    },
+    {
+      "run": 2141,
+      "state": "POL1",
+      "count": 378287
+    },
+    {
+      "run": 2141,
+      "state": "POL2",
+      "count": 392506
+    },
+    {
+      "run": 2142,
+      "state": "BREM",
+      "count": 4995
+    },
+    {
+      "run": 2142,
+      "state": "POL1",
+      "count": 155847
+    },
+    {
+      "run": 2142,
+      "state": "POL2",
+      "count": 88306
+    },
+    {
+      "run": 2143,
+      "state": "BREM",
+      "count": 18026
+    },
+    {
+      "run": 2143,
+      "state": "POL1",
+      "count": 343827
+    },
+    {
+      "run": 2143,
+      "state": "POL2",
+      "count": 381068
+    },
+    {
+      "run": 2146,
+      "state": "BREM",
+      "count": 12769
+    },
+    {
+      "run": 2146,
+      "state": "POL1",
+      "count": 273736
+    },
+    {
+      "run": 2146,
+      "state": "POL2",
+      "count": 292348
+    },
+    {
+      "run": 2147,
+      "state": "BREM",
+      "count": 8206
+    },
+    {
+      "run": 2147,
+      "state": "POL1",
+      "count": 245703
+    },
+    {
+      "run": 2147,
+      "state": "POL2",
+      "count": 225054
+    },
+    {
+      "run": 2150,
+      "state": "BREM",
+      "count": 22062
+    },
+    {
+      "run": 2150,
+      "state": "POL1",
+      "count": 357795
+    },
+    {
+      "run": 2150,
+      "state": "POL2",
+      "count": 390591
+    },
+    {
+      "run": 2151,
+      "state": "BREM",
+      "count": 15286
+    },
+    {
+      "run": 2151,
+      "state": "POL1",
+      "count": 287027
+    },
+    {
+      "run": 2151,
+      "state": "POL2",
+      "count": 325168
+    },
+    {
+      "run": 2152,
+      "state": "BREM",
+      "count": 15260
+    },
+    {
+      "run": 2152,
+      "state": "POL1",
+      "count": 276364
+    },
+    {
+      "run": 2152,
+      "state": "POL2",
+      "count": 306401
+    },
+    {
+      "run": 2153,
+      "state": "BREM",
+      "count": 13983
+    },
+    {
+      "run": 2153,
+      "state": "POL1",
+      "count": 302874
+    },
+    {
+      "run": 2153,
+      "state": "POL2",
+      "count": 325590
+    },
+    {
+      "run": 2154,
+      "state": "BREM",
+      "count": 13010
+    },
+    {
+      "run": 2154,
+      "state": "POL1",
+      "count": 292448
+    },
+    {
+      "run": 2154,
+      "state": "POL2",
+      "count": 310106
+    },
+    {
+      "run": 2155,
+      "state": "BREM",
+      "count": 14713
+    },
+    {
+      "run": 2155,
+      "state": "POL1",
+      "count": 314794
+    },
+    {
+      "run": 2155,
+      "state": "POL2",
+      "count": 278546
+    },
+    {
+      "run": 2156,
+      "state": "BREM",
+      "count": 14372
+    },
+    {
+      "run": 2156,
+      "state": "POL1",
+      "count": 371653
+    },
+    {
+      "run": 2156,
+      "state": "POL2",
+      "count": 354394
+    }
+  ]
+}

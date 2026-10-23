@@ -1207,10 +1207,10 @@ def _write_calibrated_flux_root_atomic(
         temporary.unlink(missing_ok=True)
 
 
-def _h80_input_identity(directory: Path) -> list[tuple[str, int, int]]:
+def _h80_input_identity(directory: Path) -> list[tuple[str, int, int, str]]:
     """Record the recursive file inventory consumed by both h80 scans."""
     return [
-        (str(path.resolve()), path.stat().st_size, path.stat().st_mtime_ns)
+        (str(path.resolve()), path.stat().st_size, path.stat().st_mtime_ns, sha256_file(path))
         for path in sorted(directory.rglob("*.root"))
         if path.is_file()
     ]
@@ -1704,14 +1704,19 @@ def parse_args() -> argparse.Namespace:
         help="maximum beam-energy samples retained per run/strip",
     )
     parser.add_argument("--binning", action="append", default=[])
+    parser.add_argument("--cache-root", type=Path, help="content-addressed ROOT+QA cache")
+    parser.add_argument("--cache-scope", choices=("production", "diagnostic"), default="production")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
+        if args.cache_root is not None:
+            from calibration.calibration_cache import run_cached_calibration
+            return run_cached_calibration(args, run, driver=Path(__file__))
         return run(args)
-    except (ManifestError, StripEnergyFluxError, OSError, RuntimeError) as exc:
+    except (ManifestError, StripEnergyFluxError, OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

@@ -12,6 +12,9 @@ __pycache__/
 *.egg-info/
 .vscode/
 *cache*
+# Calibration cache implementation and regressions are source, not runtime cache.
+!/06_calibration/calibration_cache.py
+!/06_calibration/tests/test_calibration_cache.py
 
 .superpowers/
 

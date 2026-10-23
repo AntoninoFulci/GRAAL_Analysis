@@ -53,6 +53,14 @@ def _valid_preflight_tree(tmp_path: Path):
         _touch(path)
     from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
     (tmp_path / "config/run_quality_exclusions.json").write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
+    import json
+    from calibration.calibration_qa import sha256_file
+    from calibration.run_manifest import RunRecord, write_manifest
+    write_manifest([RunRecord(1, 'fixture_uv', 'P', 'UV', 'P_UV', 'manual', 'fixture_uv/run1.root')], paths.manifest)
+    references = {name: dict(root='checkout', path=str(path.relative_to(tmp_path)), sha256=sha256_file(path))
+                  for name, path in {'run_catalog': paths.manifest, 'run_quality': paths.quality_path, 'raw_flux': paths.raw_flux}.items()}
+    (tmp_path / 'config/common_inputs.json').write_text(json.dumps(dict(schema_version=1, inputs=references,
+        bundles=dict(calibration=dict(root='cache', path='06_calibration', schema_version=1), inclusive_counts={}))))
     for profile in ("uv", "vis"):
         root = paths.preanalysis_dir / f"pre_analisi_1998_{profile}.root"
         root.parent.mkdir(parents=True, exist_ok=True)
@@ -263,7 +271,9 @@ def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     assert sum(stage.name.endswith(":extract") for stage in stages) == 2
     calibration = stages[0].argv
     assert "--output" not in calibration
-    assert calibration[-2:] == ("--output-dir", str(paths.output_root / "common"))
+    assert calibration[calibration.index("--output-dir") + 1] == str(paths.output_root / "common")
+    assert calibration[calibration.index("--cache-root") + 1] == str(paths.artifact_root / "06_calibration")
+    assert calibration[calibration.index("--cache-scope") + 1] == "diagnostic"
     assert calibration[calibration.index("--target") + 1] == "P"
     assert _stage(stages, "uv:extract").argv[-2:] == (
         "--bootstrap-replicas",
@@ -945,3 +955,37 @@ def test_production_write_summary_names_actual_cache(tmp_path, capsys):
     text = capsys.readouterr().out
     assert 'intermedi persistenti in results/_cache/' in text
     assert 'intermedi persistenti in data/' not in text
+
+
+def test_preflight_rejects_changed_common_identity(tmp_path):
+    config, paths = _valid_preflight_tree(tmp_path)
+    paths.raw_flux.write_bytes(b'new raw flux')
+    with pytest.raises(models.PipelineError, match='common input identity mismatch'):
+        workflow_paths.preflight(config, paths, import_module=_imports, which=lambda _: 'root',
+                                 manifest_validator=lambda _: ())
+
+
+def test_configured_policy_is_exact_extraction_and_provenance_input(tmp_path):
+    from dataclasses import replace
+    from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
+    config = workflow_paths.mode_config('production', tmp_path)
+    policy = tmp_path / 'explicit-policy.json'
+    policy.write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
+    locations = replace(workflow_paths.build_paths(config), run_quality=policy)
+    stages = planning.build_pipeline_plan(config, locations, models.PreflightResult('root'))
+    for stage in models.flatten_stages(stages):
+        if stage.kind == 'extract':
+            assert stage.argv[stage.argv.index('--run-quality') + 1] == str(policy)
+    assert policy in execution._source_files(locations, '08_observable_extraction')
+
+
+def test_common_cache_reference_uses_test_campaign_root_during_planning(tmp_path):
+    import json
+    config, original = _valid_preflight_tree(tmp_path)
+    common_path = tmp_path / 'config/common_inputs.json'
+    common = json.loads(common_path.read_text())
+    common['inputs']['raw_flux'].update(root='cache', path='raw/flux.root')
+    common_path.write_text(json.dumps(common))
+    planned = workflow_paths.build_paths(config)
+    assert planned.raw_flux == original.output_root / 'artifacts/raw/flux.root'
+    assert not planned.raw_flux.is_relative_to(tmp_path / 'results')

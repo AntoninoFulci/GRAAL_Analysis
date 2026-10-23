@@ -125,7 +125,7 @@ def _source_files(paths: PipelinePaths, component: str) -> tuple[Path, ...]:
     files = tuple(path for package in ("graal_workflow", "graal_common", packages[component])
                   for path in installed_package_sources(package))
     if component == "08_observable_extraction":
-        files += (paths.repo_root / "config/run_quality_exclusions.json",
+        files += (paths.quality_path,
                   *installed_package_sources("calibration"))
     if component == "03_mc_simulation":
         native = paths.repo_root / "03_mc_simulation/generators"
@@ -140,6 +140,9 @@ def _stage_sources(paths: PipelinePaths, stages: PipelinePlan) -> tuple[Path, ..
     """Record installed modules and explicit checkout drivers actually dispatched."""
     sources = set(installed_package_sources("graal_workflow"))
     sources.update(installed_package_sources("graal_common"))
+    common = paths.repo_root / "config/common_inputs.json"
+    if common.is_file():
+        sources.add(common)
     driver_packages = {"build_strip_energy_flux.py": ("calibration",),
                        "beam_asymmetry.py": ("observable_extraction", "calibration"),
                        "plot_campaign.py": ("plots", "observable_extraction", "reconstruction")}
@@ -163,7 +166,7 @@ def _stage_sources(paths: PipelinePaths, stages: PipelinePlan) -> tuple[Path, ..
                 for package in driver_packages.get(Path(arg).name, ()):
                     sources.update(installed_package_sources(package))
                 if Path(arg).name in {"build_strip_energy_flux.py", "beam_asymmetry.py"}:
-                    sources.add(paths.repo_root / "config/run_quality_exclusions.json")
+                    sources.add(paths.quality_path)
             elif ".C(" in arg:
                 macro = Path(arg.split(".C(", 1)[0] + ".C")
                 sources.add(macro)
@@ -190,7 +193,9 @@ def _write_campaign_artifacts(paths: PipelinePaths, outcomes: list[dict], source
     target.write_text(
         json.dumps({"source_revision": _revision(paths.repo_root), "preanalysis": preanalysis,
                     "source_files": sources,
-                    "run_quality": load_run_quality(paths.repo_root / "config/run_quality_exclusions.json"),
+                    "run_quality": load_run_quality(paths.quality_path),
+                    "calibration": (json.loads((paths.calibrated_flux.parent / "calibration_reuse.json").read_text())
+                                    if (paths.calibrated_flux.parent / "calibration_reuse.json").is_file() else None),
                     "cache": outcomes}, indent=2) + "\n",
         encoding="utf-8",
     )

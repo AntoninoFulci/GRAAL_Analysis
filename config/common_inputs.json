@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "run_catalog": {
+      "root": "checkout",
+      "path": "config/run_manifest.csv",
+      "sha256": "64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160"
+    },
+    "run_quality": {
+      "root": "checkout",
+      "path": "config/run_quality_exclusions.json",
+      "sha256": "52533f31d2ef0fb946ff60947712e516ecc94b8a98091a2ac51bcfbcf61ccc35"
+    },
+    "raw_flux": {
+      "root": "checkout",
+      "path": "data/00_external/flux.root",
+      "sha256": "bf1f6765438ad0ce0ccfb4b46ffaf8d0b31e15672eed635576a860366320db52"
+    }
+  },
+  "bundles": {
+    "calibration": {
+      "root": "cache",
+      "path": "06_calibration",
+      "schema_version": 1
+    },
+    "inclusive_counts": {
+      "local_1998uv_1999vis": {
+        "root": "checkout",
+        "path": "config/inclusive_counts_local_1998uv_1999vis.json",
+        "sha256": "2f63ddc071de3fafbb552277c1a93a88465a90bedebcc33c5f2f0a0e4593980b",
+        "diagnostic_only": true
+      }
+    }
+  }
+}

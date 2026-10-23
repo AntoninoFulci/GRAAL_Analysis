@@ -294,3 +294,29 @@ simulazione GEANT4, accettazione dei flussi ricostruiti o certificazione dell'in
 modello teorico. Questi restano esplicitamente aperti nella wiki, con fonti e stato.
 Il piano documenta la rimozione storica richiesta; i vecchi piani operativi non
 rimangono nel checkout come direttive concorrenti.
+
+## Task 6a: Config comuni, calibrazione riutilizzabile e build root (addendum utente)
+
+**Owner:** worker `common_configuration`; Git, review indipendente e commit
+all'integratore. Task inserito dopo6 e prima della documentazione/verifica finale.
+**Spec:** addendum Task6a nella specifica corrente; brief esecutivo in
+`results_test/repository-refactor-20261023/execution/task-6a-brief.md`.
+
+**Files:** `config/common_inputs.json`, bundle conteggi locale esplicito,
+`06_calibration/{common_inputs,calibration_cache}.py`, produttori Stage06/07,
+consumer `graal_workflow`, test pertinenti, default viewer GEANT4.
+**Interfaces:** `load_common_inputs(checkout, path=None, cache=None, verify=True)`;
+`run_cached_calibration(args, builder, driver=...)`; existing
+`load_cached_counts(path, expected_paths=None, checkout=None, require_content=False)`.
+Gruppi espliciti e `Stage.seed_key` restano invariati.
+
+- [x] Tracciare produttori/validator e congelare SHA dei cinque config attivi.
+- [x] Implementare riferimenti comuni portabili, validazione e protezione catalogo.
+- [x] Implementare cache content-bound ROOT+QA, lock/rollback, ricevuta per campagna,
+  separazione diagnostica e controlli sorgenti/input durante pubblicazione.
+- [x] Esporre conteggi inclusivi esistenti senza rescan eventi; coorte e hash obbligatori
+  per bundle comuni, nessuna adozione scientifica implicita.
+- [x] Redirect default viewer sotto `results_test/build`.
+- [x] Completare prove native ROOT, riuso/invalidation/relocation/tampering/rollback,
+  policy/config immutati e wheel da cwd esterno. Log nella campagna Task6a.
+- [ ] Congelare sorgenti, review indipendente e commit circoscritto dell'integratore.

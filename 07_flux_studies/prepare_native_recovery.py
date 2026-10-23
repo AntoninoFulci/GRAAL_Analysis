@@ -48,29 +48,46 @@ def main(argv=None):
     parser.add_argument('--h80-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--seed', type=int, default=142)
+    parser.add_argument('--counts-cache', type=Path, help='reuse validated inclusive counts without rescanning h80 entries')
+    parser.add_argument('--common-inputs', type=Path)
+    parser.add_argument('--count-bundle')
+    parser.add_argument('--repo-root', type=Path)
+    parser.add_argument('--run-quality', type=Path)
     args = parser.parse_args(argv)
+    if args.common_inputs is not None:
+        from calibration.common_inputs import load_common_inputs, common_counts_path
+        if args.repo_root is None or not args.count_bundle or args.counts_cache is not None:
+            parser.error('--common-inputs requires --repo-root, --count-bundle and no --counts-cache')
+        common = load_common_inputs(args.repo_root, path=args.common_inputs)
+        args.counts_cache = common_counts_path(common, args.count_bundle)
+        if args.run_quality is None:
+            args.run_quality = common['inputs']['run_quality']
+    elif args.count_bundle is not None:
+        parser.error('--count-bundle requires --common-inputs')
+    if args.run_quality is None:
+        args.run_quality = DEFAULT_RUN_QUALITY_PATH
     manifest = validate_manifest(args.manifest)
     periods = sorted({r.source_period for r in manifest if r.target == 'P'})
     paths = [args.h80_dir / f'pre_analisi_{period}.root' for period in periods]
     absent = [str(p) for p in paths if not p.is_file()]
     if absent:
         parser.error(f'complete proton campaign is missing h80 files: {absent}')
-    inputs = [args.manifest, args.raw_flux, args.calibrated_flux, DEFAULT_RUN_QUALITY_PATH, *paths]
+    inputs = [args.manifest, args.raw_flux, args.calibrated_flux, args.run_quality, *paths]
+    if args.counts_cache is not None:
+        inputs.append(args.counts_cache)
     print(f'Preparing {len(paths)} proton periods; verifying full input hashes...', flush=True)
     with publish_output(args.output_dir, inputs) as directory:
-        counts, sources = {}, []
-        for path in paths:
-            print(f'Counting all h80 entries: {path.name}', flush=True)
-            local, provenance = count_h80([path])
-            if counts.keys() & local.keys() or {s['uuid'] for s in sources} & {s['uuid'] for s in provenance}:
-                raise ValueError(f'duplicate run/state coverage or h80 identity: {path}')
-            counts.update(local)
-            sources.extend(provenance)
+        if args.counts_cache is not None:
+            from flux_studies.study_native_recovery import load_cached_counts
+            counts, sources = load_cached_counts(args.counts_cache, expected_paths=paths,
+                checkout=args.repo_root, require_content=True)
+        else:
+            counts, sources = count_h80(paths)
         write_json(directory / 'h80_counts.json', dict(sources=sources,
                    counts=[dict(run=r, state=s, count=n) for (r, s), n in sorted(counts.items())]))
-        data = load_calibrated_dataset(args.manifest, args.calibrated_flux, counts, representation='native_strip')
+        data = load_calibrated_dataset(args.manifest, args.calibrated_flux, counts, representation='native_strip', run_quality_path=args.run_quality)
         evidence_sources = {str(p.resolve()): sha256_file(p) for p in
-                            (args.manifest, args.calibrated_flux, DEFAULT_RUN_QUALITY_PATH)}
+                            (args.manifest, args.calibrated_flux, args.run_quality)}
         evidence_sources[str((args.output_dir / 'h80_counts.json').resolve())] = sha256_file(directory / 'h80_counts.json')
         policy, findings = campaign_quality(data['diagnostic_records'], data['run_quality'], evidence_sources)
         quality_path = directory / 'run_quality_exclusions.json'

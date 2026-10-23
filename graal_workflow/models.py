@@ -47,6 +47,11 @@ class PipelinePaths:
     raw_flux: Path
     hyperparams: Path
     ajaka_reference: Path
+    run_quality: Path | None = None
+
+    @property
+    def quality_path(self) -> Path:
+        return self.run_quality or self.repo_root / "config/run_quality_exclusions.json"
 
     @property
     def calibrated_flux(self) -> Path:

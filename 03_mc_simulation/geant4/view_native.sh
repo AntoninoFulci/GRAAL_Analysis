@@ -5,7 +5,7 @@ module_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd -- "$module_dir/../.." && pwd)
 spack_bin=${SPACK_BIN:-/Users/tonyf/Software/spack/bin/spack}
 geant4_prefix=$("$spack_bin" -e "$module_dir/spack-macos-qt" location -i geant4)
-build_dir="$repo_dir/build/graal-geant4-viewer"
+build_dir="$repo_dir/results_test/build/graal-geant4-viewer"
 gdml=${1:-"$repo_dir/results/geant4-migration-audit-20261023/conversion-spack-certified/geometry.gdml"}
 if [[ ! -f "$gdml" ]]; then
   printf 'GDML non trovato: %s\n' "$gdml" >&2
