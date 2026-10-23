@@ -68,7 +68,8 @@ def test_writer_preserves_all_nominal_bins_and_fingerprints(tmp_path):
                     .1 if index < 9 else 0., 1. if index < 9 else 0.,
                     .5 if index < 9 else 0., .5 if index < 9 else 0.,
                     (a+b)/2 if index < 9 else 0., 0., status)
-                bins.append(Figure4CertifiedBin(moment, status, (), .003, {}))
+                bins.append(Figure4CertifiedBin(moment, status, (), .003, {},
+                                                 5 if index < 5 else 7))
             panels[(energy,pair)] = Figure4PanelResult(pair,
                 (1.1+.1*energy, 1.2+.1*energy), np.linspace(low,low+.4,11),
                 tuple(bins), np.eye(10)*1e-6, 4, 8,
@@ -81,6 +82,8 @@ def test_writer_preserves_all_nominal_bins_and_fingerprints(tmp_path):
     assert len(rows) == 120
     assert {row["status"] for row in rows} == {"calculated", "masked_kinematic"}
     assert rows[0]["source_sha256"] == "a"
+    assert rows[0]["sobol_power"] == "5"
+    assert rows[7]["sobol_power"] == "7"
     assert (output/"figure4_comparison.pdf").is_file()
     assert len(json.loads((output/"predictions.json").read_text())) == 120
 

@@ -37,9 +37,21 @@ screened: only `2/12` pass deterministic `p5/p6`, and none of the ten
 failures passes both `p6/p7` gates. The earlier high-energy same-order
 `p6/p7` normalization drift of `1.047245%` was resolved for that one bin
 at `p7/p8`; it does not generalize to the other panels. One bounded PRC73
-Fig. 18 mass window is compatible, not a full spectrum check. Task 3G/3I
-variance and per-bin-power work, real Task 7–10 proofs and all twelve Ajaka
-curves remain open. Passing software tests does not change this gate.
+Fig. 18 mass window is compatible, not a full spectrum check. Both original
+single-bin adaptive controls passed the old first-pair gate, but the
+2026-10-10 twelve-panel scan falsified that gate: two local `p5/p6` passes
+are followed by failures. The strengthened adaptive policy and Task 3I
+variance work require new physical proof. Real Task 7–10 proofs and all
+twelve Ajaka curves remain open. Passing software tests does not change
+this gate. The first Task 3I cosine-endpoint map failed its lower physical
+control on 2026-10-12 and is rejected for production.
+
+**2026-10-12 interim scope:** The user approved an explicitly uncertified
+fixed-`p6` visual preview of all twelve curves before further variance
+work. It retains published parameters and full physical amplitudes but
+skips expensive convergence checks. The preview is a qualitative decision
+aid, not Task 10, a physical certificate, or permission to label any panel
+`reproduced`. Long preview computation remains user-run.
 
 ## Global constraints
 
@@ -430,10 +442,11 @@ scheduling, per-bin powers, and all accessible bins are assessed.
 
 ### Task 3G: Choose Sobol power per physical bin (blocking runtime gate)
 
-**Why:** The measured lower `p_eta` bin passes at `p5`, while the upper
-control requires `p7`. A uniform `p7` CLI run spends roughly four times as
-many phase-space events on a lower bin without physical benefit. The two
-complete check-parallel pilots do not certify the `<=24 h` full-run gate.
+**Why:** Earlier lower and upper `p_eta` controls passed the old local gate
+at `p5` and `p7`. The 2026-10-10 scan shows the lower `p5` decision was
+premature: later nested powers drift beyond threshold. Per-bin resolution
+remains necessary, and the old complete check-parallel pilots do not
+certify the `<=24 h` full-run gate.
 
 **Files:** Extend `src/graal_theory/figure4_integration.py`, `cli.py`,
 `figure4_comparison.py`; extend their existing tests. Do not change physics
@@ -444,26 +457,107 @@ mode with a minimum and maximum allowed power. Each nominal bin records its
 selected base power in the output schema; a panel-level scalar may record
 the maximum but must not hide heterogeneous bin settings.
 
-- [ ] **RED:** Two deterministic toy bins need base powers `p5` and `p7`;
+- [x] **RED:** Two deterministic toy bins need base powers `p5` and `p7`;
   assert both pass at those powers, the selected values appear in output,
   cross-bin replica covariance keeps the shared seed order, and an exhausted
   maximum yields `masked_nonconverged/sobol_resolution_exhausted`. Assert no
   scrambled replicas or grid/direct call occurs at a power already failing
   deterministic `p/p+1` raw-normalization or `Sigma` gates. Assert no Ajaka
   reference values enter resolution selection.
-- [ ] **GREEN:** Scan deterministic nested `p/p+1` moments from the minimum,
+- [x] **GREEN:** Scan deterministic nested `p/p+1` moments from the minimum,
   reusing the `p+1` result as next base. Evaluate `n/2n`, eight scrambled
   replicas, and grid/direct only at a candidate power. A replica-SE failure
   may advance power; an inner-quadrature or energy-order failure keeps its
   typed reason for diagnosis. Never use a favorable seed to select power.
-  Preserve fixed-mode API and serial/parallel equality.
-- [ ] **Proof:** Re-run both real pilots in adaptive mode, recover `p5/p7`
-  and all previously measured gates. Measure at least one populated bin from
+  Preserve fixed-mode API and serial/parallel equality. The 2026-10-10
+  scan exposed accidental adjacent-power agreement, so adaptive candidates
+  now additionally require `p+1/p+2` and the full `p/p+2` span to pass the
+  unchanged `Sigma`, denominator, and V/H thresholds before costly checks.
+  The confirmation drift enters the reported numerical error bound.
+- [ ] **Proof:** Re-run both real pilots under the strengthened policy;
+  record selected powers or typed nonconvergence and all mandatory gates.
+  Measure at least one populated bin from
   each of the twelve panels and complete-bin scheduling at 4, 8 and 14
   workers. Project all 78 accessible bins from observed power/cost mix,
   including deterministic preflights and mandatory checks. Task 10 starts
   only if projection is `<=24 h`; otherwise reduce source-equivalent cost
   and remeasure. Record physical bins that remain unresolved.
+
+Implementation checkpoint: adaptive selection, fixed-mode preservation,
+per-bin power in CSV/JSON, common-seed covariance, typed energy/inner failures,
+and serial/binwise equivalence pass synthetic tests. The selection code reads
+physical moments only; Ajaka traces enter later comparison. For the full
+amplitude, analytic global-azimuth integration makes V/H normalization each
+exactly half the denominator, so the preflight's strict denominator gate also
+implies both V/H Sobol gates even for sparsely populated bins. This invariant
+does not apply to arbitrary external model objects; those receive the more
+conservative V/H preflight. Both real-source controls recovered `p5` and
+`p7` under the superseded first-pair policy; new-policy controls and the
+twelve-panel resolution/runtime proof remain open.
+
+User-run control command lives in `scripts/figure4_adaptive_pilot.py`. Run
+`lower` first, then `upper`, each with separate JSON output. The pilot is
+single-process and can take substantially longer than the earlier
+check-parallel runs; it cannot establish 14-worker throughput by itself.
+
+**2026-10-08 lower adaptive control (user run, superseded gate):**
+`figure4-adaptive-lower.json`, `OPENBLAS_NUM_THREADS=10`,
+`E_gamma=[1.10,1.20]`, `M(p eta)=[1.52,1.56]`, `n=4`, `64/48`, eight
+seeds `2026..2033`: `calculated`, selected `p5`, elapsed `2577.9 s`.
+Independent reapplication of `convergence_reasons` returns no failures.
+`Delta Sigma` for `p5/p6` is `0.00596251`, denominator drift `0.868838%`,
+replica `SE(Sigma)=0.00911914`, and grid/direct `Delta Sigma=4.65e-6`.
+The two closest gates are denominator drift `<1%` and replica SE `<=0.01`.
+This passed the former first-admissible-pair policy. Later `p6/p7` and
+`p7/p8` measurements fail, so it does **not** satisfy the strengthened
+resolution policy, a complete panel, or the 24-hour bound.
+
+**2026-10-09 upper adaptive control (user run, superseded gate):**
+`figure4-adaptive-upper.json`, `OPENBLAS_NUM_THREADS=10`,
+`E_gamma=[1.40,1.50]`, `M(p eta)=[1.60,1.64]`, `n=4`, `64/48`, eight
+seeds `2026..2033`: `calculated`, selected `p7`, elapsed `12308.1 s`.
+Independent reapplication of `convergence_reasons` returns no failures.
+`p7/p8` `Delta Sigma=9.79059e-5`, denominator drift `0.160035%`,
+replica `SE(Sigma)=0.00160319`, and grid/direct `Delta Sigma=5.04e-7`.
+This passed the former first-admissible-pair policy. Its `p8/p9` and `p7/p9`
+confirmation are unmeasured, so new-policy certification is open. No
+complete panel or 14-worker throughput is certified.
+
+**Next diagnostic handoff:** `scripts/figure4_resolution_scan.py` saves
+deterministic raw `p5,p6,p7,p8` moments for nominal mass bin 3 in each of
+the twelve panels, using the sourced grid model, `n=4`, `64/48`. It runs
+bin tasks in separate processes and atomically writes one JSON per panel;
+rerunning skips completed matching panel files. This gives a twelve-panel
+resolution distribution and freezes raw moments for Task 3I. It performs
+no energy-order, replica, or grid/direct certification, so neither a
+successful command exit nor a favorable `p7/p8` pair certifies a panel.
+Mass bin 3 is physically interior for all three mass axes; choosing a
+different bin later is necessary to bound the full 78-bin workload.
+
+**2026-10-10 deterministic scan (user run):** All twelve expected JSON files
+exist and all 48 raw moments at `p5..p8` have `calculated` status. User used
+eight processes with `OPENBLAS_NUM_THREADS=10`, `OMP_NUM_THREADS=10`, and
+`MKL_NUM_THREADS=10`; summed per-bin elapsed times are `10.44 worker-hours`.
+Eight processes with up to ten BLAS threads each can contend for the host's
+14 logical CPUs; these times are not a 14-worker production throughput
+measurement. Future multi-process benchmarks should set BLAS/OMP/MKL
+threads to one and measure complete-bin scheduling explicitly.
+The pasted log stopped before its final `e3-eta_pi0` line, but that file is
+present (`3378 s`) and complete. No process-status claim follows because
+the sandbox denied `ps`. The log's missing tail does not invalidate the
+twelve saved artifacts.
+
+Two local `p5/p6` passes were misleading. For `E0 p_eta` the denominator
+sequence is `0.543223, 0.538503, 0.531646, 0.521584` at `p5..p8`:
+`p5/p6` drift is `0.8688%`, followed by `1.27%` and `1.89%`. For
+`E2 eta_pi0`, `p5/p6` drift is `0.63%` but `p6/p7` is `6.79%`. These are
+physical raw-moment discrepancies, not a failed computation or a comparison
+to Ajaka strokes. Under the stronger three-level preflight: zero of twelve
+can select `p5`; two can provisionally select `p6`; six have a passing
+`p7/p8` pair but require `p9` confirmation; four fail `p7/p8` and need
+higher power or variance treatment. None is a fully certified bin because
+energy-order, replicas, direct/grid, and total-projection gates remain open.
+Do not launch Task 10 from the old `p5/p7` pilot costs.
 
 Pre-adaptive representative scan: one interior accessible nominal bin in
 each panel ran deterministic `p5/p6` at `n=4`, `64/48`, direct mode;
@@ -523,9 +617,163 @@ matching the original `-0.000865587035` within `5e-12`. Marginal quartile
 drifts are spread across pair mass, spectator polar angle, pair polar angle,
 and relative azimuth. No single family or mass-only stratum owns the error.
 
+**2026-10-10 candidate preflight:**
+`scripts/figure4_endpoint_map_probe.py` applies the exact coordinate change
+`v=(1-cos(pi*u))/2` to pair mass and both polar coordinates, multiplying
+event weights by the product of `pi*sin(pi*u)/2` Jacobians. Relative
+azimuth remains uniform. The production sampler and amplitude are
+unchanged; the probe temporarily supplies mapped events only within one
+diagnostic process. Short tests verify the Jacobian against finite
+differences, independent phase-space volume, physical support, nested
+deterministic points, distinct scrambled seeds, and narrow features in all
+four coordinates. Constant-amplitude mass integration at `p5` improves
+from `0.44088%` to `0.07878%` relative error in one toy window. This is
+only a mathematical preflight: no real coherent-amplitude variance or
+whole-bin runtime benefit is claimed. Run the lower real control first;
+continue to the upper control and representative panels only if its raw
+normalization drift and wall time improve without typed failures.
+
+**2026-10-12 lower physical control (user run; candidate rejected):**
+`figure4-endpoint-map-lower.json` matches the original `e0-p_eta-b3.json`
+in energy/mass support and `n=4`, `64/48`, grid settings. All mapped
+`p5..p8` moments are finite, but successive mapped denominator drifts are
+`7.2291%`, `5.6581%`, `1.8437%`, versus original `0.8688%`, `1.2734%`,
+`1.8927%`. Every mapped pair fails the fixed `<1%` total-weight gate;
+mapped `p6/p7` also has `Delta Sigma=0.0184264 > 0.01`. The toy-volume
+improvement does not transfer to this coherent physical bin. Reject this
+map for production; do not run its upper control or twelve-panel scan.
+Keep the script and result as explicitly diagnostic evidence; production
+sampler remains unchanged. Mapped elapsed `2791.3 s` and original scan
+elapsed `2933.6 s` are not comparable throughput measurements because the
+original ran among eight concurrent processes with multi-threaded BLAS.
+Next candidate must address coherent four-coordinate drift on the frozen
+raw moments. Preflight each source-equivalent candidate cheaply, then run
+the *same* lower physical control before asking for an upper or panel run;
+require improved raw normalization under unchanged gates, not only a toy
+volume or a faster wall time. Shared H/V work may reduce cost but cannot
+alone repair this normalization failure.
+
 **Files:** Modify the sampler or amplitude evaluation owner only after a
 measured candidate is chosen; preserve `figure4_integration.py`'s physical
 moments and provenance. Keep Ajaka trace files out of candidate selection.
+
+**2026-10-19 delta-helicity candidate (local screen; rejected):**
+`scripts/figure4_joint_map_probe.py` rotates to spectator-relative helicity
+coordinates and samples the proton-pion invariant with a truncated Cauchy
+proposal using sourced Delta mass/width and the exact Jacobian. This is
+diagnostic-only; physical amplitudes and the production sampler are unchanged.
+63 focused tests pass, including independent volume/invariant moments,
+isotropy, nesting and a reviewed near-threshold cancellation regression.
+Cheap pure-tree checks on all three control bins are mixed; p14 cross-map
+normalizations agree within 0.005%, which does not establish variance reduction.
+The matching lower full-model control (`n=4`, grid, `64/48`, p5/p6)
+completed in 366.75 s. D drift worsens from `0.86884%` to `3.96678%`;
+Sigma drift worsens from `0.00596251` to `0.01420314`. Both candidate gates
+fail. Reject production adoption and stop this candidate before upper/panel
+runs. No new certification. Raw amplitudes, checksums, independent moment
+verification and comparison are in
+`theory/outputs/joint-map-20261019-lower-p6-n4/`; cheap tree evidence is in
+`theory/outputs/joint-map-20261019-tree-preflight/`. This early rejection
+does not characterize higher-power behavior or all possible joint maps.
+
+**2026-10-19 exact angular factorization (lower screen promising):**
+`scripts/figure4_angular_reduction_probe.py` exploits the current kernels:
+at fixed W and M(eta p), contact is direction-independent, four non-tree
+families are linear in pion spatial direction, and external emission is
+linear after removing its signed explicit recoil factor. Three physical
+Cartesian anchors reconstruct the six whole families; Eq. 43 remains direct,
+and all seven matrices are summed before squaring. For p_eta the internal
+helicity azimuth is redundant. This gives a tensor mass/polar/helicity
+quadrature with costly anchors reused across angular nodes, without mass
+interpolation or a changed amplitude model.
+Direct H/V off-axis checks at lower, upper and KLambda-threshold-adjacent
+points agree within 6.16e-13 family-scaled maximum error. 68 focused tests
+pass; independent review found no concrete issues. In the lower complete
+control, mass 4/8, 8/16 and full span 4/16 D differences are 0.00658969%,
+0.000194626% and 0.00639508%; energy 4/8 at mass8 changes D by 0.00116321%.
+Angular 8/16/32 differences are below 2.06e-10 relative in D. All use direct
+64/48, unchanged parameters and support, with Sigma differences also below
+existing tolerances. Timings: mass4/energy4 72.34 s, mass8/energy4 139.48 s;
+mass16/energy4 and mass8/energy8 approximately 299 s each in two concurrent
+single-thread processes. No production adoption or certification: Gauss
+rules are nonnested and require certification-policy integration; other
+bins and panel gates remain untested. Next: frozen upper p_eta control,
+with threshold handling checked explicitly. Evidence and source snapshots:
+`theory/outputs/angular-reduction-20261019-validation/` and
+`theory/outputs/angular-reduction-20261019-lower/`.
+
+**2026-10-19 upper angular-factorization control (bounded checks pass):**
+The unchanged diagnostic integrator was run on the frozen upper p_eta
+window `[1.4,1.5]` energy, `[1.60,1.64]` mass, direct `64/48`. Unsplit
+mass 4/8/16 at energy4 gives D differences `0.822847%`, `0.315264%` and
+full span `0.509188%`. Energy 4/8 at mass8 changes D by `0.00226349%`.
+An independent partition at sourced KLambda threshold `1.60936` GeV,
+four mass nodes on each side, differs from unsplit mass16 by `0.0443304%`;
+raw N/D are added before forming Sigma. All these comparisons satisfy
+unchanged raw normalization/Sigma tolerances. Angular 16/32 D changes
+are below `2.23e-9` relative. No typed numerical failures; source/reference
+hashes, snapshots and anchor checksums verified. Unsplit run times:
+84.30 s (mass4/energy4), 162.71 s (mass8/energy4), 330.94 s
+(mass16/energy4), 335.54 s (mass8/energy8). Threshold partition: 164.08 s.
+Evidence: `theory/outputs/angular-reduction-20261019-upper/` and
+`theory/outputs/angular-reduction-20261019-upper-threshold-split/`.
+Both p_eta controls are now favorable at tested resolutions, but remain
+diagnostic, not newly certified; production-policy integration and other
+projections/panel gates remain open. Next target: failing lower eta_pi0
+window `[0.72,0.76]`, with its own mass-window and azimuth geometry.
+
+**2026-10-19 eta-pion angular projection (bounded campaign complete; not certified):**
+The separate diagnostic `scripts/figure4_pair_projection_probe.py` reuses
+the unchanged p_eta reconstruction and integrates the selected eta-pion
+azimuth exactly over the proton cone. It clips helicity using exact
+Dalitz geometry, splits mass rules at boundary crossings and strong
+thresholds, and splits polar rules at the two azimuth-average cusps.
+Sine-squared mass-segment maps include exact Jacobians; source-domain
+support is rejected before amplitudes rather than truncated. Independent
+review found no blocking issue; 80 focused tests pass, including nonzero
+polarized moments against independent eta-pion sampling. Eq43-only
+reduced vs standard p18 D differs by 0.00007712%, Sigma by 1.16855e-7.
+For the frozen full-model eta_pi0 bin, energy [1.1,1.2], mass [0.72,0.76],
+direct 64/48, mass2/4/8 at energy4 gives D=0.6363778273,
+0.7174117169, 0.7248672390. Mass2/4 changes D by 11.2953% and Sigma by
+0.0304430; mass4/8 changes D by 1.02854% and Sigma by 0.000697502.
+Both mass comparisons fail the unchanged strict normalization gate.
+Energy4/8 at mass4 changes D by only 0.00179557%, Sigma by 5.06794e-6.
+Angular8/16/32 is stable to approximately 5.2e-11 relative in D.
+Mass16/energy4 completed in 1001.79 s: N=-0.19272765841862727,
+D=0.7248671655110299, Sigma=-0.2658799675148131. Mass8/16 changes D by
+only 0.0000101441%, Sigma by 5.80521e-6; however, the full mass4/16
+D span remains 1.02852618%, so the tested three-level sequence does not
+pass every unchanged gate. Preserve failed coarse/full-span gates.
+Final comparison verifies all five captures, source snapshots, shared
+historical/current source-reference hashes, settings and raw-moment ratios.
+Keep the candidate diagnostic; no production adoption or certification.
+Next numerical evidence would be mass8/16/32 plus energy refinement at an
+adequately resolved mass order; the energy comparison at mass4 alone does
+not certify a combined finer-mass/finer-energy result. Bounded local runs
+are finished. Artifacts:
+`theory/outputs/angular-reduction-20261019-eta-pi0/`.
+
+**2026-10-21 eta-pion confirmation (bounded checks pass):**
+Reused source/hash-matching mass8/16 at energy4 and ran unchanged direct
+64/48 diagnostics at mass32/energy4 and mass16/energy8. The frozen
+mass8/16/32 adjacent and full-span D differences are 0.0000101441%,
+0.00000452731% and 0.00000561681%; corresponding Sigma differences
+are 5.80521e-6, 4.23503e-8 and 5.76286e-6. Energy4/8 at mass16 changes
+D by 0.000132856%, Sigma by 4.33228e-7. All required angular gates pass.
+The earlier coarse mass4/16 D failure (1.02852618%) remains recorded;
+no tolerance was relaxed. Mass32/energy4 yields D=0.7248671983280403,
+Sigma=-0.2658800098650903 in 1996.33 s; mass16/energy8 yields
+D=0.7248662024780734, Sigma=-0.2658795342871961 in 1926.62 s.
+Final comparison verifies all seven captures, source/reference hashes,
+snapshots, settings and raw-moment ratios, reporting bounded confirmation
+passed but production certificate false. Evidence:
+`theory/outputs/angular-reduction-20261019-eta-pi0/confirmation-20261021.json`.
+No physics/test source changes or redundant broad test run. The local
+eta_pi0 mass/angle/energy confirmation is complete; production-policy
+integration, inner-loop/independent checks, p_pi0 and panel/cross-projection
+gates remain open. No mass32/energy8 combined run or universal order/error
+bound is claimed.
 
 - [ ] **RED:** Freeze raw p5/p6/p7 moments for both the lower and upper
   `p_eta` controls and all twelve representative panel bins. Test a
@@ -550,6 +798,60 @@ moments and provenance. Keep Ajaka trace files out of candidate selection.
   78-bin workload with actual selected powers and all mandatory passes.
   Open Task 10 only after projection `<=24 h` and no unhandled physical
   bin; otherwise keep typed masks and repeat diagnosis.
+
+### Task 3J: Generate provisional twelve-panel shape preview
+
+**Purpose:** Answer the user's interim question, "do the published-parameter
+curves have roughly the expected shapes?" without claiming convergence or
+loosening the acceptance gates above.
+
+**Files:** `scripts/figure4_qualitative_preview.py`,
+`tests/test_figure4_qualitative_preview.py`; output only under a designated
+ignored directory in `.work/figure4-fit/`.
+
+- [x] **RED:** A focused test requires 120 ordered bin records, durable
+  restart without recomputing completed bins, CSV/PDF output labeled
+  `preliminary_uncertified`, and rejection of an incompatible checkpoint.
+  The test first failed because the script was absent.
+- [x] **GREEN:** Compute each raw coherent moment once at fixed `p6`,
+  uniform energy weighting, `n=4`, `64/48`, published parameters and grid
+  mode. Store each bin atomically and check input/code fingerprints on
+  resume. Render model points and digitized Ajaka traces in a 4×3 PDF,
+  retaining gaps at masked bins. Do not call the certification or
+  residual-claim APIs. Focused tests pass (`2 passed`).
+- [x] **Software proof:** Full `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  MKL_NUM_THREADS=1 python -m pytest -q` passed `1135` tests in `199.55 s`.
+  An initial run had six missing-PDF fixture failures because the PRC73
+  source PDF was absent inside the worktree; linking the existing checkout
+  copy and rerunning produced the clean full-suite result. `git diff
+  --check` and script `--help` also pass. No physical preview calculation
+  has run.
+- [ ] **Proof:** Run the short relevant/full test suite and check output
+  labeling. Give the user an exact `OPENBLAS_NUM_THREADS=1` command,
+  output path, eight-process resource estimate, restart behavior, and
+  interpretation: a matching shape is provisional; disagreement triggers
+  model/source diagnosis, not parameter tuning to Ajaka strokes. Inspect
+  the returned 120 checkpoints, summary, CSV and PDF before deciding
+  whether to prepare an exploratory native-data fit.
+
+User-run preview command (repeat unchanged after interruption to resume):
+
+```bash
+cd /Users/tonyf/Work/GRAAL/GRAAL_Analysis/.work/figure4-fit/theory
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=src \
+  python -u scripts/figure4_qualitative_preview.py \
+  --workers 8 --output-dir ../figure4-qualitative-p6
+```
+
+Initial wall-time estimate `1–3 h`, based on the earlier eight-process
+`p5..p8` twelve-bin scan and approximate `p6` cost; this is not a measured
+full-preview benchmark. Eight worker processes use one BLAS/OMP/MKL thread
+each on the 14-logical-CPU host. Each completed bin is an atomic JSON in
+`../figure4-qualitative-p6/bins/`; after all 120 nominal bins, inspect
+`preview.pdf`, `preview.csv` and `summary.json`. Exit `0` means all physical
+moments returned without nonkinematic masks; exit `2` means preview files
+exist but some bins had typed physical/numerical masks. Neither code means
+convergence or agreement with Ajaka.
 
 ## Task 4: Connect grid to coherent model and repair dormant resonance preflight
 

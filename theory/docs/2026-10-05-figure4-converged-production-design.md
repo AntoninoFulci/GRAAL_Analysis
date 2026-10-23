@@ -16,7 +16,30 @@ The order is fixed:
    quadrature as the numerical authority;
 3. establish convergence in every physically populated publication bin;
 4. generate and compare all twelve calculated curves;
-5. only after this gate, design the fit to the higher-statistics native data.
+5. only after this gate, run and validate the separate fit to the
+   higher-statistics native data.
+
+The fit implementation now exists as a separate workstream, but it is not a
+substitute for step 3 or evidence that any published-parameter Figure 4 panel
+has been reproduced. The current physical certificate remains **0/12**.
+Adaptive per-bin Sobol selection exists, but the 2026-10-10 physical scan
+exposed accidental `p5/p6` agreement in both passing representative bins.
+Selection now requires two successive refinements plus their full span.
+No real bin has passed the strengthened policy and all other mandatory
+checks. Task 3I's coherent four-coordinate variance diagnosis and a new
+measured runtime projection precede any twelve-panel campaign.
+
+**Interim visual milestone, approved 2026-10-12:** a separate fixed-`p6`
+preview computes raw published-parameter moments for all ten nominal bins
+in each of the twelve panels, saves per-bin checkpoints, and overlays the
+result with the digitized Ajaka curves. It retains the physical model,
+uniform energy weighting, `n=4` energy quadrature, `64/48` production
+quadrature, and source parameter values. It omits refinement, replicas,
+grid/direct and covariance checks to answer only whether the curve shapes
+are worth pursuing. Every output is labeled `preliminary_uncertified`;
+finite points do not count toward `reproduced` or the `0/12` certified-panel
+status. If the preview is promising, plan an exploratory GRAAL fit using
+proper native data while continuing numerical validation separately.
 
 Success requires finite and converged predictions over every physically
 accessible portion of the twelve panels, explicit masks elsewhere, and a
@@ -502,9 +525,14 @@ cost like the lower pilot or `~24.1 h` if all cost like the upper pilot.
 Neither extreme is a full-run bound: bin powers, inner failures, contention,
 adaptive preflights, panel covariance and physical cross-checks are unknown.
 The `<=24 h` launch gate is therefore still unproved. The production CLI
-currently accepts one Sobol power for all bins; measured `p5` versus `p7`
-pilots show why per-bin power selection and provenance must be added before
-using this cost projection for a complete run.
+supports per-bin adaptive Sobol power and records each choice. The
+2026-10-08 lower and 2026-10-09 upper user-run controls passed the former
+single-pair gate at `p5` and `p7` in `2577.9 s` and `12308.1 s` with
+`OPENBLAS_NUM_THREADS=10`. The 2026-10-10 twelve-panel deterministic scan
+then found nonmonotone normalization drift: `E0 p_eta` passes `p5/p6` but
+fails `p6/p7` and `p7/p8`. The old control statuses are superseded for
+resolution certification. The strengthened policy requires two successive
+refinements and the full span; no complete-bin or 24-hour result exists yet.
 An additional deterministic `p5/p6` scan of one interior accessible bin
 from each of the twelve panels took `816.4 s` with twelve processes.
 Only `2/12` bins pass both `|Delta Sigma|<=0.01` and denominator drift
@@ -544,6 +572,18 @@ these signed terms cancel in the net. This localizes a broad coherent
 amplitude/QMC variance problem, not a defect confined to the phase-space
 Jacobian or one mass threshold. No new coordinate map has yet passed
 source-equivalence and convergence tests.
+The first such trial, an exact cosine-endpoint map of pair mass and both
+polar coordinates, failed its lower physical control on 2026-10-12.
+Although constant-amplitude volume improved in a toy window, its real
+`p_eta`, `E_gamma=[1.10,1.20]`, `M=[1.52,1.56]` denominator changed by
+`7.2291%`, `5.6581%`, and `1.8437%` over `p5/p6`, `p6/p7`, and `p7/p8`;
+all exceed the fixed `<1%` Sobol gate. Its `p6/p7` `Delta Sigma=0.0184264`
+also exceeds `0.01`. The original sampler's matching denominator drifts
+were `0.8688%`, `1.2734%`, and `1.8927%`. Reject this map for production;
+the upper control would not establish a lower-bin pass. The production
+sampler is unchanged. Keep the measured failure as Task 3I evidence and
+test another source-equivalent four-coordinate variance treatment against
+the same fixed gates before any full campaign.
 The exact recoil-angle branch remains algebraically equivalent to Eq. (25):
 `q_on²-q²=(W-omega-E_left)(q0_on+omega)(W-omega+E_left)/(2W)`, and
 `(1/A-1/B)/(B-A)=1/(AB)` for the two baryon denominators. Its physical

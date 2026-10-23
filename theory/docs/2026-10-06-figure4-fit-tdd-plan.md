@@ -18,7 +18,7 @@
 - Preserve the exact seven-family complex sum before spin squaring. `Sigma=N/D` requires finite `D>0`. Separate publication-bin uniform photon-energy weighting from native-bin measured exposure and estimator transfer.
 - No physical fit until every admitted theory point passes its direct-oracle, energy, Sobol, replica and grid checks; source and off-source basis checks pass; data covariance and Jacobian rank pass. A computationally incomplete point is masked, not silently dropped to improve fit quality.
 - Current `results/production-20261006-113738/uv/beam_asymmetry/beam_asymmetry.root` is **pilot only**: uncorrected background, no run bootstrap and unresolved best-quartet selection. Final data need reviewed sideband correction, positive run bootstrap, covariance/acceptance QA and explicit limitation record.
-- Before any fit (including a synthetic optimizer test), bootstrap, full theory suite or expensive integration, give user exact command, measured or labeled-unmeasured duration estimate, CPU/memory assumptions, input/output paths and success/fail signals. User runs it and returns artifacts. Focused short tests that do not invoke a fit may run locally.
+- Run short focused tests locally, including synthetic optimizer tests. Before long production fits, bootstrap, full theory suite or expensive integration, give user exact command, measured or labeled-unmeasured duration estimate, CPU/memory assumptions, input/output paths and success/fail signals. User runs long work and returns artifacts.
 - Preserve all pre-existing dirty paths. The sourced-prediction plan owns its existing Task 3G/3I and Tasks 7–10; this plan must not mark them complete by proxy.
 
 ## File map and interfaces
@@ -128,7 +128,7 @@
 
 **Interfaces:** Extend `load_calibrated_flux(root_path, manifest_path, energy_range_gev, *, selected_run_numbers: frozenset[int] | None=None) -> FluxSpectrum`; omitted filter preserves existing behavior. `selected_uv_runs(reco_root: Path) -> frozenset[int]` reads `RunNumber` from nominal `reco_eta_pi0_bdt` tree. `native_flux_spectrum(flux_root: Path, manifest: Path, reco_root: Path, energy_range_gev: tuple[float,float]) -> FluxSpectrum` uses both; its fingerprint includes reco ROOT, flux ROOT and manifest identities.
 
-- [ ] **Step 1 RED:** Synthetic flux ROOT/manifest has two complete runs with distinct photon spectra; nominal reco ROOT contains only one run. Assert selected spectrum contains only that run and changes predicted weighted moment; preserve old unfiltered test. Reject an empty selected set, missing `RunNumber`, duplicate ROOT cycles and a selected run with no complete POL1/POL2/BREM triplet. Assert energy bounds follow Stage 07's four UV intervals.
+- [ ] **Step 1 RED:** Synthetic flux ROOT/manifest has two complete runs with distinct photon spectra; nominal reco ROOT contains only one run. Assert selected spectrum contains only that run and changes predicted weighted moment; preserve old unfiltered test. Direct strict selected-run loading rejects an empty set, missing `RunNumber`, duplicate ROOT cycles and an incomplete POL1/POL2/BREM triplet. Native wrapper skips incomplete reconstructed runs, matching Stage 07; a test covers both behaviors. Assert energy bounds follow Stage 07's four UV intervals.
 
   ```python
   spectrum = load_calibrated_flux(root, manifest, (1.2, 1.3),
@@ -137,21 +137,21 @@
   assert spectrum.complete_runs == 1
   ```
 - [ ] **Step 2 RED command:** `cd theory && python -m pytest tests/test_photon_flux.py tests/test_figure4_basis.py -q`. Expected: unsupported selected-run argument/helper.
-- [ ] **Step 3 GREEN:** Filter manifest P/UV run IDs by selected reconstructed run IDs *before* reading exposures. Preserve run-atomic completeness, state-specific flux/polarization and old no-filter API. Read only `RunNumber` from reconstructed ROOT; do not load 115 MB of event vectors.
+- [ ] **Step 3 GREEN:** Filter manifest P/UV run IDs by reconstructed run IDs *before* reading exposures, then skip incomplete/duplicate triplets in the native wrapper exactly as Stage 07 does. Preserve strict direct selected-run loading, state-specific flux/polarization and old no-filter API. Read only `RunNumber` from reconstructed ROOT; do not load 115 MB of event vectors.
 
   ```python
   selected = selected_uv_runs(reco_root)
   spectrum = load_calibrated_flux(flux_root, manifest, energy_range_gev,
                                   selected_run_numbers=selected)
   ```
-- [ ] **Step 4 GREEN command:** Focused tests pass. A short local smoke compares selected-run count against Stage 07 extraction log and reports mismatch as preflight failure.
+- [ ] **Step 4 GREEN command:** Focused tests pass. A short local smoke compares selected-run and exposure counts with the Stage 07 `load_exposures` API on the same inputs and reports mismatch as preflight failure.
 - [ ] **Step 5 review/commit:** Commit only Task 4 files with `feat(theory): match native selected runs`.
 
 ## Task 5: Integrate and certify basis moments in each bin
 
 **Files:** Create `src/graal_theory/figure4_basis.py`, `tests/test_figure4_basis.py`; reuse `figure4_integration.py`, `phase_space.py`, `beam_asymmetry.py`, and Task 2 moments. Change those owners only to expose a concrete reusable helper if exact duplication would result.
 
-**Interfaces:** `integrate_basis_bin(model, pair, energy_range_gev, mass_range_gev, *, energy_rule, sobol, flux_spectrum=None) -> BasisBinMoment`; `certify_basis_bin(model, pair, energy_range_gev, mass_range_gev, *, energy_rule, energy_order, sobol_power, replica_seeds, flux_spectrum=None) -> BasisBinCertificate`; `BasisBinMoment.evaluate(coefficients) -> BinPrediction` with `numerator`, `denominator`, `intrinsic_sigma` and, for native mode, `ratio_sigma`; `BasisBinCertificate.predict(coefficients) -> BinPrediction` rejects uncertified vectors. `energy_rule="uniform"` is Ajaka primary; `"native_flux"` requires selected-run spectrum and produces intrinsic plus 12-bin expected ratio forms. Certificate stores source/off-source `N,D,Sigma` differences for `n/2n`, `p/p+1`, eight fixed scrambled replicas and direct/grid; status/reason and matrix-level numerical covariance stay available.
+**Interfaces:** `integrate_basis_bin(model, pair, energy_range_gev, mass_range_gev, *, energy_rule, energy_order, sobol, flux_spectrum=None) -> BasisBinMoment`; `certify_basis_bin(model, pair, energy_range_gev, mass_range_gev, *, energy_rule, energy_order, sobol_power, replica_seeds, flux_spectrum=None, data_stat_error=None) -> BasisBinCertificate`, with `data_stat_error` required for native certification; `BasisBinMoment.evaluate(coefficients) -> BinPrediction` with `numerator`, `denominator`, `intrinsic_sigma` and, for native mode, `ratio_sigma`; `BinPrediction.sigma` selects intrinsic Sigma for Ajaka and expected ratio-estimator Sigma for native bins; `BasisBinCertificate.predict(coefficients) -> BinPrediction` rejects uncertified vectors. `energy_rule="uniform"` is Ajaka primary; `"native_flux"` requires selected-run spectrum and produces intrinsic plus 12-bin expected ratio forms. Native energy groups split at each mass-bin onset while retaining total exposure normalization from the full measured energy bin. Certificate stores source/off-source `N,D,Sigma` differences for `n/2n`, `p/p+1`, eight fixed scrambled replicas and direct/grid; status/reason and matrix-level numerical covariance stay available.
 
 - [ ] **Step 1 RED:** Constant-amplitude toys reproduce independent restricted three-body phase-space volume for all three pair choices and energy-onset edge bins. Complex basis toy reproduces direct full-model `Sigma` at source and two off-source points for H/V. Native toy with unequal V/H exposure and polarization compares `azimuth_state_moments` plus the existing `fit_binned_asymmetry` transfer with an explicit-azimuth integration. Reject mixed uniform/native weights, unsupported `M(eta p)>1.80 GeV`, nonpositive denominator and a model/grid fingerprint mismatch.
 - [ ] **Step 2 RED command:** `cd theory && python -m pytest tests/test_figure4_basis.py -q`. Expected: missing integration/certificate API.
@@ -187,7 +187,7 @@
   np.testing.assert_allclose(objective.residuals(theta), expected)
   ```
 - [ ] **Step 2 RED command:** `cd theory && python -m pytest tests/test_figure4_fit.py -q`. Expected: absent GLS/fit module.
-- [ ] **Step 3 GREEN:** Align predictions by explicit `(pair,energy_bin,mass_bin)` key, Cholesky-whiten once, call certificate's finite fast evaluator, and use SciPy `least_squares`. Compute numerical Jacobian rank against covariance-whitened sensitivity; if rank < number of fitted coordinates, stop or explicitly reduce to a documented one-coupling diagnostic fit. Do not manufacture a prior or silently drop an outlying bin.
+- [ ] **Step 3 GREEN:** Align predictions by explicit `(pair,energy_bin,mass_bin)` key, Cholesky-whiten once, call certificate's finite fast evaluator, and use SciPy `least_squares`. Compute numerical Jacobian rank against covariance-whitened sensitivity; if rank < number of fitted coordinates, stop or explicitly reduce to a documented one-coupling diagnostic fit. Label a successful numerical optimizer result `fit_computed` until Task 8 acceptance and covariance QA establish a physical fit. Do not manufacture a prior or silently drop an outlying bin.
 
   ```python
   factor = np.linalg.cholesky(data.covariance)
@@ -198,18 +198,25 @@
       return np.linalg.solve(factor, data.sigma - prediction)
   result = scipy.optimize.least_squares(residuals, initial_theta)
   ```
-- [ ] **Step 4 GREEN command:** Give user `cd theory && python -m pytest tests/test_figure4_fit.py -q` with expected seconds-scale duration, input (synthetic fixtures only), no production output, and expected PASS. User runs and returns output. Measure one objective evaluation locally without optimizer; give user a separate 20-evaluation synthetic fit benchmark command and use its returned timing for the later production estimate.
+- [ ] **Step 4 GREEN command:** Run `cd theory && python -m pytest tests/test_figure4_fit.py -q` locally; expected seconds-scale duration, synthetic fixtures only, no production output, and PASS. Measure one objective evaluation locally without optimizer. User runs only long production work after receiving command and resource estimate.
 - [ ] **Step 5 review/commit:** Commit only Task 6 files with `feat(theory): fit source couplings to native Sigma`.
 
 ## Task 7: CLI, checkpoint and separate scientific reports
+
+**Status (2026-10-07):** Implemented in `42e3420` with basis normalization
+prerequisites `db3a7ee` and `12cb89a`. Focused synthetic command, checkpoint,
+GLS and PDF tests: 33 passed, 8 unrelated CLI tests deselected (4.50 s).
+Production execution and full suite remain Task 8. Fixed global Sobol power is
+available; sourced Task 3G/3I must establish an adaptive policy or measured
+feasibility before any all-bin campaign.
 
 **Files:** Modify `src/graal_theory/cli.py`, `tests/test_cli.py`; create `src/graal_theory/figure4_fit_output.py`, `tests/test_figure4_fit_output.py`; reuse `figure4_comparison.py` for Ajaka statuses.
 
 **Interfaces:** `graal-theory figure4-basis-build --target ajaka|native --output <dir> [--data-root ... --reco-root ... --flux-root ... --run-manifest ...] --workers N --resume`; `graal-theory figure4-fit --data-root <root> --basis-native <dir> --basis-ajaka <dir> --output <dir> [--require-final]`. Native build requires all four input paths; Ajaka build refuses them. Fit requires both completed basis manifests so sourced and fitted Ajaka comparisons cannot accidentally reuse native energy weighting. Completed bins are atomic files plus per-bin metadata and fingerprint; manifest is complete only after all required bins/certificates exist.
 
-- [ ] **Step 1 RED:** Parser tests reject missing native inputs, mixed Ajaka/native flags, identical source/fitted output path and fit with incomplete manifest. Check checkpoint resume skips a completed matching bin, recomputes an incomplete bin, and rejects changed source parameters, input ROOT hashes, energy weighting, numerical settings or code fingerprint. With a toy bundle, verify `sourced/` and `fitted/` Ajaka comparison tables have distinct parameters; a sourced discrepancy cannot be relabeled reproduced by fitted agreement. Fit command refuses digitized theory CSV as input data.
-- [ ] **Step 2 RED command:** `cd theory && python -m pytest tests/test_cli.py tests/test_figure4_fit_output.py -q`. Expected: absent commands/writer.
-- [ ] **Step 3 GREEN:** Dispatch thin CLI functions to Tasks 3–6. Write bin files through temporary sibling plus atomic rename; compare exact immutable manifest fingerprints on `--resume`, hashing relevant source-file contents as well as source/data artifacts so a dirty checkout cannot impersonate `HEAD`; never advertise a partial run as complete. Emit progress after each bin and a final summary with counts, masks, timing and next missing bin. Write source and fit JSON/CSV, numerical/data covariance and 4x3 comparison PDFs in distinct paths, with explicit `reproduced`, `calculated_discrepant`, `incomplete`, `fit_validated` or `fit_unavailable` status.
+- [x] **Step 1 RED:** Parser tests reject missing native inputs, mixed Ajaka/native flags, identical source/fitted output path and fit with incomplete manifest. Check checkpoint resume skips a completed matching bin, recomputes an incomplete bin, and rejects changed source parameters, input ROOT hashes, energy weighting, numerical settings or code fingerprint. With a toy bundle, verify `sourced/` and `fitted/` Ajaka comparison tables have distinct parameters; a sourced discrepancy cannot be relabeled reproduced by fitted agreement. Fit command refuses digitized theory CSV as input data.
+- [x] **Step 2 RED command:** `cd theory && python -m pytest tests/test_cli.py tests/test_figure4_fit_output.py -q`. Observed absent commands/writer, then missing PDF label.
+- [x] **Step 3 GREEN:** Dispatch thin CLI functions to Tasks 3–6. Write bin files through temporary sibling plus atomic rename; compare exact immutable manifest fingerprints on `--resume`, hashing relevant source-file contents as well as source/data artifacts so a dirty checkout cannot impersonate `HEAD`; never advertise a partial run as complete. Emit progress after each bin and a final summary with counts, masks, timing and next missing bin. Write source and fit JSON/CSV, numerical/data covariance and 4x3 comparison PDFs in distinct paths, with explicit `reproduced`, `calculated_discrepant`, `incomplete`, `fit_computed` or `fit_unavailable` status. Promote to `fit_validated` only after Task 8 physical QA.
 
   ```python
   if resume and saved_manifest["fingerprint"] != current_fingerprint:
@@ -217,8 +224,70 @@
   temporary.write_bytes(serialized_bin)
   temporary.replace(completed_bin_path)
   ```
-- [ ] **Step 4 GREEN command:** Focused CLI/output tests pass. Check emitted JSON/CSV and open one tiny synthetic PDF for masked segments and source-versus-fitted labels; no real long run.
-- [ ] **Step 5 review/commit:** Commit only Task 7 files with `feat(theory): add resumable Figure 4 fit workflow`.
+- [x] **Step 4 GREEN command:** Focused CLI/output tests pass. Check emitted JSON/CSV and open one tiny synthetic PDF for masked segments and source-versus-fitted labels; no real long run.
+- [x] **Step 5 review/commit:** Commit only Task 7 files with `feat(theory): add resumable Figure 4 fit workflow`.
+
+## Task 7E: Exploratory p6 fit to existing UV pilot data
+
+**2026-10-12 interim decision:** The user accepted a preliminary fit now.
+The available Stage 07 UV ROOT has 109 `raw_bdt/ratio` points, positive
+definite selected covariance, measured run-matched flux, and pilot provenance
+`background=uncorrected`, no run bootstrap, `best_quartet_resolved=false`.
+This task is a separate exploratory calculation. It does not alter Task 8
+final-data, certification, or Ajaka reproduction gates.
+
+- [x] **RED:** Test that raw `BasisBinMoment` objects cannot enter the
+  certified `build_gls`, while an exploratory objective selects every
+  calculated native-flux moment in Stage 07 key order, reports all
+  numerical masks, slices the original covariance by those indices, and
+  rejects inconsistent anchors, invalid denominators and rank deficiency.
+  No data-dependent bin selection or diagonal-only replacement covariance.
+- [x] **GREEN:** Add a resumable user-run raw p6 native-basis calculation at
+  `n=4`, `64/48`, grid mode and measured run-matched flux. Reuse exact
+  three-term event amplitude basis and `BasisCheckpoint`; saved certificates
+  must have `preliminary_uncertified` status so formal `figure4-fit` rejects
+  them. Preserve typed inner-quadrature and kinematic masks. Hash code,
+  parameters, ROOT data, reco, flux and manifest; checkpoint per bin.
+- [x] **Fit implementation:** Build an explicitly exploratory GLS objective from every
+  finite native moment and the corresponding full covariance principal
+  submatrix. Fit the two sourced Delta(1700) EM couplings with the existing
+  rank-checked optimizer. Emit source/fitted predictions for all 109 points,
+  exclusion reasons, chi-square/dof, source/internal units, fingerprints,
+  4×3 native-data PDF and pilot limitations. Fewer than three usable bins
+  abort with an explicit error and no fit artifact; a rank-deficient Jacobian
+  produces `not_identifiable`. Never invent a prior or tune to Ajaka strokes.
+  Parameter covariance is conditional on pilot data and p6 numerical
+  accuracy, not a physics uncertainty.
+- [ ] **Proof/handoff:** Run focused tests and full short suite locally.
+  Give user exact long basis command, eight-worker resource estimate and
+  identical restart command. User runs and returns manifest/log. Inspect
+  every saved status before running the short optimizer; user launches it
+  if its measured runtime is long. Then calculate fitted Ajaka publication
+  curves separately with uniform energy weighting before claiming any
+  relationship to the paper. Task 8 remains open.
+
+## Task 7F: Recovery fit against `production_phi12` pilot data
+
+**2026-10-12 decision:** Original `production-20261006-113738` ROOT inputs
+disappeared while Task 7E finished. All 109 saved p6 checkpoints are readable
+and hash-valid, but original manifest remains incomplete. The user approved a
+separately labeled proxy fit to `production_phi12` now; this never promotes the
+old basis to certified status.
+
+- [x] **RED:** Test rejection of changed native bin identities, large flux
+  shifts, and wrong 12-bin correction; test proxy report provenance.
+- [x] **GREEN:** New script reads all old checkpoint certificates, validates
+  current 109 key/edge identities, selected-run flux and grouped energy nodes,
+  and gates relative total-flux change at `0.005`, polarization change at
+  `1e-4`, energy-node shift at `1e-4 GeV`. Saved and current ROOT fingerprints
+  remain distinct in report. Original fingerprinted script stays untouched.
+- [x] **Estimator convention:** Current Stage 07 ratio points divide the raw
+  12-center fit by `0.9549`; proxy theory prediction applies the same divisor.
+- [ ] **User-run fit:** User executes short optimizer. Inspect chi-square,
+  parameter values, covariance/rank, 75 included points, 34 masks, comparison
+  PDF and proxy audit. Never interpret input-proximity gates as an error bound
+  on Sigma or this fit as a final physical parameter estimate. An exact
+  `production_phi12` basis still needs its own long calculation.
 
 ## Task 8: User-run data release, production proof and scientific claim
 

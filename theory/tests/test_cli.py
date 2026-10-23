@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 THEORY_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -33,6 +35,189 @@ def test_figure4_full_command_dispatches_explicit_numerical_settings(tmp_path, m
                        "--replicas", "8", "--workers", "4", "--mode", "grid"])
     assert result == 2
     assert observed == [(tmp_path/"run", 4, 6, 8, 4, "grid")]
+
+
+def test_figure4_full_adaptive_cli_passes_power_bounds(tmp_path, monkeypatch):
+    from graal_theory import cli
+    seen = []
+    monkeypatch.setattr(cli, "_figure4_full", lambda args:
+                        seen.append((args.adaptive_min_power, args.adaptive_max_power)) or 0)
+    assert cli.main(["figure4-full", "--output", str(tmp_path/"run"),
+                     "--adaptive-min-power", "5", "--adaptive-max-power", "8"]) == 0
+    assert seen == [(5, 8)]
+
+
+def test_basis_cli_rejects_missing_native_inputs_and_mixed_ajaka_inputs(tmp_path):
+    missing = _run_cli("figure4-basis-build", "--target", "native",
+                       "--output", str(tmp_path/"native"))
+    assert missing.returncode == 1
+    assert "reco-root" in missing.stderr
+    assert not (tmp_path/"native").exists()
+    mixed = _run_cli("figure4-basis-build", "--target", "ajaka",
+                     "--output", str(tmp_path/"ajaka"),
+                     "--data-root", str(tmp_path/"data.root"))
+    assert mixed.returncode == 1
+    assert "Ajaka" in mixed.stderr
+    assert not (tmp_path/"ajaka").exists()
+
+
+def test_fit_cli_refuses_theory_csv_and_incomplete_or_reused_basis(tmp_path):
+    data = tmp_path/"theory.csv"
+    data.write_text("mass,sigma\n1.1,0.2\n")
+    ajaka, native = tmp_path/"ajaka", tmp_path/"native"
+    ajaka.mkdir()
+    native.mkdir()
+    for path, target in ((ajaka, "ajaka"), (native, "native")):
+        (path/"manifest.json").write_text(json.dumps({
+            "version": 1, "target": target, "fingerprint": "a"*64,
+            "keys": ["0_p_pi0_0.npz"], "bins": {}, "complete": False,
+        }))
+    common = ("--basis-native", str(native), "--basis-ajaka", str(ajaka),
+              "--output", str(tmp_path/"fit"))
+    csv = _run_cli("figure4-fit", "--data-root", str(data), *common)
+    assert csv.returncode == 1
+    assert "ROOT" in csv.stderr
+    incomplete = _run_cli("figure4-fit", "--data-root", str(tmp_path/"data.root"), *common)
+    assert incomplete.returncode == 1
+    assert "incomplete" in incomplete.stderr
+    same = _run_cli("figure4-fit", "--data-root", str(tmp_path/"data.root"),
+                    "--basis-native", str(native), "--basis-ajaka", str(native),
+                    "--output", str(tmp_path/"fit"))
+    assert same.returncode == 1
+    assert "distinct" in same.stderr
+
+
+def test_ajaka_basis_cli_resumes_only_corrupt_bin(tmp_path, monkeypatch):
+    import numpy as np
+    from graal_theory import cli
+    from graal_theory.figure4_basis import BasisBinCertificate, BasisBinMoment
+
+    calls = []
+    def fast_bin(task):
+        key = task[1]
+        calls.append(key)
+        zero = np.zeros((3, 3), dtype=np.complex128)
+        moment = BasisBinMoment(key[1], task[2], task[3], "uniform", zero, zero,
+                                None, None, None, None, None, zero,
+                                np.empty(0), "masked_kinematic", "toy")
+        return key, BasisBinCertificate(moment, "masked_kinematic", ("toy",),
+                                        float("nan"), None, (), 0, None)
+    monkeypatch.setattr(cli, "_basis_bin_task", fast_bin)
+    output = tmp_path/"basis"
+    command = ["figure4-basis-build", "--target", "ajaka", "--output", str(output),
+               "--energy-order", "2", "--sobol-power", "4"]
+    assert cli.main(command) == 0
+    assert len(calls) == 120
+    assert json.loads((output/"manifest.json").read_text())["complete"] is True
+    (output/"bins"/"0_p_pi0_0.npz").write_bytes(b"corrupt")
+    calls.clear()
+    assert cli.main(command+["--resume"]) == 0
+    assert calls == [(0, "p_pi0", 0)]
+
+
+def test_fit_cli_keeps_sourced_comparison_separate_from_successful_fit(tmp_path, monkeypatch):
+    import numpy as np
+    from types import SimpleNamespace
+    from graal_theory import cli, figure4_fit_output, native_sigma
+    from graal_theory.figure4_basis import BasisBinCertificate, BasisBinMoment, BinPrediction
+    from graal_theory.figure4_reference import PAIR_MASS_AXES
+    from graal_theory.native_sigma import NativeSigmaData
+
+    mass = .93827208816
+    class NativePrediction:
+        def __init__(self, index):
+            self.index = index
+            self.moment = SimpleNamespace(anchor_g1=-.260/mass, anchor_g2=.270/mass**2,
+                proton_mass_gev=mass, energy_rule="native_flux", model_fingerprint="toy-physics")
+            self.status = "calculated"
+            self.numerical_error_bound = 0.
+
+        def predict(self, coefficients):
+            _, x, y = coefficients
+            sigma = -.08+.02*self.index+(.15+.04*self.index)*x+(.11-.025*self.index)*y
+            return BinPrediction(sigma, 1., sigma, sigma, "native_flux")
+
+    keys = tuple(("p_pi0", 0, index) for index in range(6))
+    native_predictions = {key: NativePrediction(index) for index, key in enumerate(keys)}
+    sigma = np.array([item.predict([1., .07, -.04]).sigma
+                      for item in native_predictions.values()])
+    data = NativeSigmaData(keys, sigma, np.full(6, .05), np.arange(6),
+                           np.eye(6)*.0025, np.eye(6)*.001,
+                           np.array([1.1, 1.2]), {"p_pi0": np.linspace(1., 1.4, 7)},
+                           {"profile": "uv", "background": "sideband-corrected"},
+                           "a"*64, "final_input")
+    ajaka_certificates = {}
+    anchor = native_predictions[data.keys[0]].moment
+    for energy in range(4):
+        for pair, (low, high) in PAIR_MASS_AXES.items():
+            edges = np.linspace(low, high, 11)
+            for mass in range(10):
+                identity = np.eye(3, dtype=np.complex128)
+                numerator = identity*.2
+                numerator[0, 1] = numerator[1, 0] = .5
+                center = float((edges[mass]+edges[mass+1])/2)
+                moment = BasisBinMoment(
+                    pair, (1.1+.1*energy, 1.2+.1*energy),
+                    (float(edges[mass]), float(edges[mass+1])), "uniform",
+                    numerator, identity, None, None, None, None, None,
+                    identity/8, np.array([1.15+.1*energy]), "calculated",
+                    model_fingerprint="toy-physics", anchor_g1=anchor.anchor_g1,
+                    anchor_g2=anchor.anchor_g2, proton_mass_gev=anchor.proton_mass_gev,
+                    mass_numerator=identity*center,
+                    accessible_energy_gev=(1.1+.1*energy, 1.2+.1*energy),
+                    accessible_mass_gev=(float(edges[mass]), float(edges[mass+1])),
+                    vertical_normalization=identity/2,
+                    horizontal_normalization=identity/2)
+                ajaka_certificates[energy, pair, mass] = BasisBinCertificate(
+                    moment, "calculated", (), .001, None, (moment,)*12, 8, None)
+    native, ajaka = tmp_path/"native", tmp_path/"ajaka"
+    native.mkdir()
+    ajaka.mkdir()
+    settings = {"energy_order": 2, "sobol_power": 4, "replicas": 8, "mode": "grid"}
+    fingerprint = figure4_fit_output.fingerprint_inputs(
+        "ajaka", cli._ajaka_basis_inputs(Path(cli._REFERENCES)), settings)
+    native_manifest = {"target": "native", "complete": True,
+                       "keys": [f"{energy}_{pair}_{mass}.npz" for pair, energy, mass in data.keys],
+                       "code_sha256": "c"*64, "data_sha256": data.source_sha256,
+                       "fingerprint": "n"*64}
+    ajaka_manifest = {"target": "ajaka", "complete": True,
+                      "keys": [f"{energy}_{pair}_{mass}.npz" for energy, pair, mass in ajaka_certificates],
+                      "code_sha256": "c"*64, "fingerprint": fingerprint, "settings": settings}
+    (native/"manifest.json").write_text(json.dumps(native_manifest))
+    (ajaka/"manifest.json").write_text(json.dumps(ajaka_manifest))
+
+    class Checkpoint:
+        def __init__(self, path, manifest):
+            self.manifest = manifest
+
+        def pending_keys(self):
+            return ()
+
+        def read(self, key):
+            if self.manifest["target"] == "native":
+                return native_predictions[key[1], key[0], key[2]]
+            return ajaka_certificates[key]
+
+        _key_from_name = staticmethod(figure4_fit_output.BasisCheckpoint._key_from_name)
+
+    monkeypatch.setattr(figure4_fit_output, "BasisCheckpoint", Checkpoint)
+    monkeypatch.setattr(native_sigma, "load_native_sigma_root", lambda *a, **k: data)
+    observed = {}
+    def capture(output, sourced, fitted, source_comparison, fitted_comparison,
+                fit_result, provenance, covariance):
+        observed.update(status=fit_result.status,
+                        sourced=source_comparison.status,
+                        fitted=fitted_comparison.status,
+                        source_sigma=sourced[0, "p_pi0"].bins[0].sigma,
+                        fitted_sigma=fitted[0, "p_pi0"].bins[0].sigma)
+    monkeypatch.setattr(figure4_fit_output, "write_fit_bundle", capture)
+    result = cli.main(["figure4-fit", "--data-root", str(tmp_path/"data.root"),
+                       "--basis-native", str(native), "--basis-ajaka", str(ajaka),
+                       "--output", str(tmp_path/"output")])
+    assert result == 2  # the synthetic source curve is not Ajaka reproduction
+    assert observed["status"] == "fit_computed"
+    assert observed["source_sigma"] == pytest.approx(.2)
+    assert observed["fitted_sigma"] != pytest.approx(.2)
 
 
 def test_figure4_bin_task_keeps_replica_checks_for_panel_assembly(monkeypatch):
