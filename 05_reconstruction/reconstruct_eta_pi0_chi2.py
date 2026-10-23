@@ -5,7 +5,7 @@ Reads the preselected tree and pairs the first four photons into an eta
 and a pi0 by minimising chi2 over pairings derived from the eta-pi0 hypothesis.
 
 Run:
-    python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir data/03_selected
+    python -m reconstruction.reconstruct_eta_pi0_chi2 --input-dir results/_cache/03_selected
 """
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
 from graal_common.physics.energy_binning import add_energy_arguments, energy_binning_from_args

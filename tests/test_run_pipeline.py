@@ -14,8 +14,8 @@ def test_mode_config_uses_exact_test_and_production_inputs(tmp_path):
     test = run_pipeline.mode_config("test_data", tmp_path)
     production = run_pipeline.mode_config("production", tmp_path)
 
-    assert test.preanalysis_dir == tmp_path / "test_data/02_pre_analyzed"
-    assert test.default_output == tmp_path / "results/test_data"
+    assert test.preanalysis_dir == tmp_path / "data_test/sample"
+    assert test.default_output == tmp_path / "results_test/test_data"
     assert test.mc_events == 100_000
     assert production.preanalysis_dir == tmp_path / "data/02_pre_analyzed"
     assert production.default_output == tmp_path / "results/production"
@@ -325,7 +325,7 @@ def test_plan_trains_and_reconstructs_with_profile_local_artifacts(tmp_path):
         assert str(root / "reco/reco_eta_pi0_chi2.root") in extract.argv
 
 
-@pytest.mark.parametrize("mode,root", [("production", "data"), ("test_data", "test_data")])
+@pytest.mark.parametrize("mode,root", [("production", "results/_cache"), ("test_data", "results_test/test_data/artifacts")])
 def test_intermediates_live_under_mode_data_root(tmp_path, mode, root):
     config = run_pipeline.mode_config(mode, tmp_path)
     paths = run_pipeline.build_paths(config)
@@ -459,7 +459,7 @@ def test_run_calls_preflight_prepare_plan_and_execute_in_order(tmp_path, monkeyp
 
     code = run_pipeline.run(
         run_pipeline.build_parser().parse_args(
-            ["--mode", "test_data", "--output-dir", str(tmp_path / "results/test_chosen"),
+            ["--mode", "test_data", "--output-dir", str(tmp_path / "results_test/test_chosen"),
              "--phi-bins", "16"]
         ),
         repo_root=tmp_path,
@@ -469,7 +469,7 @@ def test_run_calls_preflight_prepare_plan_and_execute_in_order(tmp_path, monkeyp
     assert events == [
         ("preflight", "test_data"),
         ("plan", "root", 16),
-        ("prepare", tmp_path / "results/test_chosen"),
+        ("prepare", tmp_path / "results_test/test_chosen"),
         ("execute", "only"),
     ]
 
@@ -496,17 +496,17 @@ def test_main_reports_keyboard_interrupt(monkeypatch, capsys):
 
 def test_test_campaign_replacement_is_confined_to_test_namespace(tmp_path):
     config = run_pipeline.mode_config("test_data", tmp_path)
-    safe = run_pipeline.build_paths(config, tmp_path / "results/test_trial")
+    safe = run_pipeline.build_paths(config, tmp_path / "results_test/test_trial")
     run_pipeline.validate_test_output(safe)
     for unsafe in (tmp_path / "results/production", tmp_path / "elsewhere/test_trial"):
-        with pytest.raises(run_pipeline.PipelineError, match="test_"):
+        with pytest.raises(run_pipeline.PipelineError, match="results_test"):
             run_pipeline.validate_test_output(run_pipeline.build_paths(config, unsafe))
 
 
 def test_test_campaign_rejects_symlinked_results_parent(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
-    (tmp_path / "results").symlink_to(outside, target_is_directory=True)
+    (tmp_path / "results_test").symlink_to(outside, target_is_directory=True)
     paths = run_pipeline.build_paths(run_pipeline.mode_config("test_data", tmp_path))
     with pytest.raises(run_pipeline.PipelineError, match="symlink"):
         run_pipeline.validate_test_output(paths)
@@ -515,7 +515,7 @@ def test_test_campaign_rejects_symlinked_results_parent(tmp_path):
 def test_production_campaign_must_live_in_results_namespace(tmp_path):
     config = run_pipeline.mode_config("production", tmp_path)
     run_pipeline.validate_production_output(run_pipeline.build_paths(config, tmp_path / "results/october"))
-    for unsafe in (tmp_path / "data/04_mc/uv", tmp_path / "results/test_trial"):
+    for unsafe in (tmp_path / "data/04_mc/uv", tmp_path / "results_test/test_trial"):
         with pytest.raises(run_pipeline.PipelineError, match="production output"):
             run_pipeline.validate_production_output(run_pipeline.build_paths(config, unsafe))
 
@@ -623,7 +623,7 @@ def test_two_test_campaign_runs_replace_results_without_touching_production(tmp_
     production = tmp_path / "results/production/keep.root"
     production.parent.mkdir(parents=True)
     production.write_bytes(b"production")
-    test_root = tmp_path / "results/test_repeat"
+    test_root = tmp_path / "results_test/test_repeat"
     run_numbers = []
     monkeypatch.setattr(run_pipeline, "preflight", lambda config, paths: run_pipeline.PreflightResult("root"))
     monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda config, paths, checked, *, phi_bins, energy_binnings=None, best_binning=False, flux_study="off", flux_study_metadata=None: ())
@@ -647,10 +647,11 @@ def test_two_test_campaign_runs_replace_results_without_touching_production(tmp_
 def test_confirmation_refusal_preserves_test_results_and_skips_execution(
     tmp_path, monkeypatch, capsys, answer
 ):
-    output = tmp_path / "results/test_repeat"
+    output = tmp_path / "results_test/test_repeat"
     output.mkdir(parents=True)
     marker = output / "keep.txt"
     marker.write_text("previous campaign")
+    (output / "pipeline_commands.log").write_text("previous command log")
     monkeypatch.setattr(run_pipeline, "preflight", lambda *_: run_pipeline.PreflightResult("root"))
     monkeypatch.setattr(run_pipeline, "build_pipeline_plan", lambda *_, phi_bins, energy_binnings=None, best_binning=False, flux_study="off", flux_study_metadata=None: (run_pipeline.Stage("uv:select", ("selector",)),))
     monkeypatch.setattr(
@@ -670,10 +671,10 @@ def test_confirmation_refusal_preserves_test_results_and_skips_execution(
     )
     assert run_pipeline.run(args, repo_root=tmp_path) == 0
     assert marker.read_text() == "previous campaign"
-    assert not (output / "pipeline_commands.log").exists()
+    assert (output / "pipeline_commands.log").read_text() == "previous command log"
     summary = capsys.readouterr().out
     assert "uv:select" in summary
-    assert "test_data/03_selected/uv" in summary
+    assert "results_test/test_repeat/artifacts/03_selected/uv" in summary
     assert "100000" in summary
     assert "sempre rigenerati" in summary
     assert "Sovrascrittura" in summary
@@ -830,3 +831,114 @@ def test_flux_study_default_and_invalid_mode():
     parser=run_pipeline.build_parser()
     assert parser.parse_args(['--mode','production']).flux_study=='off'
     with pytest.raises(SystemExit):parser.parse_args(['--mode','production','--flux-study','automatic'])
+
+
+def test_test_and_production_locks_are_distinct(tmp_path):
+    with run_pipeline.pipeline_lock(tmp_path):
+        with run_pipeline.pipeline_lock(tmp_path, mode='test_data'):
+            with pytest.raises(run_pipeline.PipelineError, match='lock'):
+                with run_pipeline.pipeline_lock(tmp_path, mode='test_data'):
+                    pass
+
+
+def test_production_flux_study_uses_diagnostic_output(tmp_path):
+    config = run_pipeline.mode_config('production', tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / 'results/october')
+    stages = run_pipeline.build_pipeline_plan(config, paths, run_pipeline.PreflightResult('root'), flux_study='audit')
+    stage = next(s for s in stages if s.name == 'common:flux_audit')
+    assert stage.argv[stage.argv.index('--output-dir') + 1] == str(tmp_path / 'results_test/diagnostics/october/missing_flux')
+    assert stage.argv[stage.argv.index('--calibrated-flux') + 1] == str(paths.calibrated_flux)
+
+
+def test_production_rejects_embedded_diagnostic_sample_without_sidecar(tmp_path):
+    from dataclasses import replace
+    config, paths = _valid_preflight_tree(tmp_path)
+    config = replace(config, name='production')
+    with uproot.update(next(paths.preanalysis_dir.glob('*uv*'))) as output:
+        output['sample_provenance'] = '{"diagnostic_only": true}'
+    with pytest.raises(run_pipeline.PipelineError, match='diagnostic'):
+        run_pipeline.preflight(config, paths, import_module=_imports, which=lambda _: 'root', manifest_validator=lambda _: ())
+
+
+def test_test_output_cannot_alias_input_or_production(tmp_path):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    for root in ['data', 'data_test', 'results']:
+        target = tmp_path / root
+        target.mkdir()
+        alias = tmp_path / 'results_test'
+        alias.symlink_to(target, target_is_directory=True)
+        with pytest.raises(run_pipeline.PipelineError):
+            run_pipeline.validate_test_output(run_pipeline.build_paths(config))
+        alias.unlink()
+
+
+def test_test_campaign_accepts_unprefixed_name(tmp_path):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    run_pipeline.validate_test_output(run_pipeline.build_paths(config, tmp_path / 'results_test/smoke'))
+
+
+def test_artifact_directory_symlink_is_rejected(tmp_path):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    paths = run_pipeline.build_paths(config)
+    paths.output_root.mkdir(parents=True)
+    target = tmp_path / 'results/_cache'; target.mkdir(parents=True)
+    paths.artifact_root.symlink_to(target, target_is_directory=True)
+    with pytest.raises(run_pipeline.PipelineError, match='artifact'):
+        run_pipeline.validate_test_output(paths)
+
+
+def test_failed_test_campaign_restores_previous_outputs_and_inputs(tmp_path, monkeypatch):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    paths = run_pipeline.build_paths(config)
+    paths.output_root.mkdir(parents=True)
+    (paths.output_root / 'valid.txt').write_text('previous result')
+    paths.command_log.write_text('previous command log')
+    paths.preanalysis_dir.mkdir(parents=True)
+    source = paths.preanalysis_dir / 'input.root'; source.write_bytes(b'original')
+    monkeypatch.setattr(run_pipeline, 'preflight', lambda *_: run_pipeline.PreflightResult('root'))
+    monkeypatch.setattr(run_pipeline, 'build_pipeline_plan', lambda *_, **__: ())
+    monkeypatch.setattr('builtins.input', lambda _: 's')
+    def fail(*_, **__): raise RuntimeError('stage failure')
+    monkeypatch.setattr(run_pipeline, 'execute_cached_plan', fail)
+    args = run_pipeline.build_parser().parse_args(['--mode', 'test_data'])
+    with pytest.raises(RuntimeError, match='stage failure'):
+        run_pipeline.run(args, repo_root=tmp_path)
+    assert (paths.output_root / 'valid.txt').read_text() == 'previous result'
+    assert source.read_bytes() == b'original'
+
+
+def test_input_alias_into_test_output_is_rejected(tmp_path):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    paths = run_pipeline.build_paths(config)
+    paths.output_root.mkdir(parents=True)
+    paths.preanalysis_dir.parent.mkdir(parents=True)
+    paths.preanalysis_dir.symlink_to(paths.output_root, target_is_directory=True)
+    with pytest.raises(run_pipeline.PipelineError, match='input'):
+        run_pipeline.validate_test_output(paths)
+
+
+@pytest.mark.parametrize('name', ['archive', 'repository-refactor-20261023', 'unrelated-study'])
+def test_shared_test_namespaces_are_preserved_before_replacement(tmp_path, name):
+    config = run_pipeline.mode_config('test_data', tmp_path)
+    paths = run_pipeline.build_paths(config, tmp_path / 'results_test' / name)
+    sentinel = paths.output_root / 'nested/frozen-proof.root'
+    sentinel.parent.mkdir(parents=True)
+    sentinel.write_bytes(b'irreplaceable scientific evidence')
+    if name == 'archive':
+        # A log inside the reserved archive cannot turn it into a campaign.
+        paths.command_log.write_text('historical log')
+    with pytest.raises(run_pipeline.PipelineError):
+        with run_pipeline._replace_test_output(paths):
+            pytest.fail('protected output reached replacement')
+    assert sentinel.read_bytes() == b'irreplaceable scientific evidence'
+    assert not list(paths.output_root.parent.glob(f'.{name}.backup-*'))
+
+
+def test_production_write_summary_names_actual_cache(tmp_path, capsys):
+    config = run_pipeline.mode_config('production', tmp_path)
+    paths = run_pipeline.build_paths(config)
+    args = run_pipeline.build_parser().parse_args(['--mode', 'production'])
+    run_pipeline.print_run_summary(config, paths, args, ())
+    text = capsys.readouterr().out
+    assert 'intermedi persistenti in results/_cache/' in text
+    assert 'intermedi persistenti in data/' not in text

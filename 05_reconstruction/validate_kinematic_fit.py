@@ -7,7 +7,7 @@ report pull moments, chi2, confidence-level uniformity, condition numbers,
 failure reasons, and fitted-vs-raw mass width.
 
     python -m reconstruction.validate_kinematic_fit \\
-        --signal 03_mc_simulation/data/eta_pi0_mc.root --out-dir results/plots
+        --signal results/_cache/04_mc/eta_pi0_mc.root --out-dir results_test/diagnostics/kinematic_fit
 """
 from __future__ import annotations
 
@@ -44,8 +44,8 @@ def validation_status(mode: str, provenance: str | None) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--signal", type=Path,
-                    default=Path("03_mc_simulation/data/eta_pi0_mc.root"))
-    ap.add_argument("--out-dir", type=Path, default=Path("results/plots"))
+                    default=Path("results/_cache/04_mc/eta_pi0_mc.root"))
+    ap.add_argument("--out-dir", type=Path, default=Path("results_test/diagnostics/kinematic_fit"))
     ap.add_argument("--n", type=int, default=20000, help="events to fit")
     ap.add_argument(
         "--validation-mode",

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import fcntl
 import importlib
 import json
@@ -82,6 +82,7 @@ class PipelinePaths:
     repo_root: Path
     preanalysis_dir: Path
     data_root: Path
+    artifact_root: Path
     output_root: Path
     manifest: Path
     raw_flux: Path
@@ -107,15 +108,15 @@ class PipelinePaths:
 
     def selected_dir(self, profile: str) -> Path:
         self.profile_root(profile)
-        return self.data_root / "03_selected" / profile
+        return self.artifact_root / "03_selected" / profile
 
     def mc_dir(self, profile: str) -> Path:
         self.profile_root(profile)
-        return self.data_root / "04_mc" / profile
+        return self.artifact_root / "04_mc" / profile
 
     def bdt_dir(self, profile: str) -> Path:
         self.profile_root(profile)
-        return self.data_root / "05_bdt" / profile
+        return self.artifact_root / "05_bdt" / profile
 
 
 @dataclass(frozen=True)
@@ -133,7 +134,7 @@ class Stage:
 def mode_config(mode: str, repo_root: Path = REPO_ROOT) -> ModeConfig:
     repo_root = Path(repo_root).resolve()
     values = {
-        "test_data": ("test_data/02_pre_analyzed", "results/test_data", 100_000),
+        "test_data": ("data_test/sample", "results_test/test_data", 100_000),
         "production": (
             "data/02_pre_analyzed",
             "results/production",
@@ -164,7 +165,8 @@ def build_paths(
     return PipelinePaths(
         repo_root=config.repo_root,
         preanalysis_dir=config.preanalysis_dir,
-        data_root=config.repo_root / ("data" if config.name == "production" else "test_data"),
+        data_root=config.repo_root / ("data" if config.name == "production" else "data_test"),
+        artifact_root=(config.repo_root / "results/_cache" if config.name == "production" else output / "artifacts"),
         output_root=output,
         manifest=config.repo_root / "config/run_manifest.csv",
         raw_flux=config.repo_root / "data/00_external/flux.root",
@@ -235,6 +237,10 @@ def preflight(
         raise PipelineError(
             f"pre-analysis directory not found: {paths.preanalysis_dir}"
         )
+    if config.name == "production":
+        marker = paths.preanalysis_dir / "manifest.json"
+        if marker.is_file() and json.loads(marker.read_text()).get("diagnostic_only"):
+            raise PipelineError("diagnostic sample is forbidden in production")
     old_preanalysis_inputs: list[Path] = []
     now = datetime.now(timezone.utc).timestamp()
     for profile, pattern in PROFILE_PATTERNS.items():
@@ -243,6 +249,15 @@ def preflight(
             raise PipelineError(
                 f"{profile.upper()} pre-analysis files not found: {pattern}"
             )
+        if config.name == "production":
+            import uproot
+            for path in files:
+                with uproot.open(path) as source:
+                    if "sample_provenance" in source:
+                        obj = source["sample_provenance"]
+                        payload = obj.member("fTitle") if obj.classname == "TNamed" else str(obj)
+                        if json.loads(payload).get("diagnostic_only"):
+                            raise PipelineError(f"diagnostic sample is forbidden in production: {path}")
         try:
             preanalysis_validator(files)
         except Exception as exc:
@@ -549,7 +564,7 @@ def build_pipeline_plan(
                         "--manifest", paths.manifest, "--raw-flux", paths.raw_flux,
                         "--calibrated-flux", paths.calibrated_flux,
                         "--calibration-qa", paths.calibrated_flux.with_suffix(".qa.json"),
-                        "--output-dir", paths.output_root / "missing_flux")
+                        "--output-dir", paths.repo_root / "results_test/diagnostics" / paths.output_root.name / "missing_flux")
         if flux_study_metadata is not None:
             command += _argv("--run-metadata", flux_study_metadata)
         stages.append(Stage(f"common:flux_{flux_study}", command))
@@ -612,11 +627,25 @@ def prepare_output_dirs(paths: PipelinePaths) -> None:
 
 
 def validate_test_output(paths: PipelinePaths) -> None:
-    expected_parent = (paths.repo_root / "results").resolve()
-    if (paths.repo_root / "results").is_symlink():
+    parent = paths.repo_root / "results_test"
+    output = paths.output_root.resolve()
+    inputs = paths.preanalysis_dir.resolve()
+    if output == inputs or output.is_relative_to(inputs) or inputs.is_relative_to(output):
+        raise PipelineError("test output must not overlap input through aliases")
+    if parent.is_symlink():
         raise PipelineError("test output results parent must not be a symlink")
-    if paths.output_root.parent.resolve() != expected_parent or paths.output_root.is_symlink() or not paths.output_root.name.startswith("test_") or len(paths.output_root.name) <= 5:
-        raise PipelineError("test output must be results/test_<campaign>")
+    if (paths.output_root.parent.resolve() != parent.resolve() or paths.output_root.is_symlink()
+            or paths.output_root.name in {"archive", "diagnostics", "_cache"}):
+        raise PipelineError("test output must be results_test/<campaign> without symlinks")
+    if paths.artifact_root.is_symlink():
+        raise PipelineError("test artifact root must not be a symlink")
+    if paths.artifact_root != paths.output_root / "artifacts":
+        raise PipelineError("test artifact root must belong to its campaign")
+    # Only launcher-created campaigns are replaceable. Other populated trees
+    # may contain archives, study inputs or execution evidence in this namespace.
+    if paths.output_root.is_dir() and any(paths.output_root.iterdir()):
+        if paths.command_log.is_symlink() or not paths.command_log.is_file():
+            raise PipelineError("existing test output is not a launcher-owned campaign")
 
 
 def validate_production_output(paths: PipelinePaths) -> None:
@@ -628,8 +657,11 @@ def validate_production_output(paths: PipelinePaths) -> None:
 
 
 @contextmanager
-def pipeline_lock(repo_root: Path):
-    lock_path = Path(repo_root) / "results/.pipeline.lock"
+def pipeline_lock(repo_root: Path, *, mode: str = "production"):
+    if mode not in ("production", "test_data"):
+        raise PipelineError(f"unknown lock mode: {mode}")
+    namespace = "results" if mode == "production" else "results_test"
+    lock_path = Path(repo_root) / namespace / ".pipeline.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+") as handle:
         try:
@@ -861,10 +893,26 @@ def execute_cached_plan(
         index += 1
 
 
-def _replace_test_output(paths: PipelinePaths) -> None:
+@contextmanager
+def _replace_test_output(paths: PipelinePaths):
+    """Publish a complete test campaign, restoring its previous bytes on failure."""
     validate_test_output(paths)
+    backup = None
     if paths.output_root.exists():
-        shutil.rmtree(paths.output_root)
+        backup = Path(tempfile.mkdtemp(prefix=f".{paths.output_root.name}.backup-", dir=paths.output_root.parent))
+        backup.rmdir()
+        paths.output_root.rename(backup)
+    try:
+        yield
+    except BaseException:
+        if paths.output_root.exists():
+            shutil.rmtree(paths.output_root)
+        if backup is not None:
+            backup.rename(paths.output_root)
+        raise
+    else:
+        if backup is not None:
+            shutil.rmtree(backup)
 
 
 def _use_color() -> bool:
@@ -999,13 +1047,13 @@ def print_run_summary(
                 f"force-{name}={'sì' if getattr(args, f'force_{name}') else 'no'}"
                 for name in ("selected", "mc", "bdt")
             )),
-            ("Scrittura", "intermedi persistenti in data/; risultati in nuova campagna"),
+            ("Scrittura", "intermedi persistenti in results/_cache/; risultati in nuova campagna"),
         ))
     else:
         rows.extend((
             ("Cache", "disattivata; selected, MC e BDT sempre rigenerati"),
             ("Flag force", "ignorati in test_data"),
-            ("Sovrascrittura", "intermedi in test_data/ e intera directory risultati indicata"),
+            ("Sovrascrittura", "intermedi e risultati nella campagna results_test/"),
         ))
     rows.append(("Stage previsti", str(len(stages))))
     rows.extend((f"{index:02d}", stage.name) for index, stage in enumerate(stages, 1))
@@ -1076,7 +1124,7 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
         validate_test_output(paths)
     else:
         validate_production_output(paths)
-    with pipeline_lock(config.repo_root):
+    with pipeline_lock(config.repo_root, mode=config.name):
         if getattr(args, "require_current_preanalysis", False):
             for pattern in PROFILE_PATTERNS.values():
                 cache.validate_current_preanalysis(sorted(paths.preanalysis_dir.glob(pattern)))
@@ -1093,16 +1141,16 @@ def run(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> int:
         if not confirm_run():
             console.emit("Pipeline annullata.", "warning")
             return 0
-        if config.name == "test_data":
-            _replace_test_output(paths)
-        prepare_output_dirs(paths)
-        execute_cached_plan(
-            stages, config, paths,
-            force_selected=args.force_selected,
-            force_mc=args.force_mc,
-            force_bdt=args.force_bdt,
-            cpus=cpus, runner=bounded_runner,
-        )
+        publication = _replace_test_output(paths) if config.name == "test_data" else nullcontext()
+        with publication:
+            prepare_output_dirs(paths)
+            execute_cached_plan(
+                stages, config, paths,
+                force_selected=args.force_selected,
+                force_mc=args.force_mc,
+                force_bdt=args.force_bdt,
+                cpus=cpus, runner=bounded_runner,
+            )
     console.emit(f"\nPipeline complete: {paths.output_root}", "success")
     return 0
 

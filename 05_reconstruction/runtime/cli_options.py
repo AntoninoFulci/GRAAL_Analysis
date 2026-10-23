@@ -27,7 +27,7 @@ def add_common_reconstruction_arguments(
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=Path("data/03_selected"),
+        default=Path("results/_cache/03_selected"),
         help="folder with the preselected ROOT files",
     )
     parser.add_argument(

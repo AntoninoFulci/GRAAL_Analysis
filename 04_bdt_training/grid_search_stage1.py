@@ -192,9 +192,9 @@ def run_search(
 
 def _cli() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--features",     default="features_stage1.npz")
+    parser.add_argument("--features",     default="results/_cache/05_bdt/features_stage1.npz")
     parser.add_argument(
-        "--out-dir", default="04_bdt_training/artifacts/stage1"
+        "--out-dir", default="results/_cache/05_bdt/artifacts/stage1"
     )
     parser.add_argument("--n-iter",       type=int, default=30,
                         help="Random configs to try (ignored with --full-grid)")

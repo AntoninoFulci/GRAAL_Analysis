@@ -1,6 +1,7 @@
 """Render traced Ajaka Figure 4 theory lines for source-page review."""
 
 from pathlib import Path
+import argparse
 
 import matplotlib
 
@@ -35,7 +36,9 @@ for energy_bin in range(4):
             ax.set_xlabel("pair mass [GeV]")
         if column == 0:
             ax.set_ylabel("Sigma")
-destination = ROOT / "outputs/figure4_reference_review.pdf"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output", type=Path, default=ROOT.parent / "results_test/diagnostics/theory/figure4_reference_review.pdf")
+destination = parser.parse_args().output
 destination.parent.mkdir(parents=True, exist_ok=True)
 fig.tight_layout()
 fig.savefig(destination)

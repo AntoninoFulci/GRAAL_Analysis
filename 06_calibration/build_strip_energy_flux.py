@@ -39,7 +39,7 @@ _CALIBRATION_ENERGY_BINS = 2048
 _CALIBRATION_ENERGY_LOW_GEV = 0.5
 _CALIBRATION_ENERGY_HIGH_GEV = 2.0
 _RDF_HELPERS_DECLARED = False
-_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data/00_external"
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "results_test/calibration"
 
 
 class CalibrationCell(NamedTuple):

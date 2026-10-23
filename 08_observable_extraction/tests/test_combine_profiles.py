@@ -28,7 +28,7 @@ def test_ajaka_reference_is_versioned_and_compatibility_copy_matches():
     canonical = combine_profiles.AJAKA_REFERENCE
     compatibility = (
         Path(__file__).parents[2]
-        / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+        / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
     )
     expected = "aab73cc23c54f137eb46f37949911af83f266c50ef5e7f4ae6d33a9b68bedfa7"
 

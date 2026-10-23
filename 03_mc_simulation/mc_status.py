@@ -34,7 +34,7 @@ from graal_common.physics.channels import get_channel
 
 STALE_DAYS = 10
 
-DEFAULT_DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[1] / "results/_cache/04_mc"
 
 
 @dataclass

@@ -11,7 +11,7 @@ from graal_theory.pilot_panel5 import write_pilot_panel5
 
 PUBLISHED = (
     Path(__file__).resolve().parents[2]
-    / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
 )
 
 

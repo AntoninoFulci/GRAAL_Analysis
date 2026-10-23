@@ -6,12 +6,13 @@ usage() {
     cat <<'EOF'
 Usage:
   ./scripts/setup.sh --mode local [--python PATH] [--install venv|user]
-  ./scripts/setup.sh --mode farm --raw-target DIR [--python PATH] [--install venv|user]
+  ./scripts/setup.sh --mode farm --raw-target DIR [--preanalysis-target DIR] [--python PATH] [--install venv|user]
 
 Options:
   --mode local       Set up Python environment and local data directories.
   --mode farm        Link raw data; place h80 files in data/02_pre_analyzed/ manually.
   --raw-target DIR   Existing farm directory containing acquisition-period folders.
+  --preanalysis-target DIR  Link an existing h80 input directory explicitly.
   --python PATH      Base Python interpreter (default: python3).
   --install venv     Install into repository .venv (default).
   --install user     Install into user site packages, outside any venv.
@@ -25,6 +26,7 @@ REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd -P)
 MODE=""
 PYTHON_BIN="python3"
 RAW_TARGET=""
+PREANALYSIS_TARGET=""
 INSTALL_MODE="venv"
 
 require_value() {
@@ -50,6 +52,11 @@ while [[ $# -gt 0 ]]; do
         --raw-target)
             require_value "$1" "${2:-}"
             RAW_TARGET=$2
+            shift 2
+            ;;
+        --preanalysis-target)
+            require_value "$1" "${2:-}"
+            PREANALYSIS_TARGET=$2
             shift 2
             ;;
         --install)
@@ -87,6 +94,14 @@ if [[ ${MODE} == "farm" ]]; then
         exit 1
     fi
     RAW_TARGET=$(cd "${RAW_TARGET}" && pwd -P)
+fi
+
+if [[ -n ${PREANALYSIS_TARGET} ]]; then
+    if [[ ${MODE} != "farm" || ! -d ${PREANALYSIS_TARGET} ]]; then
+        echo "ERROR: --preanalysis-target requires farm mode and an existing directory" >&2
+        exit 2
+    fi
+    PREANALYSIS_TARGET=$(cd "${PREANALYSIS_TARGET}" && pwd -P)
 fi
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -129,14 +144,14 @@ else
     PIP_OPTIONS=(--user)
 fi
 
-"${INSTALL_PYTHON}" -m pip install "${PIP_OPTIONS[@]}" -r "${REPO_ROOT}/04_bdt_training/requirements.txt"
 "${INSTALL_PYTHON}" -m pip install "${PIP_OPTIONS[@]}" -e "${REPO_ROOT}"
 
 mkdir -p \
     "${REPO_ROOT}/data/00_external" \
     "${REPO_ROOT}/data/01_raw" \
-    "${REPO_ROOT}/data/02_pre_analyzed" \
-    "${REPO_ROOT}/data/03_selected"
+    "${REPO_ROOT}/results/_cache/03_selected" \
+    "${REPO_ROOT}/data_test" \
+    "${REPO_ROOT}/results_test"
 
 resolve_link_target() {
     local link=$1 target
@@ -169,6 +184,12 @@ ensure_directory_link() {
     fi
     ln -s "${target}" "${link}"
 }
+
+if [[ -n ${PREANALYSIS_TARGET} ]]; then
+    ensure_directory_link "${REPO_ROOT}/data/02_pre_analyzed" "${PREANALYSIS_TARGET}"
+else
+    mkdir -p "${REPO_ROOT}/data/02_pre_analyzed"
+fi
 
 if [[ ${MODE} == "farm" ]]; then
     ensure_directory_link "${REPO_ROOT}/data/01_raw/graal_data" "${RAW_TARGET}"

@@ -51,9 +51,9 @@ required: there is no flux integral without it.
 
 Usage:
     python -m bdt_training.build_background_features \\
-        --mc-dir 03_mc_simulation/data \\
+        --mc-dir results/_cache/04_mc \\
         --signal-channel eta_pi0 \\
-        --beam-spectrum 04_bdt_training/data/beam_spectrum.npz \\
+        --beam-spectrum results/_cache/05_bdt/beam_spectrum.npz \\
         --output features_stage1.npz
 
 Parallel preparation requires an explicit independent seed policy:
@@ -155,7 +155,7 @@ def build_channel_samples(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mc-dir", default="03_mc_simulation/data",
+    parser.add_argument("--mc-dir", default="results/_cache/04_mc",
                         help="folder holding the <channel>_mc.root files")
     parser.add_argument("--signal-channel", default="eta_pi0", choices=CHANNEL_NAMES,
                         help="which channel is class 1 (default: eta_pi0)")
@@ -178,7 +178,7 @@ def main() -> None:
                              "signal class (default 0.5, balanced). A CHOICE, not "
                              "a measurement: the signal cross-section is what this "
                              "analysis is for, so it cannot also be an input to it")
-    parser.add_argument("--output", default="features_stage1.npz")
+    parser.add_argument("--output", default="results/_cache/05_bdt/features_stage1.npz")
     parser.add_argument("--loss-seed", type=int, default=42,
                         help="RNG seed for photon-loss sampling")
     parser.add_argument("--workers", type=int, default=1,

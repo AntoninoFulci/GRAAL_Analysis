@@ -125,11 +125,11 @@ def test_reviewed_ajaka_figure4_theory_reference_loads():
     assert {(point.pair, point.energy_bin) for point in points} == EXPECTED_PANELS
 
 
-def test_review_plot_script_renders_reference():
+def test_review_plot_script_renders_reference(tmp_path):
     root = Path(__file__).resolve().parents[1]
-    output = root / "outputs/figure4_reference_review.pdf"
+    output = tmp_path / "figure4_reference_review.pdf"
     result = subprocess.run(
-        [sys.executable, str(root / "scripts/review_figure4_trace.py")],
+        [sys.executable, str(root / "scripts/review_figure4_trace.py"), "--output", str(output)],
         cwd=root,
         env={**os.environ, "PYTHONPATH": str(root / "src")},
         text=True,

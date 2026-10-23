@@ -209,7 +209,7 @@ def main(argv=None):
     config = SobolConfig(args.power, scramble=args.seed is not None, seed=args.seed)
     package_path = Path(graal_theory.__file__).resolve().parent
     if package_path != (THEORY/"src/graal_theory").resolve():
-        raise ValueError("graal_theory loaded from another checkout; use PYTHONPATH=theory/src")
+        raise ValueError("graal_theory loaded from another checkout; use PYTHONPATH=09_theory/src")
     args.output.mkdir(parents=True, exist_ok=False)
     files = sorted((THEORY/"src").rglob("*.py"))+sorted((THEORY/"references").glob("*.json"))
     files.append(Path(__file__).resolve())

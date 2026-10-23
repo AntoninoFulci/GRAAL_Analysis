@@ -1,9 +1,2 @@
-uproot==5.7.4
-awkward==2.9.1
-xgboost==3.2.0
-scikit-learn>=1.5
-numpy>=2.0
-matplotlib>=3.10
-tqdm>=4.0
-pytest>=8.0
-joblib>=1.3
+# Runtime and test dependencies are declared in the root pyproject.toml.
+# Install from the repository root: python -m pip install -e ".[test]"

@@ -333,8 +333,8 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mc-dir', default='test_data/vis/mc')
-    parser.add_argument('--beam-spectrum', default='test_data/vis/bdt/beam_spectrum.npz')
+    parser.add_argument('--mc-dir', default='results/_cache/04_mc/vis')
+    parser.add_argument('--beam-spectrum', default='results/_cache/05_bdt/vis/beam_spectrum.npz')
     parser.add_argument('--output', required=True)
     parser.add_argument('--seed', type=int, default=20261013)
     parser.add_argument('--cap', type=int, default=80000)

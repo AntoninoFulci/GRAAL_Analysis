@@ -228,7 +228,7 @@ def test_cli_defaults_to_external_output_directory(monkeypatch):
 
     args = cli.parse_args()
 
-    assert args.output_dir == SCRIPT.parents[1] / "data/00_external"
+    assert args.output_dir == SCRIPT.parents[1] / "results_test/calibration"
 
 
 def test_atomic_root_write_preserves_previous_file_on_failure(tmp_path, monkeypatch):

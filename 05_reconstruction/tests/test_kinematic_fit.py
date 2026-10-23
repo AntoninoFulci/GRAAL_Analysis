@@ -526,3 +526,19 @@ class TestChi2Calibration:
 
         # Every sigma doubled -> every variance x4 -> chi2 / 4.
         assert res_2x.chi2 == pytest.approx(res_default.chi2 / 4.0, rel=1e-3)
+
+
+def test_validation_cli_defaults_to_diagnostic_results(monkeypatch):
+    from pathlib import Path
+    from reconstruction import validate_kinematic_fit as cli
+    original = cli.argparse.ArgumentParser.parse_args
+    captured = {}
+    class StopAfterParsing(Exception):
+        pass
+    def capture(parser):
+        captured['args'] = original(parser, [])
+        raise StopAfterParsing
+    monkeypatch.setattr(cli.argparse.ArgumentParser, 'parse_args', capture)
+    with pytest.raises(StopAfterParsing):
+        cli.main()
+    assert captured['args'].out_dir == Path('results_test/diagnostics/kinematic_fit')

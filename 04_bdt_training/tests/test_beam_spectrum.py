@@ -14,7 +14,7 @@ from bdt_training.beam_spectrum import BeamSpectrum, from_energies, reweight
 def test_cli_defaults_to_numbered_selected_directory():
     args = beam_spectrum.parse_args([])
 
-    assert args.selected_dir == "data/03_selected"
+    assert args.selected_dir == "results/_cache/03_selected"
     assert args.profile is None
 
 

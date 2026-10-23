@@ -221,7 +221,7 @@ def test_audit_bounds_sample_and_counts_unknown_values(tmp_path):
 @pytest.fixture(scope="module")
 def preanalysis_macro():
     repo = Path(__file__).resolve().parents[1]
-    raw = Path(os.environ.get("GRAAL_RAW_SAMPLE", str(repo / "test_data/raw/1998_uv/run1321.root"))).expanduser()
+    raw = Path(os.environ.get("GRAAL_RAW_SAMPLE", str(repo / "data/local_sources/raw/1998_uv/run1321.root"))).expanduser()
     if not raw.is_file():
         pytest.skip(f"raw sample unavailable: {raw}; set GRAAL_RAW_SAMPLE to run1321.root")
     ROOT.gROOT.LoadMacro(str(repo / "01_pre_analysis/PreAnalysis.C"))

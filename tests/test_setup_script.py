@@ -86,13 +86,13 @@ def test_local_setup_builds_environment_and_empty_data_layout(tmp_path):
         "data/00_external",
         "data/01_raw",
         "data/02_pre_analyzed",
-        "data/03_selected",
+        "results/_cache/03_selected",
     ):
         assert (repo / relative).is_dir()
     assert not (repo / "data/01_raw/graal_data").exists()
     assert not (repo / "data/02_pre_analyzed/pre_analisi").exists()
     commands = log.read_text()
-    assert "-m pip install -r" in commands
+    assert "-m pip install -r" not in commands
     assert "-m pip install -e" in commands
     assert f"source {repo}/.venv/bin/activate" in result.stdout
     assert (
@@ -184,9 +184,9 @@ def test_user_setup_installs_outside_venv_and_can_be_repeated(tmp_path):
     assert not (repo / ".venv").exists()
     assert (repo / "data/02_pre_analyzed").is_dir()
     commands = log.read_text().splitlines()
-    assert len(commands) == 4
+    assert len(commands) == 2
     assert all("--user" in command for command in commands)
-    assert any(f"-r {repo}/04_bdt_training/requirements.txt" in command for command in commands)
+    assert not any("requirements.txt" in command for command in commands)
     assert any(f"-e {repo}" in command for command in commands)
     assert "bin/activate" not in result.stdout
     assert f"{python} {repo}/06_calibration/build_strip_energy_flux.py --help" in result.stdout
@@ -210,3 +210,21 @@ def test_user_setup_refuses_interpreter_without_visible_user_site(tmp_path):
     assert "outside a virtual environment" in result.stderr
     assert not log.exists()
     assert not (repo / ".venv").exists()
+
+
+def test_farm_setup_links_explicit_preanalysis_and_refuses_replacement(tmp_path):
+    repo = _sandbox_repo(tmp_path)
+    python = _fake_python(tmp_path)
+    raw = tmp_path / 'raw'; raw.mkdir()
+    pre = tmp_path / 'h80'; pre.mkdir()
+    env = {**os.environ, 'SETUP_TEST_LOG': str(tmp_path / 'pip.log')}
+    command = [str(repo / 'scripts/setup.sh'), '--mode', 'farm', '--raw-target', str(raw), '--preanalysis-target', str(pre), '--python', str(python)]
+    first = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+    link = repo / 'data/02_pre_analyzed'
+    assert link.is_symlink() and link.resolve() == pre
+    other = tmp_path / 'other'; other.mkdir()
+    command[command.index('--preanalysis-target') + 1] = str(other)
+    second = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert second.returncode != 0
+    assert link.resolve() == pre

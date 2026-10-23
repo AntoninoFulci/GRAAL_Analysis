@@ -40,13 +40,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-file",
         type=Path,
-        default=Path("03_mc_simulation/data/eta_pi0_mc.root"),
+        default=Path("results/_cache/04_mc/eta_pi0_mc.root"),
         help="generated signal-MC ROOT file containing tree 'mc'",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/signal_mc_selected"),
+        default=Path("results_test/signal_mc_selected"),
         help="atomically published directory containing detector-like h85 input",
     )
     parser.add_argument(

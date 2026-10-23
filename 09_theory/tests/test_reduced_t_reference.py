@@ -29,7 +29,7 @@ from graal_theory.reduced_t_reference import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REFERENCES = ROOT / "theory" / "references"
+REFERENCES = ROOT / "09_theory" / "references"
 PARAM = REFERENCES / "nstar1535_reduced_parameters.json"
 SOURCES = REFERENCES / "sources.json"
 FIG1_CSV = REFERENCES / "p73_fig1_reduced.csv"

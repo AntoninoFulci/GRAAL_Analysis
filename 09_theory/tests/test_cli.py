@@ -321,7 +321,7 @@ def test_validate_cli_rejects_bundle_with_missing_source_locator(tmp_path):
 
 
 def test_pilot_panel5_cli_writes_labeled_partial_overlay(tmp_path):
-    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    published = THEORY_ROOT.parent / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
     output = tmp_path / "panel5"
     result = _run_cli(
         "pilot-panel5", "--published-csv", str(published),
@@ -344,7 +344,7 @@ def test_pilot_panel5_cli_writes_labeled_partial_overlay(tmp_path):
 
 
 def test_pilot_panel5_cli_rejects_unreliable_resolution(tmp_path):
-    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    published = THEORY_ROOT.parent / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
     output = tmp_path / "panel5"
     result = _run_cli(
         "pilot-panel5", "--published-csv", str(published),
@@ -356,7 +356,7 @@ def test_pilot_panel5_cli_rejects_unreliable_resolution(tmp_path):
 
 
 def test_pilot_panel5_flux_option_requires_manifest(tmp_path):
-    published = THEORY_ROOT.parent / "test_data/beam_asymmetry/ajaka2008_figure4_digitized.csv"
+    published = THEORY_ROOT.parent / "08_observable_extraction/references/ajaka2008_figure4_digitized.csv"
     result = _run_cli(
         "pilot-panel5", "--published-csv", str(published),
         "--flux-root", str(tmp_path / "flux.root"),

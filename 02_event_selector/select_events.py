@@ -38,7 +38,7 @@ def parse_args():
     )
     p.add_argument("--input-dir", default="data/02_pre_analyzed",
                    help="folder with the pre_*.root files")
-    p.add_argument("--output-dir", default="data/03_selected",
+    p.add_argument("--output-dir", default="results/_cache/03_selected",
                    help="folder for the preselected files")
     p.add_argument(
         "--pattern",
