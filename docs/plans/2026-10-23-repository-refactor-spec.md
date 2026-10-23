@@ -1,7 +1,7 @@
 # Specifica del refactor della repository
 
 Data: 23 ottobre 2026. Fonte: richieste dell'utente nella conversazione corrente.
-Stato: requisiti e tre chiarimenti confermati dall'utente; documento preparato per revisione insieme al piano.
+Stato: requisiti confermati, implementazione completata e verificata il 23 ottobre 2026. Contratto storico della migrazione; documentazione operativa corrente nella wiki.
 
 ## Obiettivo e perimetro
 
