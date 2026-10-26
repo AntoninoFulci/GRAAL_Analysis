@@ -23,6 +23,7 @@ PAIR_LABELS = {
     "p_eta": r"$p\eta$",
     "eta_pi0": r"$\eta\pi^0$",
 }
+ESTIMATOR_ORDER = ("ratio", "likelihood")
 
 
 def _validated_width(half_width_gev: float) -> float:
@@ -153,6 +154,22 @@ def _sample_map(
     return selected
 
 
+def available_candle_estimators(
+    points_by_profile: Mapping[str, Sequence[OutputPoint]],
+) -> tuple[str, ...]:
+    """Return estimators with both candle samples in at least one profile."""
+    available = []
+    for estimator in ESTIMATOR_ORDER:
+        for points in points_by_profile.values():
+            samples = {
+                item.sample for item in points if item.estimator == estimator
+            }
+            if {"raw_bdt_core", "raw_bdt_tails"} <= samples:
+                available.append(estimator)
+                break
+    return tuple(available)
+
+
 def _plot_points(axis, points: Sequence[OutputPoint], *, sample: str) -> None:
     if not points:
         return
@@ -188,14 +205,13 @@ def build_candle_comparison(
         raise ValueError("at least one energy row is required")
 
     sample_maps = {}
-    core_total = tail_total = 0
+    paired_profile = False
     for profile, points in points_by_profile.items():
         core = _sample_map(points, sample="raw_bdt_core", estimator=estimator)
         tails = _sample_map(points, sample="raw_bdt_tails", estimator=estimator)
         sample_maps[profile] = (core, tails)
-        core_total += len(core)
-        tail_total += len(tails)
-    if core_total == 0 or tail_total == 0:
+        paired_profile = paired_profile or bool(core and tails)
+    if not paired_profile:
         raise ValueError(
             f"core and tails {estimator} samples must both contain points"
         )

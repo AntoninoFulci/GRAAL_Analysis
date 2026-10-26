@@ -31,6 +31,6 @@ python 08_observable_extraction/beam_asymmetry.py \
   --candle-balance-seed 20261024
 ```
 
-The additional ROOT samples are `raw_bdt_core` and `raw_bdt_tails`. The extraction writes `candle_mass_plane.pdf` plus `comparison_candle_ratio.pdf` and `comparison_candle_likelihood.pdf`; combined UV/VIS plots use the same comparison names. `beam_asymmetry.root` records the centers, half-width, boundary and selection logic, seed, balance method, full counts and excluded non-finite count. Composition fails closed if UV and VIS use incompatible candle definitions.
+The additional ROOT samples are `raw_bdt_core` and `raw_bdt_tails`. The extraction writes `candle_mass_plane.pdf` plus `comparison_candle_ratio.pdf` and/or `comparison_candle_likelihood.pdf` when both candle samples have fitted points for that estimator; combined UV/VIS plots use the same comparison names. `beam_asymmetry.root` records the centers, half-width, boundary and selection logic, seed, balance method, full counts and excluded non-finite count. Composition fails closed if UV and VIS use incompatible candle definitions.
 
 Interpret agreement as a selection-stability diagnostic only. It does not turn the tail sample into a background model, and it does not modify or replace the nominal `raw_bdt` asymmetry.

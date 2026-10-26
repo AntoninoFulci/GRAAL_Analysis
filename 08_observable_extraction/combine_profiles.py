@@ -16,7 +16,10 @@ from observable_extraction.plotting.diagnostics import (
     write_profile_estimator_comparison_pdf,
     write_profile_fit_diagnostics_pdf,
 )
-from observable_extraction.plotting.candle import write_candle_comparison_pdf
+from observable_extraction.plotting.candle import (
+    available_candle_estimators,
+    write_candle_comparison_pdf,
+)
 from observable_extraction.plotting.figure4 import (
     combined_energy_rows,
     profile_energy_rows,
@@ -220,7 +223,7 @@ def run(args: argparse.Namespace) -> int:
         rows,
     )
     if candle_enabled:
-        for estimator in ("ratio", "likelihood"):
+        for estimator in available_candle_estimators(points_by_profile):
             write_candle_comparison_pdf(
                 args.output_dir / f"comparison_candle_{estimator}.pdf",
                 points_by_profile,

@@ -132,6 +132,19 @@ def test_candle_comparison_requires_both_samples(sample):
         )
 
 
+def test_available_candle_estimators_requires_a_pair_within_one_profile():
+    ratio = _core_tail_points(_points(), estimator="ratio")
+    likelihood = _core_tail_points(_points(), estimator="likelihood")
+
+    assert candle.available_candle_estimators({"uv": ratio}) == ("ratio",)
+    assert candle.available_candle_estimators({
+        "uv": tuple(item for item in ratio if item.sample == "raw_bdt_core"),
+        "vis": tuple(
+            item for item in likelihood if item.sample == "raw_bdt_tails"
+        ),
+    }) == ()
+
+
 def test_candle_writers_create_valid_pdfs(tmp_path):
     mass_plane = tmp_path / "candle_mass_plane.pdf"
     comparison = tmp_path / "comparison_candle_ratio.pdf"

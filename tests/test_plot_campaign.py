@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 from array import array
 from dataclasses import replace
 import warnings
@@ -42,7 +43,8 @@ def _write_reconstruction(path: Path, tree_name: str, *, fit: bool, certified: b
 
 
 def _write_asymmetry(
-    path: Path, profile: str, *, fit: bool = False, candle: bool = False
+    path: Path, profile: str, *, fit: bool = False, candle: bool = False,
+    estimators=("ratio", "likelihood"),
 ) -> None:
     source_points = _points()
     if profile == "vis":
@@ -55,7 +57,7 @@ def _write_asymmetry(
     points = tuple(replace(item, sample=sample, estimator=estimator)
                    for item in source_points
                    for sample in samples
-                   for estimator in ("ratio", "likelihood"))
+                   for estimator in estimators)
     edges = (0.9313, 1.10) if profile == "vis" else (1.10, 1.20, 1.30, 1.40, 1.50)
     path.parent.mkdir(parents=True, exist_ok=True)
     provenance = f"profile={profile}"
@@ -233,8 +235,16 @@ def test_postprocessing_refuses_diagnostics_older_than_current_extraction(tmp_pa
         plot_campaign._copy_stage7_pdfs(root, output)
 
 
-def test_candle_campaign_preserves_mass_plane_and_regenerates_comparisons(
-    tmp_path
+@pytest.mark.parametrize(
+    ("estimators", "expected"),
+    [
+        (("ratio", "likelihood"), {"ratio", "likelihood"}),
+        (("ratio",), {"ratio"}),
+        (("likelihood",), {"likelihood"}),
+    ],
+)
+def test_candle_campaign_preserves_mass_plane_and_available_comparisons(
+    tmp_path, estimators, expected
 ):
     campaign = tmp_path / "results/candle"
     mass_planes = {}
@@ -250,6 +260,7 @@ def test_candle_campaign_preserves_mass_plane_and_regenerates_comparisons(
             root / "beam_asymmetry/beam_asymmetry.root",
             profile,
             candle=True,
+            estimators=estimators,
         )
         for name in plot_campaign.REQUIRED_STAGE7_PDFS:
             (root / "beam_asymmetry" / name).write_bytes(b"%PDF-1.4\n")
@@ -266,11 +277,17 @@ def test_candle_campaign_preserves_mass_plane_and_regenerates_comparisons(
     for profile in ("uv", "vis"):
         output = campaign / profile / "plots"
         assert (output / "candle_mass_plane.pdf").read_bytes() == mass_planes[profile]
-        assert (output / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
-        assert (output / "comparison_candle_likelihood.pdf").read_bytes().startswith(b"%PDF-")
+        for estimator in ("ratio", "likelihood"):
+            path = output / f"comparison_candle_{estimator}.pdf"
+            assert path.exists() == (estimator in expected)
+            if path.exists():
+                assert path.read_bytes().startswith(b"%PDF-")
     common = campaign / "common/plots"
-    assert (common / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
-    assert (common / "comparison_candle_likelihood.pdf").read_bytes().startswith(b"%PDF-")
+    for estimator in ("ratio", "likelihood"):
+        path = common / f"comparison_candle_{estimator}.pdf"
+        assert path.exists() == (estimator in expected)
+        if path.exists():
+            assert path.read_bytes().startswith(b"%PDF-")
 
 
 def test_postprocessing_requires_mass_plane_for_candle_points(tmp_path):
@@ -283,6 +300,25 @@ def test_postprocessing_requires_mass_plane_for_candle_points(tmp_path):
     output.mkdir()
 
     with pytest.raises(FileNotFoundError, match="candle_mass_plane.pdf"):
+        plot_campaign._copy_stage7_pdfs(root, output, require_candle=True)
+
+
+def test_postprocessing_rejects_candle_mass_plane_older_than_extraction(tmp_path):
+    root = tmp_path / "uv"
+    source = root / "beam_asymmetry"
+    source.mkdir(parents=True)
+    extraction = source / "beam_asymmetry.root"
+    extraction.write_bytes(b"root")
+    for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+        (source / name).write_bytes(b"%PDF-1.4\n")
+    mass_plane = source / "candle_mass_plane.pdf"
+    mass_plane.write_bytes(b"%PDF-1.4\n")
+    old = extraction.stat().st_mtime_ns - 1_000_000_000
+    os.utime(mass_plane, ns=(old, old))
+    output = tmp_path / "staged"
+    output.mkdir()
+
+    with pytest.raises(ValueError, match="older than current extraction"):
         plot_campaign._copy_stage7_pdfs(root, output, require_candle=True)
 
 

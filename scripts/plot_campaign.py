@@ -16,7 +16,10 @@ from observable_extraction.plotting.diagnostics import (
     write_profile_estimator_comparison_pdf,
     write_profile_fit_diagnostics_pdf,
 )
-from observable_extraction.plotting.candle import write_candle_comparison_pdf
+from observable_extraction.plotting.candle import (
+    available_candle_estimators,
+    write_candle_comparison_pdf,
+)
 from observable_extraction.plotting.figure4 import profile_energy_rows, write_profile_figure4_pdf
 from plots import dalitz
 from plots.core import reconstruction_data
@@ -57,6 +60,10 @@ def _copy_stage7_pdfs(
         source = root / "beam_asymmetry/candle_mass_plane.pdf"
         if not source.is_file():
             raise FileNotFoundError(f"missing candle_mass_plane.pdf in {root}")
+        if extracted_at is not None and source.stat().st_mtime_ns < extracted_at:
+            raise ValueError(
+                f"candle_mass_plane.pdf is older than current extraction in {root}"
+            )
         with source.open("rb") as stream:
             if stream.read(5) != b"%PDF-":
                 raise ValueError(f"invalid Stage-08 PDF {source}")
@@ -110,7 +117,7 @@ def _render_profile(campaign: Path, profile: str, points, output: Path) -> None:
                                       {profile: tuple(point for point in points if point.sample == "raw_bdt" and point.estimator == "ratio")},
                                       rows)
     if candle_enabled:
-        for estimator in ("ratio", "likelihood"):
+        for estimator in available_candle_estimators(mapping):
             write_candle_comparison_pdf(
                 output / f"comparison_candle_{estimator}.pdf",
                 mapping,

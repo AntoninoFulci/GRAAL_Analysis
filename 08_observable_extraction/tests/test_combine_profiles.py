@@ -352,10 +352,25 @@ def _vis_points(points):
     )
 
 
-def test_combined_cli_adds_two_candle_comparison_outputs(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("estimators", "expected"),
+    [
+        (("ratio", "likelihood"), {"ratio", "likelihood"}),
+        (("ratio",), {"ratio"}),
+        (("likelihood",), {"likelihood"}),
+    ],
+)
+def test_combined_cli_writes_only_available_candle_comparisons(
+    tmp_path, monkeypatch, estimators, expected
+):
     uv_root, vis_root = tmp_path / "uv.root", tmp_path / "vis.root"
-    uv_points = _candle_samples(_points())
-    vis_points = _candle_samples(_vis_points(_points()))
+    uv_points = tuple(
+        item for item in _candle_samples(_points()) if item.estimator in estimators
+    )
+    vis_points = tuple(
+        item for item in _candle_samples(_vis_points(_points()))
+        if item.estimator in estimators
+    )
     monkeypatch.setattr(
         combine_profiles, "read_output_points",
         lambda path: vis_points if path == vis_root else uv_points,
@@ -392,8 +407,11 @@ def test_combined_cli_adds_two_candle_comparison_outputs(tmp_path, monkeypatch):
         "--published-csv", str(tmp_path / "published.csv"),
         "--output-dir", str(output),
     ]) == 0
-    assert (output / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
-    assert (output / "comparison_candle_likelihood.pdf").read_bytes().startswith(b"%PDF-")
+    for estimator in ("ratio", "likelihood"):
+        path = output / f"comparison_candle_{estimator}.pdf"
+        assert path.exists() == (estimator in expected)
+        if path.exists():
+            assert path.read_bytes().startswith(b"%PDF-")
 
 
 @pytest.mark.parametrize(

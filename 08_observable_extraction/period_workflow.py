@@ -69,7 +69,12 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
         rebuilt_exposures.update(subset)
     if rebuilt_exposures != exposures:
         raise ValueError("period exposure union differs from pooled exposures")
-    ref = {_point_key(item): item.sigma_uncorrected for item in reference.points}
+    source_samples = set(sample_keys)
+    ref = {
+        _point_key(item): item.sigma_uncorrected
+        for item in reference.points
+        if item.sample in source_samples
+    }
     reconstructed = {}
     counts = {}
     for name, key in sample_keys.items():

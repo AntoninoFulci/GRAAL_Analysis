@@ -36,6 +36,7 @@ from observable_extraction.io.root_output import (
 )
 from observable_extraction.plotting.figure4 import profile_energy_rows, write_profile_figure4_pdf
 from observable_extraction.plotting.candle import (
+    available_candle_estimators,
     write_candle_comparison_pdf,
     write_candle_mass_plane_pdf,
 )
@@ -384,19 +385,12 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
             balanced_core_count=len(candle_split.core),
             excluded_nonfinite_count=candle_split.excluded_nonfinite_count,
         )
-        if args.estimator in {"ratio", "both"}:
+        for estimator in available_candle_estimators(points_by_profile):
             write_candle_comparison_pdf(
-                plots_dir / "comparison_candle_ratio.pdf",
+                plots_dir / f"comparison_candle_{estimator}.pdf",
                 points_by_profile,
                 active_rows,
-                estimator="ratio",
-            )
-        if args.estimator in {"likelihood", "both"}:
-            write_candle_comparison_pdf(
-                plots_dir / "comparison_candle_likelihood.pdf",
-                points_by_profile,
-                active_rows,
-                estimator="likelihood",
+                estimator=estimator,
             )
     write_profile_figure4_pdf(
         plots_dir / "figure4_experimental.pdf",
