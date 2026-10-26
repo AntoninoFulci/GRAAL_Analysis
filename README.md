@@ -19,7 +19,7 @@ python scripts/run_pipeline.py --mode test_data
 python scripts/run_pipeline.py --mode production --output-dir results/my-campaign
 ```
 
-These commands run scientific campaigns after preflight and confirmation. `--phi-bins 8|12|16` defaults to 12; `--best-binning` chooses per point. [Finite-bin correction](wiki/finite-bin-correction.md) applies only to the ratio estimator. The reduced UV+VIS input is diagnostic, not a normalized production dataset. Optional flux recovery remains experimental.
+These commands run scientific campaigns after preflight and confirmation. Their UV and VIS extractions include the reproducible [core-versus-tail candle test](wiki/core-tail-candle-test.md) with a `±0.05 GeV` raw-mass window. `--phi-bins 8|12|16` defaults to 12; `--best-binning` chooses per point. [Finite-bin correction](wiki/finite-bin-correction.md) applies only to the ratio estimator. The reduced UV+VIS input is diagnostic, not a normalized production dataset. Optional flux recovery remains experimental.
 
 | Path | Contents |
 | --- | --- |

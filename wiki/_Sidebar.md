@@ -14,6 +14,7 @@
 - [Stage 06: measured calibration](06-calibration)
 - [Stage 07: optional flux studies](07-flux-studies)
 - [Stage 08: observable extraction](08-observable-extraction)
+- [Core-versus-tail candle test](core-tail-candle-test)
 - [Stage 09: explicit theory calculations](09-theory)
 - [Plotting and diagnostics](plotting-and-diagnostics)
 - [Maintenance and tests](maintenance)

@@ -8,6 +8,7 @@ import uproot
 
 import pytest
 
+from graal_common.physics.energy_binning import EnergyBinning
 from graal_workflow import cli, execution, models, paths as workflow_paths, planning
 
 
@@ -261,6 +262,34 @@ def test_best_binning_changes_only_extraction_commands(tmp_path):
             assert best == fixed
 
 
+def test_plan_enables_reproducible_candle_test_for_both_profiles(tmp_path):
+    config = workflow_paths.mode_config("test_data", tmp_path)
+    paths = workflow_paths.build_paths(config)
+    checked = models.PreflightResult("/usr/bin/root")
+    energy_binnings = {
+        "uv": EnergyBinning((1.10, 1.30, 1.50)),
+        "vis": EnergyBinning((0.9313, 1.10)),
+    }
+
+    stages = planning.build_pipeline_plan(
+        config,
+        paths,
+        checked,
+        energy_binnings=energy_binnings,
+        best_binning=True,
+    )
+
+    for profile, edges in (("uv", (1.10, 1.30, 1.50)), ("vis", (0.9313, 1.10))):
+        command = _stage(stages, f"{profile}:extract").argv
+        assert command.count("--candle-mass-half-width") == 1
+        assert command[command.index("--candle-mass-half-width") + 1] == "0.05"
+        assert command.count("--candle-balance-seed") == 1
+        assert command[command.index("--candle-balance-seed") + 1] == "20261024"
+        start = command.index("--energy-edges") + 1
+        assert command[start:start + len(edges)] == tuple(str(edge) for edge in edges)
+        assert command[-1] == "--best-binning"
+
+
 def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     _config, paths, stages = _plan(tmp_path)
 
@@ -275,10 +304,8 @@ def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     assert calibration[calibration.index("--cache-root") + 1] == str(paths.artifact_root / "06_calibration")
     assert calibration[calibration.index("--cache-scope") + 1] == "diagnostic"
     assert calibration[calibration.index("--target") + 1] == "P"
-    assert _stage(stages, "uv:extract").argv[-2:] == (
-        "--bootstrap-replicas",
-        "0",
-    )
+    uv_extract = _stage(stages, "uv:extract").argv
+    assert uv_extract[uv_extract.index("--bootstrap-replicas") + 1] == "0"
     assert str(paths.calibrated_flux) in _stage(stages, "uv:extract").argv
     assert str(paths.calibrated_flux) in _stage(stages, "vis:extract").argv
     assert str(paths.profile_root("uv") / "plots") in _stage(stages, "uv:extract").argv

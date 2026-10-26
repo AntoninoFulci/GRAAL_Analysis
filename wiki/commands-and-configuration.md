@@ -7,7 +7,7 @@ python scripts/run_pipeline.py --mode test_data --phi-bins 12
 python scripts/run_pipeline.py --mode production --output-dir results/my-campaign --cpus 4 --extraction-workers 2 --seed 42
 ```
 
-`--phi-bins` accepts 8, 12 or 16 (default 12); `--best-binning` selects each ratio point among all three fits and overrides that fixed choice. `--energy-config` reads explicit UV/VIS grids. The default grids remain UV `[1.10,1.20,1.30,1.40,1.50]` GeV and VIS `[0.9313,1.10]` GeV. The [common input manifest](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/common_inputs.json) and [run quality policy](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/run_quality_exclusions.json) are validated, not inferred from selected event counts.
+`--phi-bins` accepts 8, 12 or 16 (default 12); `--best-binning` selects each ratio point among all three fits and overrides that fixed choice. `--energy-config` reads explicit UV/VIS grids. The default grids remain UV `[1.10,1.20,1.30,1.40,1.50]` GeV and VIS `[0.9313,1.10]` GeV. The planner also enables the [core-versus-tail candle test](core-tail-candle-test) for both profiles with a `0.05 GeV` half-width and seed `20261024`. The [common input manifest](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/common_inputs.json) and [run quality policy](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/run_quality_exclusions.json) are validated, not inferred from selected event counts.
 
 Inspect supported interfaces without starting jobs:
 
