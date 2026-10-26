@@ -30,3 +30,19 @@ def test_stage1_runtime_bundle_has_dedicated_artifact_directory():
     assert (DEFAULT_MODEL_DIR / "bdt_stage1.json").is_file()
     assert (DEFAULT_MODEL_DIR / "stage1_threshold.txt").is_file()
     assert (DEFAULT_MODEL_DIR / "stage1_provenance.json").is_file()
+
+
+def test_retired_theory_keeps_references_and_experimental_extraction():
+    from pathlib import Path
+
+    from graal_common.physics.cross_sections import sigma_at
+    from observable_extraction.beam_asymmetry import build_parser
+
+    root = Path(__file__).parents[1]
+    assert not (root / "09_theory").exists()
+    references = root / "docs/reference/theory"
+    assert (references / "sources.json").is_file()
+    assert (references / "eta_pi0_literature_audit.json").is_file()
+    assert not list(references.rglob("*.py"))
+    assert "--phi-bins" in build_parser()._option_string_actions
+    assert callable(sigma_at)

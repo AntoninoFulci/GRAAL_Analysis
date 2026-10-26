@@ -56,6 +56,13 @@ def test_generic_comparison_keeps_labels_and_zero_delta_with_common_draws(tmp_pa
         assert tree.GetBranch("sigma_before")
         assert tree.GetBranch("sigma_after")
         assert not tree.GetBranch("sigma_bdt")
+        assert [branch.GetName() for branch in tree.GetListOfBranches()] == [
+            "row", "sigma_before", "sigma_after", "delta", "delta_run_error"]
+        joint = source.Get("joint_covariance")
+        expected_labels = [f"{name}:{key}" for name in names
+                           for key in diagnostics["available_keys"]]
+        assert [joint.GetXaxis().GetBinLabel(i + 1) for i in range(len(expected_labels))] == expected_labels
+        assert [joint.GetYaxis().GetBinLabel(i + 1) for i in range(len(expected_labels))] == expected_labels
     finally:
         source.Close()
 
@@ -100,6 +107,10 @@ def test_empty_polygon_preserves_universe_and_reports_unestimable_bins():
     assert report["exposure"]["vertical"] == 3
     assert report["bootstrap"]["status"] == "no_common_estimable_bins"
     assert all(r["delta"] is None for r in report["rows"])
+    assert all(r["delta_run_error"] is None and r["delta_over_run_error"] is None
+               for r in report["rows"])
+    assert arrays["values"].shape == (0, 0)
+    assert arrays["keys"].size == arrays["run_draws"].size == 0
     assert sum(r["status"] == "before_only" for r in report["rows"]) == 6
 
 

@@ -5,7 +5,8 @@ from dataclasses import asdict, fields
 
 import numpy as np
 
-from observable_extraction.core.binning import PAIR_NAMES, pair_mass_edges
+from observable_extraction.core.binning import PAIR_NAMES, PHI_EDGES_RAD, pair_mass_edges
+from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.core.systematics import difference_covariance
 
 
@@ -142,3 +143,45 @@ def paired_difference_summary(replicas, keys):
                       difference_covariance=delta_cov.tolist(), difference_covariance_mc_se=mc_se.tolist(),
                       rank=int(np.linalg.matrix_rank(delta_cov)))
     return result
+
+
+def difference_errors(diagnostic):
+    """Errors for available paired differences; missing covariance stays missing."""
+    if diagnostic["difference_covariance"] is None:
+        return {}
+    return dict(zip(diagnostic["available_keys"],
+                    np.sqrt(np.maximum(0, np.diag(diagnostic["difference_covariance"])))))
+
+
+def selected_cutflow(pairing, bdt, exposures, periods, energy_edges, *, sample_names=("pairing", "bdt")):
+    """Accepted reconstruction yields by run/energy/state, including zero yields."""
+    rows = []
+    for run, period in sorted(periods.items()):
+        for index, (low, high) in enumerate(zip(energy_edges[:-1], energy_edges[1:])):
+            final = index == len(energy_edges) - 2
+            for state in (1, 2):
+                counts = []
+                for events in (pairing, bdt):
+                    mask = ((events.run_number == run) & (events.polarization == state)
+                            & (events.beam_energy_gev >= low)
+                            & ((events.beam_energy_gev <= high) if final else (events.beam_energy_gev < high)))
+                    counts.append(int(mask.sum()))
+                relevant = [exp for exp in exposures.values() if exp.run_number == run
+                            and low <= exp.energy_gev and (exp.energy_gev <= high if final else exp.energy_gev < high)]
+                flux = sum(exp.flux_vertical if state == 1 else exp.flux_horizontal for exp in relevant)
+                rows.append(dict(run=run, period=period, energy_bin=index, state=state,
+                                 **dict(zip(sample_names, counts)), removed=counts[0] - counts[1],
+                                 retention=counts[1] / counts[0] if counts[0] else None,
+                                 flux=flux if relevant else None))
+    return rows
+
+
+def phi_retention(samples, energy_edges):
+    histograms = {}
+    for name, events in samples.items():
+        histograms[name] = {}
+        for pair, (_, phi) in project_all_pairs(events.proton, events.eta, events.pi0).items():
+            histograms[name][pair] = {str(state): np.histogram2d(
+                events.beam_energy_gev[events.polarization == state], phi[events.polarization == state],
+                bins=(energy_edges, PHI_EDGES_RAD))[0].astype(int).tolist() for state in (1, 2)}
+    return histograms

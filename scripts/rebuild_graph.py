@@ -222,7 +222,6 @@ def complete_ast_endpoints(extraction, allowed):
     except ModuleNotFoundError:  # Python 3.10; supplied by the project dependency.
         import tomli as tomllib
     aliases = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-dir"]
-    aliases["graal_theory"] = "09_theory/src/graal_theory"
     nodes = {n["id"]: n for n in extraction["nodes"]}
     normalized = lambda value: re.sub(r"[^a-z0-9_]", "_", value.lower())
     targets = {}
@@ -347,7 +346,7 @@ def build(run):
     cohesion = score_all(graph, communities)
     # Stable plain-language labels from actual member provenance and labels;
     # every community's membership/representatives is retained for review.
-    owner_names = {"00_common": "Shared Physics Utilities", "01_pre_analysis": "Detector Pre Analysis", "02_event_selector": "Event Track Selection", "03_mc_simulation": "Monte Carlo Geometry", "04_bdt_training": "BDT Training Features", "05_reconstruction": "Event Pairing Reconstruction", "06_calibration": "Calibration Flux Inputs", "07_flux_studies": "Flux Recovery Diagnostics", "08_observable_extraction": "Observable Statistical Extraction", "09_theory": "Theory Amplitude Models", "graal_workflow": "Workflow Planning Execution", "plots": "Physics Diagnostic Plots", "wiki": "Current Workflow Contracts", "config": "Scientific Runtime Configuration", "scripts": "Repository Command Tools", "tests": "Repository Contract Tests", "docs": "Scientific Reference Evidence"}
+    owner_names = {"00_common": "Shared Physics Utilities", "01_pre_analysis": "Detector Pre Analysis", "02_event_selector": "Event Track Selection", "03_mc_simulation": "Monte Carlo Geometry", "04_bdt_training": "BDT Training Features", "05_reconstruction": "Event Pairing Reconstruction", "06_calibration": "Calibration Flux Inputs", "07_flux_studies": "Flux Recovery Diagnostics", "08_observable_extraction": "Observable Statistical Extraction", "graal_workflow": "Workflow Planning Execution", "plots": "Physics Diagnostic Plots", "wiki": "Current Workflow Contracts", "config": "Scientific Runtime Configuration", "scripts": "Repository Command Tools", "tests": "Repository Contract Tests", "docs": "Scientific Reference Evidence"}
     labels, summaries = {}, {}
     for cid, members in communities.items():
         owners = Counter((graph.nodes[n].get("source_file") or "external").split("/")[0] for n in members)

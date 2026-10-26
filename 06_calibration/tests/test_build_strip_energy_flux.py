@@ -738,6 +738,13 @@ def test_cli_negative_flux_content_is_clamped_and_warned(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "negative flux histogram bin clamped to zero" in result.stderr
     assert "run/strip exposure with non-positive POL1/POL2" in result.stderr
+    warnings = [
+        "1 negative flux histogram bin clamped to zero",
+        "1 run/strip exposure with non-positive POL1/POL2 excluded from extraction",
+    ]
+    qa = json.loads(output.with_suffix(".qa.json").read_text())
+    assert qa["diagnostics"]["pre_write"]["warnings"] == warnings
+    assert result.stderr.index(warnings[0]) < result.stderr.index(warnings[1])
     import ROOT
 
     calibrated = ROOT.TFile.Open(str(output))
@@ -886,6 +893,25 @@ def test_cli_custom_binning_does_not_add_output_files(tmp_path):
         output.name,
         "run_manifest.csv",
     ]
+
+
+def test_cli_qa_keeps_exact_binning_endpoints_and_coverage_order(tmp_path):
+    import json
+    pre, flux, manifest_path, output = make_complete_fixture(tmp_path)
+    result = run_cli(pre, flux, manifest_path, output, "--binning", "edges:1.0,1.5")
+    assert result.returncode == 0, result.stderr
+    qa = json.loads(output.with_suffix(".qa.json").read_text())
+    excluded = qa["diagnostics"]["pre_write"]["out_of_range"]["edges"]
+    assert excluded == dict(below_lookup_count=0, above_lookup_count=0,
+                            below_lookup_strips=[], above_lookup_strips=[],
+                            raw_flux_excluded=dict(flux_pol1=0., flux_pol2=0., flux_brem=0.))
+    assert [(row["run_number"], row["state"]) for row in qa["coverage"]] == [
+        (7, "POL1"), (7, "POL2"), (7, "BREM"),
+        (8, "POL1"), (8, "POL2"), (8, "BREM")]
+    for row in qa["coverage"]:
+        if not row["h80_present"]:
+            assert row["reason"] == "not_covered" and row["strip_coverage"] is None
+            assert row["accepted"] is False
 
 
 def test_cli_reports_raw_flux_excluded_outside_binning_without_folding(tmp_path):

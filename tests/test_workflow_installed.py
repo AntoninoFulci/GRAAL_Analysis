@@ -199,8 +199,24 @@ from reconstruction.runtime.provenance import KEY
 root = paths.resolve_repo_root(Path(sys.argv[2]))
 proof = Path(sys.argv[3]) / 'artifacts'
 proof.mkdir()
+# This test runs MC and reconstruction, not pre-analysis or selection. Supply
+# a tiny inventory fixture instead of requiring the separately managed cohort.
+import numpy as np
+import uproot
+from graal_workflow.artifact_manifest import validate_preanalysis
+preanalysis = proof / 'preanalysis'
+preanalysis.mkdir()
+for profile in ('uv', 'vis'):
+    path = preanalysis / f'pre_analisi_{profile}.root'
+    with uproot.recreate(path) as fixture:
+        fixture['h80'] = {'gammas': np.zeros((1, 0), dtype=np.float64),
+                         'fcharged_theta': np.zeros((1, 0), dtype=np.float64),
+                         'RunNumber': np.array([42], dtype=np.int32),
+                         'Polarization': np.array([1], dtype=np.int32),
+                         'Xstrip': np.array([1], dtype=np.float32)}
+    validate_preanalysis((path,))
 # Exercise production cache certification exclusively inside this test sandbox.
-config = replace(paths.mode_config('production', root), preanalysis_dir=root / 'data_test/sample', mc_events=12)
+config = replace(paths.mode_config('production', root), preanalysis_dir=preanalysis, mc_events=12)
 locations = replace(paths.build_paths(config), output_root=proof / 'campaign', artifact_root=proof / 'cache')
 paths.prepare_output_dirs(locations)
 mc = locations.mc_dir('uv') / get_channel('eta_pi0').mc_filename

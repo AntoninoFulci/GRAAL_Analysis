@@ -48,6 +48,49 @@ def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
     }[sample]
 
 
+def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_sample, uncertainty):
+    """Render the extracted results after the ROOT payload has been published."""
+    output_points = uncertainty.output_points
+    figure_estimator = uncertainty.figure_estimator
+    active_rows = profile_energy_rows(profile_name, energy_edges)
+    points_by_profile = {profile_name: output_points}
+    write_profile_figure4_pdf(
+        plots_dir / "figure4_experimental.pdf",
+        points_by_profile,
+        active_rows,
+        sample=nominal_sample,
+        estimator=figure_estimator,
+    )
+    write_point_comparison_pdf(
+        plots_dir / "comparison_reconstruction_samples.pdf",
+        [item for item in output_points if item.estimator == figure_estimator],
+        group_by="sample",
+    )
+    write_profile_estimator_comparison_pdf(
+        plots_dir / "comparison_estimators.pdf",
+        points_by_profile,
+        active_rows,
+        sample=nominal_sample,
+    )
+    write_profile_fit_diagnostics_pdf(
+        plots_dir / "fit_diagnostics.pdf",
+        {
+            profile_name: tuple(
+                item
+                for item in output_points
+                if item.sample == nominal_sample and item.estimator == "ratio"
+            )
+        },
+        active_rows,
+        sample=nominal_sample,
+    )
+    write_systematic_summary_pdf(
+        plots_dir / "systematic_summary.pdf",
+        uncertainty.systematic_covariances,
+        inventory=uncertainty.inventory,
+    )
+
+
 def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", metadata=None,
                 campaign=None) -> RootOutputPayload:
     workers = validate_workers(getattr(args, "workers", 1))
@@ -254,11 +297,9 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     point_context = uncertainty.point_context
     uncertainty_metadata = uncertainty.uncertainty_metadata
     diagnostic = uncertainty.diagnostic
-    inventory = uncertainty.inventory
     multiplicity_shift = uncertainty.multiplicity_shift
     inclusive_count = uncertainty.inclusive_count
     exactly_four_count = uncertainty.exactly_four_count
-    figure_estimator = uncertainty.figure_estimator
     payload = RootOutputPayload(
         points=tuple(output_points),
         point_context=point_context,
@@ -293,42 +334,9 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     )
     write_root_output(args.output_dir / "beam_asymmetry.root", payload)
     plots_dir = args.plots_dir if args.plots_dir is not None else args.output_dir
-    active_rows = profile_energy_rows(profile.name, grid.edges_gev)
-    points_by_profile = {profile.name: output_points}
-    write_profile_figure4_pdf(
-        plots_dir / "figure4_experimental.pdf",
-        points_by_profile,
-        active_rows,
-        sample=args.nominal_sample,
-        estimator=figure_estimator,
-    )
-    write_point_comparison_pdf(
-        plots_dir / "comparison_reconstruction_samples.pdf",
-        [item for item in output_points if item.estimator == figure_estimator],
-        group_by="sample",
-    )
-    write_profile_estimator_comparison_pdf(
-        plots_dir / "comparison_estimators.pdf",
-        points_by_profile,
-        active_rows,
-        sample=args.nominal_sample,
-    )
-    write_profile_fit_diagnostics_pdf(
-        plots_dir / "fit_diagnostics.pdf",
-        {
-            profile.name: tuple(
-                item
-                for item in output_points
-                if item.sample == args.nominal_sample and item.estimator == "ratio"
-            )
-        },
-        active_rows,
-        sample=args.nominal_sample,
-    )
-    write_systematic_summary_pdf(
-        plots_dir / "systematic_summary.pdf",
-        systematic_covariances,
-        inventory=inventory,
+    _write_result_reports(
+        plots_dir, profile_name=profile.name, energy_edges=grid.edges_gev,
+        nominal_sample=args.nominal_sample, uncertainty=uncertainty,
     )
     if background_leakage is not None:
         write_background_control_pdf(

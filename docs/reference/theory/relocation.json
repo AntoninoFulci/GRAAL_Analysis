@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-26",
+  "archive": "results_test/theory-reset-20261026/theory-before-reset.tar.gz",
+  "archive_sha256": "120ee89b665cbea08e790bf4ef0bbf8843f554f5056b28899f95b1946d34482c",
+  "note": "Original bytes preserved in archive. Only relative links repaired in two Markdown notes; historical JSON/CSV records unchanged.",
+  "files": [
+    {
+      "source": "09_theory/references/ajaka2008_figure4_theory.csv",
+      "destination": "docs/reference/theory/ajaka2008_figure4_theory.csv",
+      "original_sha256": "c01cfc301e56405882ad547239502fb4ca1b31885d131ca9d203c67958a1c673",
+      "relocated_sha256": "c01cfc301e56405882ad547239502fb4ca1b31885d131ca9d203c67958a1c673"
+    },
+    {
+      "source": "09_theory/references/ajaka2008_figure4_theory.json",
+      "destination": "docs/reference/theory/ajaka2008_figure4_theory.json",
+      "original_sha256": "8c48a5371adc8141bb413f171cdfb0df663aa78a404d9dcaf3e6160b8cd28193",
+      "relocated_sha256": "8c48a5371adc8141bb413f171cdfb0df663aa78a404d9dcaf3e6160b8cd28193"
+    },
+    {
+      "source": "09_theory/references/central_parameters.json",
+      "destination": "docs/reference/theory/central_parameters.json",
+      "original_sha256": "7c2023ce7906f44505dd467187c8fa920e037c733b445ada5c1b8128c3c66519",
+      "relocated_sha256": "7c2023ce7906f44505dd467187c8fa920e037c733b445ada5c1b8128c3c66519"
+    },
+    {
+      "source": "09_theory/references/digitization.json",
+      "destination": "docs/reference/theory/digitization.json",
+      "original_sha256": "7f430f0bdf7983d621778c71348caf5cf6c141071440b6f876a2e7b4dde9e6b7",
+      "relocated_sha256": "7f430f0bdf7983d621778c71348caf5cf6c141071440b6f876a2e7b4dde9e6b7"
+    },
+    {
+      "source": "09_theory/references/eta_pi0_literature_audit.json",
+      "destination": "docs/reference/theory/eta_pi0_literature_audit.json",
+      "original_sha256": "12d638ac55d4872398065bf38438eb8c5753d943d4a7339293b238c05e7b4bc2",
+      "relocated_sha256": "12d638ac55d4872398065bf38438eb8c5753d943d4a7339293b238c05e7b4bc2"
+    },
+    {
+      "source": "09_theory/references/eta_pi0_p_full_parameters.json",
+      "destination": "docs/reference/theory/eta_pi0_p_full_parameters.json",
+      "original_sha256": "a1df6edd0629480d741c2628c1f0421c4a647184a12d978b6ad5f66bbd1aa815",
+      "relocated_sha256": "a1df6edd0629480d741c2628c1f0421c4a647184a12d978b6ad5f66bbd1aa815"
+    },
+    {
+      "source": "09_theory/references/figure14_eta_p_tree.csv",
+      "destination": "docs/reference/theory/figure14_eta_p_tree.csv",
+      "original_sha256": "d6ff3115371ee7e3d5bd242e2acc2e56504f961841d0f707e029ab17675a7599",
+      "relocated_sha256": "d6ff3115371ee7e3d5bd242e2acc2e56504f961841d0f707e029ab17675a7599"
+    },
+    {
+      "source": "09_theory/references/figure19_total_1202.csv",
+      "destination": "docs/reference/theory/figure19_total_1202.csv",
+      "original_sha256": "4119095ee308a4b04ebf53d7f0a1864605d3ea54e4a4912a04c4f77d2a309bb6",
+      "relocated_sha256": "4119095ee308a4b04ebf53d7f0a1864605d3ea54e4a4912a04c4f77d2a309bb6"
+    },
+    {
+      "source": "09_theory/references/figure4_amplitude_inventory.md",
+      "destination": "docs/reference/theory/figure4_amplitude_inventory.md",
+      "original_sha256": "1e7f0f15ecf2ad4d0c3d1cbf03f2998006b8ed8f9de772868d79ab93dc964654",
+      "relocated_sha256": "1e7f0f15ecf2ad4d0c3d1cbf03f2998006b8ed8f9de772868d79ab93dc964654"
+    },
+    {
+      "source": "09_theory/references/full_production_validation.md",
+      "destination": "docs/reference/theory/full_production_validation.md",
+      "original_sha256": "ab52d8918c98763d7a12c5b4acd9cec59241351cef2599e31df9d33dc248e917",
+      "relocated_sha256": "ab52d8918c98763d7a12c5b4acd9cec59241351cef2599e31df9d33dc248e917"
+    },
+    {
+      "source": "09_theory/references/model_scope.md",
+      "destination": "docs/reference/theory/model_scope.md",
+      "original_sha256": "95fc05257cbe4cc7470456d933db40c17cf2b892691432c0b2e4610a66c5b66d",
+      "relocated_sha256": "95fc05257cbe4cc7470456d933db40c17cf2b892691432c0b2e4610a66c5b66d"
+    },
+    {
+      "source": "09_theory/references/nstar1535_charge_zero_extra.json",
+      "destination": "docs/reference/theory/nstar1535_charge_zero_extra.json",
+      "original_sha256": "3257be658729c36d76816c5af894e049d326f38e45c3d8449d8524250d68ede5",
+      "relocated_sha256": "3257be658729c36d76816c5af894e049d326f38e45c3d8449d8524250d68ede5"
+    },
+    {
+      "source": "09_theory/references/nstar1535_final_subtractions.json",
+      "destination": "docs/reference/theory/nstar1535_final_subtractions.json",
+      "original_sha256": "dc1affec4b469b6d9f77f24b1145967fa02adca49e193ae117c1a154c84987fc",
+      "relocated_sha256": "dc1affec4b469b6d9f77f24b1145967fa02adca49e193ae117c1a154c84987fc"
+    },
+    {
+      "source": "09_theory/references/nstar1535_mass_input_audit.md",
+      "destination": "docs/reference/theory/nstar1535_mass_input_audit.md",
+      "original_sha256": "5335d0e67225f3d6e6df467a551a0377dd179606f978389ff49e24d6199ac7a6",
+      "relocated_sha256": "f412bf3051c6d64d54412c221a8f5c6c3fc77d2cfd51c4bd827c1f06c8a2b370"
+    },
+    {
+      "source": "09_theory/references/nstar1535_reduced_parameters.json",
+      "destination": "docs/reference/theory/nstar1535_reduced_parameters.json",
+      "original_sha256": "8e0a34e9f7b8e490f3987bf71755106210ec48e02c6b68a751095c7cec253358",
+      "relocated_sha256": "8e0a34e9f7b8e490f3987bf71755106210ec48e02c6b68a751095c7cec253358"
+    },
+    {
+      "source": "09_theory/references/nstar1535_vmd_masses.json",
+      "destination": "docs/reference/theory/nstar1535_vmd_masses.json",
+      "original_sha256": "b5d79e539c17a9ffd980ad30662952f085eeee1ee56c8c39b8154d223558c8d8",
+      "relocated_sha256": "b5d79e539c17a9ffd980ad30662952f085eeee1ee56c8c39b8154d223558c8d8"
+    },
+    {
+      "source": "09_theory/references/nstar_1535_tmatrix_source_map.md",
+      "destination": "docs/reference/theory/nstar_1535_tmatrix_source_map.md",
+      "original_sha256": "ee381815a5e1d18b7a7453a9ebac3baa7f6bb00b6704d78195eb33f7fb447c4e",
+      "relocated_sha256": "881f9c932d9889dc9bdc3315cadc4cecadb971a0994dc53775d7b42199bcf154"
+    },
+    {
+      "source": "09_theory/references/p73_fig1_reduced.csv",
+      "destination": "docs/reference/theory/p73_fig1_reduced.csv",
+      "original_sha256": "1848ed42bd8ab7bd00f8f9b0e4d057249b7a199b8dfb88db6bc64d3e13a47962",
+      "relocated_sha256": "1848ed42bd8ab7bd00f8f9b0e4d057249b7a199b8dfb88db6bc64d3e13a47962"
+    },
+    {
+      "source": "09_theory/references/p73_fig1_reduced.json",
+      "destination": "docs/reference/theory/p73_fig1_reduced.json",
+      "original_sha256": "503a5a36c45f8e99ffc9369998eab97ac50c0f041b55ac65831985e952d874da",
+      "relocated_sha256": "503a5a36c45f8e99ffc9369998eab97ac50c0f041b55ac65831985e952d874da"
+    },
+    {
+      "source": "09_theory/references/p73_fig1_reduced_comparison.md",
+      "destination": "docs/reference/theory/p73_fig1_reduced_comparison.md",
+      "original_sha256": "098ab66a2d0a431eaa0774d0497fda13d5121fdb8a2b99281cbcee3f5d55b945",
+      "relocated_sha256": "098ab66a2d0a431eaa0774d0497fda13d5121fdb8a2b99281cbcee3f5d55b945"
+    },
+    {
+      "source": "09_theory/references/p73_figure18_full_1700.csv",
+      "destination": "docs/reference/theory/p73_figure18_full_1700.csv",
+      "original_sha256": "128a5bce320e91a7f8886e044483a2889393385fa3be00a4664bbd3f94cf0668",
+      "relocated_sha256": "128a5bce320e91a7f8886e044483a2889393385fa3be00a4664bbd3f94cf0668"
+    },
+    {
+      "source": "09_theory/references/p73_figure18_full_1700.json",
+      "destination": "docs/reference/theory/p73_figure18_full_1700.json",
+      "original_sha256": "cc6c92625d60c44dc49d80847b24b606e54a4c3d52ab8ec5ecdac2d1ee18fd0b",
+      "relocated_sha256": "cc6c92625d60c44dc49d80847b24b606e54a4c3d52ab8ec5ecdac2d1ee18fd0b"
+    },
+    {
+      "source": "09_theory/references/p73_full_production_curves.csv",
+      "destination": "docs/reference/theory/p73_full_production_curves.csv",
+      "original_sha256": "c53dc4a0a61dae48574db55656f4f1af271be112a850e4af9a652a5d08e4e236",
+      "relocated_sha256": "c53dc4a0a61dae48574db55656f4f1af271be112a850e4af9a652a5d08e4e236"
+    },
+    {
+      "source": "09_theory/references/p73_full_production_curves.json",
+      "destination": "docs/reference/theory/p73_full_production_curves.json",
+      "original_sha256": "65b7fba38a3f06558824bdf9ab73053dbf69439c02919ee7578192302148082a",
+      "relocated_sha256": "65b7fba38a3f06558824bdf9ab73053dbf69439c02919ee7578192302148082a"
+    },
+    {
+      "source": "09_theory/references/parameter_provenance.md",
+      "destination": "docs/reference/theory/parameter_provenance.md",
+      "original_sha256": "20b74b73ce9445580f64cc69aa39ae4fd57da154289672ead12ea49cece1cedf",
+      "relocated_sha256": "20b74b73ce9445580f64cc69aa39ae4fd57da154289672ead12ea49cece1cedf"
+    },
+    {
+      "source": "09_theory/references/pipi_n_loop_comparison.md",
+      "destination": "docs/reference/theory/pipi_n_loop_comparison.md",
+      "original_sha256": "6adeba48cfa4691ab494c9a8f9993d8689db5c8021d850ba68bc51b3c219750f",
+      "relocated_sha256": "6adeba48cfa4691ab494c9a8f9993d8689db5c8021d850ba68bc51b3c219750f"
+    },
+    {
+      "source": "09_theory/references/sources.json",
+      "destination": "docs/reference/theory/sources.json",
+      "original_sha256": "f3552ab18025b8e971d7daf137c7914c6fb76c926f11fc40042f73896eea1d0e",
+      "relocated_sha256": "f3552ab18025b8e971d7daf137c7914c6fb76c926f11fc40042f73896eea1d0e"
+    },
+    {
+      "source": "09_theory/references/vmd_full_t_comparison.md",
+      "destination": "docs/reference/theory/vmd_full_t_comparison.md",
+      "original_sha256": "9020e89695797e13a0aeaa7bb216f069df9163ac18c581b738217954cb0b5cc6",
+      "relocated_sha256": "9020e89695797e13a0aeaa7bb216f069df9163ac18c581b738217954cb0b5cc6"
+    }
+  ]
+}

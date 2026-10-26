@@ -14,7 +14,7 @@
   "sources": [
     {
       "root": "checkout",
-      "path": "data/local_sources/pre_analyzed/pre_analisi_1998_uv.root",
+      "path": "data_test/pre_analyzed/pre_analisi_1998_uv.root",
       "sha256": "9f99ac60ce49c6b3c8c51a49f3d9ae727baf06f86ef910dc80319e6463874525",
       "uuid": "108a480c-a5f0-11f1-ab17-2b0210acbeef",
       "entries": 90279078,
@@ -22,7 +22,7 @@
     },
     {
       "root": "checkout",
-      "path": "data/local_sources/pre_analyzed/pre_analisi_1999_vis.root",
+      "path": "data_test/pre_analyzed/pre_analisi_1999_vis.root",
       "sha256": "117855c1dc0553189b06612d5ee0c0695369545c07fb9b3db97dcf1ec1c53a52",
       "uuid": "8088f410-a5fe-11f1-ab17-2b0210acbeef",
       "entries": 94402268,

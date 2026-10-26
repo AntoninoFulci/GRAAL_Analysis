@@ -74,6 +74,16 @@ def test_alignment_accounts_for_whole_grid_even_when_no_fit_exists():
     assert all(row["delta"] is None for row in rows)
 
 
+def test_difference_errors_preserve_unavailable_keys_and_clip_roundoff():
+    from observable_extraction.core.gate_comparison import difference_errors
+    assert difference_errors(dict(difference_covariance=None)) == {}
+    errors = difference_errors(dict(available_keys=["second", "first"],
+                                     difference_covariance=[[.09, 0], [0, -1e-18]]))
+    assert list(errors) == ["second", "first"]
+    assert errors == {"second": .3, "first": 0.}
+    assert "unavailable" not in errors
+
+
 def test_cutflow_counts_zero_yield_exposures_and_energy_state_bins():
     from observable_extraction.compare_gate import selected_cutflow
     from observable_extraction.core.models import FluxExposure
@@ -99,6 +109,12 @@ def test_root_roundtrip_keeps_grid_metadata_and_no_fake_covariance(tmp_path):
         assert source.Get("comparison").GetEntries() == 60
         assert json.loads(source.Get("comparison_metadata").GetTitle()) == report
         assert not source.Get("difference_covariance")
+        tree = source.Get("comparison")
+        assert [branch.GetName() for branch in tree.GetListOfBranches()] == [
+            "row", "sigma_pairing", "sigma_bdt", "delta", "delta_run_error"]
+        assert all(leaf.GetTypeName() == "Double_t" for leaf in tree.GetListOfLeaves())
+        tree.GetEntry(0)
+        assert np.isnan(tree.sigma_pairing) and np.isnan(tree.delta_run_error)
     finally:
         source.Close()
 
@@ -197,6 +213,9 @@ def test_closed_gate_writes_full_coverage_report(tmp_path, monkeypatch):
     assert len(report["rows"]) == 240
     assert report["bootstrap"]["status"] == "no_common_estimable_bins"
     assert report["selected_subset"]["matched"] == 0
+    assert all("delta_run_error" in row and row["delta_run_error"] is None
+               and "delta_over_run_error" not in row for row in report["rows"])
+    assert "sample_names" not in report
     assert (args.output_dir / "comparison.root").is_file()
     assert (args.output_dir / "comparison.pdf").is_file()
     with pytest.raises(FileExistsError):

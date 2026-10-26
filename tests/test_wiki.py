@@ -99,7 +99,7 @@ def test_repository_has_one_project_readme_and_current_doc_layout():
 def test_declared_scientific_sources_exist_and_match_registered_hashes():
     import hashlib
     import json
-    audit = json.loads((ROOT / '09_theory/references/eta_pi0_literature_audit.json').read_text())
+    audit = json.loads((ROOT / 'docs/reference/theory/eta_pi0_literature_audit.json').read_text())
     # Traverse the bibliography schema so a relocated source cannot quietly
     # disappear while its scientific hash remains advertised.
     def records(value):
@@ -132,7 +132,7 @@ def test_reference_render_commands_keep_papers_as_inputs(tmp_path):
     import subprocess
 
     commands = []
-    for directory in (ROOT / '09_theory/references', ROOT / 'docs/reference/research'):
+    for directory in (ROOT / 'docs/reference/theory', ROOT / 'docs/reference/research'):
         for source in directory.glob('*.md'):
             for block in re.findall(r'```bash\n(.*?)\n```', source.read_text(), re.S):
                 if 'pdftoppm ' in block:

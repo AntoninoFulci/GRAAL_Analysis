@@ -19,7 +19,9 @@ def builder():
 def test_operational_corpus_preserves_sources_and_excludes_generated_evidence(builder):
     selected = builder.corpus(builder.read(builder.POLICY))
     assert "plots/dalitz.py" in selected
-    assert "09_theory/src/graal_theory/__init__.py" in selected
+    assert not any(p.startswith("09_theory/") for p in selected)
+    assert "docs/reference/theory/index.md" in selected
+    assert "docs/reference/theory/central_parameters.json" not in selected
     assert "01_pre_analysis/cuts/ProtonFwdCut_2006_d.cpp" in selected
     assert "README.md" in selected and "AGENTS.md" in selected
     assert not any(p.startswith(("graphify-out/", "results/", "results_test/", "docs/plans/", "data/", "data_test/")) for p in selected)

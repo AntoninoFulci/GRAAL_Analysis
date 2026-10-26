@@ -15,10 +15,9 @@ flowchart TD
   reco --> extract
   cal --> audit[07: optional flux audit or study]
   extract --> plots[Plotting]
-  extract -. explicit command .-> theory[09: theory basis and comparison]
 ```
 
-Calibration is common to UV/VIS. Each profile then owns selected inputs, MC, beam spectrum/features, BDT, reconstruction, extraction and plots. Optional stage 07 is requested by `--flux-study audit` or `--flux-study study` and never silently replaces measured flux. [Stage 09](09-theory) is always an explicit command after stage 08 with declared input files; it is not part of launcher execution.
+Calibration is common to UV/VIS. Each profile then owns selected inputs, MC, beam spectrum/features, BDT, reconstruction, extraction and plots. Optional stage 07 is requested by `--flux-study audit` or `--flux-study study` and never silently replaces measured flux. [Stage 09](09-theory) is retired. The current workflow ends with experimental extraction and plots; a future theory implementation needs a separate explicit request.
 
 Production intermediates live in `results/_cache/`. Selection, MC and BDT can be reused for ten days only when their signatures and products validate. `--force-selected`, `--force-mc`, and `--force-bdt` request rebuilding these groups. Changing a stage display label does not change its random seed/cache grouping. `--cpus`, `--seed` and `--extraction-workers` bound resources and reproducibility.
 

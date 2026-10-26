@@ -1,22 +1,19 @@
-# Stage 09: explicit theory calculations
+# Stage 09: retired theory and restart
 
-[09_theory](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory) is the standalone `graal-theory` package, imported as `graal_theory`. It is installed separately and runs only on explicit request after stage 08. Native comparison requires declared stage-08 data, reconstruction, measured calibrated flux and run manifest; the analysis launcher never starts it automatically.
+The previous stage 09 implementation was retired on **26 October 2026**, at the user's request, to restart theory and theoretical cross-section calculations from zero. Its Python package, CLI, models, numerical routines, fit/probe scripts and tests are no longer active in this checkout. There is no replacement implementation or theory command to install or run.
 
-```bash
-graal-theory predict --help
-graal-theory validate --help
-graal-theory pilot-panel5 --help
-graal-theory figure4-full --help
-graal-theory figure4-basis-build --help
-graal-theory figure4-fit --help
-```
+Experimental beam-asymmetry extraction in [stage 08](08-observable-extraction) remains active, including its calibration, estimators, covariance and plotting contracts. The common cross-section reference weights used for BDT backgrounds also remain active; they are separate from the retired theory model. The analysis launcher ends with experimental products and plots.
 
-`predict`, `validate` and `pilot-panel5` use the partial Eq. (43) tree model. `figure4-full` integrates seven coherent amplitude families and checks numerical/physical gates. `figure4-basis-build --target native` takes `--data-root`, `--reco-root`, `--flux-root` and `--run-manifest`; `--target ajaka` builds the publication comparison basis. Both require `--output` and can resume with `--resume`. `figure4-fit` requires `--data-root`, `--basis-native`, `--basis-ajaka`, and `--output`; `--require-final` enforces final-input requirements. Outputs belong under a named `results/` or diagnostic `results_test/` campaign.
+## Preserved evidence
 
-The native input contract retains per-point ratio binning, rounded divisors, diagnostic fallback and covariance row ordering. Measured-flux pilot `sigma_phi_fit` is a raw center-fit quantity; compare with corrected experimental Sigma only after matching the [finite-bin convention](finite-bin-correction). Continuous theory Sigma and a histogram center fit are not automatically identical observables.
+Original papers remain in [docs/papers](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/papers). Bibliography, digitized targets, parameter provenance and historical comparison notes are preserved under [docs/reference/theory](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/reference/theory/index.md). These records describe the retired attempt; they do not establish accepted parameters, a validated model or current operating commands.
 
-Passing software tests does not certify a reproduced Figure 4. As of the recorded 23 October snapshot, **0/12 complete panels are certified**. Individual-bin numerical successes and the angular diagnostic pilot do not close the full convergence, cross-bin covariance or physical-comparison gates. Strong amplitudes are bounded at W ≤ 1.80 GeV; the source's qualitative scattering agreement through about 1.60 GeV is distinct from its use up to 1.80 GeV, with no quantified uncertainty implied.
+The complete local source snapshot, including uncommitted changes and generated package metadata, is preserved in `results_test/theory-reset-20261026/theory-before-reset.tar.gz` and `results_test/theory-reset-20261026/archive/09_theory/`. The archive was checked against every recorded file hash before retirement. Its manifest is local diagnostic evidence, not a promise that ignored archives are available in a fresh clone. Tracked source history is also retained in Git.
 
-The last preserved farm snapshot is **2026-10-23T13:02:26Z**: pilot `diagnostic_converged`, array 23 launched, `fit_status=not_started`. This is historical evidence, not live queue state and not a completed native fit. See [status](status).
+Last historical status: **0/12 certified complete Figure 4 panels**. The preserved farm snapshot dated **2026-10-23T13:02:26Z** recorded a `diagnostic_converged` pilot, array 23 launched and `fit_status=not_started`. Retirement neither changes that evidence nor reports current queue state; no remote campaign was modified.
 
-[Model scope](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory/references/model_scope.md), [parameter provenance](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory/references/parameter_provenance.md), [amplitude inventory](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory/references/figure4_amplitude_inventory.md), [historical convergence evidence](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory/references/full_production_validation.md), and [bibliography](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/09_theory/references/sources.json) retain the scientific source trail. Original PDFs are in [docs/papers](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/docs/papers). Experimental Ajaka points use the stage-08 CSV; stage-09 theory-stroke digitization remains separately authenticated.
+## Restart boundary
+
+Future work starts with an explicit request defining the observable, primary model source, conventions, units, normalization and independently checkable benchmark. Agree that scientific contract before introducing a new implementation. Old fitted parameters, numerical kernels and convergence claims are not default inputs to the restart.
+
+A comparison with measured Sigma must declare stage-08 products, reconstruction, measured flux and run manifest, and match the [finite-bin convention](finite-bin-correction). A theoretical cross-section prediction and an experimental absolute cross-section extraction are distinct tasks. Acceptance, efficiency, luminosity and uncertainty requirements must be declared for the latter. Passing software tests alone cannot establish either measurement validity or model reproduction.

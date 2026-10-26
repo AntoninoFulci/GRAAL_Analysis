@@ -227,3 +227,17 @@ def select_brem_control(
         drop_missing=drop_missing,
         run_quality=run_quality,
     )
+
+
+def read_comparison_sample(path, tree_name):
+    source = ROOT.TFile.Open(str(path), "READ")
+    if not source or source.IsZombie():
+        raise ValueError(f"cannot open reconstruction: {path}")
+    try:
+        tree = source.Get(tree_name)
+        if not tree:
+            raise ValueError(f"missing tree {tree_name}: {path}")
+        metadata = validate_reconstruction_selection(source, tree)
+    finally:
+        source.Close()
+    return read_reconstructed(path, tree_name), metadata

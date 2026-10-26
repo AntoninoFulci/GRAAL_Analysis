@@ -781,12 +781,13 @@ def test_color_detection_respects_tty_and_no_color(monkeypatch):
     assert not cli._use_color()
 
 
-def test_pipeline_documentation_names_current_launcher_and_handoff():
+def test_pipeline_documentation_names_current_launcher_and_retirement():
     root = Path(__file__).parents[1]
     for relative in ("README.md", "wiki/workflow.md", "wiki/commands-and-configuration.md"):
         assert "scripts/run_pipeline.py" in (root / relative).read_text()
     workflow = (root / "wiki/workflow.md").read_text()
-    assert "[Stage 09](09-theory)" in workflow
+    assert "[Stage 09](09-theory) is retired" in workflow
+    assert "theory[09:" not in workflow
     assert "results/_cache/" in workflow and "results_test/test_data" in workflow
 
 

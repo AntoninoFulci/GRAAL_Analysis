@@ -22,13 +22,17 @@ from graal_common.io.raw_tracks import has_raw_tracks, snapshot_raw_tracks
 from graal_common.parallel import validate_workers
 from graal_common.physics.beam_profiles import get_beam_profile
 from observable_extraction.samples import SAMPLES
+from observable_extraction.io.root_output import write_comparison_root
 from observable_extraction.calibration.flux_v2 import load_exposures
-from observable_extraction.compare_gate import (
-    _read, _extract, _phi_retention, _write_figures, bootstrap_comparison,
-    selected_cutflow, write_comparison_root,
+from observable_extraction.comparison import (
+    extract_comparison_samples as _extract, bootstrap_comparison,
 )
+from observable_extraction.io.reconstructed_events import read_comparison_sample as _read
+from observable_extraction.plotting.comparison import write_comparison_pdf as _write_figures
 from observable_extraction.core.binning import PHI_EDGES_RAD
-from observable_extraction.core.gate_comparison import align_points
+from observable_extraction.core.gate_comparison import (
+    align_points, difference_errors, selected_cutflow, phi_retention as _phi_retention,
+)
 from observable_extraction.core.periods import partition_runs, exposure_summary, selection_audit
 from observable_extraction.io.reconstructed_events import read_run_universe, select_sigma_events
 from reconstruction.runtime.provenance import file_identities, validate_reconstruction_selection, validate_energy_domain
@@ -132,10 +136,7 @@ def compare_samples(before, after, exposures, periods, edges, *, replicas, seed,
     strata = {exp.run_number: periods[exp.run_number] for exp in exposures.values()}
     diagnostic, values, replica_keys, draws = bootstrap_comparison(
         samples, exposures, strata, keys, edges, replicas, seed, sample_names=NAMES, workers=workers)
-    errors = {}
-    if diagnostic["difference_covariance"] is not None:
-        errors = dict(zip(diagnostic["available_keys"],
-                          np.sqrt(np.maximum(0, np.diag(diagnostic["difference_covariance"])))))
+    errors = difference_errors(diagnostic)
     for row in rows:
         error = errors.get(row["key"])
         row["delta_run_error"] = float(error) if error is not None else None

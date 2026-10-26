@@ -21,7 +21,6 @@ python 06_calibration/build_strip_energy_flux.py --help
 python -m flux_studies.audit_flux --help
 python 08_observable_extraction/beam_asymmetry.py --help
 python scripts/plot_campaign.py --help
-graal-theory --help
 ```
 
 To change azimuth binning without rebuilding earlier stages, give stage 08 a completed, compatible campaign's reconstruction and calibrated flux. The following VIS example assumes `results/my-campaign` already contains UV and VIS products, and writes a new diagnostic extraction:
@@ -50,4 +49,4 @@ python -m observable_extraction.combine_profiles   \
   --output-dir results_test/vis-phi16/combined
 ```
 
-Composition validates profile and finite-bin conventions; historical incompatible files must be regenerated from compatible inputs. `--by-period` produces exact catalog-period and pooled extractions using inclusive run accounting. [Stage 09](09-theory) documents the explicit theory handoff.
+Composition validates profile and finite-bin conventions; historical incompatible files must be regenerated from compatible inputs. `--by-period` produces exact catalog-period and pooled extractions using inclusive run accounting. [Stage 09](09-theory) records retirement and prerequisites for a future theory implementation.

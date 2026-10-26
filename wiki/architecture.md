@@ -13,7 +13,6 @@
 | `06_calibration/` | `calibration`: run catalogs, strip-energy calibration, measured ROOT flux and QA/cache |
 | `07_flux_studies/` | `flux_studies`: optional offline audits and experimental recovery studies |
 | `08_observable_extraction/` | `observable_extraction`: sample loading, estimators, backgrounds, systematic components and output |
-| `09_theory/` | Independent `graal_theory` package and `graal-theory` CLI |
 | `plots/` | Rendering and adapters for completed analysis products |
 
 [Package mapping](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/pyproject.toml) makes numbered folders importable. [Workflow source](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/graal_workflow) separates `models`, `paths`, `planning`, `execution`, `resources`, `artifact_manifest`, and `cli`. Calibration exposes public owners for common input validation, numerical strip calibration, native ROOT production, inspection, QA, and cache. Stage 08 separates CLI dispatch, single/period workflows, extraction, background/systematic calculations, and ROOT I/O.

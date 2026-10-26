@@ -164,6 +164,100 @@ def build_qa_payload(
 
 
 
+def _unmapped_strip_qa(run_numbers, lookup_by_run, flux_by_run_strip):
+    """Report missing lookup strips in run/strip order, retaining nonzero flux."""
+    errors = []
+    empty_strips = []
+    nonzero_unmapped = []
+    for run_number in sorted(run_numbers):
+        mapped = {row.xstrip for row in lookup_by_run[run_number]}
+        for xstrip in range(1, 129):
+            if xstrip in mapped:
+                continue
+            empty_strips.append({"run_number": run_number, "xstrip": xstrip})
+            strip = flux_by_run_strip.get(run_number, {}).get(xstrip)
+            if strip is not None and any(
+                value != 0.0
+                for value in (
+                    strip.flux_pol1,
+                    strip.flux_pol2,
+                    strip.flux_brem,
+                )
+            ):
+                nonzero_unmapped.append(
+                    {
+                        "run_number": run_number,
+                        "xstrip": xstrip,
+                        "flux_pol1": strip.flux_pol1,
+                        "flux_pol2": strip.flux_pol2,
+                        "flux_brem": strip.flux_brem,
+                    }
+                )
+                errors.append(
+                    f"run {run_number} strip {xstrip}: "
+                    "nonzero flux without lookup"
+                )
+    return empty_strips, nonzero_unmapped, errors
+
+
+def _out_of_range_qa(binnings, run_numbers, lookup_by_run, flux_by_run_strip):
+    """Count and sum excluded raw flux without folding it into boundary bins."""
+    out_of_range = {}
+    for binning in binnings:
+        below = []
+        above = []
+        excluded = [0.0, 0.0, 0.0]
+        for run_number in sorted(run_numbers):
+            flux_by_strip = flux_by_run_strip[run_number]
+            for row in lookup_by_run[run_number]:
+                if row.energy_median_gev < binning.edges_gev[0]:
+                    below.append((run_number, row.xstrip))
+                elif row.energy_median_gev > binning.edges_gev[-1]:
+                    above.append((run_number, row.xstrip))
+                else:
+                    continue
+                strip = flux_by_strip[row.xstrip]
+                for index, value in enumerate(
+                    (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
+                ):
+                    excluded[index] += value
+        out_of_range[binning.name] = {
+            "below_lookup_count": len(below),
+            "above_lookup_count": len(above),
+            "below_lookup_strips": [
+                {"run_number": run_number, "xstrip": xstrip}
+                for run_number, xstrip in below
+            ],
+            "above_lookup_strips": [
+                {"run_number": run_number, "xstrip": xstrip}
+                for run_number, xstrip in above
+            ],
+            "raw_flux_excluded": {
+                "flux_pol1": excluded[0],
+                "flux_pol2": excluded[1],
+                "flux_brem": excluded[2],
+            },
+        }
+    return out_of_range
+
+
+def _calibration_coverage(records, calibration_coverage):
+    """Keep manifest/state order and distinguish absent from rejected coverage."""
+    observed = {(int(row["run_number"]), _POLARIZATION_SUFFIX[row["polarization"]]): row
+                for row in calibration_coverage}
+    coverage = []
+    for record in records:
+        for state in _FLUX_SUFFIXES:
+            cell = observed.get((record.run_number, state))
+            coverage.append(dict(run_number=record.run_number, state=state,
+                                 h80_present=cell is not None,
+                                 accepted=bool(cell and cell["accepted"]),
+                                 reason=("accepted" if cell and cell["accepted"] else
+                                         "insufficient_coverage" if cell else "not_covered"),
+                                 strip_coverage=cell))
+    return coverage
+
+
 def run(args: argparse.Namespace) -> int:
     progress = ProgressReporter()
     output_path = args.output_dir / "flux_calibrated.root"
@@ -314,36 +408,10 @@ def run(args: argparse.Namespace) -> int:
     )
 
     progress.log("running lookup and flux QA")
-    empty_strips = []
-    nonzero_unmapped = []
-    for run_number in sorted(manifest_runs & sample_runs):
-        mapped = {row.xstrip for row in lookup_by_run[run_number]}
-        for xstrip in range(1, 129):
-            if xstrip in mapped:
-                continue
-            empty_strips.append({"run_number": run_number, "xstrip": xstrip})
-            strip = flux_by_run_strip.get(run_number, {}).get(xstrip)
-            if strip is not None and any(
-                value != 0.0
-                for value in (
-                    strip.flux_pol1,
-                    strip.flux_pol2,
-                    strip.flux_brem,
-                )
-            ):
-                nonzero_unmapped.append(
-                    {
-                        "run_number": run_number,
-                        "xstrip": xstrip,
-                        "flux_pol1": strip.flux_pol1,
-                        "flux_pol2": strip.flux_pol2,
-                        "flux_brem": strip.flux_brem,
-                    }
-                )
-                errors.append(
-                    f"run {run_number} strip {xstrip}: "
-                    "nonzero flux without lookup"
-                )
+    empty_strips, nonzero_unmapped, unmapped_errors = _unmapped_strip_qa(
+        manifest_runs & sample_runs, lookup_by_run, flux_by_run_strip,
+    )
+    errors.extend(unmapped_errors)
 
     inversions = []
     for inversion in find_monotonic_inversions(lookup):
@@ -381,42 +449,9 @@ def run(args: argparse.Namespace) -> int:
         if row.event_count < args.min_events_per_strip
     ]
 
-    out_of_range = {}
-    for binning in binnings:
-        below = []
-        above = []
-        excluded = [0.0, 0.0, 0.0]
-        for run_number in sorted(manifest_runs & sample_runs):
-            flux_by_strip = flux_by_run_strip[run_number]
-            for row in lookup_by_run[run_number]:
-                if row.energy_median_gev < binning.edges_gev[0]:
-                    below.append((run_number, row.xstrip))
-                elif row.energy_median_gev > binning.edges_gev[-1]:
-                    above.append((run_number, row.xstrip))
-                else:
-                    continue
-                strip = flux_by_strip[row.xstrip]
-                for index, value in enumerate(
-                    (strip.flux_pol1, strip.flux_pol2, strip.flux_brem)
-                ):
-                    excluded[index] += value
-        out_of_range[binning.name] = {
-            "below_lookup_count": len(below),
-            "above_lookup_count": len(above),
-            "below_lookup_strips": [
-                {"run_number": run_number, "xstrip": xstrip}
-                for run_number, xstrip in below
-            ],
-            "above_lookup_strips": [
-                {"run_number": run_number, "xstrip": xstrip}
-                for run_number, xstrip in above
-            ],
-            "raw_flux_excluded": {
-                "flux_pol1": excluded[0],
-                "flux_pol2": excluded[1],
-                "flux_brem": excluded[2],
-            },
-        }
+    out_of_range = _out_of_range_qa(
+        binnings, manifest_runs & sample_runs, lookup_by_run, flux_by_run_strip,
+    )
 
     run_flux = []
     for binning in binnings:
@@ -519,18 +554,7 @@ def run(args: argparse.Namespace) -> int:
         calibration_energy_bins,
         before_publish=validate_input_identity,
     )
-    observed = {(int(row["run_number"]), _POLARIZATION_SUFFIX[row["polarization"]]): row
-                for row in calibrated_root_qa["calibration_coverage"]}
-    coverage = []
-    for record in records:
-        for state in _FLUX_SUFFIXES:
-            cell = observed.get((record.run_number, state))
-            coverage.append(dict(run_number=record.run_number, state=state,
-                                 h80_present=cell is not None,
-                                 accepted=bool(cell and cell["accepted"]),
-                                 reason=("accepted" if cell and cell["accepted"] else
-                                         "insufficient_coverage" if cell else "not_covered"),
-                                 strip_coverage=cell))
+    coverage = _calibration_coverage(records, calibrated_root_qa["calibration_coverage"])
     write_calibration_qa(output_path.with_suffix(".qa.json"), output_path,
                          inputs={**input_identity, "h80": h80_identity}, coverage=coverage,
                          diagnostics={"pre_write": qa, "writer": calibrated_root_qa})

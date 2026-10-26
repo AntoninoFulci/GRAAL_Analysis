@@ -462,3 +462,42 @@ def write_root_output(path: Path, payload: RootOutputPayload) -> None:
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def write_comparison_root(path, report):
+    sample_names = report.get("sample_names", ("pairing", "bdt"))
+    output = ROOT.TFile(str(path), "RECREATE")
+    if output.IsZombie():
+        raise OSError(f"cannot write {path}")
+    try:
+        ROOT.TNamed("comparison_metadata", json.dumps(report, allow_nan=False, sort_keys=True)).Write()
+        tree = ROOT.TTree("comparison", "Full grid; missing values are NaN, status in metadata")
+        names = ("row", *(f"sigma_{name}" for name in sample_names), "delta", "delta_run_error")
+        buffers = {name: array("d", [0.]) for name in names}
+        for name, buffer in buffers.items():
+            tree.Branch(name, buffer, f"{name}/D")
+        for index, row in enumerate(report["rows"]):
+            values = [index, *[row[name]["point"]["sigma"] if row[name] else None for name in sample_names],
+                      row["delta"], row.get("delta_run_error")]
+            for name, value in zip(names, values):
+                buffers[name][0] = float(value) if value is not None else float("nan")
+            tree.Fill()
+        tree.Write()
+        diagnostic = report["bootstrap"]
+        for name in ("joint_covariance", "cross_covariance", "difference_covariance", "difference_covariance_mc_se"):
+            values = diagnostic.get(name)
+            if values is None:
+                continue
+            matrix = np.asarray(values)
+            hist = ROOT.TH2D(name, name, len(matrix), 0, len(matrix), len(matrix), 0, len(matrix))
+            labels = diagnostic["available_keys"]
+            if name == "joint_covariance":
+                labels = [f"{sample}:{key}" for sample in sample_names for key in labels]
+            for i, label in enumerate(labels):
+                hist.GetXaxis().SetBinLabel(i + 1, label)
+                hist.GetYaxis().SetBinLabel(i + 1, label)
+                for j in range(len(matrix)):
+                    hist.SetBinContent(i + 1, j + 1, float(matrix[i, j]))
+            hist.Write()
+    finally:
+        output.Close()

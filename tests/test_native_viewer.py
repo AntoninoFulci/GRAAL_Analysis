@@ -12,7 +12,6 @@ GDML = Path('results_test/archive/geant4-migration-audit-20261023/conversion-spa
 
 @pytest.mark.parametrize('explicit', [False, True])
 def test_native_viewer_preserved_default_and_build_commands(tmp_path, explicit):
-    assert (REPO / GDML).is_file()
     script = tmp_path / '03_mc_simulation/geant4/view_native.sh'
     script.parent.mkdir(parents=True)
     shutil.copyfile(REPO / '03_mc_simulation/geant4/view_native.sh', script)
@@ -43,3 +42,16 @@ def test_native_viewer_preserved_default_and_build_commands(tmp_path, explicit):
         f'cmake <--build> <{build}> <--target> <load_gdml> <--parallel> <4>',
         f'viewer <{build}> <{geometry}> <1> <1> <1>',
     ]
+
+
+def test_preserved_native_viewer_geometry_matches_registered_hash():
+    import hashlib
+    import json
+
+    geometry = REPO / GDML
+    if not geometry.is_file():
+        pytest.skip('historical certified GDML is not available in this checkout')
+    manifest = json.loads((REPO / '03_mc_simulation/geant4/reference/manifest.json').read_text())
+    historical_path = 'results/geant4-migration-audit-20261023/conversion-spack-certified/geometry.gdml'
+    expected = manifest['artifact_sha256'][historical_path]
+    assert hashlib.sha256(geometry.read_bytes()).hexdigest() == expected

@@ -67,7 +67,7 @@ def test_merge_disables_inherited_root_pool(tmp_path, monkeypatch):
 def test_raw_parallel_equivalence_and_skip_counts(tmp_path, only_untagged):
     repo = Path(__file__).resolve().parents[1]
     import os
-    original_path = Path(os.environ.get('GRAAL_RAW_SAMPLE', str(repo / 'data/local_sources/raw/1998_uv/run1321.root')))
+    original_path = Path(os.environ.get('GRAAL_RAW_SAMPLE', str(repo / 'data_test/raw_data/1998_uv/run1321.root')))
     if not original_path.exists():
         pytest.skip('local raw sample unavailable')
     raw = tmp_path / 'raw' / '1998_uv'
