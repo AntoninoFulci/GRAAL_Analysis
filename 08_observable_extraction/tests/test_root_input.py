@@ -5,6 +5,7 @@ import pytest
 import ROOT
 
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
+from observable_extraction.io import root_input
 from observable_extraction.io.root_input import read_output_points, read_output_contract
 from observable_extraction.io.root_output import (
     OutputPoint,
@@ -66,6 +67,135 @@ def test_root_output_points_round_trip(tmp_path):
     payload = _write(output)
 
     assert read_output_points(output) == payload.points
+
+
+def _replace_provenance(path, text):
+    source = ROOT.TFile(str(path), "UPDATE")
+    source.Delete("provenance;*")
+    ROOT.TNamed("provenance", text).Write()
+    source.Close()
+
+
+def _valid_candle_provenance():
+    return (
+        "profile=uv\n"
+        "phi_bin_divisor=0.9549\n"
+        "candle_enabled=true\n"
+        "candle_eta_center_gev=0.547862\n"
+        "candle_pi0_center_gev=0.134977\n"
+        "candle_mass_half_width_gev=0.05\n"
+        "candle_geometry=rectangular\n"
+        "candle_core_logic=and\n"
+        "candle_tail_logic=or_complement\n"
+        "candle_boundary=inclusive\n"
+        "candle_baseline_event_count=100\n"
+        "candle_full_core_event_count=80\n"
+        "candle_tail_event_count=20\n"
+        "candle_balanced_core_event_count=20\n"
+        "candle_excluded_nonfinite_event_count=0\n"
+        "candle_balance_method=random_without_replacement\n"
+        "candle_balance_seed=20261024\n"
+        "candle_mass_source=raw_pre_fit"
+    )
+
+
+def test_contract_reads_complete_candle_provenance(tmp_path):
+    output = tmp_path / "candle.root"
+    _write(output)
+    _replace_provenance(output, _valid_candle_provenance())
+
+    assert read_output_contract(output).candle == root_input.CandleContract(
+        eta_center_gev=0.547862,
+        pi0_center_gev=0.134977,
+        mass_half_width_gev=0.05,
+        geometry="rectangular",
+        core_logic="and",
+        tail_logic="or_complement",
+        boundary="inclusive",
+        baseline_event_count=100,
+        full_core_event_count=80,
+        tail_event_count=20,
+        balanced_core_event_count=20,
+        excluded_nonfinite_event_count=0,
+        balance_method="random_without_replacement",
+        balance_seed=20261024,
+        mass_source="raw_pre_fit",
+    )
+
+
+def test_legacy_contract_has_no_candle_metadata(tmp_path):
+    output = tmp_path / "legacy_no_candle.root"
+    _write(output)
+
+    assert read_output_contract(output).candle is None
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [
+        _valid_candle_provenance().replace(
+            "candle_pi0_center_gev=0.134977\n", ""
+        ),
+        _valid_candle_provenance() + "\ncandle_enabled=true",
+        _valid_candle_provenance().replace(
+            "candle_enabled=true", "candle_enabled=false"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_mass_half_width_gev=0.05", "candle_mass_half_width_gev=0"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_eta_center_gev=0.547862", "candle_eta_center_gev=nan"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_geometry=rectangular", "candle_geometry=elliptical"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_core_logic=and", "candle_core_logic=or"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_tail_logic=or_complement", "candle_tail_logic=and"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_boundary=inclusive", "candle_boundary=exclusive"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_baseline_event_count=100", "candle_baseline_event_count=0"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_full_core_event_count=80", "candle_full_core_event_count=79"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_tail_event_count=20", "candle_tail_event_count=21"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_balanced_core_event_count=20",
+            "candle_balanced_core_event_count=19",
+        ),
+        _valid_candle_provenance().replace(
+            "candle_excluded_nonfinite_event_count=0",
+            "candle_excluded_nonfinite_event_count=-1",
+        ),
+        _valid_candle_provenance().replace(
+            "candle_balance_method=random_without_replacement",
+            "candle_balance_method=first",
+        ),
+        _valid_candle_provenance().replace(
+            "candle_balance_seed=20261024", "candle_balance_seed=-1"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_mass_source=raw_pre_fit", "candle_mass_source=fit"
+        ),
+        _valid_candle_provenance() + "\ncandle_unknown=value",
+        "candle_mass_half_width_gev=0.05",
+    ],
+)
+def test_contract_rejects_malformed_candle_provenance(tmp_path, provenance):
+    output = tmp_path / "bad_candle.root"
+    _write(output)
+    _replace_provenance(output, provenance)
+
+    with pytest.raises(RuntimeError, match="candle"):
+        read_output_contract(output)
 
 
 def test_best_binning_rejects_points_without_per_point_choice(tmp_path):

@@ -1,10 +1,12 @@
 from pathlib import Path
+from dataclasses import fields, replace
 
 import numpy as np
 import ROOT
 import pytest
 
 from graal_common.physics.beam_profiles import VIS_PROFILE
+from graal_common.physics.channels import M_ETA, M_PI0
 from observable_extraction import extraction_background, extraction_systematics, workflow
 from observable_extraction import beam_asymmetry
 from observable_extraction.extraction import extract_sample
@@ -30,6 +32,8 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     assert args.run_manifest == Path("config/run_manifest.csv")
     assert args.phi_bins == 12
     assert args.mass_bins == 10
+    assert args.candle_mass_half_width is None
+    assert args.candle_balance_seed == 20261024
     assert not hasattr(args, "csv_output")
     assert not hasattr(args, "json_output")
 
@@ -309,6 +313,205 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
                 "--output-dir", str(tmp_path / "output"),
             ]
         )
+
+
+@pytest.mark.parametrize("width", ["0", "-0.05", "nan", "inf", "-inf"])
+def test_candle_rejects_invalid_width_before_root_io(
+    tmp_path, monkeypatch, width
+):
+    monkeypatch.setattr(
+        workflow,
+        "_validate_energy_inputs",
+        lambda _args: pytest.fail("ROOT input was inspected"),
+    )
+
+    with pytest.raises(ValueError, match="candle.*finite and positive"):
+        beam_asymmetry.main([
+            f"--candle-mass-half-width={width}",
+            "--output-dir", str(tmp_path / "output"),
+        ])
+
+
+def test_candle_requires_raw_bdt_nominal_before_root_io(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        workflow,
+        "_validate_energy_inputs",
+        lambda _args: pytest.fail("ROOT input was inspected"),
+    )
+
+    with pytest.raises(ValueError, match="nominal-sample raw_bdt"):
+        beam_asymmetry.main([
+            "--nominal-sample", "raw",
+            "--candle-mass-half-width", "0.05",
+            "--output-dir", str(tmp_path / "output"),
+        ])
+
+
+def test_candle_rejects_sideband_correction_before_root_io(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        workflow,
+        "_validate_energy_inputs",
+        lambda _args: pytest.fail("ROOT input was inspected"),
+    )
+
+    with pytest.raises(ValueError, match="candle.*sideband"):
+        beam_asymmetry.main([
+            "--candle-mass-half-width", "0.05",
+            "--sideband", str(tmp_path / "sideband.root"),
+            "--signal-mc", str(tmp_path / "signal.root"),
+            "--output-dir", str(tmp_path / "output"),
+        ])
+
+
+def test_candle_rejects_negative_balance_seed_before_root_io(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        workflow,
+        "_validate_energy_inputs",
+        lambda _args: pytest.fail("ROOT input was inspected"),
+    )
+
+    with pytest.raises(ValueError, match="candle balance seed"):
+        beam_asymmetry.main([
+            "--candle-mass-half-width", "0.05",
+            "--candle-balance-seed", "-1",
+            "--output-dir", str(tmp_path / "output"),
+        ])
+
+
+def test_candle_rejects_diagnostic_bootstrap_before_root_io(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        workflow,
+        "_validate_energy_inputs",
+        lambda _args: pytest.fail("ROOT input was inspected"),
+    )
+
+    with pytest.raises(ValueError, match="candle.*diagnostic bootstrap"):
+        beam_asymmetry.main([
+            "--candle-mass-half-width", "0.05",
+            "--bootstrap-diagnostics-replicas", "4",
+            "--bootstrap-universe-manifest", str(tmp_path / "runs.csv"),
+            "--output-dir", str(tmp_path / "output"),
+        ])
+
+
+def _concatenate_events(*groups):
+    return EventArrays(**{
+        field.name: np.concatenate(
+            [getattr(group, field.name) for group in groups], axis=0
+        )
+        for field in fields(EventArrays)
+    })
+
+
+def _run_candle(tmp_path, monkeypatch, events, *, estimator="ratio"):
+    exposures = {
+        (int(run), int(strip)): FluxExposure(
+            int(run), int(strip), 1.15, 1.2, 0.9, 0.2, 0.6, 0.55
+        )
+        for run, strip in set(zip(events.run_number, events.xstrip))
+    }
+    monkeypatch.setattr(workflow, "_validate_energy_inputs", lambda _args: None)
+    monkeypatch.setattr(
+        workflow, "read_reconstructed", lambda *_args, **_kwargs: events
+    )
+    monkeypatch.setattr(
+        workflow, "load_exposures", lambda *_args, **_kwargs: exposures
+    )
+    output = tmp_path / "candle_output"
+    result = beam_asymmetry.main([
+        "--raw-bdt", str(tmp_path / "nominal.root"),
+        "--raw", str(tmp_path / "absent.root"),
+        "--flux-file", str(tmp_path / "flux.root"),
+        "--run-manifest", str(tmp_path / "manifest.csv"),
+        "--output-dir", str(output),
+        "--estimator", estimator,
+        "--candle-mass-half-width", "0.05",
+        "--candle-balance-seed", "20261024",
+    ])
+    return result, output
+
+
+def test_candle_extracts_equal_core_and_tail_samples_and_records_contract(
+    tmp_path, monkeypatch
+):
+    core_a = _synthetic_events(sigma=0.35)
+    core_b = _synthetic_events(sigma=0.35)
+    tails = _synthetic_events(sigma=-0.30)
+    tails = replace(
+        tails,
+        eta_mass_gev=np.full(len(tails), M_ETA + 0.08),
+        pi0_mass_gev=np.full(len(tails), M_PI0),
+    )
+    events = _concatenate_events(core_a, core_b, tails)
+
+    result, output = _run_candle(tmp_path, monkeypatch, events)
+
+    assert result == 0
+    points = read_output_points(output / "beam_asymmetry.root")
+    samples = {item.sample for item in points}
+    assert {"raw_bdt", "raw_bdt_core", "raw_bdt_tails"} <= samples
+    contract = read_output_contract(output / "beam_asymmetry.root").candle
+    assert contract is not None
+    assert contract.mass_half_width_gev == 0.05
+    assert contract.baseline_event_count == len(events)
+    assert contract.full_core_event_count == len(core_a) + len(core_b)
+    assert contract.tail_event_count == len(tails)
+    assert contract.balanced_core_event_count == len(tails)
+    assert contract.excluded_nonfinite_event_count == 0
+    assert contract.balance_seed == 20261024
+
+
+def test_candle_fails_if_balanced_samples_produce_no_fitted_points(
+    tmp_path, monkeypatch
+):
+    source = _synthetic_events()
+    core = source.take(np.arange(len(source)) < 24)
+    tails = replace(
+        source.take(np.arange(len(source)) < 12),
+        eta_mass_gev=np.full(12, M_ETA + 0.08),
+    )
+
+    with pytest.raises(RuntimeError, match=r"candle raw_bdt_(core|tails).*core=12 tails=12"):
+        _run_candle(tmp_path, monkeypatch, _concatenate_events(core, tails))
+
+
+def test_candle_is_applied_only_to_pooled_period_output(tmp_path, monkeypatch):
+    core = _synthetic_events(sigma=0.25)
+    tails = _synthetic_events(sigma=-0.25)
+    tails = replace(
+        tails,
+        eta_mass_gev=np.full(len(tails), M_ETA + 0.08),
+    )
+    events = _concatenate_events(core, tails)
+    exposures = {
+        (811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)
+    }
+    monkeypatch.setattr(
+        workflow, "read_reconstructed", lambda *_args, **_kwargs: events
+    )
+    monkeypatch.setattr(
+        workflow, "load_exposures", lambda *_args, **_kwargs: exposures
+    )
+    output = tmp_path / "period"
+    args = beam_asymmetry.build_parser().parse_args([
+        "--raw-bdt", str(tmp_path / "nominal.root"),
+        "--raw", str(tmp_path / "absent.root"),
+        "--output-dir", str(output),
+        "--estimator", "ratio",
+        "--candle-mass-half-width", "0.05",
+    ])
+
+    workflow._run_single(args, period="1998")
+
+    points = read_output_points(output / "beam_asymmetry.root")
+    assert {item.sample for item in points} == {"raw_bdt"}
+    assert read_output_contract(output / "beam_asymmetry.root").candle is None
 
 
 def _mass_only_events(pulls):

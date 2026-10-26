@@ -25,7 +25,12 @@ from observable_extraction.core.binning import phi_edges_rad
 from observable_extraction.core.periods import partition_runs, selection_audit, exposure_summary
 from observable_extraction.extraction_background import SIDEBAND_TREE
 from observable_extraction.extraction_systematics import _point_key
-from observable_extraction.workflow import _sample_path, _run_single, _validate_energy_inputs
+from observable_extraction.workflow import (
+    _sample_path,
+    _run_single,
+    _validate_energy_inputs,
+    validate_candle_options,
+)
 from observable_extraction.io.reconstructed_events import (
     read_reconstructed, read_run_universe, EventArrays, select_sigma_events,
 )
@@ -110,6 +115,7 @@ def _source_identities(source_root: Path) -> list[dict]:
 
 def run_periods(args) -> int:
     validate_workers(getattr(args, "workers", 1))
+    validate_candle_options(args)
     _validate_energy_inputs(args)
     quality = load_run_quality(getattr(args, "run_quality", None))
     profile = get_beam_profile(args.profile)

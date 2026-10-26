@@ -12,6 +12,7 @@ from pathlib import Path
 
 import ROOT
 
+from graal_common.physics.channels import M_ETA, M_PI0
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
 from observable_extraction.core.binning import PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_bin_divisor
 from observable_extraction.io.root_output import OutputPoint, ordered_point_keys, point_key_label
@@ -31,6 +32,27 @@ def _open_output(path):
 
 
 @dataclass(frozen=True)
+class CandleContract:
+    """Selection definition and counts stored for a candle extraction."""
+
+    eta_center_gev: float
+    pi0_center_gev: float
+    mass_half_width_gev: float
+    geometry: str
+    core_logic: str
+    tail_logic: str
+    boundary: str
+    baseline_event_count: int
+    full_core_event_count: int
+    tail_event_count: int
+    balanced_core_event_count: int
+    excluded_nonfinite_event_count: int
+    balance_method: str
+    balance_seed: int
+    mass_source: str
+
+
+@dataclass(frozen=True)
 class RootOutputContract:
     """Profile identity and energy/azimuth binning stored in one ROOT output."""
 
@@ -40,6 +62,112 @@ class RootOutputContract:
     phi_bin_divisor: float | None = 1.0
     explicit_energy_grid: bool = False
     best_binning: bool = False
+    candle: CandleContract | None = None
+
+
+def _provenance_values(text: str) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if separator:
+            values.setdefault(key.strip(), []).append(value.strip())
+    return values
+
+
+def _parse_candle_contract(
+    values: dict[str, list[str]], path: Path
+) -> CandleContract | None:
+    candle_keys = {key for key in values if key.startswith("candle_")}
+    if not candle_keys:
+        return None
+    required = {
+        "candle_enabled",
+        "candle_eta_center_gev",
+        "candle_pi0_center_gev",
+        "candle_mass_half_width_gev",
+        "candle_geometry",
+        "candle_core_logic",
+        "candle_tail_logic",
+        "candle_boundary",
+        "candle_baseline_event_count",
+        "candle_full_core_event_count",
+        "candle_tail_event_count",
+        "candle_balanced_core_event_count",
+        "candle_excluded_nonfinite_event_count",
+        "candle_balance_method",
+        "candle_balance_seed",
+        "candle_mass_source",
+    }
+    try:
+        if candle_keys != required:
+            raise ValueError("incomplete or unknown candle fields")
+
+        def one(name: str) -> str:
+            entries = values.get(name, [])
+            if len(entries) != 1 or not entries[0]:
+                raise ValueError(f"invalid {name}")
+            return entries[0]
+
+        if one("candle_enabled") != "true":
+            raise ValueError("candle must be explicitly enabled")
+        eta_center = float(one("candle_eta_center_gev"))
+        pi0_center = float(one("candle_pi0_center_gev"))
+        width = float(one("candle_mass_half_width_gev"))
+        baseline_count = int(one("candle_baseline_event_count"))
+        full_core_count = int(one("candle_full_core_event_count"))
+        tail_count = int(one("candle_tail_event_count"))
+        balanced_core_count = int(one("candle_balanced_core_event_count"))
+        excluded_nonfinite_count = int(
+            one("candle_excluded_nonfinite_event_count")
+        )
+        balance_seed = int(one("candle_balance_seed"))
+        if not math.isclose(
+            eta_center, M_ETA, rel_tol=0.0, abs_tol=1e-12
+        ) or not math.isclose(
+            pi0_center, M_PI0, rel_tol=0.0, abs_tol=1e-12
+        ):
+            raise ValueError("candidate-mass centers do not match shared constants")
+        if not math.isfinite(width) or width <= 0.0:
+            raise ValueError("invalid candle width")
+        if baseline_count <= 0 or full_core_count <= 0 or tail_count <= 0:
+            raise ValueError("candle counts must be positive")
+        if excluded_nonfinite_count < 0:
+            raise ValueError("excluded non-finite count must be non-negative")
+        if full_core_count + tail_count + excluded_nonfinite_count != baseline_count:
+            raise ValueError("candle region counts do not match baseline")
+        if balanced_core_count != tail_count or full_core_count < tail_count:
+            raise ValueError("candle samples are not balanceable and equal")
+        if balance_seed < 0:
+            raise ValueError("invalid candle balance seed")
+        semantics = {
+            "candle_geometry": "rectangular",
+            "candle_core_logic": "and",
+            "candle_tail_logic": "or_complement",
+            "candle_boundary": "inclusive",
+            "candle_balance_method": "random_without_replacement",
+            "candle_mass_source": "raw_pre_fit",
+        }
+        if any(one(name) != expected for name, expected in semantics.items()):
+            raise ValueError("invalid candle selection semantics")
+        return CandleContract(
+            eta_center_gev=eta_center,
+            pi0_center_gev=pi0_center,
+            mass_half_width_gev=width,
+            geometry=one("candle_geometry"),
+            core_logic=one("candle_core_logic"),
+            tail_logic=one("candle_tail_logic"),
+            boundary=one("candle_boundary"),
+            baseline_event_count=baseline_count,
+            full_core_event_count=full_core_count,
+            tail_event_count=tail_count,
+            balanced_core_event_count=balanced_core_count,
+            excluded_nonfinite_event_count=excluded_nonfinite_count,
+            balance_method=one("candle_balance_method"),
+            balance_seed=balance_seed,
+            mass_source=one("candle_mass_source"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{path}: invalid candle provenance") from exc
 
 
 def _id_maps(text: str, path: Path) -> dict[str, dict[int, str]]:
@@ -99,12 +227,14 @@ def read_output_contract(path: Path) -> RootOutputContract:
         profile = None
         divisor_values = []
         explicit_energy_grid = False
+        provenance_text = ""
         if provenance:
             if not provenance.InheritsFrom("TNamed"):
                 raise RuntimeError(f"{path}: malformed provenance")
+            provenance_text = provenance.GetTitle()
             profile_values = [
                 line.partition("=")[2].strip()
-                for line in provenance.GetTitle().splitlines()
+                for line in provenance_text.splitlines()
                 if line.startswith("profile=")
             ]
             if len(profile_values) > 1 or (
@@ -115,11 +245,11 @@ def read_output_contract(path: Path) -> RootOutputContract:
                 profile = profile_values[0]
             divisor_values = [
                 line.partition("=")[2].strip()
-                for line in provenance.GetTitle().splitlines()
+                for line in provenance_text.splitlines()
                 if line.startswith("phi_bin_divisor=")
             ]
         if provenance:
-            declarations = [line.partition("=")[2] for line in provenance.GetTitle().splitlines()
+            declarations = [line.partition("=")[2] for line in provenance_text.splitlines()
                             if line.startswith("energy_edges_gev=")]
             if declarations:
                 try:
@@ -148,7 +278,7 @@ def read_output_contract(path: Path) -> RootOutputContract:
                 raise RuntimeError(f"{path}: invalid binning/phi_edges")
         # Absent metadata identifies older, uncorrected center-fit outputs.
         divisor = 1.0
-        best_binning = bool(provenance and "phi_bins=best-binning" in provenance.GetTitle().splitlines())
+        best_binning = "phi_bins=best-binning" in provenance_text.splitlines()
         if best_binning:
             if divisor_values != ["per_point"]:
                 raise RuntimeError(f"{path}: best-binning requires per-point phi_bin_divisor")
@@ -170,6 +300,7 @@ def read_output_contract(path: Path) -> RootOutputContract:
             profile=profile, energy_edges_gev=edges,
             phi_edges_rad=phi_edges, phi_bin_divisor=divisor, explicit_energy_grid=explicit_energy_grid,
             best_binning=best_binning,
+            candle=_parse_candle_contract(_provenance_values(provenance_text), path),
         )
 
 
