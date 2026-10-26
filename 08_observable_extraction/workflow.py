@@ -35,6 +35,10 @@ from observable_extraction.io.root_output import (
     RootOutputPayload, write_root_output, ordered_point_keys,
 )
 from observable_extraction.plotting.figure4 import profile_energy_rows, write_profile_figure4_pdf
+from observable_extraction.plotting.candle import (
+    write_candle_comparison_pdf,
+    write_candle_mass_plane_pdf,
+)
 from observable_extraction.plotting.diagnostics import (
     write_background_control_pdf, write_false_asymmetry_controls_pdf,
     write_photon_multiplicity_pdf, write_point_comparison_pdf,
@@ -369,6 +373,31 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     plots_dir = args.plots_dir if args.plots_dir is not None else args.output_dir
     active_rows = profile_energy_rows(profile.name, grid.edges_gev)
     points_by_profile = {profile.name: output_points}
+    if candle_split is not None:
+        write_candle_mass_plane_pdf(
+            plots_dir / "candle_mass_plane.pdf",
+            events.eta_mass_gev,
+            events.pi0_mass_gev,
+            half_width_gev=candle_width,
+            full_core_count=candle_split.full_core_count,
+            tail_count=candle_split.tail_count,
+            balanced_core_count=len(candle_split.core),
+            excluded_nonfinite_count=candle_split.excluded_nonfinite_count,
+        )
+        if args.estimator in {"ratio", "both"}:
+            write_candle_comparison_pdf(
+                plots_dir / "comparison_candle_ratio.pdf",
+                points_by_profile,
+                active_rows,
+                estimator="ratio",
+            )
+        if args.estimator in {"likelihood", "both"}:
+            write_candle_comparison_pdf(
+                plots_dir / "comparison_candle_likelihood.pdf",
+                points_by_profile,
+                active_rows,
+                estimator="likelihood",
+            )
     write_profile_figure4_pdf(
         plots_dir / "figure4_experimental.pdf",
         points_by_profile,

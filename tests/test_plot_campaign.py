@@ -41,22 +41,47 @@ def _write_reconstruction(path: Path, tree_name: str, *, fit: bool, certified: b
     source.Close()
 
 
-def _write_asymmetry(path: Path, profile: str, *, fit: bool = False) -> None:
+def _write_asymmetry(
+    path: Path, profile: str, *, fit: bool = False, candle: bool = False
+) -> None:
     source_points = _points()
     if profile == "vis":
         source_points = tuple(replace(item, point=replace(item.point, energy_bin=0,
                                energy_low_gev=0.9313, energy_high_gev=1.10))
                               for item in source_points if item.point.energy_bin == 0)
+    samples = (("raw_bdt", "raw_bdt_fit") if fit else ("raw", "raw_bdt"))
+    if candle:
+        samples += ("raw_bdt_core", "raw_bdt_tails")
     points = tuple(replace(item, sample=sample, estimator=estimator)
                    for item in source_points
-                   for sample in (("raw_bdt", "raw_bdt_fit") if fit else ("raw", "raw_bdt"))
+                   for sample in samples
                    for estimator in ("ratio", "likelihood"))
     edges = (0.9313, 1.10) if profile == "vis" else (1.10, 1.20, 1.30, 1.40, 1.50)
     path.parent.mkdir(parents=True, exist_ok=True)
+    provenance = f"profile={profile}"
+    if candle:
+        provenance += (
+            "\ncandle_enabled=true"
+            "\ncandle_eta_center_gev=0.547862"
+            "\ncandle_pi0_center_gev=0.134977"
+            "\ncandle_mass_half_width_gev=0.05"
+            "\ncandle_geometry=rectangular"
+            "\ncandle_core_logic=and"
+            "\ncandle_tail_logic=or_complement"
+            "\ncandle_boundary=inclusive"
+            "\ncandle_baseline_event_count=100"
+            "\ncandle_full_core_event_count=80"
+            "\ncandle_tail_event_count=20"
+            "\ncandle_balanced_core_event_count=20"
+            "\ncandle_excluded_nonfinite_event_count=0"
+            "\ncandle_balance_method=random_without_replacement"
+            "\ncandle_balance_seed=20261024"
+            "\ncandle_mass_source=raw_pre_fit"
+        )
     write_root_output(path, RootOutputPayload(
         points=points, energy_edges=np.asarray(edges), mass_edges={},
         covariance_total=np.eye(len(points)), systematic_covariances={},
-        ratio_objects=(), provenance=f"profile={profile}",
+        ratio_objects=(), provenance=provenance,
     ))
 
 
@@ -206,6 +231,59 @@ def test_postprocessing_refuses_diagnostics_older_than_current_extraction(tmp_pa
     output.mkdir()
     with pytest.raises(FileNotFoundError, match="systematic_summary.pdf"):
         plot_campaign._copy_stage7_pdfs(root, output)
+
+
+def test_candle_campaign_preserves_mass_plane_and_regenerates_comparisons(
+    tmp_path
+):
+    campaign = tmp_path / "results/candle"
+    mass_planes = {}
+    for profile in ("uv", "vis"):
+        root = campaign / profile
+        for tree_name in ("reco_eta_pi0_chi2", "reco_eta_pi0_bdt"):
+            _write_reconstruction(
+                root / "reco" / f"{tree_name}.root",
+                tree_name,
+                fit=False,
+            )
+        _write_asymmetry(
+            root / "beam_asymmetry/beam_asymmetry.root",
+            profile,
+            candle=True,
+        )
+        for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+            (root / "beam_asymmetry" / name).write_bytes(b"%PDF-1.4\n")
+        mass_planes[profile] = f"%PDF-{profile}-raw-plane\n".encode()
+        (root / "beam_asymmetry/candle_mass_plane.pdf").write_bytes(
+            mass_planes[profile]
+        )
+
+    plot_campaign.render_campaign(
+        campaign,
+        plot_campaign.combine_profiles.AJAKA_REFERENCE,
+    )
+
+    for profile in ("uv", "vis"):
+        output = campaign / profile / "plots"
+        assert (output / "candle_mass_plane.pdf").read_bytes() == mass_planes[profile]
+        assert (output / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
+        assert (output / "comparison_candle_likelihood.pdf").read_bytes().startswith(b"%PDF-")
+    common = campaign / "common/plots"
+    assert (common / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
+    assert (common / "comparison_candle_likelihood.pdf").read_bytes().startswith(b"%PDF-")
+
+
+def test_postprocessing_requires_mass_plane_for_candle_points(tmp_path):
+    root = tmp_path / "uv"
+    source = root / "beam_asymmetry"
+    source.mkdir(parents=True)
+    for name in plot_campaign.REQUIRED_STAGE7_PDFS:
+        (source / name).write_bytes(b"%PDF-1.4\n")
+    output = tmp_path / "staged"
+    output.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="candle_mass_plane.pdf"):
+        plot_campaign._copy_stage7_pdfs(root, output, require_candle=True)
 
 
 def test_standalone_dalitz_rejects_uncertified_raw_tree(tmp_path):

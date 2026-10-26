@@ -465,6 +465,9 @@ def test_candle_extracts_equal_core_and_tail_samples_and_records_contract(
     assert contract.balanced_core_event_count == len(tails)
     assert contract.excluded_nonfinite_event_count == 0
     assert contract.balance_seed == 20261024
+    assert (output / "candle_mass_plane.pdf").read_bytes().startswith(b"%PDF-")
+    assert (output / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
+    assert not (output / "comparison_candle_likelihood.pdf").exists()
 
 
 def test_candle_fails_if_balanced_samples_produce_no_fitted_points(

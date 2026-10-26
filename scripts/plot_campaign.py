@@ -16,6 +16,7 @@ from observable_extraction.plotting.diagnostics import (
     write_profile_estimator_comparison_pdf,
     write_profile_fit_diagnostics_pdf,
 )
+from observable_extraction.plotting.candle import write_candle_comparison_pdf
 from observable_extraction.plotting.figure4 import profile_energy_rows, write_profile_figure4_pdf
 from plots import dalitz
 from plots.core import reconstruction_data
@@ -33,7 +34,9 @@ REQUIRED_STAGE7_PDFS = (
 )
 
 
-def _copy_stage7_pdfs(root: Path, output: Path) -> None:
+def _copy_stage7_pdfs(
+    root: Path, output: Path, *, require_candle: bool = False
+) -> None:
     extraction = root / "beam_asymmetry/beam_asymmetry.root"
     extracted_at = extraction.stat().st_mtime_ns if extraction.exists() else None
     for filename in STAGE7_PDFS:
@@ -50,6 +53,14 @@ def _copy_stage7_pdfs(root: Path, output: Path) -> None:
                 break
         if not found and filename in REQUIRED_STAGE7_PDFS:
             raise FileNotFoundError(f"missing Stage-08 diagnostic {filename} in {root}")
+    if require_candle:
+        source = root / "beam_asymmetry/candle_mass_plane.pdf"
+        if not source.is_file():
+            raise FileNotFoundError(f"missing candle_mass_plane.pdf in {root}")
+        with source.open("rb") as stream:
+            if stream.read(5) != b"%PDF-":
+                raise ValueError(f"invalid Stage-08 PDF {source}")
+        shutil.copy2(source, output / source.name)
 
 
 def _read_profile(campaign: Path, profile: str):
@@ -58,8 +69,13 @@ def _read_profile(campaign: Path, profile: str):
     points = read_output_points(asymmetry)
     if not points:
         raise ValueError(f"{asymmetry} has no asymmetry points")
-    combine_profiles._validate_profile_root(profile, asymmetry, points)
-    if any(point.sample not in {"raw", "raw_bdt"} for point in points):
+    contract = combine_profiles._validate_profile_root(profile, asymmetry, points)
+    candle_samples = {"raw_bdt_core", "raw_bdt_tails"}
+    present_candle = {point.sample for point in points} & candle_samples
+    if bool(present_candle) != (contract.candle is not None):
+        raise ValueError("campaign candle samples and provenance do not agree")
+    allowed = {"raw", "raw_bdt"} | (candle_samples if contract.candle else set())
+    if any(point.sample not in allowed for point in points):
         raise ValueError("campaign requires raw/raw_bdt reconstruction samples")
     for name, tree_name in (("bdt", dalitz.BDT_TREE), ("chi2", dalitz.CHI2_TREE)):
         source, tree = reconstruction_data.open_tree(root / "reco" / f"reco_eta_pi0_{name}.root", tree_name)
@@ -72,7 +88,10 @@ def _read_profile(campaign: Path, profile: str):
 
 def _render_profile(campaign: Path, profile: str, points, output: Path) -> None:
     root = campaign / profile
-    _copy_stage7_pdfs(root, output)
+    candle_enabled = any(
+        point.sample in {"raw_bdt_core", "raw_bdt_tails"} for point in points
+    )
+    _copy_stage7_pdfs(root, output, require_candle=candle_enabled)
     ROOT.gROOT.GetListOfCanvases().Delete()
     dalitz.main([
         "--chi2", str(root / "reco/reco_eta_pi0_chi2.root"),
@@ -90,6 +109,14 @@ def _render_profile(campaign: Path, profile: str, points, output: Path) -> None:
     write_profile_fit_diagnostics_pdf(output / "fit_diagnostics.pdf",
                                       {profile: tuple(point for point in points if point.sample == "raw_bdt" and point.estimator == "ratio")},
                                       rows)
+    if candle_enabled:
+        for estimator in ("ratio", "likelihood"):
+            write_candle_comparison_pdf(
+                output / f"comparison_candle_{estimator}.pdf",
+                mapping,
+                rows,
+                estimator=estimator,
+            )
 
 
 def _render_common(campaign: Path, output: Path, reference: Path) -> None:
