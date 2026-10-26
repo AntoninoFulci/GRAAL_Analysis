@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from observable_extraction import combine_profiles
-from observable_extraction.io.root_input import RootOutputContract
+from observable_extraction.io.root_input import CandleContract, RootOutputContract
 from observable_extraction.io.root_output import RootOutputPayload, write_root_output
 from observable_extraction.tests.test_figure4 import _points
 
@@ -291,3 +291,165 @@ def test_combined_cli_rejects_mismatched_stored_energy_edges(
                 "--output-dir", str(tmp_path / "output"),
             ]
         )
+
+
+def _candle_contract(
+    *, width=0.05, baseline_count=100, full_core_count=80,
+    tail_count=20, seed=20261024, tail_logic="or_complement"
+):
+    return CandleContract(
+        eta_center_gev=0.547862,
+        pi0_center_gev=0.134977,
+        mass_half_width_gev=width,
+        geometry="rectangular",
+        core_logic="and",
+        tail_logic=tail_logic,
+        boundary="inclusive",
+        baseline_event_count=baseline_count,
+        full_core_event_count=full_core_count,
+        tail_event_count=tail_count,
+        balanced_core_event_count=tail_count,
+        excluded_nonfinite_event_count=(
+            baseline_count - full_core_count - tail_count
+        ),
+        balance_method="random_without_replacement",
+        balance_seed=seed,
+        mass_source="raw_pre_fit",
+    )
+
+
+def _candle_samples(points):
+    return tuple(
+        replace(
+            item,
+            sample=sample,
+            estimator=estimator,
+            point=replace(
+                item.point,
+                sigma=item.point.sigma
+                + (0.01 if sample == "raw_bdt_core" else -0.01),
+            ),
+        )
+        for item in points
+        for sample in ("raw_bdt_core", "raw_bdt_tails")
+        for estimator in ("ratio", "likelihood")
+    )
+
+
+def _vis_points(points):
+    return tuple(
+        replace(
+            item,
+            point=replace(
+                item.point,
+                energy_bin=0,
+                energy_low_gev=0.9313,
+                energy_high_gev=1.10,
+            ),
+        )
+        for item in points
+        if item.point.energy_bin == 0
+    )
+
+
+@pytest.mark.parametrize(
+    ("estimators", "expected"),
+    [
+        (("ratio", "likelihood"), {"ratio", "likelihood"}),
+        (("ratio",), {"ratio"}),
+        (("likelihood",), {"likelihood"}),
+    ],
+)
+def test_combined_cli_writes_only_available_candle_comparisons(
+    tmp_path, monkeypatch, estimators, expected
+):
+    uv_root, vis_root = tmp_path / "uv.root", tmp_path / "vis.root"
+    uv_points = tuple(
+        item for item in _candle_samples(_points()) if item.estimator in estimators
+    )
+    vis_points = tuple(
+        item for item in _candle_samples(_vis_points(_points()))
+        if item.estimator in estimators
+    )
+    monkeypatch.setattr(
+        combine_profiles, "read_output_points",
+        lambda path: vis_points if path == vis_root else uv_points,
+    )
+    monkeypatch.setattr(
+        combine_profiles, "read_output_contract",
+        lambda path: RootOutputContract(
+            profile="vis" if path == vis_root else "uv",
+            energy_edges_gev=(0.9313, 1.10) if path == vis_root
+            else (1.10, 1.20, 1.30, 1.40, 1.50),
+            candle=_candle_contract(
+                baseline_count=120, full_core_count=90,
+                tail_count=30, seed=99,
+            ) if path == vis_root else _candle_contract(),
+        ),
+    )
+    monkeypatch.setattr(combine_profiles, "load_published_points", lambda _path: ())
+
+    def legacy_writer(path, *_args, **_kwargs):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"%PDF-legacy")
+
+    for name in (
+        "write_profile_figure4_pdf",
+        "write_profile_figure4_comparison_pdf",
+        "write_profile_estimator_comparison_pdf",
+        "write_profile_fit_diagnostics_pdf",
+    ):
+        monkeypatch.setattr(combine_profiles, name, legacy_writer)
+    output = tmp_path / "combined"
+
+    assert combine_profiles.main([
+        "--uv-root", str(uv_root), "--vis-root", str(vis_root),
+        "--published-csv", str(tmp_path / "published.csv"),
+        "--output-dir", str(output),
+    ]) == 0
+    for estimator in ("ratio", "likelihood"):
+        path = output / f"comparison_candle_{estimator}.pdf"
+        assert path.exists() == (estimator in expected)
+        if path.exists():
+            assert path.read_bytes().startswith(b"%PDF-")
+
+
+@pytest.mark.parametrize(
+    "case", ["one_enabled", "different_width", "different_tail_logic", "missing_tail"]
+)
+def test_combined_cli_rejects_inconsistent_candle_contracts(
+    tmp_path, monkeypatch, case
+):
+    uv_root, vis_root = tmp_path / "uv.root", tmp_path / "vis.root"
+    uv_points = _candle_samples(_points())
+    vis_points = _candle_samples(_vis_points(_points()))
+    if case == "missing_tail":
+        vis_points = tuple(
+            item for item in vis_points if item.sample != "raw_bdt_tails"
+        )
+    monkeypatch.setattr(
+        combine_profiles, "read_output_points",
+        lambda path: vis_points if path == vis_root else uv_points,
+    )
+    monkeypatch.setattr(
+        combine_profiles, "read_output_contract",
+        lambda path: RootOutputContract(
+            profile="vis" if path == vis_root else "uv",
+            energy_edges_gev=(0.9313, 1.10) if path == vis_root
+            else (1.10, 1.20, 1.30, 1.40, 1.50),
+            candle=None if case == "one_enabled" and path == vis_root
+            else _candle_contract(
+                width=0.04 if case == "different_width" and path == vis_root else 0.05,
+                tail_logic="and" if case == "different_tail_logic" and path == vis_root
+                else "or_complement",
+            ),
+        ),
+    )
+    output = tmp_path / "combined"
+
+    with pytest.raises(RuntimeError, match="candle"):
+        combine_profiles.main([
+            "--uv-root", str(uv_root), "--vis-root", str(vis_root),
+            "--output-dir", str(output),
+        ])
+    assert not output.exists()

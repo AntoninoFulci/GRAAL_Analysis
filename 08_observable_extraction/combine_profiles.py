@@ -16,6 +16,10 @@ from observable_extraction.plotting.diagnostics import (
     write_profile_estimator_comparison_pdf,
     write_profile_fit_diagnostics_pdf,
 )
+from observable_extraction.plotting.candle import (
+    available_candle_estimators,
+    write_candle_comparison_pdf,
+)
 from observable_extraction.plotting.figure4 import (
     combined_energy_rows,
     profile_energy_rows,
@@ -111,6 +115,58 @@ def _validate_profile_root(profile_name: str, path: Path, points):
     return contract
 
 
+def _validate_candle_campaign(
+    uv_contract, vis_contract, uv_points, vis_points
+) -> bool:
+    states = []
+    for label, contract, points in (
+        ("UV", uv_contract, uv_points),
+        ("VIS", vis_contract, vis_points),
+    ):
+        has_core = any(item.sample == "raw_bdt_core" for item in points)
+        has_tails = any(item.sample == "raw_bdt_tails" for item in points)
+        has_contract = contract.candle is not None
+        if has_core != has_contract or has_tails != has_contract:
+            raise RuntimeError(
+                f"{label} candle core/tails samples and provenance do not agree"
+            )
+        states.append(has_contract)
+    if states[0] != states[1]:
+        raise RuntimeError("UV/VIS candle enablement does not match")
+    if not states[0]:
+        return False
+
+    uv_candle = uv_contract.candle
+    vis_candle = vis_contract.candle
+    float_fields = (
+        "eta_center_gev",
+        "pi0_center_gev",
+        "mass_half_width_gev",
+    )
+    text_fields = (
+        "geometry",
+        "core_logic",
+        "tail_logic",
+        "boundary",
+        "balance_method",
+        "mass_source",
+    )
+    if any(
+        not math.isclose(
+            getattr(uv_candle, name),
+            getattr(vis_candle, name),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+        for name in float_fields
+    ) or any(
+        getattr(uv_candle, name) != getattr(vis_candle, name)
+        for name in text_fields
+    ):
+        raise RuntimeError("UV/VIS candle definitions do not match")
+    return True
+
+
 def run(args: argparse.Namespace) -> int:
     uv_points = read_output_points(args.uv_root)
     if not uv_points:
@@ -131,6 +187,9 @@ def run(args: argparse.Namespace) -> int:
         if not math.isclose(uv_contract.phi_bin_divisor, vis_contract.phi_bin_divisor,
                             rel_tol=0.0, abs_tol=1e-12):
             raise RuntimeError("UV/VIS ROOT phi-bin correction does not match")
+    candle_enabled = _validate_candle_campaign(
+        uv_contract, vis_contract, uv_points, vis_points
+    )
 
     points_by_profile = {"uv": uv_points, "vis": vis_points}
     ratio_by_profile = {
@@ -163,6 +222,14 @@ def run(args: argparse.Namespace) -> int:
         ratio_by_profile,
         rows,
     )
+    if candle_enabled:
+        for estimator in available_candle_estimators(points_by_profile):
+            write_candle_comparison_pdf(
+                args.output_dir / f"comparison_candle_{estimator}.pdf",
+                points_by_profile,
+                rows,
+                estimator=estimator,
+            )
     return 0
 
 

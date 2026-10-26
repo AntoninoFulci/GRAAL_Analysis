@@ -10,6 +10,7 @@ import numpy as np
 
 from calibration.run_quality import load_run_quality
 from graal_common.physics.beam_profiles import get_beam_profile
+from graal_common.physics.channels import M_ETA, M_PI0
 from graal_common.parallel import validate_workers
 from graal_common.physics.energy_binning import energy_binning_from_args
 from observable_extraction.extraction import extract_sample
@@ -28,11 +29,17 @@ from observable_extraction.extraction_systematics import (
 )
 from observable_extraction.io.reconstructed_events import (
     read_reconstructed, select_brem_control, select_sigma_events,
+    split_candle_core_tails,
 )
 from observable_extraction.io.root_output import (
     RootOutputPayload, write_root_output, ordered_point_keys,
 )
 from observable_extraction.plotting.figure4 import profile_energy_rows, write_profile_figure4_pdf
+from observable_extraction.plotting.candle import (
+    available_candle_estimators,
+    write_candle_comparison_pdf,
+    write_candle_mass_plane_pdf,
+)
 from observable_extraction.plotting.diagnostics import (
     write_background_control_pdf, write_false_asymmetry_controls_pdf,
     write_photon_multiplicity_pdf, write_point_comparison_pdf,
@@ -48,12 +55,31 @@ def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
     }[sample]
 
 
-def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_sample, uncertainty):
+def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_sample, uncertainty,
+                          candle_split=None, candle_width=None, events=None):
     """Render the extracted results after the ROOT payload has been published."""
     output_points = uncertainty.output_points
     figure_estimator = uncertainty.figure_estimator
     active_rows = profile_energy_rows(profile_name, energy_edges)
     points_by_profile = {profile_name: output_points}
+    if candle_split is not None:
+        write_candle_mass_plane_pdf(
+            plots_dir / "candle_mass_plane.pdf",
+            events.eta_mass_gev,
+            events.pi0_mass_gev,
+            half_width_gev=candle_width,
+            full_core_count=candle_split.full_core_count,
+            tail_count=candle_split.tail_count,
+            balanced_core_count=len(candle_split.core),
+            excluded_nonfinite_count=candle_split.excluded_nonfinite_count,
+        )
+        for estimator in available_candle_estimators(points_by_profile):
+            write_candle_comparison_pdf(
+                plots_dir / f"comparison_candle_{estimator}.pdf",
+                points_by_profile,
+                active_rows,
+                estimator=estimator,
+            )
     write_profile_figure4_pdf(
         plots_dir / "figure4_experimental.pdf",
         points_by_profile,
@@ -89,6 +115,24 @@ def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_samp
         uncertainty.systematic_covariances,
         inventory=uncertainty.inventory,
     )
+
+
+def validate_candle_options(args: argparse.Namespace) -> None:
+    """Reject unsupported candle requests before inspecting input ROOT files."""
+    width = getattr(args, "candle_mass_half_width", None)
+    if width is None:
+        return
+    if not np.isfinite(width) or width <= 0.0:
+        raise ValueError("candle mass half-width must be finite and positive")
+    if args.nominal_sample != "raw_bdt":
+        raise ValueError("candle selection requires --nominal-sample raw_bdt")
+    if args.sideband is not None:
+        raise ValueError("candle selection is not supported with sideband correction")
+    seed = getattr(args, "candle_balance_seed", None)
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ValueError("candle balance seed must be a non-negative integer")
+    if getattr(args, "bootstrap_diagnostics_replicas", 0):
+        raise ValueError("candle selection does not support diagnostic bootstrap")
 
 
 def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", metadata=None,
@@ -162,6 +206,36 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     )
     output_points = list(nominal.points)
     binning_candidates = list(nominal.binning_candidates)
+    candle_split = None
+    candle_width = getattr(args, "candle_mass_half_width", None)
+    if candle_width is not None and period == "pooled":
+        candle_split = split_candle_core_tails(
+            events,
+            candle_width,
+            seed=args.candle_balance_seed,
+        )
+        for sample_name, selected_events in (
+            ("raw_bdt_core", candle_split.core),
+            ("raw_bdt_tails", candle_split.tails),
+        ):
+            extracted = extract_sample(
+                sample_name=sample_name,
+                events=selected_events,
+                exposures=exposures,
+                estimator=args.estimator,
+                retain_ratio_objects=False,
+                energy_edges=energy_edges,
+                phi_edges=phi_edges,
+                **binning_options,
+            )
+            if not extracted.points:
+                raise RuntimeError(
+                    f"candle {sample_name} produced no fitted bins: "
+                    f"core={len(candle_split.core)} "
+                    f"tails={len(candle_split.tails)}"
+                )
+            output_points.extend(extracted.points)
+            binning_candidates.extend(extracted.binning_candidates)
     samples = {args.nominal_sample: events}
     input_samples = {args.nominal_sample: all_nominal_events}
     broad_input_events = None
@@ -300,6 +374,43 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     multiplicity_shift = uncertainty.multiplicity_shift
     inclusive_count = uncertainty.inclusive_count
     exactly_four_count = uncertainty.exactly_four_count
+    provenance_lines = [
+        "final_inference=suspended",
+        f"sample={args.nominal_sample}",
+        f"estimator={args.estimator}",
+        f"profile={profile.name}",
+        f"energy_edges_gev={json.dumps(grid.edges_gev)}",
+        f"period={period}",
+        *phi_provenance.rstrip("\n").splitlines(),
+        *quality_provenance.rstrip("\n").splitlines(),
+        "phi_bin_correction=ratio_only_rounded",
+        "POL1=vertical",
+        "POL2=horizontal",
+        "BREM=independent-control",
+        f"background={'sideband-corrected' if background_fractions else 'uncorrected'}",
+        f"signal_mc_hard_sideband_leakage={background_leakage}",
+        "best_quartet_resolved=false",
+    ]
+    if candle_split is not None:
+        provenance_lines.extend([
+            "candle_enabled=true",
+            f"candle_eta_center_gev={M_ETA}",
+            f"candle_pi0_center_gev={M_PI0}",
+            f"candle_mass_half_width_gev={candle_width}",
+            "candle_geometry=rectangular",
+            "candle_core_logic=and",
+            "candle_tail_logic=or_complement",
+            "candle_boundary=inclusive",
+            f"candle_baseline_event_count={len(events)}",
+            f"candle_full_core_event_count={candle_split.full_core_count}",
+            f"candle_tail_event_count={candle_split.tail_count}",
+            f"candle_balanced_core_event_count={len(candle_split.core)}",
+            "candle_excluded_nonfinite_event_count="
+            f"{candle_split.excluded_nonfinite_count}",
+            "candle_balance_method=random_without_replacement",
+            f"candle_balance_seed={args.candle_balance_seed}",
+            "candle_mass_source=raw_pre_fit",
+        ])
     payload = RootOutputPayload(
         points=tuple(output_points),
         point_context=point_context,
@@ -315,20 +426,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         ratio_objects=nominal.ratio_objects,
         binning_candidates=tuple(binning_candidates),
         candidate_ratio_objects=nominal.candidate_ratio_objects,
-        provenance=(
-            "final_inference=suspended\n"
-            f"sample={args.nominal_sample}\n"
-            f"estimator={args.estimator}\n"
-            f"profile={profile.name}\n"
-            f"energy_edges_gev={json.dumps(grid.edges_gev)}\n"
-            f"period={period}\n"
-            f"{phi_provenance}{quality_provenance}"
-            "phi_bin_correction=ratio_only_rounded\n"
-            "POL1=vertical\nPOL2=horizontal\nBREM=independent-control\n"
-            f"background={'sideband-corrected' if background_fractions else 'uncorrected'}\n"
-            f"signal_mc_hard_sideband_leakage={background_leakage}\n"
-            "best_quartet_resolved=false"
-        ),
+        provenance="\n".join(provenance_lines),
         statistical_covariance=statistical_covariance,
         bootstrap_covariance=bootstrap_covariance,
     )
@@ -337,6 +435,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     _write_result_reports(
         plots_dir, profile_name=profile.name, energy_edges=grid.edges_gev,
         nominal_sample=args.nominal_sample, uncertainty=uncertainty,
+        candle_split=candle_split, candle_width=candle_width, events=events,
     )
     if background_leakage is not None:
         write_background_control_pdf(
@@ -411,6 +510,7 @@ def _validate_energy_inputs(args):
 def run_single(args: argparse.Namespace) -> int:
     """Validate the standalone request, then publish its extraction."""
     validate_workers(getattr(args, "workers", 1))
+    validate_candle_options(args)
     _validate_energy_inputs(args)
     if args.run_universe_manifest is not None:
         raise ValueError("--run-universe-manifest requires --by-period")

@@ -12,6 +12,7 @@ import numpy as np
 import ROOT
 
 from calibration.run_quality import load_run_quality
+from graal_common.physics.channels import M_ETA, M_PI0
 from observable_extraction.core.models import FluxExposure
 from reconstruction.runtime.provenance import validate_reconstruction_selection
 
@@ -78,6 +79,70 @@ class EventArrays:
         return EventArrays(
             **{field.name: getattr(self, field.name)[selection] for field in fields(self)}
         )
+
+
+@dataclass(frozen=True)
+class CandleSplit:
+    """Equal-count core and tail samples from raw eta/pi0 masses."""
+
+    core: EventArrays
+    tails: EventArrays
+    full_core_count: int
+    tail_count: int
+    excluded_nonfinite_count: int
+
+
+def split_candle_core_tails(
+    events: EventArrays,
+    half_width_gev: float,
+    seed: int,
+) -> CandleSplit:
+    """Split finite raw masses into disjoint, globally balanced samples."""
+    width = float(half_width_gev)
+    if not np.isfinite(width) or width <= 0.0:
+        raise ValueError("half_width_gev must be finite and positive")
+    if (
+        isinstance(seed, (bool, np.bool_))
+        or not isinstance(seed, (int, np.integer))
+        or seed < 0
+    ):
+        raise ValueError("seed must be a non-negative integer")
+
+    finite = np.isfinite(events.eta_mass_gev) & np.isfinite(
+        events.pi0_mass_gev
+    )
+    core_mask = (
+        finite
+        & (events.eta_mass_gev >= M_ETA - width)
+        & (events.eta_mass_gev <= M_ETA + width)
+        & (events.pi0_mass_gev >= M_PI0 - width)
+        & (events.pi0_mass_gev <= M_PI0 + width)
+    )
+    tail_mask = finite & ~core_mask
+    full_core_count = int(np.count_nonzero(core_mask))
+    tail_count = int(np.count_nonzero(tail_mask))
+    excluded_nonfinite_count = int(np.count_nonzero(~finite))
+    if full_core_count == 0 or tail_count == 0 or full_core_count < tail_count:
+        raise ValueError(
+            "cannot balance candle samples: "
+            f"core={full_core_count} tails={tail_count}"
+        )
+
+    core_indices = np.flatnonzero(core_mask)
+    sampled_indices = np.random.default_rng(int(seed)).choice(
+        core_indices,
+        size=tail_count,
+        replace=False,
+    )
+    balanced_core_mask = np.zeros(len(events), dtype=bool)
+    balanced_core_mask[sampled_indices] = True
+    return CandleSplit(
+        core=events.take(balanced_core_mask),
+        tails=events.take(tail_mask),
+        full_core_count=full_core_count,
+        tail_count=tail_count,
+        excluded_nonfinite_count=excluded_nonfinite_count,
+    )
 
 
 def read_reconstructed(

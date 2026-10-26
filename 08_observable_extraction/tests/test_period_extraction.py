@@ -110,6 +110,11 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
     missing = replace(first, run_number=np.full(len(first), 813))
     # Unequal yields: the aggregate is not an arithmetic mean of fitted Sigmas.
     events = _join(first, first, second, missing)
+    tail_mask = np.arange(len(events)) % 3 == 0
+    events = replace(
+        events,
+        eta_mass_gev=np.where(tail_mask, 0.548 + 0.08, 0.548),
+    )
     exposures = {(run, 17): FluxExposure(run, 17, 1.15, 1.2, .9, .2, .6, .55)
                  for run in (811, 812, 814)}
     monkeypatch.setattr(period_workflow, 'read_reconstructed', lambda *a, **k: events)
@@ -129,6 +134,8 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         '--by-period', '--raw-bdt', str(nominal), '--raw', str(tmp_path / 'absent.root'),
         '--flux-file', str(flux), '--run-manifest', str(manifest), '--output-dir', str(output),
         '--estimator', 'ratio',
+        '--candle-mass-half-width', '0.05',
+        '--candle-balance-seed', '20261024',
         '--workers', str(workers),
         *(['--best-binning'] if best_binning else []),
     ]) == 0
@@ -152,6 +159,11 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
     all_points = read_output_points(output / 'beam_asymmetry.root')
     per_points = [read_output_points(output / f'periods/{name}/beam_asymmetry.root')
                   for name in ('1998_uv', '1999_uv')]
+    assert {'raw_bdt', 'raw_bdt_core', 'raw_bdt_tails'} == {
+        point.sample for point in all_points
+    }
+    assert all({point.sample for point in points} == {'raw_bdt'}
+               for points in per_points)
     if not best_binning:
         assert per_points[0][0].point.sigma == pytest.approx(.4 / .9549, abs=.01)
         assert per_points[1][0].point.sigma == pytest.approx(-.25 / .9549, abs=.01)
