@@ -7,6 +7,7 @@
 #include "smearing.h"
 #include "beam_window.h"
 #include "generator_runtime.h"
+#include "generator_truth.h"
 
 void generate_pi0pi0_dataset(int Nevents = 1000000,
                              double requested_min_gev = -1.0,
@@ -31,6 +32,7 @@ void generate_pi0pi0_dataset(int Nevents = 1000000,
 
     TLorentzVector beam, proton, g0, g1, g2, g3;
     int n_true_gamma = 4;
+    GeneratorTruth truth(*tree, n_true_gamma);
 
     tree->Branch("beam",   &beam);
     tree->Branch("proton", &proton);
@@ -45,6 +47,7 @@ void generate_pi0pi0_dataset(int Nevents = 1000000,
         // longer cosmetic — it would understate every channel by the slice it
         // cannot reach.
         double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
+        truth.beam.SetPxPyPzE(0, 0, Ebeam, Ebeam);
         beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
@@ -63,10 +66,15 @@ void generate_pi0pi0_dataset(int Nevents = 1000000,
         da.SetDecay(pi0a, 2, m2); GenerateUnweighted(da, rng);
         db.SetDecay(pi0b, 2, m2); GenerateUnweighted(db, rng);
 
-        g0 = SmearPhoton(*da.GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
-        g1 = SmearPhoton(*da.GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
-        g2 = SmearPhoton(*db.GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
-        g3 = SmearPhoton(*db.GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[0] = *da.GetDecay(0);
+        g0 = SmearPhoton(truth.photons[0], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[1] = *da.GetDecay(1);
+        g1 = SmearPhoton(truth.photons[1], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[2] = *db.GetDecay(0);
+        g2 = SmearPhoton(truth.photons[2], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[3] = *db.GetDecay(1);
+        g3 = SmearPhoton(truth.photons[3], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.proton = proton;
         proton = SmearProton(proton, rng, 0.04, 3*TMath::DegToRad(), 2*TMath::DegToRad());
 
         if (tree->Fill() < 0) throw std::runtime_error("failed to write generator event");

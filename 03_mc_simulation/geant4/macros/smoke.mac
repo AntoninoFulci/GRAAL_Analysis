@@ -1,0 +1,11 @@
+# Diagnostic photons into the BGO. This is not gamma p -> p eta pi0 generation.
+/random/setSeeds 12345 67890
+/run/initialize
+/run/verbose 1
+/event/verbose 0
+/tracking/verbose 0
+/gps/particle gamma
+/gps/energy 200 MeV
+/gps/position 0 0 0 cm
+/gps/direction 1 0 0
+/run/beamOn 10

@@ -6,6 +6,7 @@
 #include <TParameter.h>
 #include <TRandom3.h>
 #include <TROOT.h>
+#include <TTree.h>
 #include <limits>
 #include <stdexcept>
 
@@ -40,6 +41,9 @@ inline void WriteGeneratorMetadata(
     TNamed("sampling", "accept-reject-unweighted; TRandom3 shared with TGenPhaseSpace").Write();
     TNamed("root_version", gROOT->GetVersion()).Write();
     TParameter<int>("generator_schema_version", 1).Write();
+    auto *events = dynamic_cast<TTree *>(output.Get("mc"));
+    if (events && events->GetBranch("beam_true") && events->GetBranch("proton_true"))
+        TParameter<int>("truth_schema_version", 1).Write();
     TParameter<Long64_t>("requested_seed", requested_seed).Write();
     TParameter<Long64_t>("seed", seed).Write();
     TParameter<int>("n_requested", requested_events).Write();

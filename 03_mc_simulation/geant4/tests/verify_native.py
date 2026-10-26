@@ -113,7 +113,7 @@ def verify(executable: Path, reference: Path, navigation: Path, output: Path):
     print(json.dumps({k: v for k, v in report.items() if k != "differences"}, indent=2))
     assert not differences, "GEANT3/GEANT4 navigation differs; inspect comparison.json"
     assert not summary["overlap_volumes"], "Unresolved overlaps; inspect conversion log"
-    checker = executable.with_name("graal_gdml_check")
+    checker = executable.with_name("graal_gdml_check" + executable.suffix)
     assert checker.is_file(), (
         "Build with BUILD_TESTING=ON for GDML round-trip verification"
     )

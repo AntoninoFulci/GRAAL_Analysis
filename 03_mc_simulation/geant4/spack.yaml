@@ -1,0 +1,8 @@
+# Portable recipe only. Create the actual environment outside this checkout.
+# First: spack repo add /absolute/path/to/geant4/spack-repo/spack_repo/graal
+spack:
+  specs:
+  - graal.geant4@11.4.3 +qt ~opengl +data ~examples +threads cxxstd=17 ^qt-base@6
+  view: false
+  concretizer:
+    unify: true

@@ -7,6 +7,7 @@
 #include "smearing.h"
 #include "beam_window.h"
 #include "generator_runtime.h"
+#include "generator_truth.h"
 
 // gamma p -> p eta pi0 with eta -> 3pi0: 8 gamma.
 //
@@ -46,6 +47,7 @@ void generate_eta_pi0_via_3pi0_dataset(
 
     TLorentzVector beam, proton, g0, g1, g2, g3, g4, g5, g6, g7;
     int n_true_gamma = 8;
+    GeneratorTruth truth(*tree, n_true_gamma);
 
     tree->Branch("beam",   &beam);
     tree->Branch("proton", &proton);
@@ -56,6 +58,7 @@ void generate_eta_pi0_via_3pi0_dataset(
 
     for (int i = 0; i < Nevents; i++) {
         double Ebeam = rng.Uniform(beam_window.low, beam_window.high);
+        truth.beam.SetPxPyPzE(0, 0, Ebeam, Ebeam);
         beam = SmearTaggedPhoton(Ebeam, rng);
         TLorentzVector target(0, 0, 0, mp);
         TLorentzVector W = TLorentzVector(0, 0, Ebeam, Ebeam) + target;
@@ -82,18 +85,23 @@ void generate_eta_pi0_via_3pi0_dataset(
         for (int k = 0; k < 3; k++) {
             d[k].SetDecay(*deta.GetDecay(k), 2, m2);
             GenerateUnweighted(d[k], rng);
-            tmp[2*k]   = SmearPhoton(*d[k].GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
-            tmp[2*k+1] = SmearPhoton(*d[k].GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+            truth.photons[2*k] = *d[k].GetDecay(0);
+            tmp[2*k]   = SmearPhoton(truth.photons[2*k], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+            truth.photons[2*k+1] = *d[k].GetDecay(1);
+            tmp[2*k+1] = SmearPhoton(truth.photons[2*k+1], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
         }
         // The directly produced pi0 -> two more.
         TGenPhaseSpace dpi;
         dpi.SetDecay(pi0_dir, 2, m2);
         GenerateUnweighted(dpi, rng);
-        tmp[6] = SmearPhoton(*dpi.GetDecay(0), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
-        tmp[7] = SmearPhoton(*dpi.GetDecay(1), rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[6] = *dpi.GetDecay(0);
+        tmp[6] = SmearPhoton(truth.photons[6], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
+        truth.photons[7] = *dpi.GetDecay(1);
+        tmp[7] = SmearPhoton(truth.photons[7], rng, 0.10, 5*TMath::DegToRad(), 3*TMath::DegToRad());
 
         g0=tmp[0]; g1=tmp[1]; g2=tmp[2]; g3=tmp[3];
         g4=tmp[4]; g5=tmp[5]; g6=tmp[6]; g7=tmp[7];
+        truth.proton = proton;
         proton = SmearProton(proton, rng, 0.04, 3*TMath::DegToRad(), 2*TMath::DegToRad());
 
         if (tree->Fill() < 0) throw std::runtime_error("failed to write generator event");
