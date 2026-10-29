@@ -42,7 +42,7 @@ def resolve_repo_root(explicit: Path | None) -> Path:
     if explicit is None and any(part in {"site-packages", "dist-packages"} for part in root.parts):
         raise PipelineError("installed workflow requires --repo-root PATH to a GRAAL checkout")
     required = (
-        "pyproject.toml", "config/run_manifest.csv", "config/run_quality_exclusions.json",
+        "pyproject.toml", "config/support/run_manifest.csv", "config/support/run_quality_exclusions.json",
         "01_pre_analysis/PreAnalysis.C", "scripts/plot_campaign.py",
         "06_calibration/build_strip_energy_flux.py", "08_observable_extraction/beam_asymmetry.py",
     )
@@ -83,7 +83,7 @@ def mode_config(mode: str, repo_root: Path | None = None) -> ModeConfig:
 
 
 def build_paths(
-    config: ModeConfig, output_override: Path | None = None
+    config: ModeConfig, output_override: Path | None = None, *, resolve_common: bool = True
 ) -> PipelinePaths:
     output = (
         config.default_output
@@ -91,17 +91,17 @@ def build_paths(
         else Path(output_override).expanduser().absolute()
     )
     artifact_root = config.repo_root / "results/_cache" if config.name == "production" else output / "artifacts"
-    common_path = config.repo_root / "config/common_inputs.json"
+    common_path = config.repo_root / "config/support/common_inputs.json"
     common = (load_common_inputs(config.repo_root, path=common_path, cache=artifact_root, verify=False)["inputs"]
-              if common_path.is_file() else {})
+              if resolve_common and common_path.is_file() else {})
     return PipelinePaths(
         repo_root=config.repo_root,
         preanalysis_dir=config.preanalysis_dir,
         data_root=config.repo_root / ("data" if config.name == "production" else "data_test"),
         artifact_root=artifact_root,
         output_root=output,
-        manifest=common.get("run_catalog", config.repo_root / "config/run_manifest.csv"),
-        run_quality=common.get("run_quality", config.repo_root / "config/run_quality_exclusions.json"),
+        manifest=common.get("run_catalog", config.repo_root / "config/support/run_manifest.csv"),
+        run_quality=common.get("run_quality", config.repo_root / "config/support/run_quality_exclusions.json"),
         raw_flux=common.get("raw_flux", config.repo_root / "data/00_external/flux.root"),
         hyperparams=(
             config.repo_root
@@ -133,7 +133,7 @@ def required_repository_files(paths: PipelinePaths) -> tuple[Path, ...]:
     return (
         paths.manifest,
         paths.quality_path,
-        paths.repo_root / "config/common_inputs.json",
+        paths.repo_root / "config/support/common_inputs.json",
         paths.raw_flux,
         paths.hyperparams,
         paths.ajaka_reference,
@@ -239,6 +239,7 @@ def preflight(
 def prepare_output_dirs(paths: PipelinePaths) -> None:
     paths.output_root.mkdir(parents=True, exist_ok=True)
     try:
+        paths.command_log.parent.mkdir(exist_ok=False)
         paths.command_log.touch(exist_ok=False)
     except FileExistsError as exc:
         raise PipelineError(
@@ -249,17 +250,18 @@ def prepare_output_dirs(paths: PipelinePaths) -> None:
             f"cannot claim output root {paths.output_root}: {exc}"
         ) from exc
     unexpected = tuple(
-        path for path in paths.output_root.iterdir() if path != paths.command_log
+        path for path in paths.output_root.iterdir() if path != paths.command_log.parent
     )
     if unexpected:
         paths.command_log.unlink()
+        paths.command_log.parent.rmdir()
         raise PipelineError(
             f"output root changed after preflight: {paths.output_root}"
         )
     for path in (
-        paths.output_root / "common",
-        paths.output_root / "uv/reco",
-        paths.output_root / "vis/reco",
+        paths.calibrated_flux.parent,
+        paths.profile_root("uv") / "reco",
+        paths.profile_root("vis") / "reco",
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -282,7 +284,8 @@ def validate_test_output(paths: PipelinePaths) -> None:
     # Only launcher-created campaigns are replaceable. Other populated trees
     # may contain archives, study inputs or execution evidence in this namespace.
     if paths.output_root.is_dir() and any(paths.output_root.iterdir()):
-        if paths.command_log.is_symlink() or not paths.command_log.is_file():
+        log = paths.command_log if paths.command_log.exists() else paths.output_root / "pipeline_commands.log"
+        if log.parent.is_symlink() or log.is_symlink() or not log.is_file():
             raise PipelineError("existing test output is not a launcher-owned campaign")
 
 

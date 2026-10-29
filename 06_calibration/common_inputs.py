@@ -51,7 +51,7 @@ def load_common_inputs(checkout: Path, *, path: Path | None = None,
     """
     checkout = Path(checkout).resolve()
     cache = Path(cache).resolve() if cache is not None else checkout / 'results/_cache'
-    path = Path(path) if path is not None else checkout / 'config/common_inputs.json'
+    path = Path(path) if path is not None else checkout / 'config/support/common_inputs.json'
     payload = json.loads(path.read_text(), object_pairs_hook=_unique_object)
     if (not isinstance(payload, dict) or type(payload.get('schema_version')) is not int
             or payload['schema_version'] != 1):

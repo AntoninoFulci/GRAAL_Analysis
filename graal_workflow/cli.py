@@ -18,6 +18,8 @@ from graal_common.physics.channels import get_channel
 from observable_extraction.core.binning import PHI_BIN_CHOICES
 from . import artifact_manifest as cache
 from . import logging as console
+from .configuration import load_config
+from .publication import organize_campaign_reports
 from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, ArtifactGroup, flatten_stages, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
 from .paths import mode_config, build_paths, preflight, pipeline_lock, prepare_output_dirs, validate_test_output, validate_production_output, _replace_test_output, resolve_repo_root
 from .planning import build_pipeline_plan
@@ -130,6 +132,8 @@ def print_run_summary(
         ("Riferimento AJAKA", relative(paths.ajaka_reference)),
         ("Eventi MC/canale", str(config.mc_events)),
     ]
+    if getattr(args, "config_file", None) is not None:
+        rows.insert(1, ("Configurazione YAML", str(args.config_file.expanduser().resolve())))
     for profile, channels in (("uv", UV_CHANNELS), ("vis", VIS_CHANNELS)):
         grid = load_energy_config(getattr(args, "energy_config", None)).get(
             profile, EnergyBinning(get_beam_profile(profile).energy_edges_gev))
@@ -179,11 +183,13 @@ def confirm_run() -> bool:
     return answer.strip().casefold() in {"s", "si", "sì", "y", "yes"}
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(*, require_mode: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("config_file", nargs="?", type=Path,
+                        help="YAML launch defaults; explicit CLI options take precedence")
     parser.add_argument("--repo-root", type=Path, help="GRAAL checkout containing native resources (required for wheel installs)")
     parser.add_argument(
-        "--mode", required=True, choices=("test_data", "production")
+        "--mode", required=require_mode, choices=("test_data", "production")
     )
     parser.add_argument(
         "--output-dir",
@@ -197,23 +203,78 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto",
                         help="terminal colors (default: auto); NO_COLOR disables colors in all modes")
     parser.add_argument("--preanalysis-dir", type=Path, help="explicit fresh h80 input directory")
-    parser.add_argument("--require-current-preanalysis", action="store_true", help="reject h80 without tagger-discard marker and raw identities")
-    parser.add_argument("--force-selected", action="store_true", help="rebuild production selection")
-    parser.add_argument("--force-mc", action="store_true", help="regenerate production MC")
-    parser.add_argument("--force-bdt", action="store_true", help="retrain production BDT")
+    parser.add_argument("--require-current-preanalysis", action=argparse.BooleanOptionalAction, default=False, help="reject h80 without tagger-discard marker and raw identities")
+    parser.add_argument("--force-selected", action=argparse.BooleanOptionalAction, default=False, help="rebuild production selection")
+    parser.add_argument("--force-mc", action=argparse.BooleanOptionalAction, default=False, help="regenerate production MC")
+    parser.add_argument("--force-bdt", action=argparse.BooleanOptionalAction, default=False, help="retrain production BDT")
     parser.add_argument("--phi-bins", type=int, choices=PHI_BIN_CHOICES, default=12,
                         help="azimuth bins for UV/VIS ratio fits (default: 12)")
-    parser.add_argument("--best-binning", action="store_true",
+    parser.add_argument("--best-binning", action=argparse.BooleanOptionalAction, default=False,
                         help="select each ratio point from simultaneous 8/12/16 phi-bin fits")
     parser.add_argument("--energy-config", type=Path, help="JSON UV/VIS energy grids; default: historical bins")
     parser.add_argument("--flux-study", choices=("off", "audit", "study"), default="off",
                         help="optional offline missing-flux stage (default: off)")
     parser.add_argument("--flux-study-metadata", type=Path,
                         help="acquisition conditions and independent exposure JSON")
+    parser.add_argument("--check", action="store_true", help="validate and preview without executing or writing campaign output")
+    parser.add_argument("--set", action="append", default=[], dest="stage_overrides", metavar="KEY=VALUE",
+                        help="typed leaf override for structured YAML (repeatable; applied last)")
     return parser
 
 
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Merge explicit CLI values over validated YAML defaults, then built-ins."""
+    from .configuration import read_config
+    from .stage_configuration import normalize_stage_configuration
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser(require_mode=False)
+    args = parser.parse_args(arguments)
+    args.stage_configuration = None
+    if args.config_file is not None:
+        try:
+            values, source_text = read_config(args.config_file)
+            if "schema_version" in values:
+                # Suppressed defaults distinguish explicit flags, including false/default values.
+                explicit_parser = build_parser(require_mode=False)
+                for action in explicit_parser._actions:
+                    if action.option_strings:
+                        action.default = argparse.SUPPRESS
+                explicit = vars(explicit_parser.parse_args(arguments))
+                explicit.pop("config_file", None)
+                overrides = explicit.pop("stage_overrides", [])
+                config = normalize_stage_configuration(
+                    values, source=args.config_file, source_text=source_text,
+                    cli_overrides=explicit, overrides=overrides,
+                )
+                args.stage_configuration = config
+                for name in ("mode", "repo_root", "output_dir"):
+                    setattr(args, name, config.data["campaign"][name])
+                for name in ("cpus", "seed", "color"):
+                    setattr(args, name, config.data["execution"][name])
+                args.check = config.data["execution"]["check_only"]
+                flux = config.data["stages"]["flux_study"]
+                args.flux_study = flux["mode"] if flux["enabled"] else "off"
+                return args
+            defaults = load_config(args.config_file, parser._actions)
+        except (ValueError, OSError) as exc:
+            parser.error(f"{args.config_file}: {exc}")
+        parser.set_defaults(**defaults)
+        args = parser.parse_args(arguments)
+        args.stage_configuration = None
+    if args.stage_overrides:
+        parser.error("--set requires structured YAML with schema_version: 1")
+    if args.mode is None:
+        parser.error("--mode is required, either on CLI or as 'mode' in YAML")
+    return args
+
+
 def run(args: argparse.Namespace, *, repo_root: Path | None = None) -> int:
+    if getattr(args, "stage_configuration", None) is not None:
+        from .staged_workflow import run_stage_configuration
+        return run_stage_configuration(args.stage_configuration,
+                                       repo_root=repo_root or getattr(args, "repo_root", None),
+                                       assume_yes=getattr(args, "yes", False))
     if repo_root is None:
         repo_root = resolve_repo_root(getattr(args, "repo_root", None))
     config = mode_config(args.mode, repo_root)
@@ -238,7 +299,7 @@ def run(args: argparse.Namespace, *, repo_root: Path | None = None) -> int:
         validate_test_output(paths)
     else:
         validate_production_output(paths)
-    with pipeline_lock(config.repo_root, mode=config.name):
+    with (nullcontext() if getattr(args, "check", False) else pipeline_lock(config.repo_root, mode=config.name)):
         if getattr(args, "require_current_preanalysis", False):
             for pattern in PROFILE_PATTERNS.values():
                 cache.validate_current_preanalysis(sorted(paths.preanalysis_dir.glob(pattern)))
@@ -252,6 +313,8 @@ def run(args: argparse.Namespace, *, repo_root: Path | None = None) -> int:
         console.emit(f"CPU budget: {cpus}; MC/feature master seed: {getattr(args, 'seed', 42)}", "info")
         print_run_summary(config, paths, args, stages)
         print_preflight_warnings(checked)
+        if getattr(args, "check", False):
+            return 0
         if not confirm_run():
             console.emit("Pipeline annullata.", "warning")
             return 0
@@ -265,12 +328,15 @@ def run(args: argparse.Namespace, *, repo_root: Path | None = None) -> int:
                 force_bdt=args.force_bdt,
                 cpus=cpus, runner=bounded_runner,
             )
+            organize_campaign_reports(paths.output_root)
     console.emit(f"\nPipeline complete: {paths.output_root}", "success")
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+def main(argv: Sequence[str] | None = None, *, default_repo_root: Path | None = None) -> int:
+    args = parse_args(argv)
+    if args.repo_root is None:
+        args.repo_root = default_repo_root
     with console.color_mode(args.color):
         try:
             return run(args)

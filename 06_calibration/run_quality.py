@@ -13,7 +13,7 @@ from numbers import Real
 from pathlib import Path
 import statistics
 
-DEFAULT_RUN_QUALITY_PATH = Path(__file__).resolve().parents[1] / 'config/run_quality_exclusions.json'
+DEFAULT_RUN_QUALITY_PATH = Path(__file__).resolve().parents[1] / 'config/support/run_quality_exclusions.json'
 SCHEMA_VERSION = 2
 LOWER_RATIO, UPPER_RATIO = .01, 100.
 

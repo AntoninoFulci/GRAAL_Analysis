@@ -28,17 +28,18 @@ PAIR_COLUMNS = (
 PHI_BIN_MARKERS = {8: "o", 12: "s", 16: "^"}
 
 
-def _analysis_legend_handles(points):
+def _analysis_legend_handles(points, *, label="Questa analisi", color="black"):
     bins = sorted({item.phi_bins for item in points if item.phi_bins in PHI_BIN_MARKERS})
-    handles = [Line2D([], [], marker=PHI_BIN_MARKERS[count], color="black",
-                      linestyle="none", label=f"Questa analisi: {count} bin φ")
+    handles = [Line2D([], [], marker=PHI_BIN_MARKERS[count], color=color,
+                      linestyle="none", label=f"{label}: {count} bin φ")
                for count in bins]
     if any(item.phi_bins not in PHI_BIN_MARKERS for item in points):
-        handles.append(Line2D([], [], marker="o", color="black", linestyle="none",
-                              label="Questa analisi"))
+        handles.append(Line2D([], [], marker="o", color=color, linestyle="none",
+                              label=label))
     if any(item.point.diagnostics.used_fallback for item in points):
-        handles.append(Line2D([], [], marker="o", color="black", linestyle="none",
-                              markerfacecolor="none", label="Fit fallback (simbolo vuoto)"))
+        handles.append(Line2D([], [], marker="o", color=color, linestyle="none",
+                              markerfacecolor="none", label=(f"{label}: " if label != "Questa analisi" else "")
+                              + "Fit fallback (simbolo vuoto)"))
     return handles
 
 
@@ -121,12 +122,33 @@ def uncertainty_bar_label(points):
     return "Bars: stored stat_low/stat_high; classification unresolved"
 
 
+def _same_energy_interval(first, second):
+    return (abs(first.low_gev - second.low_gev) < 1e-12
+            and abs(first.high_gev - second.high_gev) < 1e-12)
+
+
+def _points_in_row(points_by_profile, row, sample, estimator, overlay_profiles):
+    return [
+        (profile, item)
+        for profile, points in points_by_profile.items()
+        for item in points
+        if item.sample == sample and item.estimator == estimator
+        and (
+            (abs(item.point.energy_low_gev - row.low_gev) < 1e-12
+             and abs(item.point.energy_high_gev - row.high_gev) < 1e-12)
+            if overlay_profiles else
+            (profile == row.profile and item.point.energy_bin == row.energy_bin)
+        )
+    ]
+
+
 def build_profile_figure4(
     points_by_profile: Mapping[str, Sequence[OutputPoint]],
     rows: Sequence[EnergyRow],
     *,
     sample: str = "raw_bdt",
     estimator: str = "ratio",
+    overlay_profiles: bool = False,
 ):
     if not rows:
         raise ValueError("at least one energy row is required")
@@ -138,27 +160,26 @@ def build_profile_figure4(
         constrained_layout=True,
         squeeze=False,
     )
-    plotted = [item for row in rows for item in points_by_profile.get(row.profile, ())
-               if item.sample == sample and item.estimator == estimator
-               and item.point.energy_bin == row.energy_bin]
+    row_points = [_points_in_row(points_by_profile, row, sample, estimator, overlay_profiles)
+                  for row in rows]
+    plotted = [item for points in row_points for _, item in points]
     figure.suptitle(uncertainty_bar_label(plotted)
                     + "\nShaded: available systematic components (partial, provisional)", fontsize=9)
     for row_index, row in enumerate(rows):
-        profile_points = points_by_profile.get(row.profile, ())
+        profile_points = row_points[row_index]
         for column, (pair, title) in enumerate(PAIR_COLUMNS):
             axis = axes[row_index, column]
             selected = sorted(
                 (
-                    item
-                    for item in profile_points
-                    if item.sample == sample
-                    and item.estimator == estimator
-                    and item.point.pair == pair
-                    and item.point.energy_bin == row.energy_bin
+                    (profile, item)
+                    for profile, item in profile_points
+                    if item.point.pair == pair
                 ),
-                key=lambda item: item.point.mass_bin,
+                key=lambda entry: entry[1].point.mass_bin,
             )
             if selected:
+                profiles = [profile for profile, _ in selected]
+                selected = [item for _, item in selected]
                 x = np.array(
                     [
                         0.5 * (item.point.mass_low_gev + item.point.mass_high_gev)
@@ -173,11 +194,12 @@ def build_profile_figure4(
                     ]
                 )
                 for index, item in enumerate(selected):
+                    color = {"uv": "black", "vis": "tab:blue"}[profiles[index]] if overlay_profiles else "black"
                     if item.systematic_total > 0.0:
                         axis.add_patch(Rectangle(
                             (item.point.mass_low_gev, y[index] - item.systematic_total),
                             item.point.mass_high_gev - item.point.mass_low_gev,
-                            2 * item.systematic_total, facecolor="tab:blue", alpha=0.18,
+                            2 * item.systematic_total, facecolor=color if overlay_profiles else "tab:blue", alpha=0.18,
                             edgecolor="none", zorder=1,
                         ))
                     axis.errorbar(
@@ -185,8 +207,8 @@ def build_profile_figure4(
                         y[index],
                         yerr=yerr[:, index:index + 1],
                         fmt=PHI_BIN_MARKERS.get(item.phi_bins, "o"),
-                        color="black",
-                        markerfacecolor="none" if item.point.diagnostics.used_fallback else "black",
+                        color=color,
+                        markerfacecolor="none" if item.point.diagnostics.used_fallback else color,
                         capsize=2,
                     )
             axis.axhline(0.0, color="0.75", linewidth=0.8)
@@ -198,7 +220,14 @@ def build_profile_figure4(
                 axis.set_ylabel(_energy_label(row))
             if row_index == len(rows) - 1:
                 axis.set_xlabel(r"$M$ [GeV]")
-    _figure_legend(figure, _analysis_legend_handles(plotted))
+    if overlay_profiles:
+        handles = []
+        for profile, color in (("uv", "black"), ("vis", "tab:blue")):
+            points = [item for entries in row_points for name, item in entries if name == profile]
+            handles.extend(_analysis_legend_handles(points, label=profile.upper(), color=color))
+    else:
+        handles = _analysis_legend_handles(plotted)
+    _figure_legend(figure, handles)
     return figure, axes
 
 
@@ -223,21 +252,32 @@ def build_profile_figure4_comparison(
     *,
     sample: str = "raw_bdt",
     estimator: str = "ratio",
+    overlay_profiles: bool = False,
 ):
+    if overlay_profiles:
+        # Equal intervals share a panel; different grids are never rebinned here.
+        unique_rows = []
+        for row in sorted(rows, key=lambda item: (item.low_gev, item.high_gev)):
+            if not any(_same_energy_interval(row, other) for other in unique_rows):
+                unique_rows.append(row)
+        rows = unique_rows
     figure, axes = build_profile_figure4(
         points_by_profile,
         rows,
         sample=sample,
         estimator=estimator,
+        overlay_profiles=overlay_profiles,
     )
     has_reference = False
     for row_index, row in enumerate(rows):
-        if row.profile != "uv":
+        if row.profile != "uv" and not overlay_profiles:
             continue
         reference_bin = next((candidate.energy_bin for candidate in profile_energy_rows("uv")
-                              if abs(candidate.low_gev - row.low_gev) < 1e-12
-                              and abs(candidate.high_gev - row.high_gev) < 1e-12), None)
+                              if _same_energy_interval(candidate, row)), None)
         if reference_bin is None:
+            for axis in axes[row_index]:
+                axis.text(0.03, 0.96, "Ajaka: nessun dato in questo intervallo",
+                          transform=axis.transAxes, va="top", fontsize=8, color="0.4")
             continue
         for column, (pair, _) in enumerate(PAIR_COLUMNS):
             selected = sorted(
@@ -361,6 +401,7 @@ def write_profile_figure4_comparison_pdf(
     *,
     sample: str = "raw_bdt",
     estimator: str = "ratio",
+    overlay_profiles: bool = False,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -370,6 +411,7 @@ def write_profile_figure4_comparison_pdf(
         rows,
         sample=sample,
         estimator=estimator,
+        overlay_profiles=overlay_profiles,
     )
     try:
         figure.savefig(path)

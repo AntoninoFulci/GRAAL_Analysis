@@ -49,6 +49,7 @@ from plots.mass_histograms import mass2d_hist, draw_truth_cross
 from plots.core import kinematics as kin
 from plots.core import reconstruction_data
 from plots.core import dalitz_metadata
+from plots import quality
 
 CHI2_TREE = "reco_eta_pi0_chi2"
 BDT_TREE = "reco_eta_pi0_bdt"
@@ -122,7 +123,7 @@ def _unit_area(h):
     return clone
 
 
-def _draw_diagnostics(hists, out_dir):
+def _draw_diagnostics(hists, out_dir, *, mass=True):
     for prefix in ('dalitz_s', 'residuo'):
         names = [f'{prefix}_{tag}_{mode}' for mode in ('misurato', 'implicito')
                  for tag in ('chi2', 'bdt')]
@@ -141,7 +142,7 @@ def _draw_diagnostics(hists, out_dir):
                 h.SetMaximum(maximum * (1.1 if prefix == 'residuo' else 1.0) if maximum > 0 else 1.)
                 h.Draw('colz' if prefix == 'dalitz_s' else 'hist')
             _save(c, out_dir, stem)
-    for meson in ('eta', 'pi0'):
+    for meson in (('eta', 'pi0') if mass else ()):
         stem = f'massa_{meson}_confronto_unit_area'
         c = ROOT.TCanvas('c_' + stem, stem, 900, 700)
         hc, hb = (hists[f'massa_{meson}_{tag}_unit_area'] for tag in ('chi2', 'bdt'))
@@ -246,9 +247,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bdt", type=Path, required=True,
                    help="output di reconstruct_eta_pi0_bdt")
     p.add_argument("--out-dir", type=Path, default=Path("results/plots"))
+    p.add_argument("--mass-only", action="store_true",
+                   help="write meson mass diagnostics only, without Dalitz plots or duplicate mass overlays")
+    p.add_argument("--mass", action=argparse.BooleanOptionalAction, default=True,
+                   help="write meson mass diagnostics")
+    p.add_argument("--dalitz", action=argparse.BooleanOptionalAction, default=True,
+                   help="write Dalitz and invariant-identity diagnostics")
+    p.add_argument("--quality-controls", action=argparse.BooleanOptionalAction, default=False,
+                   help="add physical reconstruction controls and diagnostic eta Gaussian fits")
     p.add_argument("--profile", choices=("uv", "vis"), help="sample label; no additional energy cut")
     p.add_argument("--run-manifest", type=Path, default=dalitz_metadata.DEFAULT_MANIFEST)
     args = p.parse_args(argv)
+    if args.mass_only:
+        args.dalitz = False
 
     ROOT.gROOT.SetBatch(True)
     ROOT.gStyle.SetOptStat(0)
@@ -281,81 +292,92 @@ def main(argv: list[str] | None = None) -> int:
                                                *(argv if argv is not None else sys.argv[1:])])
 
     hists = {}
-    for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
-        for var, vlab in (("meas", "misurato"), ("miss", "implicito")):
-            name = f"dalitz_{tag}_{vlab}"
-            hists[name] = _dalitz_hist(
-                name, f"{lab}  -  protone {vlab}",
-                getattr(data, f"mep_{var}"), getattr(data, f"mpp_{var}"),
-            )
-            name_s = f'dalitz_s_{tag}_{vlab}'
-            squares = data.pair_mass_squared[var]
-            hists[name_s] = _dalitz_squared_hist(
-                name_s, f'{lab} - protone {vlab}', squares['p_eta'], squares['p_pi0'])
-            name_r = f'residuo_{tag}_{vlab}'
-            hists[name_r] = _mass_hist(
-                name_r, f'{lab} - protone {vlab};#Sigma s - W^{{2}} - #Sigma m_{{nom}}^{{2}} [GeV^{{2}}];eventi',
-                data.identity_residual[var], -2., 2.)
+    if args.dalitz:
+        for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
+            for var, vlab in (("meas", "misurato"), ("miss", "implicito")):
+                name = f"dalitz_{tag}_{vlab}"
+                hists[name] = _dalitz_hist(
+                    name, f"{lab}  -  protone {vlab}",
+                    getattr(data, f"mep_{var}"), getattr(data, f"mpp_{var}"),
+                )
+                name_s = f'dalitz_s_{tag}_{vlab}'
+                squares = data.pair_mass_squared[var]
+                hists[name_s] = _dalitz_squared_hist(
+                    name_s, f'{lab} - protone {vlab}', squares['p_eta'], squares['p_pi0'])
+                name_r = f'residuo_{tag}_{vlab}'
+                hists[name_r] = _mass_hist(
+                    name_r, f'{lab} - protone {vlab};#Sigma s - W^{{2}} - #Sigma m_{{nom}}^{{2}} [GeV^{{2}}];eventi',
+                    data.identity_residual[var], -2., 2.)
 
-    hists["massa_eta_chi2"] = _mass_hist(
-        "massa_eta_chi2", "solo chi2", chi2.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
-    hists["massa_eta_bdt"] = _mass_hist(
-        "massa_eta_bdt", "gate BDT", bdt.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
-    hists["massa_pi0_chi2"] = _mass_hist(
-        "massa_pi0_chi2", "solo chi2", chi2.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
-    hists["massa_pi0_bdt"] = _mass_hist(
-        "massa_pi0_bdt", "gate BDT", bdt.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
+    if args.mass or args.quality_controls:
+        hists["massa_eta_chi2"] = _mass_hist(
+            "massa_eta_chi2", "solo chi2", chi2.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
+        hists["massa_eta_bdt"] = _mass_hist(
+            "massa_eta_bdt", "gate BDT", bdt.eta_mass, _ETA_MASS_MIN, _ETA_MASS_MAX)
+        hists["massa_pi0_chi2"] = _mass_hist(
+            "massa_pi0_chi2", "solo chi2", chi2.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
+        hists["massa_pi0_bdt"] = _mass_hist(
+            "massa_pi0_bdt", "gate BDT", bdt.pi0_mass, _PI0_MASS_MIN, _PI0_MASS_MAX)
 
-    # The two meson masses against each other: on this figure the gate shows up
-    # as the blob tightening onto the truth crossing, not as a shifted median.
-    for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
-        name = f"masse_2d_{tag}"
-        hists[name] = mass2d_hist(name, lab, data.eta_mass, data.pi0_mass)
+    quality_metadata = None
+    if args.quality_controls:
+        controls, quality_metadata = quality.render(samples, hists, args.out_dir)
+        hists.update(controls)
 
-    # --- one canvas per Dalitz ---
-    for name in [k for k in hists if k.startswith("dalitz_")]:
-        c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
-        c.SetRightMargin(0.13)
-        hists[name].GetZaxis().SetTitle('eventi / bin')
-        hists[name].Draw("colz")
-        _save(c, args.out_dir, name)
+    if args.mass:
+        # The two meson masses against each other: on this figure the gate shows up
+        # as the blob tightening onto the truth crossing, not as a shifted median.
+        for tag, data, lab in (("chi2", chi2, "solo chi2"), ("bdt", bdt, "gate BDT")):
+            name = f"masse_2d_{tag}"
+            hists[name] = mass2d_hist(name, lab, data.eta_mass, data.pi0_mass)
 
-    # --- the two meson masses against each other, one canvas each ---
-    # The crossing lines mark where the signal must sit. Kept alive in a list
-    # because PyROOT garbage-collects a TLine that nothing references, and it
-    # then vanishes from the canvas without any error.
-    keep_alive = []
-    for name in ["masse_2d_chi2", "masse_2d_bdt"]:
-        c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
-        c.SetRightMargin(0.13)
-        hists[name].Draw("colz")
-        keep_alive.extend(draw_truth_cross())
-        _save(c, args.out_dir, name)
+    if args.dalitz:
+        # --- one canvas per Dalitz ---
+        for name in [k for k in hists if k.startswith("dalitz_")]:
+            c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
+            c.SetRightMargin(0.13)
+            hists[name].GetZaxis().SetTitle('eventi / bin')
+            hists[name].Draw("colz")
+            _save(c, args.out_dir, name)
 
-    # --- the two side by side ---
-    c = ROOT.TCanvas("c_masse_2d", "masse 2D", 1500, 650)
-    c.Divide(2, 1)
-    for i, name in enumerate(["masse_2d_chi2", "masse_2d_bdt"], start=1):
-        c.cd(i)
-        ROOT.gPad.SetRightMargin(0.13)
-        hists[name].Draw("colz")
-        keep_alive.extend(draw_truth_cross())
-    _save(c, args.out_dir, "masse_2d_confronto")
+    if args.mass:
+        # --- the two meson masses against each other, one canvas each ---
+        # The crossing lines mark where the signal must sit. Kept alive in a list
+        # because PyROOT garbage-collects a TLine that nothing references, and it
+        # then vanishes from the canvas without any error.
+        keep_alive = []
+        for name in ["masse_2d_chi2", "masse_2d_bdt"]:
+            c = ROOT.TCanvas(f"c_{name}", name, 800, 700)
+            c.SetRightMargin(0.13)
+            hists[name].Draw("colz")
+            keep_alive.extend(draw_truth_cross())
+            _save(c, args.out_dir, name)
 
-    # --- the four-panel summary ---
-    c = ROOT.TCanvas("c_confronto", "Dalitz", 1500, 1000)
-    c.Divide(2, 2)
-    for i, name in enumerate(
-        ["dalitz_chi2_misurato", "dalitz_bdt_misurato",
-         "dalitz_chi2_implicito", "dalitz_bdt_implicito"], start=1
-    ):
-        c.cd(i)
-        ROOT.gPad.SetRightMargin(0.13)
-        hists[name].Draw("colz")
-    _save(c, args.out_dir, "dalitz_confronto")
+        # --- the two side by side ---
+        c = ROOT.TCanvas("c_masse_2d", "masse 2D", 1500, 650)
+        c.Divide(2, 1)
+        for i, name in enumerate(["masse_2d_chi2", "masse_2d_bdt"], start=1):
+            c.cd(i)
+            ROOT.gPad.SetRightMargin(0.13)
+            hists[name].Draw("colz")
+            keep_alive.extend(draw_truth_cross())
+        _save(c, args.out_dir, "masse_2d_confronto")
+
+    if args.dalitz:
+        # --- the four-panel summary ---
+        c = ROOT.TCanvas("c_confronto", "Dalitz", 1500, 1000)
+        c.Divide(2, 2)
+        for i, name in enumerate(
+            ["dalitz_chi2_misurato", "dalitz_bdt_misurato",
+             "dalitz_chi2_implicito", "dalitz_bdt_implicito"], start=1
+        ):
+            c.cd(i)
+            ROOT.gPad.SetRightMargin(0.13)
+            hists[name].Draw("colz")
+        _save(c, args.out_dir, "dalitz_confronto")
 
     # --- mass distributions, the two samples overlaid ---
-    for meson, truth in (("eta", kin.M_ETA), ("pi0", kin.M_PI0)):
+    for meson, truth in ((("eta", kin.M_ETA), ("pi0", kin.M_PI0)) if args.mass else ()):
         c = ROOT.TCanvas(f"c_massa_{meson}", meson, 900, 700)
         hc = hists[f"massa_{meson}_chi2"]
         hb = hists[f"massa_{meson}_bdt"]
@@ -371,9 +393,16 @@ def main(argv: list[str] | None = None) -> int:
         hc.Draw("hist")
         hb.Draw("hist same")
 
-        leg = ROOT.TLegend(0.58, 0.62, 0.90, 0.88)
+        leg = ROOT.TLegend(0.52, 0.52 if meson == 'eta' and quality_metadata else 0.62, 0.90, 0.88)
         leg.AddEntry(hc, "solo chi2", "f")
         leg.AddEntry(hb, "gate BDT", "l")
+        if meson == 'eta' and quality_metadata:
+            for tag, label in (('chi2', 'chi2'), ('bdt', 'BDT')):
+                fit = quality_metadata['samples'][tag]['eta_mass_fit']
+                status = 'dati insufficienti' if fit['status'] == 'insufficient_data' else 'non riuscito'
+                text = (f"{label}: #mu={fit['mean_gev']*1000:.1f}, #sigma={fit['sigma_gev']*1000:.1f} MeV"
+                        if fit['status'] == 'ok' else f"{label}: fit n/d ({status})")
+                leg.AddEntry(ROOT.nullptr, text, '')
 
         line = ROOT.TLine(truth, 0, truth, hc.GetMaximum() * 1.05)
         line.SetLineColor(ROOT.kRed + 1)
@@ -383,11 +412,15 @@ def main(argv: list[str] | None = None) -> int:
         leg.Draw()
         _save(c, args.out_dir, f"massa_{meson}")
 
-    # Raw mass comparison with normalized overlays.
-    for meson, truth in (("eta", kin.M_ETA), ("pi0", kin.M_PI0)):
-        _draw_raw_mass_comparison(
-            meson, truth, chi2, bdt, args.out_dir, hists
-        )
+    if args.mass and args.dalitz:
+        # Raw mass comparison with normalized overlays.
+        for meson, truth in (("eta", kin.M_ETA), ("pi0", kin.M_PI0)):
+            _draw_raw_mass_comparison(
+                meson, truth, chi2, bdt, args.out_dir, hists
+            )
+
+    if not args.mass:
+        hists = {name: h for name, h in hists.items() if not name.startswith("massa_")}
 
     for name, h in list(hists.items()):
         if name.startswith('massa_'):
@@ -397,7 +430,8 @@ def main(argv: list[str] | None = None) -> int:
         elif h.GetDimension() == 2:
             h.GetZaxis().SetTitle('eventi / bin')
         hists[name + '_unit_area'] = _unit_area(h)
-    _draw_diagnostics(hists, args.out_dir)
+    if args.dalitz:
+        _draw_diagnostics(hists, args.out_dir, mass=args.mass)
 
     # --- ROOT-only readers receive full provenance and a histogram dictionary ---
     fout = ROOT.TFile(str(args.out_dir / "istogrammi.root"), "RECREATE")
@@ -414,6 +448,8 @@ def main(argv: list[str] | None = None) -> int:
         dictionary[name] = summary
     ROOT.TNamed('dalitz_metadata', json.dumps(metadata, sort_keys=True, allow_nan=False)).Write()
     ROOT.TNamed('histogram_dictionary', json.dumps(dictionary, sort_keys=True, allow_nan=False)).Write()
+    if quality_metadata is not None:
+        ROOT.TNamed('quality_metadata', json.dumps(quality_metadata, sort_keys=True, allow_nan=False)).Write()
     fout.Close()
 
     print("\n====================================")

@@ -96,3 +96,58 @@ def test_dalitz_identity_on_shell_at_threshold_and_above(momentum):
     # Non-conservation must remain visible, never projected onto the identity.
     shifted = initial + np.array([0., 0., 0., 0.1])
     assert kin.dalitz_residual(squares, shifted) == pytest.approx(-0.2 * initial[3] - 0.01)
+
+
+def test_quality_controls_use_polar_and_azimuthal_angles_independently():
+    controls = kin.quality_observables(
+        proton=np.array([-0.3, 0., 0.4, 0.99]),
+        missing=np.array([-0.3, 0., 1.2, 1.448]),
+        beam=np.array([0., 0., 1.2, 1.2]),
+        target=np.array([0., 0., 0., 0.938]),
+        eta=np.array([0.2, 0., 0., 0.55]),
+        pi0=np.array([0.1, 0., 0., 0.14]),
+    )
+    assert controls['proton_theta_deg'] == pytest.approx(36.86989765)
+    assert controls['theta_missing_proton_deg'] == pytest.approx(-22.83365418)
+    assert controls['coplanarity_deg'] == pytest.approx(0.)
+    assert controls['missing_mass_gev'] == pytest.approx(np.sqrt(1.448**2 - 1.53))
+
+
+@pytest.mark.parametrize('phi_p, phi_pair, expected', [
+    (179., -1., 0.), (-179., 1., 0.), (-179., -1., 2.), (179., 1., -2.),
+])
+def test_quality_coplanarity_wraps_across_azimuthal_boundary(phi_p, phi_pair, expected):
+    def vector(phi):
+        phi = np.deg2rad(phi)
+        return np.array([np.cos(phi), np.sin(phi), 1., 2.])
+    controls = kin.quality_observables(
+        vector(phi_p), vector(phi_p), np.array([0., 0., 2., 2.]),
+        np.array([0., 0., 0., 1.]), vector(phi_pair), vector(phi_pair))
+    assert controls['coplanarity_deg'] == pytest.approx(expected, abs=1e-12)
+
+
+def test_quality_controls_keep_signed_mass_and_undefined_directions():
+    controls = kin.quality_observables(
+        np.zeros(4), np.zeros(4), np.array([0., 0., 2., 2.]),
+        np.array([0., 0., 0., 1.]), np.array([0., 0., 0., 1.]),
+        np.array([0., 0., 0., 1.]))
+    assert controls['missing_mass_gev'] == pytest.approx(-np.sqrt(3.))
+    assert np.isnan(controls['proton_theta_deg'])
+    assert np.isnan(controls['theta_missing_proton_deg'])
+    assert np.isnan(controls['coplanarity_deg'])
+
+
+def test_quality_controls_reject_nonfinite_input():
+    with pytest.raises(ValueError, match='non-finite'):
+        kin.quality_observables(
+            np.array([np.nan, 0., 0., 1.]), *[np.ones(4) for _ in range(5)])
+
+
+def test_quality_forward_proton_has_defined_theta_but_undefined_phi():
+    controls = kin.quality_observables(
+        np.array([0., 0., 1., 2.]), np.array([0., 0., 2., 3.]),
+        np.array([0., 0., 2., 2.]), np.array([0., 0., 0., 1.]),
+        np.array([1., 0., 0., 1.]), np.array([0., 0., 0., .1]))
+    assert controls['proton_theta_deg'] == 0.
+    assert controls['theta_missing_proton_deg'] == 0.
+    assert np.isnan(controls['coplanarity_deg'])

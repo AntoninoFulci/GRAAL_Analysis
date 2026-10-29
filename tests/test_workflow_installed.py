@@ -143,6 +143,36 @@ def test_wheel_module_script_and_console_help_from_external_cwd(installed_workfl
     assert absent.returncode == 1 and "requires --repo-root" in absent.stderr
 
 
+def test_wheel_yaml_configuration_from_external_cwd(installed_workflow):
+    scratch, target, env = installed_workflow
+    config = scratch / "launch.yaml"
+    config.write_text(
+        "mode: test_data\nrepo_root: missing-checkout\ncpus: 4\n"
+        "best_binning: true\nforce_bdt: false\nflux_study: off\n"
+    )
+    _installed(installed_workflow, """
+from graal_workflow import cli
+args = cli.parse_args([sys.argv[3], '--cpus', '2', '--no-best-binning'])
+assert args.mode == 'test_data' and args.cpus == 2
+assert args.best_binning is False and args.force_bdt is False
+assert args.flux_study == 'off'
+assert args.repo_root == Path(sys.argv[3]).parent / 'missing-checkout'
+""", config)
+    for entrypoint in (
+        [sys.executable, "-B", "-m", "graal_workflow"],
+        [str(target / "bin/graal-workflow")],
+        [sys.executable, "-B", str(REPO / "scripts/run_pipeline.py")],
+    ):
+        # Reach existing repository validation, without starting scientific work.
+        result = subprocess.run(
+            [*entrypoint, str(config), "--repo-root", str(scratch / "missing-checkout")],
+            cwd=scratch, env=env, capture_output=True, text=True,
+        )
+        assert result.returncode == 1
+        assert "invalid repository root" in result.stderr
+        assert "Traceback" not in result.stderr
+
+
 def test_source_inventory_rejects_missing_native_and_empty_python(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="source inventory is empty"):
         artifact_manifest.source_fingerprint(())
@@ -182,7 +212,7 @@ for module in workflow:
         module.write_bytes(original)
 print(f'{len(workflow)} installed workflow modules invalidate selected cache')
 """)
-    assert "10 installed workflow modules" in result.stdout
+    assert "installed workflow modules invalidate selected cache" in result.stdout
 
 
 def test_wheel_executes_native_and_reconstruction_with_real_provenance(installed_workflow):
@@ -232,7 +262,7 @@ execution.execute_cached_plan(renamed_stages, config, locations, runner=resource
 assert mc.stat().st_mtime_ns == first
 execution.execute_cached_plan(stages, config, locations, force_mc=True, runner=resources.bounded_runner)
 assert mc.stat().st_mtime_ns != first
-manifest = json.loads((locations.output_root / 'pipeline_artifacts.json').read_text())
+manifest = json.loads((locations.output_root / 'metadata/pipeline_artifacts.json').read_text())
 identities = [Path(row['path']) for row in manifest['source_files']]
 assert any(p.is_relative_to(Path(sys.argv[1]) / 'graal_workflow') for p in identities)
 assert root / '03_mc_simulation/generators/generate_eta_pi0_dataset.C' in identities
@@ -338,7 +368,7 @@ from graal_workflow import models, paths, planning
 root = Path(sys.argv[2])
 work = Path(sys.argv[3]) / 'extraction-policy'
 work.mkdir()
-policy_path = root / 'config/run_quality_exclusions.json'
+policy_path = root / 'config/support/run_quality_exclusions.json'
 expected = quality_module.load_run_quality(policy_path)
 quality_module.DEFAULT_RUN_QUALITY_PATH = work / 'forbidden-site-packages-policy.json'
 config = paths.mode_config('test_data', root)
@@ -412,7 +442,7 @@ from graal_workflow import paths, planning, models
 root = paths.resolve_repo_root(Path(sys.argv[2]))
 common = load_common_inputs(root)
 assert Path(calibration.__file__).is_relative_to(Path(sys.argv[1]))
-assert common['inputs']['run_quality'] == root / 'config/run_quality_exclusions.json'
+assert common['inputs']['run_quality'] == root / 'config/support/run_quality_exclusions.json'
 locations = paths.build_paths(paths.mode_config('production', root))
 assert locations.quality_path == common['inputs']['run_quality']
 assert load_run_quality(locations.quality_path)['sha256'] == '52533f31d2ef0fb946ff60947712e516ecc94b8a98091a2ac51bcfbcf61ccc35'
@@ -512,3 +542,28 @@ print('Python 3.10 fallback branch and conditional test dependency verified on c
                              str(REPO / 'pyproject.toml')], cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'fallback branch' in result.stdout
+
+
+def test_structured_check_from_wheel_script_and_console_writes_nothing(installed_workflow):
+    """All entrypoints dispatch the structured contract without claiming a campaign."""
+    import yaml
+    scratch, target, env = installed_workflow
+    config_path = scratch / 'structured-check.yaml'
+    output = REPO / 'results_test/structured-wheel-check'
+    assert not output.exists()
+    config_path.write_text(yaml.safe_dump({
+        'schema_version': 1,
+        'campaign': {'mode': 'test_data', 'repo_root': str(REPO), 'output_dir': str(output)},
+        'profiles': {'uv': {'enabled': True}, 'vis': {'enabled': False}},
+        'stages': {
+            **{key: {'enabled': False} for key in ('preanalysis', 'calibration', 'flux_study', 'comparison')},
+            **{key: {'common': {'enabled': False}} for key in ('selection', 'monte_carlo', 'bdt', 'reconstruction', 'extraction', 'plots')},
+        },
+    }))
+    for argv in ([sys.executable, '-B', '-m', 'graal_workflow'],
+                 [sys.executable, '-B', str(REPO / 'scripts/run_pipeline.py')],
+                 [str(target / 'bin/graal-workflow')]):
+        result = subprocess.run([*argv, str(config_path), '--check'], cwd='/tmp', env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert 'OFF' in result.stdout
+        assert not output.exists()

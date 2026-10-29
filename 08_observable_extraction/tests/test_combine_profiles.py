@@ -15,13 +15,13 @@ def test_combined_cli_defaults_use_production_layout():
     args = combine_profiles.build_parser().parse_args([])
 
     assert args.uv_root == Path(
-        "results/production/uv/beam_asymmetry/beam_asymmetry.root"
+        "results/production/root/uv/beam_asymmetry/beam_asymmetry.root"
     )
     assert args.vis_root == Path(
-        "results/production/vis/beam_asymmetry/beam_asymmetry.root"
+        "results/production/root/vis/beam_asymmetry/beam_asymmetry.root"
     )
     assert args.published_csv == combine_profiles.AJAKA_REFERENCE
-    assert args.output_dir == Path("results/production/common/plots")
+    assert args.output_dir == Path("results/production/plots/common")
 
 
 def test_ajaka_reference_is_versioned_and_compatibility_copy_matches():
@@ -38,7 +38,7 @@ def test_ajaka_reference_is_versioned_and_compatibility_copy_matches():
     assert hashlib.sha256(compatibility.read_bytes()).hexdigest() == expected
 
 
-def test_combined_cli_writes_exact_four_outputs(tmp_path, monkeypatch):
+def test_combined_cli_writes_comparison_without_duplicate_experimental(tmp_path, monkeypatch):
     uv_root = tmp_path / "uv.root"
     vis_root = tmp_path / "vis.root"
     published = tmp_path / "ajaka.csv"
@@ -81,7 +81,6 @@ def test_combined_cli_writes_exact_four_outputs(tmp_path, monkeypatch):
         path.write_bytes(b"%PDF")
 
     for name in (
-        "write_profile_figure4_pdf",
         "write_profile_figure4_comparison_pdf",
         "write_profile_estimator_comparison_pdf",
         "write_profile_fit_diagnostics_pdf",
@@ -98,14 +97,18 @@ def test_combined_cli_writes_exact_four_outputs(tmp_path, monkeypatch):
     )
 
     assert result == 0
-    assert sorted(path.name for path in output.iterdir()) == [
+    assert sorted(path.name for path in output.iterdir()) == sorted([
         "comparison_estimators.pdf",
-        "figure4_comparison_ajaka2008.pdf",
-        "figure4_experimental.pdf",
+        "asymmetry_comparison.pdf",
+        "asymmetry_uv_ajaka.pdf",
         "fit_diagnostics.pdf",
-    ]
+    ])
     assert len(calls) == 4
-    assert all(set(call[1]) == {"uv", "vis"} for call in calls)
+    by_name = {call[0]: call for call in calls}
+    assert set(by_name['asymmetry_uv_ajaka.pdf'][1]) == {'uv'}
+    assert all(set(call[1]) == {"uv", "vis"} for call in calls
+               if call[0] != 'asymmetry_uv_ajaka.pdf')
+    assert by_name['asymmetry_comparison.pdf'][3]['overlay_profiles'] is True
 
 
 def test_combined_cli_rejects_empty_profile_root(tmp_path, monkeypatch):
@@ -191,7 +194,7 @@ def test_best_binning_composition_accepts_different_choices_but_not_mixed_modes(
     args = ["--uv-root", str(uv), "--vis-root", str(vis), "--output-dir", str(out)]
     if vis_best:
         assert combine_profiles.main(args) == 0
-        assert (out / "figure4_experimental.pdf").is_file()
+        assert (out / "asymmetry_comparison.pdf").is_file()
     else:
         with pytest.raises(RuntimeError, match="best-binning mode"):
             combine_profiles.main(args)
@@ -201,7 +204,6 @@ def test_best_binning_composition_accepts_different_choices_but_not_mixed_modes(
 def _stub_combined_writers(monkeypatch):
     monkeypatch.setattr(combine_profiles, "load_published_points", lambda _path: ())
     for name in (
-        "write_profile_figure4_pdf",
         "write_profile_figure4_comparison_pdf",
         "write_profile_estimator_comparison_pdf",
         "write_profile_fit_diagnostics_pdf",
@@ -394,7 +396,6 @@ def test_combined_cli_writes_only_available_candle_comparisons(
         path.write_bytes(b"%PDF-legacy")
 
     for name in (
-        "write_profile_figure4_pdf",
         "write_profile_figure4_comparison_pdf",
         "write_profile_estimator_comparison_pdf",
         "write_profile_fit_diagnostics_pdf",

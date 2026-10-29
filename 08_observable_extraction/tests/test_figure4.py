@@ -294,3 +294,45 @@ def test_binning_and_reference_share_one_legend_clear_of_titles_and_axes(rows):
         assert ('Ajaka et al. (2008)' in [text.get_text() for text in legend.get_texts()]) == has_reference
     finally:
         plt.close(figure)
+
+
+@pytest.mark.parametrize('vis_low,expected_rows', [(0.930, 5), (0.9313, 6)])
+def test_overlay_matches_intervals_preserves_errors_and_shifts_ajaka(vis_low, expected_rows):
+    base = _points()[0]
+    uv_rows = profile_energy_rows('uv', [0.930, 1.100, 1.200, 1.300, 1.400, 1.500])
+    uv = tuple(replace(base, phi_bins=12, point=replace(
+        base.point, energy_bin=row.energy_bin, energy_low_gev=row.low_gev,
+        energy_high_gev=row.high_gev)) for row in uv_rows)
+    vis = replace(base, phi_bins=12, point=replace(
+        base.point, energy_bin=0, energy_low_gev=vis_low, energy_high_gev=1.1,
+        sigma=.3, stat_low=.02, stat_high=.08,
+        diagnostics=replace(base.point.diagnostics, used_fallback=True)))
+    published = [PublishedPoint('p_pi0', 0, .76, -.4, .07, .09)]
+    figure, axes = build_profile_figure4_comparison(
+        {'uv': uv, 'vis': [vis]}, published,
+        profile_energy_rows('vis', [vis_low, 1.1]) + uv_rows,
+        overlay_profiles=True)
+    try:
+        assert axes.shape == (expected_rows, 3)
+        low_axis = axes[0 if vis_low == .930 else 1, 0]
+        assert len(axes[0, 0].containers) == (2 if vis_low == .930 else 1)
+        vis_plot = low_axis.containers[-1]
+        assert vis_plot.lines[0].get_color() == 'tab:blue'
+        assert vis_plot.lines[0].get_markerfacecolor() == 'none'
+        np.testing.assert_allclose(vis_plot.lines[0].get_xdata(orig=False), [.75])
+        np.testing.assert_allclose(vis_plot.lines[2][0].get_segments()[0][:, 1], [.28, .38])
+        assert len(low_axis.patches) == (2 if vis_low == .930 else 1)
+        assert 'nessun dato' in low_axis.texts[0].get_text()
+        # Ajaka bin 0 belongs to 1.1–1.2, never the new UV bin 0.
+        ajaka_axis = axes[1 if vis_low == .930 else 2, 0]
+        assert len(ajaka_axis.containers) == 2
+        np.testing.assert_allclose(ajaka_axis.containers[-1].lines[0].get_ydata(orig=False), [-.4])
+        labels = [text.get_text() for text in figure.legends[0].get_texts()]
+        assert 'UV: 12 bin φ' in labels and 'VIS: 12 bin φ' in labels
+        assert 'Ajaka et al. (2008)' in labels
+        figure.canvas.draw()
+        renderer = figure.canvas.get_renderer()
+        bounds = figure.legends[0].get_window_extent(renderer)
+        assert all(not bounds.overlaps(axis.get_tightbbox(renderer)) for axis in axes.flat)
+    finally:
+        plt.close(figure)

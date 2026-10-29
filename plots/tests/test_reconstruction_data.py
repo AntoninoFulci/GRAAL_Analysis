@@ -151,3 +151,16 @@ def test_collect_empty_preserves_diagnostic_shapes():
     assert arrays.beam_energy.shape == (0,)
     assert arrays.identity_residual['meas'].shape == (0,)
     assert arrays.pair_mass_squared['miss']['p_eta'].shape == (0,)
+    assert all(values.shape == (0,) for values in arrays.quality.values())
+
+
+def test_collect_exposes_quality_arrays_without_using_measured_recoil_for_missing_mass():
+    event = _event()
+    event.eta = _Vector(0.2, 0., 0., 0.55)
+    event.pi0 = _Vector(0.1, 0., 0., 0.14)
+    event.proton = _Vector(-0.3, 0., 0.4, 0.99)
+    event.missing = _Vector(-0.3, 0., 1.5, 1.75)
+    data = reconstruction_data.collect(_Tree([event]))
+    assert data.quality['proton_theta_deg'] == pytest.approx([36.86989765])
+    assert data.quality['coplanarity_deg'] == pytest.approx([0.])
+    assert data.quality['missing_mass_gev'] == pytest.approx([np.sqrt(1.75**2 - 2.34)])

@@ -15,7 +15,36 @@ from graal_common.physics.channels import M_ETA, M_PI0, M_PROTON
 
 __all__ = ["M_ETA", "M_PI0", "M_PROTON", "dalitz_limit", "invariant_mass",
            "invariant_masses", "sqrt_s", "mass_squared", "dalitz_invariants",
-           "dalitz_residual"]
+           "dalitz_residual", "quality_observables"]
+
+
+def quality_observables(proton, missing, beam, target, eta, pi0) -> dict[str, float]:
+    """Raw reconstruction controls; undefined directions are NaN, never zero.
+
+    Missing mass is recomputed from the initial state and measured mesons,
+    with the signed-square-root convention of TLorentzVector.M().
+    """
+    if any(not np.all(np.isfinite(v)) for v in (proton, missing, beam, target, eta, pi0)):
+        raise ValueError('non-finite reconstruction four-vector in quality controls')
+
+    def theta(vector):
+        pt = np.hypot(vector[0], vector[1])
+        return float(np.degrees(np.arctan2(pt, vector[2]))) if pt or vector[2] else np.nan
+
+    pair = eta + pi0
+    if np.hypot(*proton[:2]) and np.hypot(*pair[:2]):
+        delta = np.degrees(np.arctan2(proton[1], proton[0]) - np.arctan2(pair[1], pair[0]))
+        coplanarity = float(delta % 360. - 180.)
+    else:
+        coplanarity = np.nan
+    m2 = float(mass_squared(beam + target - pair))
+    proton_theta = theta(proton)
+    return {
+        'proton_theta_deg': proton_theta,
+        'theta_missing_proton_deg': theta(missing) - proton_theta,
+        'coplanarity_deg': coplanarity,
+        'missing_mass_gev': float(np.copysign(np.sqrt(abs(m2)), m2)),
+    }
 
 
 def mass_squared(vector: np.ndarray):

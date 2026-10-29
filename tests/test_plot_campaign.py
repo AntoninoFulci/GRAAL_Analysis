@@ -92,7 +92,7 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path, work
     campaign = tmp_path / "results/completed"
     original = {}
     for profile in ("uv", "vis"):
-        root = campaign / profile
+        root = campaign / "root" / profile
         for tree_name, fit in (("reco_eta_pi0_chi2", False), ("reco_eta_pi0_bdt", False)):
             path = root / "reco" / f"{tree_name}.root"
             _write_reconstruction(path, tree_name, fit=fit)
@@ -108,13 +108,36 @@ def test_completed_campaign_root_fixture_generates_canonical_pdfs(tmp_path, work
         plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, workers=workers)
     assert not any("Deleting canvas with same name" in str(item.message) for item in caught)
 
+    period = campaign / "root/uv/beam_asymmetry/periods/P1/fit_diagnostics.pdf"
+    period.parent.mkdir(parents=True)
+    period.write_bytes(b"%PDF-period")
+    plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, workers=workers)
+    plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE, workers=workers)
+    assert (campaign / "plots/uv/periods/P1/fit_diagnostics.pdf").read_bytes() == b"%PDF-period"
+    assert not list((campaign / "root").rglob("*.pdf"))
+    assert not list((campaign / "plots").rglob("*.root"))
     assert all(path.read_bytes() == contents for path, contents in original.items())
     for profile in ("uv", "vis"):
-        output = campaign / profile / "plots"
-        for name in ("comparison_reconstruction_samples.pdf", "comparison_estimators.pdf", "fit_diagnostics.pdf", "dalitz_confronto.pdf"):
+        output = campaign / "plots" / profile
+        for name in ("comparison_reconstruction_samples.pdf", "comparison_estimators.pdf", "fit_diagnostics.pdf", "massa_eta.pdf", "massa_pi0.pdf"):
             assert (output / name).read_bytes().startswith(b"%PDF")
-    common = campaign / "common/plots"
-    for name in ("figure4_experimental.pdf",):
+        for stem in ('theta_missing_proton', 'coplanarity', 'missing_mass', 'beam_energy_vs_proton_theta'):
+            assert (output / f'{stem}.pdf').read_bytes().startswith(b'%PDF')
+        histograms = ROOT.TFile.Open(str(campaign / "root" / profile / "istogrammi.root"))
+        try:
+            names = {key.GetName() for key in histograms.GetListOfKeys()
+                     if key.GetClassName().startswith("TH")}
+            assert not any(name.startswith(("dalitz_", "dalitz_s_", "residuo_")) for name in names)
+            assert {"massa_eta_chi2", "massa_eta_bdt", "massa_pi0_chi2", "massa_pi0_bdt"} <= names
+            assert {'theta_missing_proton_chi2', 'coplanarity_bdt',
+                    'missing_mass_bdt', 'beam_energy_vs_proton_theta_chi2'} <= names
+            quality = json.loads(histograms.Get('quality_metadata').GetTitle())
+            assert quality['samples']['bdt']['eta_mass_fit']['status'] == 'insufficient_data'
+            assert quality['samples']['chi2']['undefined_angles']['coplanarity_deg'] == 1
+        finally:
+            histograms.Close()
+    common = campaign / "plots/common"
+    for name in ("asymmetry_comparison.pdf",):
         assert (common / name).read_bytes().startswith(b"%PDF")
 
 
@@ -133,7 +156,7 @@ def test_postprocessing_publishes_all_plot_sets_without_changing_root_inputs(tmp
     plot_campaign.render_campaign(campaign, tmp_path / "ajaka.csv")
 
     assert [root.read_bytes() for root in roots] == [b"uv", b"vis"]
-    for directory in (campaign / "uv/plots", campaign / "vis/plots", campaign / "common/plots"):
+    for directory in (campaign / "plots/uv", campaign / "plots/vis", campaign / "plots/common"):
         assert next(directory.glob("*.pdf")).read_bytes() == b"%PDF"
 
 
@@ -191,13 +214,16 @@ def test_no_fit_campaign_generates_raw_plots_and_removes_stale_fit_pdfs(tmp_path
         (old / "comparison_reconstruction_samples.pdf").write_bytes(b"%PDF-stale fit comparison")
     plot_campaign.render_campaign(campaign, plot_campaign.combine_profiles.AJAKA_REFERENCE)
     for profile in ("uv", "vis"):
-        output = campaign / profile / "plots"
-        assert (output / "dalitz_confronto.pdf").is_file()
-        assert (output / "figure4_experimental.pdf").is_file()
+        output = campaign / "plots" / profile
+        assert not list(output.glob("dalitz*.pdf"))
+        assert (output / "massa_eta.pdf").is_file()
+        assert (output / "massa_pi0.pdf").is_file()
+        assert not list(output.glob("massa_*_raw_confronto.pdf"))
+        assert not (output / "figure4_experimental.pdf").exists()
         assert not list(output.glob("*raw_fit*"))
         assert b"stale fit" not in (output / "comparison_reconstruction_samples.pdf").read_bytes()
-    assert not list((campaign / "common/plots").glob("*raw_fit*"))
-    assert not list((campaign / "common/plots").glob("mass_uv_vis*"))
+    assert not list((campaign / "plots/common").glob("*raw_fit*"))
+    assert not list((campaign / "plots/common").glob("mass_uv_vis*"))
 
 
 def test_default_postprocessing_rejects_archived_fit_campaign(tmp_path):
@@ -275,14 +301,14 @@ def test_candle_campaign_preserves_mass_plane_and_available_comparisons(
     )
 
     for profile in ("uv", "vis"):
-        output = campaign / profile / "plots"
+        output = campaign / "plots" / profile
         assert (output / "candle_mass_plane.pdf").read_bytes() == mass_planes[profile]
         for estimator in ("ratio", "likelihood"):
             path = output / f"comparison_candle_{estimator}.pdf"
             assert path.exists() == (estimator in expected)
             if path.exists():
                 assert path.read_bytes().startswith(b"%PDF-")
-    common = campaign / "common/plots"
+    common = campaign / "plots/common"
     for estimator in ("ratio", "likelihood"):
         path = common / f"comparison_candle_{estimator}.pdf"
         assert path.exists() == (estimator in expected)

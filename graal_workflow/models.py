@@ -51,24 +51,24 @@ class PipelinePaths:
 
     @property
     def quality_path(self) -> Path:
-        return self.run_quality or self.repo_root / "config/run_quality_exclusions.json"
+        return self.run_quality or self.repo_root / "config/support/run_quality_exclusions.json"
 
     @property
     def calibrated_flux(self) -> Path:
-        return self.output_root / "common/flux_calibrated.root"
+        return self.output_root / "root/common/flux_calibrated.root"
 
     @property
     def combined_dir(self) -> Path:
-        return self.output_root / "common/plots"
+        return self.output_root / "plots/common"
 
     @property
     def command_log(self) -> Path:
-        return self.output_root / "pipeline_commands.log"
+        return self.output_root / "metadata/pipeline_commands.log"
 
     def profile_root(self, profile: str) -> Path:
         if profile not in PROFILE_PATTERNS:
             raise PipelineError(f"unknown beam profile: {profile}")
-        return self.output_root / profile
+        return self.output_root / "root" / profile
 
     def selected_dir(self, profile: str) -> Path:
         self.profile_root(profile)
@@ -109,6 +109,8 @@ class ArtifactGroup:
     destination: Path
     channel: str | None = None
     energy_range: tuple[float, float] | None = None
+    force: bool | None = None
+    inputs: tuple[Path, ...] = ()
 
     def __post_init__(self) -> None:
         expected = {"selected": ("select",), "mc": ("generate",),

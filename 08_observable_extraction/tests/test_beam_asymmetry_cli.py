@@ -29,7 +29,7 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     assert args.estimator == "both"
     assert args.profile == "uv"
     assert args.flux_file == Path("data/00_external/flux_calibrated.root")
-    assert args.run_manifest == Path("config/run_manifest.csv")
+    assert args.run_manifest == Path("config/support/run_manifest.csv")
     assert args.phi_bins == 12
     assert args.mass_bins == 10
     assert args.candle_mass_half_width is None

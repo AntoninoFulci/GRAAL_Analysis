@@ -1,0 +1,157 @@
+# Per avviare la pipeline dalla cartella del progetto: python scripts/run_pipeline.py config/pipeline.yaml
+# Per controllare la configurazione senza avviare i calcoli: python scripts/run_pipeline.py config/pipeline.yaml --check
+# Ogni enabled accende o spegne uno stage. Accenderlo non accende gli stage da cui dipende.
+# I percorsi qui scritti partono dalla cartella di questo YAML; quelli passati da terminale partono dalla cartella corrente.
+schema_version: 1                     # Indica al launcher come leggere questo file; per questo formato lascia 1.
+
+campaign:
+  mode: production                     # Usa production per l’analisi completa, test_data per le prove sul campione ridotto.
+  repo_root: ..                        # Indica la cartella principale del progetto, dove si trovano codice e configurazioni.
+  output_dir: ../results/production    # Qui saranno salvati i risultati. Se la cartella contiene già risultati, scegli un altro nome.
+  # compare_to: ../results/previous    # Indica una precedente analisi per vedere cosa cambia; deve contenere metadata/effective_configuration.json.
+
+execution:
+  cpus: 4                             # Imposta quante CPU possono usare gli stage parallelizzabili; deve essere almeno 1.
+  seed: 42                            # Fissa la casualità di MC e preparazione delle feature; usa un intero da 1 a 2**32-1.
+  color: auto                         # Scegli auto per i colori automatici, always per usarli sempre, never per disattivarli.
+  check_only: false                   # Se true, controlla gli input e mostra il piano senza eseguire i calcoli né creare risultati.
+
+inputs:
+  # Se vuoi usare un risultato già esistente, devi spegnere lo stage che lo produrrebbe di nuovo.
+  # Indica qui i file da riutilizzare: la pipeline controlla quelli necessari e non li modifica.
+  # raw_dir: ../data/01_raw            # Indica i dati grezzi h70 se vuoi eseguire la preanalisi.
+  preanalysis_dir: ../data/02_pre_analyzed  # Indica gli h80 già prodotti dalla preanalisi, prima della selezione; lascia preanalysis spento.
+  # selected:                         # Per usare h85 già selezionati, indica la loro cartella e spegni selection per quel profilo.
+  #   uv: ../data/external/selected/uv
+  #   vis: ../data/external/selected/vis
+  # mc:                               # Per usare simulazioni già disponibili, indica la loro cartella e spegni monte_carlo per quel profilo.
+  #   uv: ../data/external/mc/uv
+  #   vis: ../data/external/mc/vis
+  # bdt:                              # Per usare un BDT già addestrato, indica la cartella artifacts/stage1 del modello e spegni bdt per quel profilo.
+  #   uv: ../data/external/bdt/uv
+  #   vis: ../data/external/bdt/vis
+  # calibration:                      # Per riusare il flusso calibrato, indica sia il ROOT sia il file QA dei controlli e spegni calibration.
+  #   root: ../data/external/flux_calibrated.root
+  #   qa: ../data/external/flux_calibrated.qa.json
+  # reconstruction:                   # Per usare eventi già ricostruiti, indica entrambi i ROOT e spegni reconstruction per quel profilo.
+  #   uv:
+  #     chi2: ../data/external/uv/reco_eta_pi0_chi2.root
+  #     bdt: ../data/external/uv/reco_eta_pi0_bdt.root
+  #   vis:
+  #     chi2: ../data/external/vis/reco_eta_pi0_chi2.root
+  #     bdt: ../data/external/vis/reco_eta_pi0_bdt.root
+  # extraction:                       # Per confrontare asimmetrie già estratte, indica i ROOT finali e spegni extraction per quel profilo.
+  #   uv: ../data/external/uv/beam_asymmetry.root
+  #   vis: ../data/external/vis/beam_asymmetry.root
+
+profiles:
+  uv:
+    enabled: true                      # Se true, analizza i dati UV usando gli stage che hai abilitato.
+    # Per dividere ogni intervallo UV in due, usa al posto della riga attiva:
+    # energy_edges_gev: [1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50]
+    # Per il precedente preset UV a bassa energia, usa:
+    # energy_edges_gev: [0.9313, 1.10]
+    energy_edges_gev: [1.10, 1.20, 1.30, 1.40, 1.50]  # Ogni coppia di valori consecutivi definisce un intervallo di energia, in GeV.
+  vis:
+    enabled: true                      # Se true, analizza i dati VIS usando gli stage che hai abilitato.
+    # Per dividere l’intervallo VIS in due, usa al posto della riga attiva:
+    # energy_edges_gev: [0.9313, 1.01565, 1.10]
+    energy_edges_gev: [0.9313, 1.10]      # Questi due valori definiscono un unico intervallo di energia, in GeV.
+
+stages:
+  # Alcuni stage, come preanalysis e calibration, si eseguono una sola volta: scrivi le opzioni direttamente nella loro sezione.
+  preanalysis:
+    enabled: false                    # Se true, trasforma i dati grezzi h70 in nuovi file h80; se false, salta questa operazione.
+    # output_dir: ../data/02_pre_analyzed_new  # Scegli una cartella che non esiste ancora per i nuovi h80, separata dai dati grezzi.
+    # cuts_dir: ../config/my-period-cuts      # Indica tagli del rivelatore diversi da quelli standard per periodo; se omesso, usa 01_pre_analysis/cuts.
+
+  # Negli stage per profilo, common vale per UV e VIS; uv e vis cambiano solo le opzioni del rispettivo profilo.
+  # Le opzioni passate da terminale prevalgono sul file; --set viene applicato per ultimo.
+  # Puoi usare force solo per selection, monte_carlo e bdt. Se lo stage è spento, force deve restare false.
+  selection:
+    common:
+      enabled: true                  # Se true, esegue questo stage per i profili abilitati; se false, lo salta.
+      force: false                   # Se true, rifà il calcolo anche con una cache valida; se false, può riusare la cache compatibile secondo la modalità scelta.
+      require_current_preanalysis: false  # Se true, richiede h80 con provenienza dei dati grezzi e registrazione degli eventi scartati senza tagger.
+    uv:
+      pattern: 'pre_analisi_*uv*.root' # Seleziona gli h80 i cui nomi corrispondono a questo schema; * indica qualsiasi sequenza di caratteri.
+    vis:
+      pattern: 'pre_analisi_*vis*.root' # Seleziona gli h80 con vis nel nome; * indica qualsiasi sequenza di caratteri.
+
+  monte_carlo:
+    common:
+      enabled: true                  # Se true, esegue questo stage per i profili abilitati; se false, lo salta.
+      force: false                   # Se true, rifà il calcolo anche con una cache valida; se false, può riusare la cache compatibile secondo la modalità scelta.
+      # events_per_channel: 1000000   # Scegli quanti eventi MC generare per canale; se omesso, usa 1000000 in production e 100000 in test_data.
+      # Per scegliere i canali, aggiungi channels in uv o vis: la tua lista sostituisce quella automatica e deve rispettare le soglie fisiche.
+    uv: {}
+    vis: {}
+    # Per personalizzare UV, puoi sostituire uv: {} con questo esempio togliendo i #:
+    # uv:
+    #   events_per_channel: 200000
+    #   channels: [eta_pi0, pi0pi0, '3pi0', eta_2pi0, omega_pi0, etaprime,
+    #              eta_via_3pi0, '4pi0', eta_pi0_via_3pi0]
+    # Se non indichi channels per VIS, la lista di partenza è: [eta_pi0, pi0pi0, '3pi0', eta_via_3pi0, '4pi0', eta_pi0_via_3pi0].
+    # Se non indichi channels, la pipeline tiene solo i canali producibili nell’intervallo energetico scelto.
+
+  bdt:
+    common:
+      enabled: true                  # Se true, esegue questo stage per i profili abilitati; se false, lo salta.
+      force: false                   # Se true, rifà il calcolo anche con una cache valida; se false, può riusare la cache compatibile secondo la modalità scelta.
+      # hyperparams: ../04_bdt_training/artifacts/stage1/best_hyperparams.json  # Indica un JSON diverso per cambiare le impostazioni del modello; se omesso, usa questo file.
+      validation_fraction: 0.2       # Riserva questa frazione degli esempi alla validazione del BDT: 0.2 significa 20%; deve essere tra 0 e 1.
+      training_seed: 42             # Fissa la casualità della divisione dei dati e del training BDT, separatamente dal seed del MC.
+      feature_diagnostics: false    # Se true, salva anche grafici e file di controllo delle 26 variabili usate dal BDT.
+    uv: {}
+    vis: {}
+
+  reconstruction:
+    common:
+      enabled: true                  # Se true, ricostruisce gli eventi sia con il solo chi2 sia con BDT seguito da chi2.
+      chi2_cut: 10.0                 # Accetta solo gli abbinamenti dei fotoni con chi2 inferiore a questo valore.
+      missing_mass_window_gev: 0.06 # Accetta una massa mancante entro ± questo valore, in GeV, rispetto alla massa del protone.
+    uv: {}
+    vis: {}
+
+  calibration:
+    enabled: true                   # Se true, calibra il flusso una volta per tutti i profili; servono gli h80 prima della selezione.
+    # common_inputs: ../config/support/common_inputs.json  # Questo file indica flusso grezzo, catalogo dei run ed esclusioni, con le informazioni per verificarne l’integrità.
+    min_events_per_strip: 1          # Richiede almeno questo numero di eventi per calibrare una strip del tagger.
+    max_mad_gev: 0.005               # Rifiuta una strip se la dispersione delle energie, misurata con la deviazione assoluta mediana (MAD), supera questo valore in GeV.
+    monotonic_tolerance_gev: 0.002   # Ammette deviazioni fino a questo valore, in GeV, nell’ordinamento delle energie delle strip; puoi impostare 0.
+    samples_per_run_strip: 256       # Conserva al massimo questo numero di misure di energia per ogni coppia run/strip.
+
+  flux_study:
+    enabled: false                  # Se true, avvia lo studio dei flussi mancanti; i suoi risultati non sostituiscono automaticamente il flusso dell’analisi.
+    mode: audit                     # audit controlla i flussi; study studia anche il recupero di quelli mancanti. Per non eseguirlo, usa enabled: false.
+    # metadata: ../config/acquisition-conditions.json  # Indica qui le condizioni di acquisizione e le esposizioni indipendenti da usare nello studio.
+
+  extraction:
+    common:
+      enabled: true                  # Se true, calcola l’asimmetria del fascio e le covarianze dai due campioni ricostruiti.
+      estimator: both               # Scegli ratio o likelihood per usare un solo metodo di estrazione, both per usarli entrambi.
+      phi_bins: 12                   # Divide l’angolo azimutale da 0 a 2π in questo numero di intervalli uguali; puoi scegliere 8, 12 o 16.
+      best_binning: false           # Se true, prova 8, 12 e 16 intervalli e sceglie il fit per ciascun punto ratio, invece di usare solo phi_bins.
+      mass_bins: 10                 # Divide ciascuna distribuzione di massa p-eta, p-pi0 ed eta-pi0 in questo numero di intervalli.
+      by_period: true               # Se true, esegue l’estrazione per ogni periodo del catalogo e anche sull’insieme dei periodi.
+      workers: 1                    # Scegli quanti processi possono eseguire fit e repliche in parallelo; non può superare execution.cpus.
+      bootstrap_replicas: 0          # Imposta quante repliche bootstrap usare per stimare le incertezze; con 0 non esegue il bootstrap.
+      bootstrap_seed: 1208           # Fissa la casualità dei ricampionamenti bootstrap, così puoi ripetere la stessa scelta dei campioni.
+      candle_enabled: true          # Se true, confronta eventi vicini ai picchi di massa (core) ed eventi nelle code (tails), usando campioni della stessa dimensione.
+      candle_mass_half_width_gev: 0.05  # Un evento è nel core se entrambe le masse eta e pi0, prima del fit, distano dai valori nominali al massimo questa quantità in GeV.
+      candle_balance_seed: 20261024  # Fissa quali eventi del core vengono estratti casualmente per ottenere lo stesso numero di eventi delle code.
+    uv: {}
+    vis: {}
+
+  plots:
+    common:
+      enabled: true                 # Se true, crea i grafici dai due campioni ricostruiti; non serve eseguire extraction.
+      mass: true                     # Se true, disegna le distribuzioni delle masse eta e pi0 e le loro correlazioni dopo la selezione.
+      quality_controls: true         # Se true, disegna i controlli cinematici e adatta una gaussiana al picco eta per verificarne posizione e larghezza.
+      dalitz: false                  # Se true, disegna le masse di coppia e controlla la relazione cinematica di Dalitz.
+    uv: {}
+    vis: {}
+
+  comparison:
+    enabled: true                   # Se true, confronta le estrazioni UV e VIS; entrambi i profili devono essere attivi e avere impostazioni compatibili.
+    # published_reference: ../08_observable_extraction/references/ajaka2008_figure4_digitized.csv  # Per confrontare con un altro riferimento pubblicato, indica il suo CSV; se omesso, usa questo.

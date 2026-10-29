@@ -1,4 +1,4 @@
-"""Compose UV and VIS beam-asymmetry ROOT outputs into five-row figures."""
+"""Compare UV and VIS beam asymmetries with the matching Ajaka intervals."""
 
 from __future__ import annotations
 
@@ -21,11 +21,9 @@ from observable_extraction.plotting.candle import (
     write_candle_comparison_pdf,
 )
 from observable_extraction.plotting.figure4 import (
-    combined_energy_rows,
     profile_energy_rows,
     load_published_points,
     write_profile_figure4_comparison_pdf,
-    write_profile_figure4_pdf,
 )
 
 AJAKA_REFERENCE = (
@@ -41,12 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--uv-root",
         type=Path,
-        default=PRODUCTION_ROOT / "uv/beam_asymmetry/beam_asymmetry.root",
+        default=PRODUCTION_ROOT / "root/uv/beam_asymmetry/beam_asymmetry.root",
     )
     parser.add_argument(
         "--vis-root",
         type=Path,
-        default=PRODUCTION_ROOT / "vis/beam_asymmetry/beam_asymmetry.root",
+        default=PRODUCTION_ROOT / "root/vis/beam_asymmetry/beam_asymmetry.root",
     )
     parser.add_argument(
         "--published-csv",
@@ -56,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PRODUCTION_ROOT / "common/plots",
+        default=PRODUCTION_ROOT / "plots/common",
     )
     return parser
 
@@ -201,16 +199,19 @@ def run(args: argparse.Namespace) -> int:
     published = load_published_points(args.published_csv)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    write_profile_figure4_pdf(
-        args.output_dir / "figure4_experimental.pdf",
-        points_by_profile,
-        rows,
-    )
     write_profile_figure4_comparison_pdf(
-        args.output_dir / "figure4_comparison_ajaka2008.pdf",
+        args.output_dir / "asymmetry_comparison.pdf",
         points_by_profile,
         published,
         rows,
+        overlay_profiles=True,
+    )
+    write_profile_figure4_comparison_pdf(
+        args.output_dir / "asymmetry_uv_ajaka.pdf",
+        {"uv": uv_points},
+        published,
+        profile_energy_rows("uv", uv_contract.energy_edges_gev),
+        overlay_profiles=True,
     )
     write_profile_estimator_comparison_pdf(
         args.output_dir / "comparison_estimators.pdf",

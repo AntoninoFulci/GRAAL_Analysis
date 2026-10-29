@@ -16,7 +16,7 @@ For a farm installation, choose the interpreter and external raw-data location:
 
 Setup defaults to a venv with system site packages. The optional `--install user` uses the selected base Python and leaves an existing venv alone; it requires an enabled user site and a Python installation that permits user installs. Setup refuses mismatched data links. Run `./scripts/setup.sh --help` for supported options.
 
-Production h80 files belong under `data/02_pre_analyzed/`; external raw flux is `data/00_external/flux.root`. The common manifest [config/common_inputs.json](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/common_inputs.json) authenticates the curated run catalog, quality policy, and raw flux. Missing files or digest mismatches must be resolved before a campaign.
+Production h80 files belong under `data/02_pre_analyzed/`; external raw flux is `data/00_external/flux.root`. The common manifest [config/support/common_inputs.json](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/support/common_inputs.json) authenticates the curated run catalog, quality policy, and raw flux. Missing files or digest mismatches must be resolved before a campaign.
 
 The reduced UV+VIS cohort in `data_test/sample/` is immutable diagnostic input. It is not a production normalization sample. The cohort was deleted during the 24 October 2026 cleanup; a separately requested rebuild and manifest validation are required first (see [local availability](data-and-artifacts#local-availability-after-cleanup)). Once available, start its campaign with:
 

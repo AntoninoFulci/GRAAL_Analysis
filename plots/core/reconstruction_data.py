@@ -35,6 +35,7 @@ class ReconstructionArrays:
     beam_energy: np.ndarray
     w: np.ndarray
     run_numbers: np.ndarray | None
+    quality: Mapping[str, np.ndarray]
 
     def as_dict(self) -> dict[str, np.ndarray | bool]:
         """Return legacy dictionary shape used by older plotting callers."""
@@ -95,6 +96,8 @@ def collect(tree) -> ReconstructionArrays:
     pair_s = {mode: {name: [] for name in pair_raw} for mode in ("meas", "miss")}
     residual = {mode: [] for mode in pair_s}
     beam_energy, w, runs = [], [], []
+    quality = {name: [] for name in ('proton_theta_deg', 'theta_missing_proton_deg',
+                                     'coplanarity_deg', 'missing_mass_gev')}
 
     for event in tree:
         eta = as_array(event.eta)
@@ -103,6 +106,8 @@ def collect(tree) -> ReconstructionArrays:
         beam = as_array(event.beam)
         target = as_array(event.target)
         missing = as_array(event.missing)
+        for name, value in kin.quality_observables(proton, missing, beam, target, eta, pi0).items():
+            quality[name].append(value)
 
         for mode, recoil in (("meas", proton), ("miss", missing)):
             squares = kin.dalitz_invariants(recoil, eta, pi0)
@@ -149,6 +154,7 @@ def collect(tree) -> ReconstructionArrays:
         beam_energy=np.array(beam_energy),
         w=np.array(w),
         run_numbers=np.array(runs, dtype=np.int64) if "RunNumber" in branches else None,
+        quality={name: np.asarray(values) for name, values in quality.items()},
     )
 
 

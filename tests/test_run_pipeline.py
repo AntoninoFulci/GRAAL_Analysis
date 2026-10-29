@@ -36,10 +36,10 @@ def test_output_override_replaces_only_output_root(tmp_path):
     assert paths.output_root == tmp_path / "campaign 01"
     assert paths.preanalysis_dir == config.preanalysis_dir
     assert paths.calibrated_flux == (
-        tmp_path / "campaign 01/common/flux_calibrated.root"
+        tmp_path / "campaign 01/root/common/flux_calibrated.root"
     )
-    assert paths.profile_root("uv") == tmp_path / "campaign 01/uv"
-    assert paths.profile_root("vis") == tmp_path / "campaign 01/vis"
+    assert paths.profile_root("uv") == tmp_path / "campaign 01/root/uv"
+    assert paths.profile_root("vis") == tmp_path / "campaign 01/root/vis"
 
 
 def _touch(path: Path) -> None:
@@ -53,14 +53,14 @@ def _valid_preflight_tree(tmp_path: Path):
     for path in workflow_paths.required_repository_files(paths):
         _touch(path)
     from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
-    (tmp_path / "config/run_quality_exclusions.json").write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
+    (tmp_path / "config/support/run_quality_exclusions.json").write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
     import json
     from calibration.calibration_qa import sha256_file
     from calibration.run_manifest import RunRecord, write_manifest
     write_manifest([RunRecord(1, 'fixture_uv', 'P', 'UV', 'P_UV', 'manual', 'fixture_uv/run1.root')], paths.manifest)
     references = {name: dict(root='checkout', path=str(path.relative_to(tmp_path)), sha256=sha256_file(path))
                   for name, path in {'run_catalog': paths.manifest, 'run_quality': paths.quality_path, 'raw_flux': paths.raw_flux}.items()}
-    (tmp_path / 'config/common_inputs.json').write_text(json.dumps(dict(schema_version=1, inputs=references,
+    (tmp_path / 'config/support/common_inputs.json').write_text(json.dumps(dict(schema_version=1, inputs=references,
         bundles=dict(calibration=dict(root='cache', path='06_calibration', schema_version=1), inclusive_counts={}))))
     for profile in ("uv", "vis"):
         root = paths.preanalysis_dir / f"pre_analisi_1998_{profile}.root"
@@ -300,7 +300,7 @@ def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     assert sum(stage.name.endswith(":extract") for stage in stages) == 2
     calibration = stages[0].argv
     assert "--output" not in calibration
-    assert calibration[calibration.index("--output-dir") + 1] == str(paths.output_root / "common")
+    assert calibration[calibration.index("--output-dir") + 1] == str(paths.calibrated_flux.parent)
     assert calibration[calibration.index("--cache-root") + 1] == str(paths.artifact_root / "06_calibration")
     assert calibration[calibration.index("--cache-scope") + 1] == "diagnostic"
     assert calibration[calibration.index("--target") + 1] == "P"
@@ -308,7 +308,7 @@ def test_plan_calibrates_once_then_runs_uv_vis_and_combines(tmp_path):
     assert uv_extract[uv_extract.index("--bootstrap-replicas") + 1] == "0"
     assert str(paths.calibrated_flux) in _stage(stages, "uv:extract").argv
     assert str(paths.calibrated_flux) in _stage(stages, "vis:extract").argv
-    assert str(paths.profile_root("uv") / "plots") in _stage(stages, "uv:extract").argv
+    assert str(paths.output_root / "plots/uv") in _stage(stages, "uv:extract").argv
     assert _stage(stages, "campaign:plots").argv[-2:] == ("--published-csv", str(paths.ajaka_reference))
     assert stages.index(_stage(stages, "uv:extract")) < stages.index(
         _stage(stages, "vis:select")
@@ -371,7 +371,7 @@ def test_intermediates_live_under_mode_data_root(tmp_path, mode, root):
         assert paths.selected_dir(profile) == tmp_path / root / "03_selected" / profile
         assert paths.mc_dir(profile) == tmp_path / root / "04_mc" / profile
         assert paths.bdt_dir(profile) == tmp_path / root / "05_bdt" / profile
-    assert paths.combined_dir == paths.output_root / "common/plots"
+    assert paths.combined_dir == paths.output_root / "plots/common"
 
 
 def test_root_macro_argument_preserves_spaces_and_rejects_metacharacters(tmp_path):
@@ -592,8 +592,8 @@ def test_cached_stage_skips_valid_output_and_force_rebuilds(tmp_path):
 def test_production_selection_reuses_across_campaigns_and_force_rebuilds(tmp_path):
     from dataclasses import replace
     from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
-    policy = tmp_path / "config/run_quality_exclusions.json"
-    policy.parent.mkdir()
+    policy = tmp_path / "config/support/run_quality_exclusions.json"
+    policy.parent.mkdir(parents=True)
     policy.write_bytes(DEFAULT_RUN_QUALITY_PATH.read_bytes())
     config = workflow_paths.mode_config("production", tmp_path)
     inputs = []
@@ -620,8 +620,8 @@ def test_production_selection_reuses_across_campaigns_and_force_rebuilds(tmp_pat
         group = models.ArtifactGroup("selected", "uv", (replace(stage, kind="select", profile="uv"),), paths.selected_dir("uv"))
         execution.execute_cached_plan((group,), config, paths, force_selected=force, runner=runner)
     assert len(calls) == 2
-    assert "SKIP" in (tmp_path / "results/second/pipeline_commands.log").read_text()
-    assert "RUN" in (tmp_path / "results/forced/pipeline_commands.log").read_text()
+    assert "SKIP" in (tmp_path / "results/second/metadata/pipeline_commands.log").read_text()
+    assert "RUN" in (tmp_path / "results/forced/metadata/pipeline_commands.log").read_text()
 
 
 def test_failed_rebuild_preserves_last_valid_selected_directory(tmp_path):
@@ -915,6 +915,7 @@ def test_failed_test_campaign_restores_previous_outputs_and_inputs(tmp_path, mon
     paths = workflow_paths.build_paths(config)
     paths.output_root.mkdir(parents=True)
     (paths.output_root / 'valid.txt').write_text('previous result')
+    paths.command_log.parent.mkdir(parents=True, exist_ok=True)
     paths.command_log.write_text('previous command log')
     paths.preanalysis_dir.mkdir(parents=True)
     source = paths.preanalysis_dir / 'input.root'; source.write_bytes(b'original')
@@ -949,6 +950,7 @@ def test_shared_test_namespaces_are_preserved_before_replacement(tmp_path, name)
     sentinel.write_bytes(b'irreplaceable scientific evidence')
     if name == 'archive':
         # A log inside the reserved archive cannot turn it into a campaign.
+        paths.command_log.parent.mkdir(parents=True, exist_ok=True)
         paths.command_log.write_text('historical log')
     with pytest.raises(models.PipelineError):
         with workflow_paths._replace_test_output(paths):
@@ -992,7 +994,7 @@ def test_configured_policy_is_exact_extraction_and_provenance_input(tmp_path):
 def test_common_cache_reference_uses_test_campaign_root_during_planning(tmp_path):
     import json
     config, original = _valid_preflight_tree(tmp_path)
-    common_path = tmp_path / 'config/common_inputs.json'
+    common_path = tmp_path / 'config/support/common_inputs.json'
     common = json.loads(common_path.read_text())
     common['inputs']['raw_flux'].update(root='cache', path='raw/flux.root')
     common_path.write_text(json.dumps(common))

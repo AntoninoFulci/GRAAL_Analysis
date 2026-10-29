@@ -14,9 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_canonical_common_inputs_validate_without_loading_optional_local_counts(tmp_path):
     common = load_common_inputs(ROOT)
-    assert common['inputs']['run_catalog'] == ROOT / 'config/run_manifest.csv'
-    assert common['inputs']['run_quality'] == ROOT / 'config/run_quality_exclusions.json'
+    assert common['inputs']['run_catalog'] == ROOT / 'config/support/run_manifest.csv'
+    assert common['inputs']['run_quality'] == ROOT / 'config/support/run_quality_exclusions.json'
     assert common['inputs']['raw_flux'] == ROOT / 'data/00_external/flux.root'
+    assert common_counts_path(common, 'local_1998uv_1999vis') == ROOT / 'data_test/reference/inclusive_counts_local_1998uv_1999vis.json'
     with pytest.raises(ValueError, match='diagnostic'):
         common_counts_path(common, 'local_1998uv_1999vis', production=True)
 
@@ -28,7 +29,7 @@ def test_reference_cannot_escape_declared_root(tmp_path, path):
 
 
 def test_common_identity_mismatch_and_duplicate_keys_rejected(tmp_path):
-    data = json.loads((ROOT / 'config/common_inputs.json').read_text())
+    data = json.loads((ROOT / 'config/support/common_inputs.json').read_text())
     data['inputs']['raw_flux']['sha256'] = '0'*64
     path = tmp_path / 'common.json'; path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match='identity mismatch'):
@@ -40,7 +41,7 @@ def test_common_identity_mismatch_and_duplicate_keys_rejected(tmp_path):
 
 def test_scanner_never_overwrites_manual_catalog(tmp_path):
     catalog = tmp_path / 'catalog.csv'
-    shutil.copyfile(ROOT / 'config/run_manifest.csv', catalog)
+    shutil.copyfile(ROOT / 'config/support/run_manifest.csv', catalog)
     digest = sha256_file(catalog)
     result = subprocess.run([sys.executable, '-B', str(ROOT / '06_calibration/build_run_manifest.py'),
         '--input-dir', str(tmp_path), '--output', str(catalog)], capture_output=True, text=True)

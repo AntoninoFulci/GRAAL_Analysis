@@ -12,7 +12,7 @@ from calibration.run_manifest import validate_manifest
 from reconstruction.runtime.provenance import file_identities, validate_reconstruction_selection
 from plots.core import kinematics as kin
 
-DEFAULT_MANIFEST = Path(__file__).resolve().parents[2] / 'config/run_manifest.csv'
+DEFAULT_MANIFEST = Path(__file__).resolve().parents[2] / 'config/support/run_manifest.csv'
 
 
 def read_provenance(source, tree) -> dict:
@@ -61,7 +61,8 @@ def build_metadata(args, samples: dict, provenance: dict, comparison: str, comma
         'source_files': file_identities([repo/'plots/dalitz.py', Path(__file__),
                                          repo/'plots/core/kinematics.py',
                                          repo/'plots/core/reconstruction_data.py',
-                                         repo/'00_common/physics/channels.py']),
+                                         repo/'00_common/physics/channels.py',
+                                         repo/'plots/quality.py']),
         'versions': {'python': sys.version, 'numpy': np.__version__, 'ROOT': ROOT.gROOT.GetVersion()},
         'manifest': file_identities([manifest])[0] if manifest.is_file() else None,
         'masses_gev': {'proton': kin.M_PROTON, 'eta': kin.M_ETA, 'pi0': kin.M_PI0},

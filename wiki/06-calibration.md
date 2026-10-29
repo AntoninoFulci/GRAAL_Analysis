@@ -1,8 +1,8 @@
 # Stage 06: measured calibration
 
-[run_manifest.py](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration/run_manifest.py) validates the curated run catalog. `build_run_manifest.py --validate config/run_manifest.csv` checks it. Scanning inputs may create a new candidate catalog, but cannot infer all manual classifications and refuses to overwrite an existing catalog.
+[run_manifest.py](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration/run_manifest.py) validates the curated run catalog. `build_run_manifest.py --validate config/support/run_manifest.csv` checks it. Scanning inputs may create a new candidate catalog, but cannot infer all manual classifications and refuses to overwrite an existing catalog.
 
-The [common input loader](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration/common_inputs.py) validates `config/common_inputs.json`, the manual catalog, frozen quality policy and raw flux identities. The native producer calibrates strip-to-energy on inclusive h80, joins measured run/state flux and writes a calibrated ROOT/QA pair. Numerical calibration, native production, inspection and QA have separate public owners under [06_calibration](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration).
+The [common input loader](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration/common_inputs.py) validates `config/support/common_inputs.json`, the manual catalog, frozen quality policy and raw flux identities. The native producer calibrates strip-to-energy on inclusive h80, joins measured run/state flux and writes a calibrated ROOT/QA pair. Numerical calibration, native production, inspection and QA have separate public owners under [06_calibration](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/06_calibration).
 
 `build_strip_energy_flux.py --help` documents the producer interface. The workflow owns explicit input/output paths; do not use a selected-event cohort as a substitute for inclusive calibration. Energy-axis interpolation/extrapolation within a calibration is distinct from inventing a missing flux histogram.
 

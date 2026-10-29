@@ -40,3 +40,11 @@ graphify-out/
 
 /results_test/
 /data_test/
+docs/reference/fortran/prog
+
+# Preserve the small diagnostic count reference after moving it out of config.
+!/data_test/
+/data_test/*
+!/data_test/reference/
+/data_test/reference/*
+!/data_test/reference/inclusive_counts_local_1998uv_1999vis.json

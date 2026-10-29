@@ -22,14 +22,14 @@ printf 'Stage %s started at %s\n' "$stage" "$(date -u +%FT%TZ)"
 case "$stage" in
     prepare)
         "$python_bin" -u -m flux_studies.prepare_native_recovery \
-            --manifest "$source_dir/config/run_manifest.csv" \
+            --manifest "$source_dir/config/support/run_manifest.csv" \
             --raw-flux "$study_dir/flux.root" \
             --calibrated-flux "$campaign_dir/common/flux_calibrated.root" \
             --h80-dir "$h80_dir" --output-dir "$study_dir/prepared" --seed 142
         ;;
     realistic)
         "$python_bin" -u -m flux_studies.study_native_recovery \
-            --manifest "$source_dir/config/run_manifest.csv" \
+            --manifest "$source_dir/config/support/run_manifest.csv" \
             --raw-flux "$study_dir/flux.root" \
             --calibrated-flux "$campaign_dir/common/flux_calibrated.root" \
             --counts-cache "$study_dir/prepared/h80_counts.json" \
@@ -42,7 +42,7 @@ case "$stage" in
         ;;
     block3)
         "$python_bin" -u -m flux_studies.study_calibrated_neighbors \
-            --manifest "$source_dir/config/run_manifest.csv" \
+            --manifest "$source_dir/config/support/run_manifest.csv" \
             --raw-flux "$study_dir/flux.root" \
             --calibrated-flux "$campaign_dir/common/flux_calibrated.root" \
             --counts-cache "$study_dir/prepared/h80_counts.json" \

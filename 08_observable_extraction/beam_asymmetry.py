@@ -36,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--run-manifest",
         type=Path,
-        default=Path("config/run_manifest.csv"),
+        default=Path("config/support/run_manifest.csv"),
     )
     parser.add_argument("--run-quality", type=Path, default=DEFAULT_RUN_QUALITY_PATH,
                         help="explicit frozen run-quality policy JSON")

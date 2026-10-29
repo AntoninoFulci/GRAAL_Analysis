@@ -111,7 +111,7 @@ def _write_benchmark(directory, dataset, studies, *, sources):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--manifest', type=Path, default=Path('config/run_manifest.csv'))
+    parser.add_argument('--manifest', type=Path, default=Path('config/support/run_manifest.csv'))
     parser.add_argument('--calibrated-flux', type=Path, required=True)
     parser.add_argument('--representation', choices=('common_energy', 'native_strip'), default='common_energy')
     parser.add_argument('--raw-flux', type=Path, default=Path('data/00_external/flux.root'),

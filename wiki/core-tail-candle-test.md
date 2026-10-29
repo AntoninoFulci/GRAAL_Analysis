@@ -21,12 +21,12 @@ For a standalone Stage-08 rerun, add both options to the usual extraction comman
 
 ```bash
 python 08_observable_extraction/beam_asymmetry.py \
-  --raw results/my-campaign/vis/reco/reco_eta_pi0_chi2.root \
-  --raw-bdt results/my-campaign/vis/reco/reco_eta_pi0_bdt.root \
+  --raw results/my-campaign/root/vis/reco/reco_eta_pi0_chi2.root \
+  --raw-bdt results/my-campaign/root/vis/reco/reco_eta_pi0_bdt.root \
   --profile vis \
-  --flux-file results/my-campaign/common/flux_calibrated.root \
-  --run-manifest config/run_manifest.csv \
-  --run-quality config/run_quality_exclusions.json \
+  --flux-file results/my-campaign/root/common/flux_calibrated.root \
+  --run-manifest config/support/run_manifest.csv \
+  --run-quality config/support/run_quality_exclusions.json \
   --output-dir results_test/vis-candle/beam_asymmetry \
   --estimator both \
   --candle-mass-half-width 0.05 \

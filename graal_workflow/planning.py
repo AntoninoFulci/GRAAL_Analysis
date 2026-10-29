@@ -67,12 +67,14 @@ def _profile_stages(
     python: str,
     phi_bins: int,
     energy_binning: EnergyBinning | None = None,
+    *,
+    require_mc_support: bool = True,
 ) -> list[Stage | ArtifactGroup]:
     profile = get_beam_profile(profile_name)
     grid = (energy_binning or EnergyBinning(profile.energy_edges_gev)).validate_profile(profile)
     channels = tuple(name for name in channels
                      if get_channel(name).production_threshold_gev < grid.energy_range_gev[1])
-    if "eta_pi0" not in channels:
+    if require_mc_support and "eta_pi0" not in channels:
         raise PipelineError("energy range has no on-shell eta_pi0 MC support")
     root = paths.profile_root(profile_name)
     selected = paths.selected_dir(profile_name)
@@ -252,7 +254,7 @@ def _profile_stages(
                     "--output-dir",
                     asymmetry,
                     "--plots-dir",
-                    root / "plots",
+                    paths.output_root / "plots" / profile_name,
                     "--estimator",
                     "both",
                     "--phi-bins",
