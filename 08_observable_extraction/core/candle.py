@@ -96,7 +96,9 @@ def fit_mass_resolution(
     bin_width = float(edges[1] - edges[0])
     background_guess = float(np.percentile(counts, 20.0))
     amplitude_guess = max(float(np.max(counts)) - background_guess, 1.0)
-    mean_guess = float(bin_centers[int(np.argmax(counts))])
+    # The global maximum may belong to a sloped background near a fit-range
+    # edge.  The physical mass is always feasible for the bounded peak mean.
+    mean_guess = center
     sigma_guess = half_range / 6.0
     slope_limit = max(float(np.max(counts)), 1.0) * 10.0 / half_range
 

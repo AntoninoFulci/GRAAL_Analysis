@@ -57,6 +57,9 @@ def test_candle_mass_plane_uses_finite_raw_arrays_and_exact_axis_aligned_ellipse
     assert ellipse.width == pytest.approx(2.0 * 1.2 * 0.012)
     assert ellipse.height == pytest.approx(2.0 * 1.2 * 0.006)
     assert ellipse.angle == 0.0
+    assert [text.get_text() for text in axis.get_legend().get_texts()] == [
+        "Core ellipse"
+    ]
     annotation = "\n".join(text.get_text() for text in axis.texts)
     assert "Baseline: 4" in annotation
     assert "Core: 1" in annotation

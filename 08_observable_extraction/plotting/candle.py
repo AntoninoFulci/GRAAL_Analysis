@@ -97,7 +97,7 @@ def build_candle_mass_plane(
         fill=False,
         edgecolor="tab:red",
         linewidth=1.8,
-        label="Candle 50/50 ellipse",
+        label="Core ellipse",
     ))
     axis.autoscale(enable=True, axis="both", tight=False)
     axis.text(

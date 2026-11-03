@@ -79,6 +79,26 @@ def test_mass_resolution_fit_rejects_flat_spectrum_without_peak():
         )
 
 
+def test_mass_resolution_fit_initializes_peak_inside_bounds_with_sloped_background():
+    edges = np.linspace(M_ETA - 0.080, M_ETA + 0.080, 81)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    counts = np.rint(
+        300.0 * np.exp(-0.5 * np.square((centers - M_ETA) / 0.012))
+        + 1_000.0
+        + 10_000.0 * (centers - M_ETA)
+    ).astype(np.int64)
+    masses = np.repeat(centers, counts)
+
+    result = fit_mass_resolution(
+        masses,
+        center_gev=M_ETA,
+        half_range_gev=0.080,
+    )
+
+    assert result.fitted_mean_gev == pytest.approx(M_ETA, abs=0.001)
+    assert result.sigma_gev == pytest.approx(0.012, rel=0.05)
+
+
 def _fixed_fits():
     return (
         MassResolutionFit(M_ETA, M_ETA, 0.010, 0.080),
