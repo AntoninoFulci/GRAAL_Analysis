@@ -196,12 +196,22 @@ def extraction_file(tmp_path, *, profile="uv", divisor=.9549, estimator="both", 
     output.cd()
     provenance = f"profile={profile}\nestimator={estimator}\nphi_bins=12\n" + (f"phi_bin_divisor={divisor}\n" if divisor is not None else "")
     if candle:
-        fields = dict(enabled="true", eta_center_gev=.547862, pi0_center_gev=.134977,
-                      mass_half_width_gev=.05, geometry="rectangular", core_logic="and",
-                      tail_logic="or_complement", boundary="inclusive", baseline_event_count=4,
-                      full_core_event_count=2, tail_event_count=2, balanced_core_event_count=2,
-                      excluded_nonfinite_event_count=0, balance_method="random_without_replacement",
-                      balance_seed=20261024, mass_source="raw_pre_fit")
+        fields = dict(
+            enabled="true",
+            eta_center_gev=.547862, eta_fitted_mean_gev=.548,
+            eta_sigma_gev=.012, eta_fit_half_range_gev=.08,
+            eta_fit_model="gaussian_plus_linear_background",
+            pi0_center_gev=.134977, pi0_fitted_mean_gev=.135,
+            pi0_sigma_gev=.006, pi0_fit_half_range_gev=.04,
+            pi0_fit_model="gaussian_plus_linear_background",
+            geometry="axis_aligned_ellipse", boundary="inclusive",
+            requested_core_fraction=.5, distance_threshold=1.44, scale_factor=1.2,
+            baseline_event_count=4, finite_event_count=4,
+            core_event_count=2, tail_event_count=2,
+            excluded_nonfinite_event_count=0,
+            quantile_method="midpoint_between_ordered_distances",
+            mass_source="raw_pre_fit",
+        )
         provenance += "".join(f"candle_{key}={value}\n" for key, value in fields.items())
     ROOT.TNamed("provenance", provenance).Write()
     # A certified non-estimable result is still a valid comparison input.
@@ -328,7 +338,7 @@ def test_published_calibration_receipt_still_enforces_diagnostic_scope(tmp_path,
 
 @pytest.mark.parametrize("key,value,candle", [
     ("candle_enabled", True, False), ("candle_enabled", False, True),
-    ("candle_mass_half_width_gev", .06, True), ("candle_balance_seed", 7, True),
+    ("candle_core_fraction", .4, True),
 ])
 def test_extraction_candle_settings_match_owner_contract(tmp_path, config, paths, key, value, candle):
     config["stages"]["extraction"]["uv"][key] = value

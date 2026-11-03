@@ -65,6 +65,7 @@ def test_yaml_and_cli_paths_have_distinct_origins(tmp_path, monkeypatch):
     ('profiles.vis.energy_edges_gev', [1.2, 1.5], 'profiles.vis.energy_edges_gev'),
     ('stages.reconstruction.common.chi2_cut', float('nan'), 'chi2_cut'),
     ('stages.bdt.common.validation_fraction', 1.0, 'validation_fraction'),
+    ('stages.extraction.common.candle_core_fraction', 1.0, 'candle_core_fraction'),
     ('stages.extraction.common.phi_bins', 7, 'phi_bins'),
     ('stages.selection.common.force', True, 'force'),
     ('stages.preanalysis.force', False, 'stages.preanalysis.force'),
@@ -188,7 +189,7 @@ def test_master_seed_zero_is_rejected_before_planning(tmp_path, capsys):
 
 
 @pytest.mark.parametrize('field,value', [('phi_bins', 8), ('best_binning', True),
-                                         ('candle_enabled', False), ('candle_mass_half_width_gev', 0.1)])
+                                         ('candle_enabled', False), ('candle_core_fraction', 0.4)])
 def test_comparison_requires_compatible_profile_definitions(tmp_path, capsys, field, value):
     values = configuration()
     values['stages']['comparison']['enabled'] = True
@@ -201,5 +202,5 @@ def test_comparison_requires_compatible_profile_definitions(tmp_path, capsys, fi
 def test_comparison_does_not_restrict_independent_mass_bins_or_seeds(tmp_path):
     values = configuration()
     values['stages']['comparison']['enabled'] = True
-    values['stages']['extraction']['uv'] = {'mass_bins': 20, 'bootstrap_seed': 1, 'candle_balance_seed': 2}
+    values['stages']['extraction']['uv'] = {'mass_bins': 20, 'bootstrap_seed': 1}
     assert parse_args([str(write_config(tmp_path, values))]).stage_configuration is not None

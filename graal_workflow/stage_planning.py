@@ -193,9 +193,10 @@ def build_stage_plan(configuration: StageConfiguration, *, repo_root: Path | Non
                 need(f'reconstruction.{profile}', 'calibration')
                 reco, calibration = products[f'reconstruction.{profile}'].value, products['calibration'].value
                 options = {key: value for key, value in cfg['extraction'].items()
-                           if key not in ('enabled', 'workers', 'candle_enabled', 'candle_mass_half_width_gev')}
+                           if key not in ('enabled', 'workers', 'candle_enabled', 'candle_core_fraction')}
                 entry = with_options(entry, raw=reco['chi2'], raw_bdt=reco['bdt'], flux_file=calibration['root'],
-                                     candle_mass_half_width=cfg['extraction']['candle_mass_half_width_gev'] if cfg['extraction']['candle_enabled'] else None,
+                                     candle_core_fraction=(cfg['extraction']['candle_core_fraction']
+                                                           if cfg['extraction']['candle_enabled'] else None),
                                      **options)
                 add(entry, f'reconstruction.{profile}', 'calibration')
         if on('plots', profile):

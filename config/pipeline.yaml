@@ -137,9 +137,8 @@ stages:
       workers: 1                    # Scegli quanti processi possono eseguire fit e repliche in parallelo; non può superare execution.cpus.
       bootstrap_replicas: 0          # Imposta quante repliche bootstrap usare per stimare le incertezze; con 0 non esegue il bootstrap.
       bootstrap_seed: 1208           # Fissa la casualità dei ricampionamenti bootstrap, così puoi ripetere la stessa scelta dei campioni.
-      candle_enabled: true          # Se true, confronta eventi vicini ai picchi di massa (core) ed eventi nelle code (tails), usando campioni della stessa dimensione.
-      candle_mass_half_width_gev: 0.05  # Un evento è nel core se entrambe le masse eta e pi0, prima del fit, distano dai valori nominali al massimo questa quantità in GeV.
-      candle_balance_seed: 20261024  # Fissa quali eventi del core vengono estratti casualmente per ottenere lo stesso numero di eventi delle code.
+      candle_enabled: true          # Se true, confronta il core ellittico delle masse eta/pi0 con la sua coda complementare.
+      candle_core_fraction: 0.5     # La scala comune dell'ellisse viene ricavata dai dati per contenere questa frazione degli eventi finiti.
     uv: {}
     vis: {}
 

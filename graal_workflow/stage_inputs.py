@@ -292,10 +292,13 @@ def _extraction(path, config, profile):
     if "candle_enabled" in options:
         _match(f"stages.extraction.{profile}.candle_enabled", options["candle_enabled"], contract.candle is not None)
     if contract.candle is not None:
-        for key, recorded in (("candle_mass_half_width_gev", contract.candle.mass_half_width_gev),
-                              ("candle_balance_seed", contract.candle.balance_seed)):
-            if key in options:
-                _match(f"stages.extraction.{profile}.{key}", options[key], recorded)
+        key = "candle_core_fraction"
+        if key in options:
+            _match(
+                f"stages.extraction.{profile}.{key}",
+                options[key],
+                contract.candle.requested_core_fraction,
+            )
     _match("extraction.profile", profile, contract.profile)
     _match(f"profiles.{profile}.energy_edges_gev", _edges(config, profile), contract.energy_edges_gev)
     _match(f"stages.extraction.{profile}.best_binning", options.get("best_binning", False), contract.best_binning)

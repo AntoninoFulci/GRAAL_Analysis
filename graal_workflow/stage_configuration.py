@@ -42,7 +42,7 @@ STAGE_DEFAULTS = {
     'extraction': {'estimator': 'both', 'phi_bins': 12, 'best_binning': False, 'mass_bins': 10,
                    'by_period': True, 'workers': 1, 'bootstrap_replicas': 0,
                    'bootstrap_seed': 1208, 'candle_enabled': True,
-                   'candle_mass_half_width_gev': 0.05, 'candle_balance_seed': 20261024},
+                   'candle_core_fraction': 0.5},
     'plots': {'mass': True, 'quality_controls': True, 'dalitz': False},
     'comparison': {'published_reference': None},
 }
@@ -79,13 +79,13 @@ def _field(value: Any, default: Any, key: str, base: Path):
     elif type(value) is not expected:
         _error(key, f'must be {expected.__name__}')
     if expected is int:
-        minimum = 0 if leaf in ('training_seed', 'bootstrap_seed', 'bootstrap_replicas', 'candle_balance_seed') else 1
+        minimum = 0 if leaf in ('training_seed', 'bootstrap_seed', 'bootstrap_replicas') else 1
         if value < minimum:
             _error(key, f'must be at least {minimum}')
-        if leaf in ('seed', 'training_seed', 'bootstrap_seed', 'candle_balance_seed') and value >= 2**32:
+        if leaf in ('seed', 'training_seed', 'bootstrap_seed') and value >= 2**32:
             _error(key, 'must be less than 2**32')
     if expected is float:
-        if leaf == 'validation_fraction':
+        if leaf in ('validation_fraction', 'candle_core_fraction'):
             if not 0 < value < 1:
                 _error(key, 'must lie strictly between 0 and 1')
         elif leaf == 'monotonic_tolerance_gev':
@@ -315,10 +315,10 @@ def _validate_effective(data: dict):
         if not uv['best_binning'] and not vis['best_binning']:
             fields.append('phi_bins')
         if uv['candle_enabled'] and vis['candle_enabled']:
-            fields.append('candle_mass_half_width_gev')
+            fields.append('candle_core_fraction')
         for field in fields:
             equal = (math.isclose(uv[field], vis[field], rel_tol=0.0, abs_tol=1e-12)
-                     if field == 'candle_mass_half_width_gev' else uv[field] == vis[field])
+                     if field == 'candle_core_fraction' else uv[field] == vis[field])
             if not equal:
                 _error(f'stages.extraction.uv.{field}',
                        f'comparison requires matching UV/VIS {field}: uv={uv[field]!r}, vis={vis[field]!r}')

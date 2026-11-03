@@ -95,12 +95,30 @@ def test_extraction_only_maps_every_scientific_option(tmp_path):
     plan = build_stage_plan(cfg)
     stage, = plan.entries
     assert stage.kind == 'extract'
-    assert '--by-period' not in stage.argv and '--candle-mass-half-width' not in stage.argv
+    assert '--by-period' not in stage.argv and '--candle-core-fraction' not in stage.argv
     assert '--best-binning' in stage.argv
     for flag, value in {'--estimator': 'ratio', '--phi-bins': '8', '--mass-bins': '7', '--workers': '2',
                         '--bootstrap-replicas': '19', '--bootstrap-seed': '23', '--flux-file': str(tmp_path/'flux.root')}.items():
         assert stage.argv[stage.argv.index(flag)+1] == value
     assert plan.requirements[stage.name] == ('reconstruction.uv', 'calibration')
+
+
+def test_extraction_maps_candle_fraction_without_legacy_random_options(tmp_path):
+    from graal_workflow.stage_planning import build_stage_plan
+    cfg = configuration(
+        tmp_path,
+        extraction={'common': {'enabled': True, 'candle_enabled': True,
+                               'candle_core_fraction': 0.4}},
+        inputs=dict(
+            calibration=dict(root=str(tmp_path / 'flux.root'), qa=str(tmp_path / 'flux.qa.json')),
+            reconstruction=dict(uv=dict(chi2=str(tmp_path / 'chi2.root'),
+                                        bdt=str(tmp_path / 'bdt.root'))),
+        ),
+    )
+    stage, = build_stage_plan(cfg).entries
+    assert stage.argv[stage.argv.index('--candle-core-fraction') + 1] == '0.4'
+    assert '--candle-mass-half-width' not in stage.argv
+    assert '--candle-balance-seed' not in stage.argv
 
 
 def test_profile_overrides_reach_each_command_independently(tmp_path):
