@@ -82,19 +82,26 @@ def _valid_candle_provenance():
         "phi_bin_divisor=0.9549\n"
         "candle_enabled=true\n"
         "candle_eta_center_gev=0.547862\n"
+        "candle_eta_fitted_mean_gev=0.5483\n"
+        "candle_eta_sigma_gev=0.012\n"
+        "candle_eta_fit_half_range_gev=0.08\n"
+        "candle_eta_fit_model=gaussian_plus_linear_background\n"
         "candle_pi0_center_gev=0.134977\n"
-        "candle_mass_half_width_gev=0.05\n"
-        "candle_geometry=rectangular\n"
-        "candle_core_logic=and\n"
-        "candle_tail_logic=or_complement\n"
+        "candle_pi0_fitted_mean_gev=0.1347\n"
+        "candle_pi0_sigma_gev=0.006\n"
+        "candle_pi0_fit_half_range_gev=0.04\n"
+        "candle_pi0_fit_model=gaussian_plus_linear_background\n"
+        "candle_geometry=axis_aligned_ellipse\n"
         "candle_boundary=inclusive\n"
-        "candle_baseline_event_count=100\n"
-        "candle_full_core_event_count=80\n"
-        "candle_tail_event_count=20\n"
-        "candle_balanced_core_event_count=20\n"
-        "candle_excluded_nonfinite_event_count=0\n"
-        "candle_balance_method=random_without_replacement\n"
-        "candle_balance_seed=20261024\n"
+        "candle_requested_core_fraction=0.5\n"
+        "candle_distance_threshold=1.44\n"
+        "candle_scale_factor=1.2\n"
+        "candle_baseline_event_count=102\n"
+        "candle_finite_event_count=100\n"
+        "candle_core_event_count=50\n"
+        "candle_tail_event_count=50\n"
+        "candle_excluded_nonfinite_event_count=2\n"
+        "candle_quantile_method=midpoint_between_ordered_distances\n"
         "candle_mass_source=raw_pre_fit"
     )
 
@@ -105,20 +112,31 @@ def test_contract_reads_complete_candle_provenance(tmp_path):
     _replace_provenance(output, _valid_candle_provenance())
 
     assert read_output_contract(output).candle == root_input.CandleContract(
-        eta_center_gev=0.547862,
-        pi0_center_gev=0.134977,
-        mass_half_width_gev=0.05,
-        geometry="rectangular",
-        core_logic="and",
-        tail_logic="or_complement",
+        eta_fit=root_input.CandleMassFitContract(
+            center_gev=0.547862,
+            fitted_mean_gev=0.5483,
+            sigma_gev=0.012,
+            fit_half_range_gev=0.08,
+            model="gaussian_plus_linear_background",
+        ),
+        pi0_fit=root_input.CandleMassFitContract(
+            center_gev=0.134977,
+            fitted_mean_gev=0.1347,
+            sigma_gev=0.006,
+            fit_half_range_gev=0.04,
+            model="gaussian_plus_linear_background",
+        ),
+        geometry="axis_aligned_ellipse",
         boundary="inclusive",
-        baseline_event_count=100,
-        full_core_event_count=80,
-        tail_event_count=20,
-        balanced_core_event_count=20,
-        excluded_nonfinite_event_count=0,
-        balance_method="random_without_replacement",
-        balance_seed=20261024,
+        requested_core_fraction=0.5,
+        distance_threshold=1.44,
+        scale_factor=1.2,
+        baseline_event_count=102,
+        finite_event_count=100,
+        core_event_count=50,
+        tail_event_count=50,
+        excluded_nonfinite_event_count=2,
+        quantile_method="midpoint_between_ordered_distances",
         mass_source="raw_pre_fit",
     )
 
@@ -141,46 +159,50 @@ def test_legacy_contract_has_no_candle_metadata(tmp_path):
             "candle_enabled=true", "candle_enabled=false"
         ),
         _valid_candle_provenance().replace(
-            "candle_mass_half_width_gev=0.05", "candle_mass_half_width_gev=0"
+            "candle_eta_sigma_gev=0.012", "candle_eta_sigma_gev=0"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_eta_fit_half_range_gev=0.08",
+            "candle_eta_fit_half_range_gev=0",
         ),
         _valid_candle_provenance().replace(
             "candle_eta_center_gev=0.547862", "candle_eta_center_gev=nan"
         ),
         _valid_candle_provenance().replace(
-            "candle_geometry=rectangular", "candle_geometry=elliptical"
-        ),
-        _valid_candle_provenance().replace(
-            "candle_core_logic=and", "candle_core_logic=or"
-        ),
-        _valid_candle_provenance().replace(
-            "candle_tail_logic=or_complement", "candle_tail_logic=and"
+            "candle_geometry=axis_aligned_ellipse", "candle_geometry=rotated_ellipse"
         ),
         _valid_candle_provenance().replace(
             "candle_boundary=inclusive", "candle_boundary=exclusive"
         ),
         _valid_candle_provenance().replace(
-            "candle_baseline_event_count=100", "candle_baseline_event_count=0"
+            "candle_requested_core_fraction=0.5", "candle_requested_core_fraction=0"
         ),
         _valid_candle_provenance().replace(
-            "candle_full_core_event_count=80", "candle_full_core_event_count=79"
+            "candle_distance_threshold=1.44", "candle_distance_threshold=-1"
         ),
         _valid_candle_provenance().replace(
-            "candle_tail_event_count=20", "candle_tail_event_count=21"
+            "candle_scale_factor=1.2", "candle_scale_factor=1.1"
         ),
         _valid_candle_provenance().replace(
-            "candle_balanced_core_event_count=20",
-            "candle_balanced_core_event_count=19",
+            "candle_baseline_event_count=102", "candle_baseline_event_count=101"
         ),
         _valid_candle_provenance().replace(
-            "candle_excluded_nonfinite_event_count=0",
+            "candle_finite_event_count=100", "candle_finite_event_count=99"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_core_event_count=50", "candle_core_event_count=49"
+        ),
+        _valid_candle_provenance().replace(
+            "candle_excluded_nonfinite_event_count=2",
             "candle_excluded_nonfinite_event_count=-1",
         ),
         _valid_candle_provenance().replace(
-            "candle_balance_method=random_without_replacement",
-            "candle_balance_method=first",
+            "candle_eta_fit_model=gaussian_plus_linear_background",
+            "candle_eta_fit_model=moment",
         ),
         _valid_candle_provenance().replace(
-            "candle_balance_seed=20261024", "candle_balance_seed=-1"
+            "candle_quantile_method=midpoint_between_ordered_distances",
+            "candle_quantile_method=nearest",
         ),
         _valid_candle_provenance().replace(
             "candle_mass_source=raw_pre_fit", "candle_mass_source=fit"

@@ -10,7 +10,6 @@ import numpy as np
 
 from calibration.run_quality import load_run_quality
 from graal_common.physics.beam_profiles import get_beam_profile
-from graal_common.physics.channels import M_ETA, M_PI0
 from graal_common.parallel import validate_workers
 from graal_common.physics.energy_binning import energy_binning_from_args
 from observable_extraction.extraction import extract_sample
@@ -19,6 +18,7 @@ from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import phi_edges_rad, phi_bin_divisor, PAIR_NAMES, pair_mass_edges
 from observable_extraction.core.energy_audit import energy_bin_inventory
 from observable_extraction.core.background import BackgroundEstimate
+from observable_extraction.core.candle import split_candle_core_tails
 from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.extraction_background import (
     SIDEBAND_TREE, _estimate_background_fractions,
@@ -29,7 +29,6 @@ from observable_extraction.extraction_systematics import (
 )
 from observable_extraction.io.reconstructed_events import (
     read_reconstructed, select_brem_control, select_sigma_events,
-    split_candle_core_tails,
 )
 from observable_extraction.io.root_output import (
     RootOutputPayload, write_root_output, ordered_point_keys,
@@ -56,7 +55,7 @@ def _sample_path(args: argparse.Namespace, sample: str) -> Path | None:
 
 
 def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_sample, uncertainty,
-                          candle_split=None, candle_width=None, events=None):
+                          candle_split=None, events=None):
     """Render the extracted results after the ROOT payload has been published."""
     output_points = uncertainty.output_points
     figure_estimator = uncertainty.figure_estimator
@@ -67,10 +66,11 @@ def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_samp
             plots_dir / "candle_mass_plane.pdf",
             events.eta_mass_gev,
             events.pi0_mass_gev,
-            half_width_gev=candle_width,
-            full_core_count=candle_split.full_core_count,
-            tail_count=candle_split.tail_count,
-            balanced_core_count=len(candle_split.core),
+            eta_fit=candle_split.eta_fit,
+            pi0_fit=candle_split.pi0_fit,
+            scale_factor=candle_split.scale_factor,
+            core_count=len(candle_split.core),
+            tail_count=len(candle_split.tails),
             excluded_nonfinite_count=candle_split.excluded_nonfinite_count,
         )
         for estimator in available_candle_estimators(points_by_profile):
@@ -119,18 +119,17 @@ def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_samp
 
 def validate_candle_options(args: argparse.Namespace) -> None:
     """Reject unsupported candle requests before inspecting input ROOT files."""
-    width = getattr(args, "candle_mass_half_width", None)
-    if width is None:
+    fraction = getattr(args, "candle_core_fraction", None)
+    if fraction is None:
         return
-    if not np.isfinite(width) or width <= 0.0:
-        raise ValueError("candle mass half-width must be finite and positive")
+    if not np.isfinite(fraction) or not 0.0 < fraction < 1.0:
+        raise ValueError(
+            "candle core fraction must be finite and strictly between 0 and 1"
+        )
     if args.nominal_sample != "raw_bdt":
         raise ValueError("candle selection requires --nominal-sample raw_bdt")
     if args.sideband is not None:
         raise ValueError("candle selection is not supported with sideband correction")
-    seed = getattr(args, "candle_balance_seed", None)
-    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
-        raise ValueError("candle balance seed must be a non-negative integer")
     if getattr(args, "bootstrap_diagnostics_replicas", 0):
         raise ValueError("candle selection does not support diagnostic bootstrap")
 
@@ -207,12 +206,11 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     output_points = list(nominal.points)
     binning_candidates = list(nominal.binning_candidates)
     candle_split = None
-    candle_width = getattr(args, "candle_mass_half_width", None)
-    if candle_width is not None and period == "pooled":
+    candle_fraction = getattr(args, "candle_core_fraction", None)
+    if candle_fraction is not None and period == "pooled":
         candle_split = split_candle_core_tails(
             events,
-            candle_width,
-            seed=args.candle_balance_seed,
+            core_fraction=candle_fraction,
         )
         for sample_name, selected_events in (
             ("raw_bdt_core", candle_split.core),
@@ -394,21 +392,31 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     if candle_split is not None:
         provenance_lines.extend([
             "candle_enabled=true",
-            f"candle_eta_center_gev={M_ETA}",
-            f"candle_pi0_center_gev={M_PI0}",
-            f"candle_mass_half_width_gev={candle_width}",
-            "candle_geometry=rectangular",
-            "candle_core_logic=and",
-            "candle_tail_logic=or_complement",
+            f"candle_eta_center_gev={candle_split.eta_fit.center_gev}",
+            f"candle_eta_fitted_mean_gev={candle_split.eta_fit.fitted_mean_gev}",
+            f"candle_eta_sigma_gev={candle_split.eta_fit.sigma_gev}",
+            "candle_eta_fit_half_range_gev="
+            f"{candle_split.eta_fit.fit_half_range_gev}",
+            f"candle_eta_fit_model={candle_split.eta_fit.model}",
+            f"candle_pi0_center_gev={candle_split.pi0_fit.center_gev}",
+            f"candle_pi0_fitted_mean_gev={candle_split.pi0_fit.fitted_mean_gev}",
+            f"candle_pi0_sigma_gev={candle_split.pi0_fit.sigma_gev}",
+            "candle_pi0_fit_half_range_gev="
+            f"{candle_split.pi0_fit.fit_half_range_gev}",
+            f"candle_pi0_fit_model={candle_split.pi0_fit.model}",
+            "candle_geometry=axis_aligned_ellipse",
             "candle_boundary=inclusive",
+            "candle_requested_core_fraction="
+            f"{candle_split.requested_core_fraction}",
+            f"candle_distance_threshold={candle_split.distance_threshold}",
+            f"candle_scale_factor={candle_split.scale_factor}",
             f"candle_baseline_event_count={len(events)}",
-            f"candle_full_core_event_count={candle_split.full_core_count}",
-            f"candle_tail_event_count={candle_split.tail_count}",
-            f"candle_balanced_core_event_count={len(candle_split.core)}",
+            f"candle_finite_event_count={candle_split.finite_event_count}",
+            f"candle_core_event_count={len(candle_split.core)}",
+            f"candle_tail_event_count={len(candle_split.tails)}",
             "candle_excluded_nonfinite_event_count="
             f"{candle_split.excluded_nonfinite_count}",
-            "candle_balance_method=random_without_replacement",
-            f"candle_balance_seed={args.candle_balance_seed}",
+            "candle_quantile_method=midpoint_between_ordered_distances",
             "candle_mass_source=raw_pre_fit",
         ])
     payload = RootOutputPayload(
@@ -435,7 +443,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     _write_result_reports(
         plots_dir, profile_name=profile.name, energy_edges=grid.edges_gev,
         nominal_sample=args.nominal_sample, uncertainty=uncertainty,
-        candle_split=candle_split, candle_width=candle_width, events=events,
+        candle_split=candle_split, events=events,
     )
     if background_leakage is not None:
         write_background_control_pdf(

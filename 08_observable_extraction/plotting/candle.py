@@ -9,10 +9,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Ellipse
 import numpy as np
 
-from graal_common.physics.channels import M_ETA, M_PI0
+from observable_extraction.core.candle import MassResolutionFit
 from observable_extraction.io.root_output import OutputPoint
 from observable_extraction.plotting.figure4 import EnergyRow
 
@@ -26,11 +26,17 @@ PAIR_LABELS = {
 ESTIMATOR_ORDER = ("ratio", "likelihood")
 
 
-def _validated_width(half_width_gev: float) -> float:
-    width = float(half_width_gev)
-    if not np.isfinite(width) or width <= 0.0:
-        raise ValueError("half_width_gev must be finite and positive")
-    return width
+def _validated_fit(name: str, fit: MassResolutionFit) -> None:
+    values = (
+        fit.center_gev,
+        fit.fitted_mean_gev,
+        fit.sigma_gev,
+        fit.fit_half_range_gev,
+    )
+    if not all(np.isfinite(value) for value in values):
+        raise ValueError(f"{name} fit values must be finite")
+    if fit.sigma_gev <= 0.0 or fit.fit_half_range_gev <= 0.0:
+        raise ValueError(f"{name} fit scales must be positive")
 
 
 def _save(path: Path, figure) -> None:
@@ -44,13 +50,14 @@ def build_candle_mass_plane(
     eta_mass_gev,
     pi0_mass_gev,
     *,
-    half_width_gev: float,
-    full_core_count: int,
+    eta_fit: MassResolutionFit,
+    pi0_fit: MassResolutionFit,
+    scale_factor: float,
+    core_count: int,
     tail_count: int,
-    balanced_core_count: int,
     excluded_nonfinite_count: int,
 ):
-    """Build the full raw candidate-mass plane and candle rectangle."""
+    """Build the raw candidate-mass plane and fitted candle ellipse."""
     eta_mass = np.asarray(eta_mass_gev, dtype=np.float64)
     pi0_mass = np.asarray(pi0_mass_gev, dtype=np.float64)
     if eta_mass.ndim != 1 or pi0_mass.ndim != 1:
@@ -59,20 +66,19 @@ def build_candle_mass_plane(
         raise ValueError("mass arrays must have the same length")
     if eta_mass.size == 0:
         raise ValueError("mass arrays must be non-empty")
-    width = _validated_width(half_width_gev)
-    raw_counts = (
-        full_core_count,
-        tail_count,
-        balanced_core_count,
-        excluded_nonfinite_count,
-    )
+    _validated_fit("eta", eta_fit)
+    _validated_fit("pi0", pi0_fit)
+    scale = float(scale_factor)
+    if not np.isfinite(scale) or scale <= 0.0:
+        raise ValueError("scale_factor must be finite and positive")
+    raw_counts = (core_count, tail_count, excluded_nonfinite_count)
     counts = tuple(int(value) for value in raw_counts)
     if any(value != raw or value < 0 for value, raw in zip(counts, raw_counts)):
         raise ValueError("candle counts must be non-negative integers")
-    full_core, tails, balanced_core, excluded_nonfinite = counts
-    if balanced_core != tails or balanced_core > full_core:
-        raise ValueError("balanced core count must equal tails and fit in core")
-    if full_core + tails + excluded_nonfinite != eta_mass.size:
+    core, tails, excluded_nonfinite = counts
+    if core + tails <= 0:
+        raise ValueError("candle finite counts must be positive")
+    if core + tails + excluded_nonfinite != eta_mass.size:
         raise ValueError("candle counts do not match baseline")
 
     finite = np.isfinite(eta_mass) & np.isfinite(pi0_mass)
@@ -83,23 +89,27 @@ def build_candle_mass_plane(
         eta_mass[finite], pi0_mass[finite], bins=80, cmap="viridis"
     )
     figure.colorbar(histogram[3], ax=axis, label="Eventi")
-    axis.add_patch(Rectangle(
-        (M_ETA - width, M_PI0 - width),
-        2.0 * width,
-        2.0 * width,
+    axis.add_patch(Ellipse(
+        (eta_fit.center_gev, pi0_fit.center_gev),
+        2.0 * scale * eta_fit.sigma_gev,
+        2.0 * scale * pi0_fit.sigma_gev,
+        angle=0.0,
         fill=False,
         edgecolor="tab:red",
         linewidth=1.8,
-        label="Candle window",
+        label="Candle 50/50 ellipse",
     ))
     axis.autoscale(enable=True, axis="both", tight=False)
     axis.text(
         0.02,
         0.98,
         f"Baseline: {eta_mass.size}\n"
-        f"Core completo: {full_core}\n"
+        f"Core: {core}\n"
         f"Code: {tails}\n"
-        f"Campioni bilanciati: {balanced_core} + {tails}\n"
+        f"Core finito: {100.0 * core / (core + tails):.1f}%\n"
+        f"sigma eta: {eta_fit.sigma_gev:.6g} GeV\n"
+        f"sigma pi0: {pi0_fit.sigma_gev:.6g} GeV\n"
+        f"k: {scale:.6g}\n"
         f"Masse non finite escluse: {excluded_nonfinite}",
         transform=axis.transAxes,
         va="top",
@@ -118,19 +128,21 @@ def write_candle_mass_plane_pdf(
     eta_mass_gev,
     pi0_mass_gev,
     *,
-    half_width_gev: float,
-    full_core_count: int,
+    eta_fit: MassResolutionFit,
+    pi0_fit: MassResolutionFit,
+    scale_factor: float,
+    core_count: int,
     tail_count: int,
-    balanced_core_count: int,
     excluded_nonfinite_count: int,
 ) -> None:
     figure, _ = build_candle_mass_plane(
         eta_mass_gev,
         pi0_mass_gev,
-        half_width_gev=half_width_gev,
-        full_core_count=full_core_count,
+        eta_fit=eta_fit,
+        pi0_fit=pi0_fit,
+        scale_factor=scale_factor,
+        core_count=core_count,
         tail_count=tail_count,
-        balanced_core_count=balanced_core_count,
         excluded_nonfinite_count=excluded_nonfinite_count,
     )
     _save(path, figure)

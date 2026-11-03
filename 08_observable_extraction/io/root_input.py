@@ -12,7 +12,7 @@ from pathlib import Path
 
 import ROOT
 
-from graal_common.physics.channels import M_ETA, M_PI0
+from graal_common.physics.channels import ETA_PI0_HYP, M_ETA, M_PI0
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
 from observable_extraction.core.binning import PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_bin_divisor
 from observable_extraction.io.root_output import OutputPoint, ordered_point_keys, point_key_label
@@ -32,23 +32,33 @@ def _open_output(path):
 
 
 @dataclass(frozen=True)
-class CandleContract:
-    """Selection definition and counts stored for a candle extraction."""
+class CandleMassFitContract:
+    """One marginal mass-resolution fit stored in candle provenance."""
 
-    eta_center_gev: float
-    pi0_center_gev: float
-    mass_half_width_gev: float
+    center_gev: float
+    fitted_mean_gev: float
+    sigma_gev: float
+    fit_half_range_gev: float
+    model: str
+
+
+@dataclass(frozen=True)
+class CandleContract:
+    """Axis-aligned ellipse definition and counts for a candle extraction."""
+
+    eta_fit: CandleMassFitContract
+    pi0_fit: CandleMassFitContract
     geometry: str
-    core_logic: str
-    tail_logic: str
     boundary: str
+    requested_core_fraction: float
+    distance_threshold: float
+    scale_factor: float
     baseline_event_count: int
-    full_core_event_count: int
+    finite_event_count: int
+    core_event_count: int
     tail_event_count: int
-    balanced_core_event_count: int
     excluded_nonfinite_event_count: int
-    balance_method: str
-    balance_seed: int
+    quantile_method: str
     mass_source: str
 
 
@@ -83,19 +93,26 @@ def _parse_candle_contract(
     required = {
         "candle_enabled",
         "candle_eta_center_gev",
+        "candle_eta_fitted_mean_gev",
+        "candle_eta_sigma_gev",
+        "candle_eta_fit_half_range_gev",
+        "candle_eta_fit_model",
         "candle_pi0_center_gev",
-        "candle_mass_half_width_gev",
+        "candle_pi0_fitted_mean_gev",
+        "candle_pi0_sigma_gev",
+        "candle_pi0_fit_half_range_gev",
+        "candle_pi0_fit_model",
         "candle_geometry",
-        "candle_core_logic",
-        "candle_tail_logic",
         "candle_boundary",
+        "candle_requested_core_fraction",
+        "candle_distance_threshold",
+        "candle_scale_factor",
         "candle_baseline_event_count",
-        "candle_full_core_event_count",
+        "candle_finite_event_count",
+        "candle_core_event_count",
         "candle_tail_event_count",
-        "candle_balanced_core_event_count",
         "candle_excluded_nonfinite_event_count",
-        "candle_balance_method",
-        "candle_balance_seed",
+        "candle_quantile_method",
         "candle_mass_source",
     }
     try:
@@ -110,60 +127,108 @@ def _parse_candle_contract(
 
         if one("candle_enabled") != "true":
             raise ValueError("candle must be explicitly enabled")
-        eta_center = float(one("candle_eta_center_gev"))
-        pi0_center = float(one("candle_pi0_center_gev"))
-        width = float(one("candle_mass_half_width_gev"))
+        def mass_fit(prefix: str) -> CandleMassFitContract:
+            result = CandleMassFitContract(
+                center_gev=float(one(f"candle_{prefix}_center_gev")),
+                fitted_mean_gev=float(one(f"candle_{prefix}_fitted_mean_gev")),
+                sigma_gev=float(one(f"candle_{prefix}_sigma_gev")),
+                fit_half_range_gev=float(
+                    one(f"candle_{prefix}_fit_half_range_gev")
+                ),
+                model=one(f"candle_{prefix}_fit_model"),
+            )
+            numeric = (
+                result.center_gev,
+                result.fitted_mean_gev,
+                result.sigma_gev,
+                result.fit_half_range_gev,
+            )
+            if not all(math.isfinite(value) for value in numeric):
+                raise ValueError(f"invalid {prefix} candle fit values")
+            if result.sigma_gev <= 0.0 or result.fit_half_range_gev <= 0.0:
+                raise ValueError(f"invalid {prefix} candle fit scales")
+            if result.sigma_gev >= result.fit_half_range_gev:
+                raise ValueError(f"invalid {prefix} candle sigma")
+            if not (
+                result.center_gev - result.fit_half_range_gev
+                <= result.fitted_mean_gev
+                <= result.center_gev + result.fit_half_range_gev
+            ):
+                raise ValueError(f"invalid {prefix} fitted mean")
+            if result.model != "gaussian_plus_linear_background":
+                raise ValueError(f"invalid {prefix} candle fit model")
+            return result
+
+        eta_fit = mass_fit("eta")
+        pi0_fit = mass_fit("pi0")
+        fraction = float(one("candle_requested_core_fraction"))
+        threshold = float(one("candle_distance_threshold"))
+        scale = float(one("candle_scale_factor"))
         baseline_count = int(one("candle_baseline_event_count"))
-        full_core_count = int(one("candle_full_core_event_count"))
+        finite_count = int(one("candle_finite_event_count"))
+        core_count = int(one("candle_core_event_count"))
         tail_count = int(one("candle_tail_event_count"))
-        balanced_core_count = int(one("candle_balanced_core_event_count"))
         excluded_nonfinite_count = int(
             one("candle_excluded_nonfinite_event_count")
         )
-        balance_seed = int(one("candle_balance_seed"))
         if not math.isclose(
-            eta_center, M_ETA, rel_tol=0.0, abs_tol=1e-12
+            eta_fit.center_gev, M_ETA, rel_tol=0.0, abs_tol=1e-12
         ) or not math.isclose(
-            pi0_center, M_PI0, rel_tol=0.0, abs_tol=1e-12
+            pi0_fit.center_gev, M_PI0, rel_tol=0.0, abs_tol=1e-12
         ):
             raise ValueError("candidate-mass centers do not match shared constants")
-        if not math.isfinite(width) or width <= 0.0:
-            raise ValueError("invalid candle width")
-        if baseline_count <= 0 or full_core_count <= 0 or tail_count <= 0:
+        if not math.isclose(
+            eta_fit.fit_half_range_gev,
+            ETA_PI0_HYP.heavy_window,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ) or not math.isclose(
+            pi0_fit.fit_half_range_gev,
+            ETA_PI0_HYP.light_window,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise ValueError("candidate-mass fit ranges do not match shared constants")
+        if not math.isfinite(fraction) or not 0.0 < fraction < 1.0:
+            raise ValueError("invalid candle core fraction")
+        if not math.isfinite(threshold) or threshold <= 0.0:
+            raise ValueError("invalid candle distance threshold")
+        if not math.isfinite(scale) or scale <= 0.0 or not math.isclose(
+            scale * scale, threshold, rel_tol=1e-12, abs_tol=1e-12
+        ):
+            raise ValueError("invalid candle scale factor")
+        if baseline_count <= 0 or finite_count <= 1 or core_count <= 0 or tail_count <= 0:
             raise ValueError("candle counts must be positive")
         if excluded_nonfinite_count < 0:
             raise ValueError("excluded non-finite count must be non-negative")
-        if full_core_count + tail_count + excluded_nonfinite_count != baseline_count:
-            raise ValueError("candle region counts do not match baseline")
-        if balanced_core_count != tail_count or full_core_count < tail_count:
-            raise ValueError("candle samples are not balanceable and equal")
-        if balance_seed < 0:
-            raise ValueError("invalid candle balance seed")
+        if finite_count + excluded_nonfinite_count != baseline_count:
+            raise ValueError("candle finite counts do not match baseline")
+        if core_count + tail_count != finite_count:
+            raise ValueError("candle region counts do not match finite sample")
+        if core_count != int(math.floor(fraction * finite_count)):
+            raise ValueError("candle core count does not match requested fraction")
         semantics = {
-            "candle_geometry": "rectangular",
-            "candle_core_logic": "and",
-            "candle_tail_logic": "or_complement",
+            "candle_geometry": "axis_aligned_ellipse",
             "candle_boundary": "inclusive",
-            "candle_balance_method": "random_without_replacement",
+            "candle_quantile_method": "midpoint_between_ordered_distances",
             "candle_mass_source": "raw_pre_fit",
         }
         if any(one(name) != expected for name, expected in semantics.items()):
             raise ValueError("invalid candle selection semantics")
         return CandleContract(
-            eta_center_gev=eta_center,
-            pi0_center_gev=pi0_center,
-            mass_half_width_gev=width,
+            eta_fit=eta_fit,
+            pi0_fit=pi0_fit,
             geometry=one("candle_geometry"),
-            core_logic=one("candle_core_logic"),
-            tail_logic=one("candle_tail_logic"),
             boundary=one("candle_boundary"),
+            requested_core_fraction=fraction,
+            distance_threshold=threshold,
+            scale_factor=scale,
             baseline_event_count=baseline_count,
-            full_core_event_count=full_core_count,
+            finite_event_count=finite_count,
+            core_event_count=core_count,
             tail_event_count=tail_count,
-            balanced_core_event_count=balanced_core_count,
             excluded_nonfinite_event_count=excluded_nonfinite_count,
-            balance_method=one("candle_balance_method"),
-            balance_seed=balance_seed,
+            quantile_method=one("candle_quantile_method"),
             mass_source=one("candle_mass_source"),
         )
     except (TypeError, ValueError) as exc:

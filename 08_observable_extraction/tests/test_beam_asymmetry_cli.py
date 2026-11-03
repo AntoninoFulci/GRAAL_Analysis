@@ -32,8 +32,9 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
     assert args.run_manifest == Path("config/support/run_manifest.csv")
     assert args.phi_bins == 12
     assert args.mass_bins == 10
-    assert args.candle_mass_half_width is None
-    assert args.candle_balance_seed == 20261024
+    assert args.candle_core_fraction is None
+    assert not hasattr(args, "candle_mass_half_width")
+    assert not hasattr(args, "candle_balance_seed")
     assert not hasattr(args, "csv_output")
     assert not hasattr(args, "json_output")
 
@@ -315,9 +316,9 @@ def test_background_inputs_must_be_supplied_together(tmp_path, monkeypatch):
         )
 
 
-@pytest.mark.parametrize("width", ["0", "-0.05", "nan", "inf", "-inf"])
-def test_candle_rejects_invalid_width_before_root_io(
-    tmp_path, monkeypatch, width
+@pytest.mark.parametrize("fraction", ["0", "-0.1", "1", "1.1", "nan", "inf"])
+def test_candle_rejects_invalid_fraction_before_root_io(
+    tmp_path, monkeypatch, fraction
 ):
     monkeypatch.setattr(
         workflow,
@@ -325,9 +326,9 @@ def test_candle_rejects_invalid_width_before_root_io(
         lambda _args: pytest.fail("ROOT input was inspected"),
     )
 
-    with pytest.raises(ValueError, match="candle.*finite and positive"):
+    with pytest.raises(ValueError, match="candle.*strictly between"):
         beam_asymmetry.main([
-            f"--candle-mass-half-width={width}",
+            f"--candle-core-fraction={fraction}",
             "--output-dir", str(tmp_path / "output"),
         ])
 
@@ -342,7 +343,7 @@ def test_candle_requires_raw_bdt_nominal_before_root_io(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="nominal-sample raw_bdt"):
         beam_asymmetry.main([
             "--nominal-sample", "raw",
-            "--candle-mass-half-width", "0.05",
+            "--candle-core-fraction", "0.5",
             "--output-dir", str(tmp_path / "output"),
         ])
 
@@ -358,26 +359,9 @@ def test_candle_rejects_sideband_correction_before_root_io(
 
     with pytest.raises(ValueError, match="candle.*sideband"):
         beam_asymmetry.main([
-            "--candle-mass-half-width", "0.05",
+            "--candle-core-fraction", "0.5",
             "--sideband", str(tmp_path / "sideband.root"),
             "--signal-mc", str(tmp_path / "signal.root"),
-            "--output-dir", str(tmp_path / "output"),
-        ])
-
-
-def test_candle_rejects_negative_balance_seed_before_root_io(
-    tmp_path, monkeypatch
-):
-    monkeypatch.setattr(
-        workflow,
-        "_validate_energy_inputs",
-        lambda _args: pytest.fail("ROOT input was inspected"),
-    )
-
-    with pytest.raises(ValueError, match="candle balance seed"):
-        beam_asymmetry.main([
-            "--candle-mass-half-width", "0.05",
-            "--candle-balance-seed", "-1",
             "--output-dir", str(tmp_path / "output"),
         ])
 
@@ -393,7 +377,7 @@ def test_candle_rejects_diagnostic_bootstrap_before_root_io(
 
     with pytest.raises(ValueError, match="candle.*diagnostic bootstrap"):
         beam_asymmetry.main([
-            "--candle-mass-half-width", "0.05",
+            "--candle-core-fraction", "0.5",
             "--bootstrap-diagnostics-replicas", "4",
             "--bootstrap-universe-manifest", str(tmp_path / "runs.csv"),
             "--output-dir", str(tmp_path / "output"),
@@ -431,8 +415,7 @@ def _run_candle(tmp_path, monkeypatch, events, *, estimator="ratio"):
         "--run-manifest", str(tmp_path / "manifest.csv"),
         "--output-dir", str(output),
         "--estimator", estimator,
-        "--candle-mass-half-width", "0.05",
-        "--candle-balance-seed", "20261024",
+        "--candle-core-fraction", "0.5",
     ])
     return result, output
 
@@ -440,15 +423,16 @@ def _run_candle(tmp_path, monkeypatch, events, *, estimator="ratio"):
 def test_candle_extracts_equal_core_and_tail_samples_and_records_contract(
     tmp_path, monkeypatch
 ):
-    core_a = _synthetic_events(sigma=0.35)
-    core_b = _synthetic_events(sigma=0.35)
-    tails = _synthetic_events(sigma=-0.30)
-    tails = replace(
-        tails,
-        eta_mass_gev=np.full(len(tails), M_ETA + 0.08),
-        pi0_mass_gev=np.full(len(tails), M_PI0),
+    events = _concatenate_events(
+        _synthetic_events(sigma=0.35),
+        _synthetic_events(sigma=-0.30),
     )
-    events = _concatenate_events(core_a, core_b, tails)
+    rng = np.random.default_rng(20261103)
+    events = replace(
+        events,
+        eta_mass_gev=rng.normal(M_ETA + 0.001, 0.012, len(events)),
+        pi0_mass_gev=rng.normal(M_PI0 - 0.0005, 0.006, len(events)),
+    )
 
     result, output = _run_candle(tmp_path, monkeypatch, events)
 
@@ -458,30 +442,35 @@ def test_candle_extracts_equal_core_and_tail_samples_and_records_contract(
     assert {"raw_bdt", "raw_bdt_core", "raw_bdt_tails"} <= samples
     contract = read_output_contract(output / "beam_asymmetry.root").candle
     assert contract is not None
-    assert contract.mass_half_width_gev == 0.05
+    assert contract.geometry == "axis_aligned_ellipse"
+    assert contract.requested_core_fraction == 0.5
     assert contract.baseline_event_count == len(events)
-    assert contract.full_core_event_count == len(core_a) + len(core_b)
-    assert contract.tail_event_count == len(tails)
-    assert contract.balanced_core_event_count == len(tails)
+    assert contract.finite_event_count == len(events)
+    assert contract.core_event_count == contract.tail_event_count
+    assert contract.core_event_count + contract.tail_event_count == len(events)
     assert contract.excluded_nonfinite_event_count == 0
-    assert contract.balance_seed == 20261024
+    assert contract.scale_factor**2 == pytest.approx(contract.distance_threshold)
+    assert contract.eta_fit.sigma_gev == pytest.approx(0.012, rel=0.15)
+    assert contract.pi0_fit.sigma_gev == pytest.approx(0.006, rel=0.15)
     assert (output / "candle_mass_plane.pdf").read_bytes().startswith(b"%PDF-")
     assert (output / "comparison_candle_ratio.pdf").read_bytes().startswith(b"%PDF-")
     assert not (output / "comparison_candle_likelihood.pdf").exists()
 
 
-def test_candle_fails_if_balanced_samples_produce_no_fitted_points(
+def test_candle_fails_if_geometric_samples_produce_no_fitted_points(
     tmp_path, monkeypatch
 ):
     source = _synthetic_events()
-    core = source.take(np.arange(len(source)) < 24)
-    tails = replace(
-        source.take(np.arange(len(source)) < 12),
-        eta_mass_gev=np.full(12, M_ETA + 0.08),
+    events = source.take(np.arange(len(source)) < 80)
+    rng = np.random.default_rng(7)
+    events = replace(
+        events,
+        eta_mass_gev=rng.normal(M_ETA, 0.012, len(events)),
+        pi0_mass_gev=rng.normal(M_PI0, 0.006, len(events)),
     )
 
-    with pytest.raises(RuntimeError, match=r"candle raw_bdt_(core|tails).*core=12 tails=12"):
-        _run_candle(tmp_path, monkeypatch, _concatenate_events(core, tails))
+    with pytest.raises(RuntimeError, match=r"candle raw_bdt_(core|tails).*core=40 tails=40"):
+        _run_candle(tmp_path, monkeypatch, events)
 
 
 def test_candle_is_applied_only_to_pooled_period_output(tmp_path, monkeypatch):
@@ -507,7 +496,7 @@ def test_candle_is_applied_only_to_pooled_period_output(tmp_path, monkeypatch):
         "--raw", str(tmp_path / "absent.root"),
         "--output-dir", str(output),
         "--estimator", "ratio",
-        "--candle-mass-half-width", "0.05",
+        "--candle-core-fraction", "0.5",
     ])
 
     workflow._run_single(args, period="1998")

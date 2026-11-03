@@ -67,15 +67,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bootstrap-replicas", type=int, default=0)
     parser.add_argument("--bootstrap-seed", type=int, default=1208)
     parser.add_argument(
-        "--candle-mass-half-width",
+        "--candle-core-fraction",
         type=float,
-        help="inclusive raw eta/pi0 candidate-mass half-width in GeV",
-    )
-    parser.add_argument(
-        "--candle-balance-seed",
-        type=int,
-        default=20261024,
-        help="fixed seed for equal-count candle core sampling",
+        help="enable fitted axis-aligned candle ellipse at this finite-event core fraction",
     )
     parser.add_argument("--bootstrap-diagnostics-replicas", type=int, default=0,
                         help="paired run diagnostic only; never added to published covariance")

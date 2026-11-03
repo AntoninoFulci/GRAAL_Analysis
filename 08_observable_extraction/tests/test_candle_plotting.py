@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from graal_common.physics.channels import M_ETA, M_PI0
+from observable_extraction.core.candle import MassResolutionFit
 from observable_extraction.plotting import candle
 from observable_extraction.plotting.figure4 import profile_energy_rows
 from observable_extraction.tests.test_figure4 import _points
@@ -27,61 +28,71 @@ def _core_tail_points(points, *, estimator="ratio"):
     )
 
 
-def test_candle_mass_plane_uses_finite_raw_arrays_and_exact_rectangle():
+def _mass_fits():
+    return (
+        MassResolutionFit(M_ETA, M_ETA + 0.001, 0.012, 0.080),
+        MassResolutionFit(M_PI0, M_PI0 - 0.0005, 0.006, 0.040),
+    )
+
+
+def test_candle_mass_plane_uses_finite_raw_arrays_and_exact_axis_aligned_ellipse():
     eta_mass = np.array([0.49, M_ETA, 0.61, np.nan])
     pi0_mass = np.array([0.09, M_PI0, 0.18, M_PI0])
+    eta_fit, pi0_fit = _mass_fits()
 
     figure, axis = candle.build_candle_mass_plane(
         eta_mass,
         pi0_mass,
-        half_width_gev=0.05,
-        full_core_count=2,
-        tail_count=1,
-        balanced_core_count=1,
+        eta_fit=eta_fit,
+        pi0_fit=pi0_fit,
+        scale_factor=1.2,
+        core_count=1,
+        tail_count=2,
         excluded_nonfinite_count=1,
     )
 
     assert np.sum(axis.collections[0].get_array()) == 3
-    rectangle = axis.patches[0]
-    assert rectangle.get_xy() == pytest.approx((M_ETA - 0.05, M_PI0 - 0.05))
-    assert rectangle.get_width() == pytest.approx(0.10)
-    assert rectangle.get_height() == pytest.approx(0.10)
+    ellipse = axis.patches[0]
+    assert ellipse.center == pytest.approx((M_ETA, M_PI0))
+    assert ellipse.width == pytest.approx(2.0 * 1.2 * 0.012)
+    assert ellipse.height == pytest.approx(2.0 * 1.2 * 0.006)
+    assert ellipse.angle == 0.0
     annotation = "\n".join(text.get_text() for text in axis.texts)
     assert "Baseline: 4" in annotation
-    assert "Core completo: 2" in annotation
-    assert "Code: 1" in annotation
-    assert "Campioni bilanciati: 1 + 1" in annotation
+    assert "Core: 1" in annotation
+    assert "Code: 2" in annotation
+    assert "sigma eta: 0.012" in annotation
+    assert "sigma pi0: 0.006" in annotation
+    assert "k: 1.2" in annotation
+    assert "Core finito: 33.3%" in annotation
     assert "Masse non finite escluse: 1" in annotation
-    x_low, x_high = axis.get_xlim()
-    y_low, y_high = axis.get_ylim()
-    assert x_low < M_ETA - 0.05 < M_ETA + 0.05 < x_high
-    assert y_low < M_PI0 - 0.05 < M_PI0 + 0.05 < y_high
     plt.close(figure)
 
 
 @pytest.mark.parametrize(
-    ("eta_mass", "pi0_mass", "width", "counts", "message"),
+    ("eta_mass", "pi0_mass", "scale", "counts", "message"),
     [
-        ([], [], 0.05, (0, 0, 0, 0), "non-empty"),
-        ([M_ETA], [M_PI0, M_PI0], 0.05, (1, 0, 0, 0), "same length"),
-        ([M_ETA], [M_PI0], 0.0, (1, 0, 0, 0), "half_width_gev"),
-        ([M_ETA], [M_PI0], 0.05, (-1, 1, 1, 0), "counts"),
-        ([M_ETA], [M_PI0], 0.05, (1, 1, 0, 0), "balanced"),
-        ([M_ETA], [M_PI0], 0.05, (1, 1, 1, 1), "baseline"),
+        ([], [], 1.0, (0, 0, 0), "non-empty"),
+        ([M_ETA], [M_PI0, M_PI0], 1.0, (1, 0, 0), "same length"),
+        ([M_ETA], [M_PI0], 0.0, (1, 0, 0), "scale_factor"),
+        ([M_ETA], [M_PI0], 1.0, (-1, 1, 0), "counts"),
+        ([M_ETA], [M_PI0], 1.0, (1, 1, 0), "baseline"),
     ],
 )
 def test_candle_mass_plane_rejects_invalid_inputs(
-    eta_mass, pi0_mass, width, counts, message
+    eta_mass, pi0_mass, scale, counts, message
 ):
+    eta_fit, pi0_fit = _mass_fits()
     with pytest.raises(ValueError, match=message):
         candle.build_candle_mass_plane(
             np.asarray(eta_mass),
             np.asarray(pi0_mass),
-            half_width_gev=width,
-            full_core_count=counts[0],
+            eta_fit=eta_fit,
+            pi0_fit=pi0_fit,
+            scale_factor=scale,
+            core_count=counts[0],
             tail_count=counts[1],
-            balanced_core_count=counts[2],
-            excluded_nonfinite_count=counts[3],
+            excluded_nonfinite_count=counts[2],
         )
 
 
@@ -153,10 +164,11 @@ def test_candle_writers_create_valid_pdfs(tmp_path):
         mass_plane,
         np.array([M_ETA - 0.01, M_ETA + 0.08]),
         np.array([M_PI0, M_PI0]),
-        half_width_gev=0.05,
-        full_core_count=1,
+        eta_fit=_mass_fits()[0],
+        pi0_fit=_mass_fits()[1],
+        scale_factor=1.2,
+        core_count=1,
         tail_count=1,
-        balanced_core_count=1,
         excluded_nonfinite_count=0,
     )
     candle.write_candle_comparison_pdf(

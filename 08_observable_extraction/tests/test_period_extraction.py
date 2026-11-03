@@ -110,10 +110,11 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
     missing = replace(first, run_number=np.full(len(first), 813))
     # Unequal yields: the aggregate is not an arithmetic mean of fitted Sigmas.
     events = _join(first, first, second, missing)
-    tail_mask = np.arange(len(events)) % 3 == 0
+    mass_rng = np.random.default_rng(20261103)
     events = replace(
         events,
-        eta_mass_gev=np.where(tail_mask, 0.548 + 0.08, 0.548),
+        eta_mass_gev=mass_rng.normal(0.547862, 0.012, len(events)),
+        pi0_mass_gev=mass_rng.normal(0.134977, 0.006, len(events)),
     )
     exposures = {(run, 17): FluxExposure(run, 17, 1.15, 1.2, .9, .2, .6, .55)
                  for run in (811, 812, 814)}
@@ -134,8 +135,7 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         '--by-period', '--raw-bdt', str(nominal), '--raw', str(tmp_path / 'absent.root'),
         '--flux-file', str(flux), '--run-manifest', str(manifest), '--output-dir', str(output),
         '--estimator', 'ratio',
-        '--candle-mass-half-width', '0.05',
-        '--candle-balance-seed', '20261024',
+        '--candle-core-fraction', '0.5',
         '--workers', str(workers),
         *(['--best-binning'] if best_binning else []),
     ]) == 0

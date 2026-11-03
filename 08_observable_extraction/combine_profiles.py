@@ -136,31 +136,25 @@ def _validate_candle_campaign(
 
     uv_candle = uv_contract.candle
     vis_candle = vis_contract.candle
-    float_fields = (
-        "eta_center_gev",
-        "pi0_center_gev",
-        "mass_half_width_gev",
+    shared_floats = (
+        (uv_candle.eta_fit.center_gev, vis_candle.eta_fit.center_gev),
+        (uv_candle.eta_fit.fit_half_range_gev, vis_candle.eta_fit.fit_half_range_gev),
+        (uv_candle.pi0_fit.center_gev, vis_candle.pi0_fit.center_gev),
+        (uv_candle.pi0_fit.fit_half_range_gev, vis_candle.pi0_fit.fit_half_range_gev),
+        (uv_candle.requested_core_fraction, vis_candle.requested_core_fraction),
     )
-    text_fields = (
-        "geometry",
-        "core_logic",
-        "tail_logic",
-        "boundary",
-        "balance_method",
-        "mass_source",
+    shared_text = (
+        (uv_candle.eta_fit.model, vis_candle.eta_fit.model),
+        (uv_candle.pi0_fit.model, vis_candle.pi0_fit.model),
+        (uv_candle.geometry, vis_candle.geometry),
+        (uv_candle.boundary, vis_candle.boundary),
+        (uv_candle.quantile_method, vis_candle.quantile_method),
+        (uv_candle.mass_source, vis_candle.mass_source),
     )
     if any(
-        not math.isclose(
-            getattr(uv_candle, name),
-            getattr(vis_candle, name),
-            rel_tol=0.0,
-            abs_tol=1e-12,
-        )
-        for name in float_fields
-    ) or any(
-        getattr(uv_candle, name) != getattr(vis_candle, name)
-        for name in text_fields
-    ):
+        not math.isclose(uv, vis, rel_tol=0.0, abs_tol=1e-12)
+        for uv, vis in shared_floats
+    ) or any(uv != vis for uv, vis in shared_text):
         raise RuntimeError("UV/VIS candle definitions do not match")
     return True
 

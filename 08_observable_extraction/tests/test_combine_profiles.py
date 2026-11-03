@@ -6,7 +6,11 @@ import numpy as np
 import pytest
 
 from observable_extraction import combine_profiles
-from observable_extraction.io.root_input import CandleContract, RootOutputContract
+from observable_extraction.io.root_input import (
+    CandleContract,
+    CandleMassFitContract,
+    RootOutputContract,
+)
 from observable_extraction.io.root_output import RootOutputPayload, write_root_output
 from observable_extraction.tests.test_figure4 import _points
 
@@ -296,26 +300,28 @@ def test_combined_cli_rejects_mismatched_stored_energy_edges(
 
 
 def _candle_contract(
-    *, width=0.05, baseline_count=100, full_core_count=80,
-    tail_count=20, seed=20261024, tail_logic="or_complement"
+    *, baseline_count=100, finite_count=100, core_count=50,
+    eta_sigma=0.012, pi0_sigma=0.006, scale=1.2,
+    fraction=0.5, model="gaussian_plus_linear_background"
 ):
     return CandleContract(
-        eta_center_gev=0.547862,
-        pi0_center_gev=0.134977,
-        mass_half_width_gev=width,
-        geometry="rectangular",
-        core_logic="and",
-        tail_logic=tail_logic,
-        boundary="inclusive",
-        baseline_event_count=baseline_count,
-        full_core_event_count=full_core_count,
-        tail_event_count=tail_count,
-        balanced_core_event_count=tail_count,
-        excluded_nonfinite_event_count=(
-            baseline_count - full_core_count - tail_count
+        eta_fit=CandleMassFitContract(
+            0.547862, 0.5483, eta_sigma, 0.08, model
         ),
-        balance_method="random_without_replacement",
-        balance_seed=seed,
+        pi0_fit=CandleMassFitContract(
+            0.134977, 0.1347, pi0_sigma, 0.04, model
+        ),
+        geometry="axis_aligned_ellipse",
+        boundary="inclusive",
+        requested_core_fraction=fraction,
+        distance_threshold=scale**2,
+        scale_factor=scale,
+        baseline_event_count=baseline_count,
+        finite_event_count=finite_count,
+        core_event_count=core_count,
+        tail_event_count=finite_count - core_count,
+        excluded_nonfinite_event_count=baseline_count - finite_count,
+        quantile_method="midpoint_between_ordered_distances",
         mass_source="raw_pre_fit",
     )
 
@@ -384,8 +390,8 @@ def test_combined_cli_writes_only_available_candle_comparisons(
             energy_edges_gev=(0.9313, 1.10) if path == vis_root
             else (1.10, 1.20, 1.30, 1.40, 1.50),
             candle=_candle_contract(
-                baseline_count=120, full_core_count=90,
-                tail_count=30, seed=99,
+                baseline_count=120, finite_count=118, core_count=59,
+                eta_sigma=0.013, pi0_sigma=0.0065, scale=1.1,
             ) if path == vis_root else _candle_contract(),
         ),
     )
@@ -416,7 +422,7 @@ def test_combined_cli_writes_only_available_candle_comparisons(
 
 
 @pytest.mark.parametrize(
-    "case", ["one_enabled", "different_width", "different_tail_logic", "missing_tail"]
+    "case", ["one_enabled", "different_fraction", "different_model", "missing_tail"]
 )
 def test_combined_cli_rejects_inconsistent_candle_contracts(
     tmp_path, monkeypatch, case
@@ -440,9 +446,9 @@ def test_combined_cli_rejects_inconsistent_candle_contracts(
             else (1.10, 1.20, 1.30, 1.40, 1.50),
             candle=None if case == "one_enabled" and path == vis_root
             else _candle_contract(
-                width=0.04 if case == "different_width" and path == vis_root else 0.05,
-                tail_logic="and" if case == "different_tail_logic" and path == vis_root
-                else "or_complement",
+                fraction=0.4 if case == "different_fraction" and path == vis_root else 0.5,
+                model="moment" if case == "different_model" and path == vis_root
+                else "gaussian_plus_linear_background",
             ),
         ),
     )
