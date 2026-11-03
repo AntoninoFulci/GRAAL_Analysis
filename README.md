@@ -22,7 +22,7 @@ python scripts/run_pipeline.py config/pipeline.yaml --output-dir results/my-camp
 
 The [YAML example](config/pipeline.yaml) exposes explicit stage switches and external products. See the complete [stage configuration guide](#pipeline-configurabile-per-stage) below; legacy CLI and flat YAML remain supported.
 
-These commands run scientific campaigns after preflight and confirmation. Restore missing local inputs first; see [availability after cleanup](wiki/data-and-artifacts.md#local-availability-after-cleanup). Their UV and VIS extractions include the reproducible [core-versus-tail candle test](wiki/core-tail-candle-test.md) with a `±0.05 GeV` raw-mass window. `--phi-bins 8|12|16` defaults to 12; `--best-binning` chooses per point. [Finite-bin correction](wiki/finite-bin-correction.md) applies only to the ratio estimator. The reduced UV+VIS input is diagnostic, not a normalized production dataset. Optional flux recovery remains experimental.
+These commands run scientific campaigns after preflight and confirmation. Restore missing local inputs first; see [availability after cleanup](wiki/data-and-artifacts.md#local-availability-after-cleanup). Their UV and VIS extractions include the reproducible [core-versus-tail candle test](wiki/core-tail-candle-test.md), using a fitted axis-aligned raw-mass ellipse to divide finite post-BDT events 50/50. `--phi-bins 8|12|16` defaults to 12; `--best-binning` chooses per point. [Finite-bin correction](wiki/finite-bin-correction.md) applies only to the ratio estimator. The reduced UV+VIS input is diagnostic, not a normalized production dataset. Optional flux recovery remains experimental.
 
 | Path | Contents |
 | --- | --- |

@@ -1,23 +1,43 @@
 # Core-versus-tail candle test
 
-The candle test is a stability check on the nominal post-BDT event sample. It compares beam asymmetries extracted from two disjoint samples with the same number of events:
+The candle test is a stability check on the nominal post-BDT event sample. It
+compares beam asymmetries extracted from two disjoint geometric regions with
+the same number of finite events, up to one event when the total is odd. It
+does not change the nominal `raw_bdt` result.
 
-- **core:** both raw candidate masses are inside their inclusive windows, `|M(eta)-m_eta| <= 0.05 GeV` and `|M(pi0)-m_pi0| <= 0.05 GeV`;
-- **tails:** the finite-mass complement, so at least one candidate mass is outside its window.
+For each complete UV or VIS profile, Stage 08 independently fits the raw eta
+and pi0 candidate-mass peaks with a Gaussian plus linear background. The
+ellipse remains centered on the physical meson masses and is not rotated. For
+finite mass pairs it defines
 
-If the full core contains more events than the tails, the workflow draws a deterministic random subset of the core without replacement. The default campaign seed is `20261024`. Non-finite candidate masses belong to neither sample and are counted separately in the ROOT provenance.
+```text
+d0_squared = ((eta_mass - M_ETA) / sigma_eta)^2
+           + ((pi0_mass - M_PI0) / sigma_pi0)^2
+```
 
-Extraction fails with explicit core/tail counts if either region is empty or the full core is smaller than the tails. Candle mode requires nominal `raw_bdt`, rejects sideband correction and diagnostic bootstrap, and requires at least one fitted point overall in each candle sample. Without candle options, standalone extraction retains its existing behavior.
+The workflow solves a common factor `k` from the empirical median distance.
+The core satisfies `d0_squared / k^2 <= 1`; the tail is its finite complement.
+Consequently `k` may be smaller or larger than one, but no manual scan and no
+random downsampling are used. Non-finite mass pairs enter neither region and
+are counted separately. An exact distance tie across the median fails because
+a purely geometric threshold cannot split identical points. Candle mode requires
+nominal `raw_bdt`, rejects sideband correction and diagnostic bootstrap, and
+requires at least one fitted point overall in each candle sample. Without
+candle options, standalone extraction retains its existing behavior.
 
-The equality is global for each complete UV or VIS profile before physics-bin fits. A particular energy/mass bin can therefore be empty in one sample or have different fitted coverage; the plotting code preserves those unmatched points instead of silently pairing or dropping them. With `--by-period`, the candle samples are extracted only for the pooled profile result, not independently for every historical subperiod.
+The 50/50 equality is global before physics-bin fits. An energy/mass bin may
+therefore be absent in one region, and ratio or likelihood coverage may differ.
+The plots retain such unmatched points. With `--by-period`, the candle samples
+are produced only for the pooled profile result; historical period outputs
+remain nominal-only.
 
-The normal launcher enables the test for UV and VIS:
+The normal launcher enables a 50% core for UV and VIS:
 
 ```bash
 python scripts/run_pipeline.py --mode production --output-dir results/my-campaign
 ```
 
-For a standalone Stage-08 rerun, add both options to the usual extraction command:
+For a standalone Stage-08 rerun, add the fraction to the normal extraction:
 
 ```bash
 python 08_observable_extraction/beam_asymmetry.py \
@@ -29,12 +49,18 @@ python 08_observable_extraction/beam_asymmetry.py \
   --run-quality config/support/run_quality_exclusions.json \
   --output-dir results_test/vis-candle/beam_asymmetry \
   --estimator both \
-  --candle-mass-half-width 0.05 \
-  --candle-balance-seed 20261024
+  --candle-core-fraction 0.5
 ```
 
-The additional ROOT samples are `raw_bdt_core` and `raw_bdt_tails`. The extraction writes `candle_mass_plane.pdf` plus `comparison_candle_ratio.pdf` and/or `comparison_candle_likelihood.pdf` when both candle samples have fitted points for that estimator; combined UV/VIS plots use the same comparison names. `beam_asymmetry.root` records the centers, half-width, boundary and selection logic, seed, balance method, full counts and excluded non-finite count. Composition fails closed if UV and VIS use incompatible candle definitions.
+The additional ROOT samples are `raw_bdt_core` and `raw_bdt_tails`. The
+extraction writes `candle_mass_plane.pdf` with the fitted ellipse plus
+`comparison_candle_ratio.pdf` and/or `comparison_candle_likelihood.pdf` when
+both regions have fitted points for that estimator. `beam_asymmetry.root`
+records the fit model and ranges, fitted means and sigmas, requested fraction,
+distance threshold, `k`, finite/core/tail counts, and excluded non-finite
+count. UV/VIS composition requires the same method and fraction while allowing
+their data-derived sigmas and scale factors to differ.
 
-Interpret agreement as a selection-stability diagnostic only. It does not turn the tail sample into a background model, and it does not modify or replace the nominal `raw_bdt` asymmetry.
+Interpret agreement as a selection-stability diagnostic only. It does not turn the tail sample into a background model, and it does not modify or replace the nominal `raw_bdt` asymmetry. The test does not establish detector acceptance or a formal significance.
 
 The completed port specification and implementation plan remain in [PR history](https://github.com/AntoninoFulci/GRAAL_Analysis/tree/e5c586e3b192b9cfe5dac442140668588d3f28e6/docs/plans). The port extends the current Stage-08 owners; it does not import historical campaign outputs. Formal significance and shared-systematic covariance remain outside this diagnostic.

@@ -73,7 +73,7 @@ Gli entrypoint installati accettano anche `repo_root` dal file; il checkout scri
 
 ## CLI specialistiche
 
-`--phi-bins` accepts 8, 12 or 16 (default 12); `--best-binning` selects each ratio point among all three fits and overrides that fixed choice. `--energy-config` reads explicit UV/VIS grids. The default grids remain UV `[1.10,1.20,1.30,1.40,1.50]` GeV and VIS `[0.9313,1.10]` GeV. The planner also enables the [core-versus-tail candle test](core-tail-candle-test) for both profiles with a `0.05 GeV` half-width and seed `20261024`. The [common input manifest](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/support/common_inputs.json) and [run quality policy](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/support/run_quality_exclusions.json) are validated, not inferred from selected event counts.
+`--phi-bins` accepts 8, 12 or 16 (default 12); `--best-binning` selects each ratio point among all three fits and overrides that fixed choice. `--energy-config` reads explicit UV/VIS grids. The default grids remain UV `[1.10,1.20,1.30,1.40,1.50]` GeV and VIS `[0.9313,1.10]` GeV. The planner also enables the [core-versus-tail candle test](core-tail-candle-test) for both profiles with `--candle-core-fraction 0.5`; the ellipse scale is solved from each selected profile rather than fixed by hand. The [common input manifest](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/support/common_inputs.json) and [run quality policy](https://github.com/AntoninoFulci/GRAAL_Analysis/blob/main/config/support/run_quality_exclusions.json) are validated, not inferred from selected event counts.
 
 Inspect supported interfaces without starting jobs:
 

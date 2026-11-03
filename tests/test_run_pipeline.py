@@ -281,10 +281,10 @@ def test_plan_enables_reproducible_candle_test_for_both_profiles(tmp_path):
 
     for profile, edges in (("uv", (1.10, 1.30, 1.50)), ("vis", (0.9313, 1.10))):
         command = _stage(stages, f"{profile}:extract").argv
-        assert command.count("--candle-mass-half-width") == 1
-        assert command[command.index("--candle-mass-half-width") + 1] == "0.05"
-        assert command.count("--candle-balance-seed") == 1
-        assert command[command.index("--candle-balance-seed") + 1] == "20261024"
+        assert command.count("--candle-core-fraction") == 1
+        assert command[command.index("--candle-core-fraction") + 1] == "0.5"
+        assert "--candle-mass-half-width" not in command
+        assert "--candle-balance-seed" not in command
         start = command.index("--energy-edges") + 1
         assert command[start:start + len(edges)] == tuple(str(edge) for edge in edges)
         assert command[-1] == "--best-binning"
