@@ -9,7 +9,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Ellipse, Rectangle
 import numpy as np
 
 from graal_common.physics.channels import M_ETA, M_PI0
@@ -49,8 +49,9 @@ def build_candle_mass_plane(
     tail_count: int,
     balanced_core_count: int,
     excluded_nonfinite_count: int,
+    gaussian_model=None,
 ):
-    """Build the full raw candidate-mass plane and candle rectangle."""
+    """Build the full raw mass plane with the selected rectangle or ellipse."""
     eta_mass = np.asarray(eta_mass_gev, dtype=np.float64)
     pi0_mass = np.asarray(pi0_mass_gev, dtype=np.float64)
     if eta_mass.ndim != 1 or pi0_mass.ndim != 1:
@@ -70,8 +71,10 @@ def build_candle_mass_plane(
     if any(value != raw or value < 0 for value, raw in zip(counts, raw_counts)):
         raise ValueError("candle counts must be non-negative integers")
     full_core, tails, balanced_core, excluded_nonfinite = counts
-    if balanced_core != tails or balanced_core > full_core:
+    if gaussian_model is None and (balanced_core != tails or balanced_core > full_core):
         raise ValueError("balanced core count must equal tails and fit in core")
+    if gaussian_model is not None and balanced_core != full_core:
+        raise ValueError("Gaussian candle must retain every core event")
     if full_core + tails + excluded_nonfinite != eta_mass.size:
         raise ValueError("candle counts do not match baseline")
 
@@ -80,27 +83,32 @@ def build_candle_mass_plane(
         raise ValueError("non-finite mass count does not match candle counts")
     figure, axis = plt.subplots(figsize=(7.2, 6.0), constrained_layout=True)
     histogram = axis.hist2d(
-        eta_mass[finite], pi0_mass[finite], bins=80, cmap="viridis"
+        eta_mass[finite], pi0_mass[finite], bins=80, cmap="viridis", rasterized=True
     )
     figure.colorbar(histogram[3], ax=axis, label="Eventi")
-    axis.add_patch(Rectangle(
-        (M_ETA - width, M_PI0 - width),
-        2.0 * width,
-        2.0 * width,
-        fill=False,
-        edgecolor="tab:red",
-        linewidth=1.8,
-        label="Candle window",
-    ))
+    if gaussian_model is None:
+        contour = Rectangle((M_ETA - width, M_PI0 - width), 2.0 * width, 2.0 * width,
+                            fill=False, edgecolor='tab:red', linewidth=1.8, label='Candle window')
+        annotation = (f"Baseline: {eta_mass.size}\nCore completo: {full_core}\nCode: {tails}\n"
+                      f"Campioni bilanciati: {balanced_core} + {tails}\n"
+                      f"Masse non finite escluse: {excluded_nonfinite}")
+    else:
+        eigenvalues, eigenvectors = np.linalg.eigh(gaussian_model.covariance_gev2)
+        major = eigenvectors[:, -1]
+        diameters = 2. * np.sqrt(gaussian_model.radius_squared * eigenvalues)
+        contour = Ellipse((gaussian_model.eta_center_gev, gaussian_model.pi0_center_gev),
+                          diameters[-1], diameters[0], angle=np.degrees(np.arctan2(major[1], major[0])),
+                          fill=False, edgecolor='tab:red', linewidth=1.8, label='Gaussian 50% contour')
+        observed = full_core / (full_core + tails) if full_core + tails else 0.
+        annotation = (f"Full: {eta_mass.size}\nCore: {full_core}\nTails: {tails}\n"
+                      f"Gaussian probability: 50%\nMeasured core / finite: {observed:.2%}\n"
+                      f"Nonfinite masses excluded: {excluded_nonfinite}")
+    axis.add_patch(contour)
     axis.autoscale(enable=True, axis="both", tight=False)
     axis.text(
         0.02,
         0.98,
-        f"Baseline: {eta_mass.size}\n"
-        f"Core completo: {full_core}\n"
-        f"Code: {tails}\n"
-        f"Campioni bilanciati: {balanced_core} + {tails}\n"
-        f"Masse non finite escluse: {excluded_nonfinite}",
+        annotation,
         transform=axis.transAxes,
         va="top",
         ha="left",
@@ -123,6 +131,7 @@ def write_candle_mass_plane_pdf(
     tail_count: int,
     balanced_core_count: int,
     excluded_nonfinite_count: int,
+    gaussian_model=None,
 ) -> None:
     figure, _ = build_candle_mass_plane(
         eta_mass_gev,
@@ -132,12 +141,61 @@ def write_candle_mass_plane_pdf(
         tail_count=tail_count,
         balanced_core_count=balanced_core_count,
         excluded_nonfinite_count=excluded_nonfinite_count,
+        gaussian_model=gaussian_model,
     )
     _save(path, figure)
 
 
 def _key(item: OutputPoint) -> tuple[str, int, int]:
     return item.point.pair, item.point.energy_bin, item.point.mass_bin
+
+
+def _gaussian_projection_counts(model):
+    """Integrate the stored joint fit on its own grid; never perform a new fit."""
+    audit = model.to_dict()['fit']
+    if audit is None:
+        raise ValueError('Gaussian projection plots require a fitted model audit')
+    bins, order = audit['bins_per_axis'], audit['quadrature_order']
+    edges = [np.linspace(*window, bins + 1) for window in audit['fit_window_gev']]
+    nodes, weights = np.polynomial.legendre.leggauss(order)
+    points = [(edge[:-1, None] + edge[1:, None]) / 2 + np.diff(edge)[:, None] * nodes / 2
+              for edge in edges]
+    dx = points[0][:, None, :, None] - model.eta_center_gev
+    dy = points[1][None, :, None, :] - model.pi0_center_gev
+    precision = np.linalg.inv(model.covariance_gev2)
+    exponent = precision[0, 0] * dx**2 + 2 * precision[0, 1] * dx * dy + precision[1, 1] * dy**2
+    integrated = np.sum(np.exp(-.5 * exponent) * weights[:, None] * weights[None, :], axis=(-2, -1))
+    signal = integrated / integrated.sum() * audit['parameters'][5]
+    pedestal = np.full((bins, bins), audit['parameters'][6] / bins**2)
+    return edges, signal, pedestal
+
+
+def write_candle_gaussian_projections_pdf(path: Path, eta_mass_gev, pi0_mass_gev, *, gaussian_model) -> None:
+    """Raw mass projections and stored Gaussian+pedestal fit in its joint window.
+
+    The window applies only to these fit diagnostics, never to the samples used
+    for physical quality controls or asymmetry extraction.
+    """
+    eta, pi0 = np.asarray(eta_mass_gev, dtype=float), np.asarray(pi0_mass_gev, dtype=float)
+    if eta.ndim != 1 or eta.shape != pi0.shape:
+        raise ValueError('raw mass arrays must have the same one-dimensional shape')
+    edges, signal, pedestal = _gaussian_projection_counts(gaussian_model)
+    in_window = (np.isfinite(eta) & np.isfinite(pi0)
+                 & (eta >= edges[0][0]) & (eta <= edges[0][-1])
+                 & (pi0 >= edges[1][0]) & (pi0 <= edges[1][-1]))
+    observed = np.histogram2d(eta[in_window], pi0[in_window], bins=edges)[0]
+    figure, axes = plt.subplots(1, 2, figsize=(11., 4.6), constrained_layout=True)
+    for index, (axis, label) in enumerate(zip(axes, (r'Raw $M(\eta)$ [GeV]', r'Raw $M(\pi^0)$ [GeV]'))):
+        summed_axis = 1 - index
+        axis.stairs(observed.sum(axis=summed_axis), edges[index], color='black', label='Observed in joint fit window')
+        axis.stairs((signal + pedestal).sum(axis=summed_axis), edges[index], color='tab:red', label='Stored Gaussian + pedestal fit')
+        axis.stairs(signal.sum(axis=summed_axis), edges[index], color='tab:blue', linestyle='--', label='Gaussian component')
+        axis.stairs(pedestal.sum(axis=summed_axis), edges[index], color='tab:orange', linestyle=':', label='Constant pedestal')
+        axis.set(xlabel=label, ylabel='Events / bin')
+        axis.legend(fontsize=8)
+        axis.grid(alpha=.2)
+    figure.suptitle(f'Joint mass-fit projections: {int(in_window.sum())} / {eta.size} input events in declared fit window')
+    _save(path, figure)
 
 
 def _sample_map(
@@ -174,6 +232,7 @@ def _plot_points(axis, points: Sequence[OutputPoint], *, sample: str) -> None:
     if not points:
         return
     marker, color, label = {
+        "raw_bdt": ("D", "black", "Full"),
         "raw_bdt_core": ("o", "tab:blue", "Core"),
         "raw_bdt_tails": ("s", "tab:orange", "Code"),
     }[sample]
@@ -198,7 +257,7 @@ def build_candle_comparison(
     *,
     estimator: str,
 ):
-    """Compare disjoint equal-count core and tail points on the physical grid."""
+    """Compare full/core/tail points, retaining independently unmatched bins."""
     if estimator not in {"ratio", "likelihood"}:
         raise ValueError(f"unknown estimator: {estimator}")
     if not rows:
@@ -209,7 +268,8 @@ def build_candle_comparison(
     for profile, points in points_by_profile.items():
         core = _sample_map(points, sample="raw_bdt_core", estimator=estimator)
         tails = _sample_map(points, sample="raw_bdt_tails", estimator=estimator)
-        sample_maps[profile] = (core, tails)
+        full = _sample_map(points, sample="raw_bdt", estimator=estimator)
+        sample_maps[profile] = (core, tails, full)
         paired_profile = paired_profile or bool(core and tails)
     if not paired_profile:
         raise ValueError(
@@ -224,7 +284,7 @@ def build_candle_comparison(
         squeeze=False,
     )
     for row_index, row in enumerate(rows):
-        core_map, tail_map = sample_maps.get(row.profile, ({}, {}))
+        core_map, tail_map, full_map = sample_maps.get(row.profile, ({}, {}, {}))
         for column, pair in enumerate(PAIR_ORDER):
             axis = axes[row_index, column]
             core = sorted(
@@ -237,6 +297,12 @@ def build_candle_comparison(
                  if key[0] == pair and key[1] == row.energy_bin),
                 key=lambda item: item.point.mass_bin,
             )
+            full = sorted(
+                (item for key, item in full_map.items()
+                 if key[0] == pair and key[1] == row.energy_bin),
+                key=lambda item: item.point.mass_bin,
+            )
+            _plot_points(axis, full, sample="raw_bdt")
             _plot_points(axis, core, sample="raw_bdt_core")
             _plot_points(axis, tails, sample="raw_bdt_tails")
             axis.axhline(0.0, color="0.65", linewidth=0.8)
@@ -258,15 +324,17 @@ def build_candle_comparison(
         for handle, label in zip(handles, labels):
             handles_by_label.setdefault(label, handle)
     ordered_labels = [
-        label for label in ("Core", "Code") if label in handles_by_label
+        label for label in ("Full", "Core", "Code") if label in handles_by_label
     ]
     if ordered_labels:
         figure.legend(
             [handles_by_label[label] for label in ordered_labels],
             ordered_labels,
             loc="outside upper center",
-            ncol=2,
+            ncol=len(ordered_labels),
         )
+    if 'Full' in handles_by_label:
+        figure.supxlabel('Full overlaps core/tails; descriptive comparison, no independent-sample significance', fontsize=9)
     return figure, axes
 
 

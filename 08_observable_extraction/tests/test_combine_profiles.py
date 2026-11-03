@@ -190,7 +190,7 @@ def test_best_binning_composition_accepts_different_choices_but_not_mixed_modes(
     _write_profile_root(uv, uv_points, (1.1, 1.2, 1.3, 1.4, 1.5), "profile=uv" + adaptive)
     _write_profile_root(vis, vis_points, (.9313, 1.10),
                         "profile=vis" + (adaptive if vis_best else "\nphi_bin_divisor=0.9745"),
-                        np.linspace(0, 2 * np.pi, 17))
+                        np.linspace(-np.pi / 16, 2 * np.pi - np.pi / 16, 17))
     args = ["--uv-root", str(uv), "--vis-root", str(vis), "--output-dir", str(out)]
     if vis_best:
         assert combine_profiles.main(args) == 0
@@ -199,6 +199,22 @@ def test_best_binning_composition_accepts_different_choices_but_not_mixed_modes(
         with pytest.raises(RuntimeError, match="best-binning mode"):
             combine_profiles.main(args)
         assert not out.exists()
+
+
+@pytest.mark.parametrize("best_binning", [False, True])
+def test_composition_rejects_historical_and_new_phi_origins(tmp_path, best_binning):
+    uv_points = tuple(replace(p, phi_bins=12 if p.estimator == "ratio" else 0) for p in _points())
+    vis_points = tuple(replace(p, point=replace(p.point, energy_bin=0,
+        energy_low_gev=.9313, energy_high_gev=1.10)) for p in uv_points if p.point.energy_bin == 0)
+    uv, vis, out = tmp_path / "uv.root", tmp_path / "vis.root", tmp_path / "plots"
+    metadata = ("\nphi_bins=best-binning\nphi_bin_divisor=per_point" if best_binning
+                else "\nphi_bin_divisor=0.9549")
+    _write_profile_root(uv, uv_points, (1.1, 1.2, 1.3, 1.4, 1.5), "profile=uv" + metadata)
+    _write_profile_root(vis, vis_points, (.9313, 1.10), "profile=vis" + metadata,
+                        np.linspace(0., 2 * np.pi, 13))
+    with pytest.raises(RuntimeError, match="phi.*origin"):
+        combine_profiles.main(["--uv-root", str(uv), "--vis-root", str(vis), "--output-dir", str(out)])
+    assert not out.exists()
 
 
 def _stub_combined_writers(monkeypatch):

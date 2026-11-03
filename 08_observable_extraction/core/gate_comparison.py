@@ -5,7 +5,7 @@ from dataclasses import asdict, fields
 
 import numpy as np
 
-from observable_extraction.core.binning import PAIR_NAMES, PHI_EDGES_RAD, pair_mass_edges
+from observable_extraction.core.binning import PAIR_NAMES, PHI_EDGES_RAD, pair_mass_edges, wrap_phi_rad
 from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.core.systematics import difference_covariance
 
@@ -53,7 +53,7 @@ def subset_audit(pairing, bdt):
     """
     def fingerprints(events):
         columns = [np.asarray(getattr(events, field.name), dtype="<f8").reshape(len(events), -1)
-                   for field in fields(events) if field.name != "bdt_score"] if len(events) else []
+                   for field in fields(events) if field.name != "bdt_score" and getattr(events, field.name) is not None] if len(events) else []
         if not columns:
             return Counter()
         values = np.concatenate(columns, axis=1)
@@ -181,6 +181,7 @@ def phi_retention(samples, energy_edges):
     for name, events in samples.items():
         histograms[name] = {}
         for pair, (_, phi) in project_all_pairs(events.proton, events.eta, events.pi0).items():
+            phi = wrap_phi_rad(phi, PHI_EDGES_RAD)
             histograms[name][pair] = {str(state): np.histogram2d(
                 events.beam_energy_gev[events.polarization == state], phi[events.polarization == state],
                 bins=(energy_edges, PHI_EDGES_RAD))[0].astype(int).tolist() for state in (1, 2)}

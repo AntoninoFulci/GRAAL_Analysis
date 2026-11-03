@@ -15,7 +15,7 @@ import numpy as np
 import ROOT
 
 from observable_extraction.core.models import SigmaPoint
-from observable_extraction.core.binning import PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_edges_rad, validate_edges
+from observable_extraction.core.binning import PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_edges_rad, phi_bin_origin, validate_edges
 from observable_extraction.core.systematics import validate_covariance, PairedBootstrapResult
 
 
@@ -88,6 +88,7 @@ def point_key_label(key):
 
 
 def _validate_payload(payload):
+    phi_bin_origin(payload.phi_edges)
     for point in (*payload.points, *payload.binning_candidates):
         if point.phi_bins not in (0, *PHI_BIN_DIVISORS):
             raise ValueError("invalid per-point phi_bins")
@@ -348,7 +349,10 @@ def _write_payload(path: Path, payload: RootOutputPayload) -> None:
             for bins in PHI_BIN_DIVISORS:
                 directory = _directory(output, f"binning_candidates/{bins}")
                 _write_points(directory, [p for p in payload.binning_candidates if p.phi_bins == bins])
-                _write_vector(directory, "phi_edges", phi_edges_rad(bins))
+                candidate_edges = (phi_edges_rad(bins)
+                                   if phi_bin_origin(payload.phi_edges) == "center_zero"
+                                   else np.linspace(0.0, 2.0 * math.pi, bins + 1))
+                _write_vector(directory, "phi_edges", candidate_edges)
             output.cd()
             ROOT.TNamed("binning_selection", json.dumps(dict(
                 candidates=[8, 12, 16], p_value_threshold=0.01,

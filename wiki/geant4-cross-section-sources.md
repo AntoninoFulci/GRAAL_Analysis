@@ -110,9 +110,9 @@ assoluta pubblicata né che copra i nove canali moderni.
   logaritmica separata (`IBEAM=3`, `54–70`). La card/configurazione scelta va
   quindi registrata: non attribuire a ogni esecuzione la stessa legge del fascio.
 
-### Dati esterni ancora da localizzare e impronte
+### Dati esterni recuperati e impronte
 
-La ricerca dei nomi in `prog/` non ha trovato `channel.mat` né
+La ricerca del 27 ottobre in `prog/` non aveva trovato `channel.mat` né
 `sigma_pi0.dat`. Quest'ultimo è letto da `src/gen_init_comp.F:12–28`
 per le asimmetrie π0 (30 energie ×19 angoli), non è la tabella delle sezioni
 totali. `src/profiles.F:27–36,39–130` richiede inoltre `$BEAM` e file
@@ -120,6 +120,28 @@ totali. `src/profiles.F:27–36,39–130` richiede inoltre `$BEAM` e file
 istogrammi HBOOK di profilo/spettro. Questi nomi non sono presenti nelle due
 directory LAGGEN ispezionate. Sono dipendenze esterne dello snapshot, non prova
 che i dati siano perduti.
+
+**Aggiornamento del 3 novembre 2026:** il responsabile ha recuperato
+`prog/data/inp_laggen/` e `prog/data/simul_beam/`. Sono presenti
+`channel.mat`, sette altre tabelle `.mat`, `sigma_pi0.dat`, card LAGGEN e
+tutti i sei profili richiesti da `profiles.F`. File e link sono preservati;
+hash e lettura strutturale sono in `results_test/geant4-input-recovery-20261103/`.
+SHA-256 di `channel.mat`:
+`3798edfc200302282b7efe692b59b007ee28e4a34859072a5d6d823029003d04`.
+
+Il file ha **65 canali**, mentre `gen_init.F` ne legge 64. Nei primi 64
+blocchi il layout `5+7+7` campi numerici di dieci colonne è leggibile:
+60.800 valori finiti non negativi, 50 energie ×19 angoli per canale.
+Le etichette ECDM vanno da 1,05 a 3,50 a passi di 0,05; il lettore le
+salta. `gen_evt.F:37–50` imposta invece `W_I=0.950`, `DW=0.050` e
+associa la riga 1 a W=1,00. **Discrepanza di griglia da risolvere**, non
+autorizzazione a traslare tabelle o cambiare il generatore storico.
+`channel_last.mat` ha 64 blocchi; `channel_flat.mat`, `channel_norm.mat`
+e `channel_step_one.mat` ne hanno 60; gli altri tre file sono frammenti.
+Non sono alternative intercambiabili per il reader a 64 canali.
+La verifica del layout non stabilisce unità, BR, fonti fisiche o associazione
+dei canali alla variante `laggen`/`laggen_vale`. Gli istogrammi HBOOK
+recuperati non sono ancora stati interpretati.
 
 È stato letto **solo l'elenco** delle 346 voci di `prog/laggen.zip`: non contiene
 `channel.mat`, `sigma_pi0.dat` o i file `gl*.hist` richiesti; contiene
@@ -142,6 +164,6 @@ SHA-256 dei sorgenti chiave, conservati come impronta della lettura:
 `gen_init.F`, `gen_evt.F`, `blockdata.F`, `totalsect.F` e `channelex.F`
 sono identici byte per byte nelle due copie controllate; le differenze di
 `channeldef.F`, `ev_nuc.F` e `openntuple.F` sono state lette. Il passo utile
-successivo è recuperare i datafile esterni e ricostruire per ciascuna reazione
+successivo, dopo il recupero del 3 novembre, è riconciliare la griglia e ricostruire per ciascuna reazione
 la relazione tra totale, forma angolare, BR e peso GENBOD, prima di adattarli
 alla generazione moderna.

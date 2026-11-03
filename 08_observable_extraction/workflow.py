@@ -29,7 +29,7 @@ from observable_extraction.extraction_systematics import (
 )
 from observable_extraction.io.reconstructed_events import (
     read_reconstructed, select_brem_control, select_sigma_events,
-    split_candle_core_tails,
+    split_candle_core_tails, split_gaussian_candle,
 )
 from observable_extraction.io.root_output import (
     RootOutputPayload, write_root_output, ordered_point_keys,
@@ -72,7 +72,15 @@ def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_samp
             tail_count=candle_split.tail_count,
             balanced_core_count=len(candle_split.core),
             excluded_nonfinite_count=candle_split.excluded_nonfinite_count,
+            **({"gaussian_model": candle_split.gaussian_model} if candle_split.gaussian_model is not None else {}),
         )
+        if candle_split.gaussian_model is not None:
+            from observable_extraction.plotting.candle_quality import write_candle_quality_report
+            from observable_extraction.plotting.candle import write_candle_gaussian_projections_pdf
+            write_candle_quality_report(plots_dir / "candle_quality", {"raw_bdt": events,
+                "raw_bdt_core": candle_split.core, "raw_bdt_tails": candle_split.tails})
+            write_candle_gaussian_projections_pdf(plots_dir / "candle_mass_projections.pdf",
+                events.eta_mass_gev, events.pi0_mass_gev, gaussian_model=candle_split.gaussian_model)
         for estimator in available_candle_estimators(points_by_profile):
             write_candle_comparison_pdf(
                 plots_dir / f"comparison_candle_{estimator}.pdf",
@@ -120,8 +128,12 @@ def _write_result_reports(plots_dir, *, profile_name, energy_edges, nominal_samp
 def validate_candle_options(args: argparse.Namespace) -> None:
     """Reject unsupported candle requests before inspecting input ROOT files."""
     width = getattr(args, "candle_mass_half_width", None)
-    if width is None:
+    gaussian = getattr(args, "candle_gaussian", False)
+    if width is None and not gaussian:
+        if getattr(args, "candle_comparison_replicas", 0):
+            raise ValueError("candle comparison replicas require Gaussian candle")
         return
+    width = .05 if width is None else width
     if not np.isfinite(width) or width <= 0.0:
         raise ValueError("candle mass half-width must be finite and positive")
     if args.nominal_sample != "raw_bdt":
@@ -129,8 +141,13 @@ def validate_candle_options(args: argparse.Namespace) -> None:
     if args.sideband is not None:
         raise ValueError("candle selection is not supported with sideband correction")
     seed = getattr(args, "candle_balance_seed", None)
-    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+    if not gaussian and (isinstance(seed, bool) or not isinstance(seed, int) or seed < 0):
         raise ValueError("candle balance seed must be a non-negative integer")
+    replicas = getattr(args, "candle_comparison_replicas", 0)
+    if replicas and (not gaussian or replicas < 2):
+        raise ValueError("Gaussian candle comparison requires at least two replicas")
+    if replicas and not getattr(args, "by_period", False):
+        raise ValueError("candle comparison requires --by-period with an inclusive run universe")
     if getattr(args, "bootstrap_diagnostics_replicas", 0):
         raise ValueError("candle selection does not support diagnostic bootstrap")
 
@@ -208,12 +225,22 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
     binning_candidates = list(nominal.binning_candidates)
     candle_split = None
     candle_width = getattr(args, "candle_mass_half_width", None)
+    gaussian_candle = getattr(args, "candle_gaussian", False)
+    if gaussian_candle and candle_width is None:
+        candle_width = .05
     if candle_width is not None and period == "pooled":
-        candle_split = split_candle_core_tails(
-            events,
-            candle_width,
-            seed=args.candle_balance_seed,
-        )
+        if gaussian_candle:
+            from observable_extraction.core.candle import fit_gaussian_candle
+            if any(getattr(events, name) is None for name in ("beam", "target", "missing")):
+                raise ValueError("Gaussian candle quality controls require raw beam, target and missing vectors")
+            model = fit_gaussian_candle(events.eta_mass_gev, events.pi0_mass_gev, half_width_gev=candle_width)
+            candle_split = split_gaussian_candle(events, model)
+        else:
+            candle_split = split_candle_core_tails(events, candle_width, seed=args.candle_balance_seed)
+        candle_binning = dict(binning_options)
+        if gaussian_candle and best_binning:
+            candle_binning["selected_phi_bins"] = {(item.point.pair, item.point.energy_bin, item.point.mass_bin): item.phi_bins
+                                                   for item in nominal.points if item.estimator == "ratio"}
         for sample_name, selected_events in (
             ("raw_bdt_core", candle_split.core),
             ("raw_bdt_tails", candle_split.tails),
@@ -226,7 +253,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
                 retain_ratio_objects=False,
                 energy_edges=energy_edges,
                 phi_edges=phi_edges,
-                **binning_options,
+                **candle_binning,
             )
             if not extracted.points:
                 raise RuntimeError(
@@ -326,7 +353,8 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
                  status="estimable" if (name, pair, e, m, estimator) in fitted else "not_estimable")
             for name in input_samples for estimator in estimators for pair in PAIR_NAMES
             for e in range(len(energy_edges) - 1) for m in range(len(pair_mass_edges(pair)) - 1)]
-    energy_inventory = energy_bin_inventory(input_samples, exposures, energy_edges, output_points)
+    energy_inventory = energy_bin_inventory(input_samples, exposures, energy_edges, output_points,
+                                            run_quality=quality)
     if metadata is not None:
         metadata["energy_bins"] = energy_inventory
         metadata["energy_edges_gev"] = list(grid.edges_gev)
@@ -391,7 +419,10 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         f"signal_mc_hard_sideband_leakage={background_leakage}",
         "best_quartet_resolved=false",
     ]
-    if candle_split is not None:
+    if candle_split is not None and candle_split.gaussian_model is not None:
+        from observable_extraction.io.candle_metadata import gaussian_candle_provenance
+        provenance_lines.extend(gaussian_candle_provenance(candle_split, len(events), candle_width))
+    elif candle_split is not None:
         provenance_lines.extend([
             "candle_enabled=true",
             f"candle_eta_center_gev={M_ETA}",
@@ -430,7 +461,27 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         statistical_covariance=statistical_covariance,
         bootstrap_covariance=bootstrap_covariance,
     )
+    if candle_split is not None and candle_split.gaussian_model is not None:
+        from observable_extraction.candle_comparison import compare_candle_samples
+        candle_samples = {"raw_bdt": events, "raw_bdt_core": candle_split.core, "raw_bdt_tails": candle_split.tails}
+        candle_points = {name: tuple(item for item in output_points if item.sample == name) for name in candle_samples}
+        replicas = getattr(args, "candle_comparison_replicas", 0)
+        strata = None
+        if replicas:
+            from calibration.run_manifest import validate_manifest
+            from observable_extraction.core.periods import partition_runs
+            groups = partition_runs(validate_manifest(args.run_manifest),
+                {row.run_number for row in exposures.values()}, target=profile.target, beam_type=profile.beam_type)
+            strata = {run: name for name, runs in groups.items() for run in runs}
+        comparison_report, comparison_arrays = compare_candle_samples(
+            candle_samples, candle_points, exposures, energy_edges, phi_edges, estimator=args.estimator,
+            selected_phi_bins=candle_binning.get("selected_phi_bins"), replicas=replicas,
+            seed=args.bootstrap_seed, run_strata=strata, workers=workers)
     write_root_output(args.output_dir / "beam_asymmetry.root", payload)
+    if candle_split is not None and candle_split.gaussian_model is not None:
+        (args.output_dir / "candle_comparison.json").write_text(json.dumps(comparison_report, indent=2, allow_nan=False) + "\n")
+        if comparison_arrays:
+            np.savez_compressed(args.output_dir / "candle_comparison_replicas.npz", **comparison_arrays)
     plots_dir = args.plots_dir if args.plots_dir is not None else args.output_dir
     _write_result_reports(
         plots_dir, profile_name=profile.name, energy_edges=grid.edges_gev,

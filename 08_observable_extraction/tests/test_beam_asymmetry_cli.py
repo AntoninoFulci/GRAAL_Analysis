@@ -39,7 +39,7 @@ def test_cli_defaults_to_raw_bdt_nominal_and_public_root_pdf_only():
 
 
 def _synthetic_events(sigma=0.30, beam_energy_gev=1.15, phi_bins=12):
-    edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
+    edges = np.linspace(-np.pi / phi_bins, 2.0 * np.pi - np.pi / phi_bins, phi_bins + 1)
     centers = 0.5 * (edges[:-1] + edges[1:])
     flux_v, flux_h = 1.2, 0.9
     pol_v, pol_h = 0.6, 0.55
@@ -90,7 +90,7 @@ def test_likelihood_metadata_survives_unestimable_ratio():
         np.flatnonzero(source.polarization == state)[:20] for state in (1, 2)
     ])
     events = EventArrays(**{
-        field.name: getattr(source, field.name)[indices] for field in fields(source)
+        field.name: (None if getattr(source, field.name) is None else getattr(source, field.name)[indices]) for field in fields(source)
     })
     exposures = {(811, 17): FluxExposure(811, 17, 1.15, 1.2, 0.9, 0.2, 0.6, 0.55)}
 
@@ -200,7 +200,7 @@ def test_standalone_workflow_writes_corrected_ratio_and_raw_azimuth_curve(
         assert phi_edges.GetNrows() == phi_bins + 1
         np.testing.assert_allclose(
             [phi_edges[index] for index in range(phi_edges.GetNrows())],
-            np.linspace(0.0, 2.0 * np.pi, phi_bins + 1),
+            np.linspace(-np.pi / phi_bins, 2.0 * np.pi - np.pi / phi_bins, phi_bins + 1),
         )
         ratios = source.Get("ratio_objects/p_pi0/e0")
         (mass_key,) = tuple(ratios.GetListOfKeys())
@@ -402,9 +402,9 @@ def test_candle_rejects_diagnostic_bootstrap_before_root_io(
 
 def _concatenate_events(*groups):
     return EventArrays(**{
-        field.name: np.concatenate(
+        field.name: (None if getattr(groups[0], field.name) is None else np.concatenate(
             [getattr(group, field.name) for group in groups], axis=0
-        )
+        ))
         for field in fields(EventArrays)
     })
 

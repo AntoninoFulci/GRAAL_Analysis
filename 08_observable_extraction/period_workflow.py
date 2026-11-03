@@ -80,7 +80,7 @@ def _partition_closure(args, groups, inputs, sample_keys, exposures, reference, 
     for name, key in sample_keys.items():
         original = inputs[key]
         chunks = [original.take(np.isin(original.run_number, runs)) for runs in groups.values()]
-        joined = EventArrays(**{field.name: np.concatenate([getattr(chunk, field.name) for chunk in chunks])
+        joined = EventArrays(**{field.name: (None if getattr(original, field.name) is None else np.concatenate([getattr(chunk, field.name) for chunk in chunks]))
                                 for field in fields(EventArrays)})
         if len(joined) != len(original):
             raise ValueError("period event union differs from pooled input")

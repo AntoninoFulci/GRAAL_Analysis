@@ -20,7 +20,8 @@ def organize_campaign_reports(campaign: Path) -> None:
     moves = []
     omitted = []
     for source in sorted((campaign / 'root').rglob('*')):
-        if not source.is_file() or source.suffix not in {'.pdf', '.json', '.log'}:
+        if not source.is_file() or (source.suffix not in {'.pdf', '.json', '.log'}
+                                   and source.name != 'candle_comparison_replicas.npz'):
             continue
         if source.name == 'figure4_experimental.pdf':
             omitted.append((source, source.read_bytes()))
@@ -42,6 +43,13 @@ def organize_campaign_reports(campaign: Path) -> None:
                     row['root'] = os.path.relpath(scientific, target.parent)
             published = (json.dumps(index, indent=2, allow_nan=False) + '\n').encode()
         moves.append((source, target, content, published))
+    for source in sorted((campaign / 'plots').rglob('quality_audit.json')):
+        if not source.is_file() or source.parent.name != 'candle_quality':
+            continue
+        relative = source.relative_to(campaign / 'plots')
+        target = campaign / 'metadata' / relative.parts[0] / 'beam_asymmetry' / Path(*relative.parts[1:])
+        content = source.read_bytes()
+        moves.append((source, target, content, content))
     for source in sorted((campaign / 'plots').rglob('*.root')):
         target = campaign / 'root' / source.relative_to(campaign / 'plots')
         content = source.read_bytes()
@@ -51,7 +59,11 @@ def organize_campaign_reports(campaign: Path) -> None:
     # Check every collision before changing any existing file. Only generated
     # histogram diagnostics may replace an earlier plot regeneration's ROOTs.
     previous = {}
+    planned = {}
     for source, target, content, published in moves:
+        if target in planned and planned[target] != published:
+            raise PipelineError(f'conflicting campaign reports for {target}')
+        planned[target] = published
         old = target.read_bytes() if target.exists() else None
         if old is not None and old != published and source.suffix != '.root':
             raise PipelineError(f'conflicting campaign report: {source} -> {target}')

@@ -7,6 +7,64 @@ import pytest
 from graal_workflow import paths, models
 
 
+def test_gaussian_metadata_publication_preserves_hashes_and_quality_pdfs(tmp_path):
+    from graal_workflow.publication import organize_campaign_reports
+    sources = {
+        "root/uv/beam_asymmetry/candle_comparison.json": b'{"schema": 1}',
+        "root/uv/beam_asymmetry/candle_comparison_replicas.npz": b'comparison replica bytes',
+        "plots/uv/candle_quality/quality_audit.json": b'{"schema": 1}',
+        "plots/uv/candle_quality/quality_coplanarity_deg.pdf": b'%PDF-quality',
+    }
+    for name, content in sources.items():
+        file = tmp_path / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(content)
+    organize_campaign_reports(tmp_path)
+    for name in ("candle_comparison.json", "candle_comparison_replicas.npz", "candle_quality/quality_audit.json"):
+        assert (tmp_path / "metadata/uv/beam_asymmetry" / name).is_file()
+    assert not (tmp_path / "plots/uv/candle_quality/quality_audit.json").exists()
+    assert (tmp_path / "plots/uv/candle_quality/quality_coplanarity_deg.pdf").read_bytes() == b'%PDF-quality'
+    inventory = json.loads((tmp_path / 'metadata/output_layout.json').read_text())
+    for row in inventory['relocations']:
+        assert row['sha256'] == hashlib.sha256(sources[row['source']]).hexdigest()
+        assert (tmp_path / row['destination']).read_bytes() == sources[row['source']]
+    organize_campaign_reports(tmp_path)
+    assert json.loads((tmp_path / 'metadata/output_layout.json').read_text()) == inventory
+
+
+def test_gaussian_audits_with_conflicting_origins_are_not_discarded(tmp_path):
+    from graal_workflow.publication import organize_campaign_reports
+    roots = (tmp_path / "root/uv/beam_asymmetry/candle_quality/quality_audit.json",
+             tmp_path / "plots/uv/candle_quality/quality_audit.json")
+    for index, path in enumerate(roots):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"origin": index}))
+    with pytest.raises(models.PipelineError, match="conflicting"):
+        organize_campaign_reports(tmp_path)
+    assert [json.loads(path.read_text())["origin"] for path in roots] == [0, 1]
+    assert not (tmp_path / "metadata/output_layout.json").exists()
+
+
+def test_gaussian_metadata_publication_rolls_back_audit_and_replicas(tmp_path, monkeypatch):
+    from pathlib import Path
+    from graal_workflow.publication import organize_campaign_reports
+    sources = (tmp_path / "root/uv/beam_asymmetry/candle_comparison_replicas.npz",
+               tmp_path / "plots/uv/candle_quality/quality_audit.json")
+    for index, path in enumerate(sources):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"preserved {index}".encode())
+    replace = Path.replace
+    def fail_commit(source, target):
+        if source.name == "output_layout.json.tmp":
+            raise OSError("publication failed")
+        return replace(source, target)
+    monkeypatch.setattr(Path, "replace", fail_commit)
+    with pytest.raises(OSError, match="publication failed"):
+        organize_campaign_reports(tmp_path)
+    assert [path.read_bytes() for path in sources] == [b"preserved 0", b"preserved 1"]
+    assert not list((tmp_path / "metadata").rglob("*.*"))
+
+
 def test_campaign_paths_group_scientific_outputs(tmp_path):
     locations = paths.build_paths(paths.mode_config('production', tmp_path))
     assert locations.profile_root('uv') == locations.output_root / 'root/uv'

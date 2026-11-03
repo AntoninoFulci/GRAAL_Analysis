@@ -56,7 +56,14 @@ raw `RatioFitResult` into a physical `SigmaPoint`. Sigma and its statistical
 errors are divided by the divisor; the fallback sine diagnostic is scaled
 to the same physical units. The constant diagnostic, chi-square, degrees of
 freedom, p-value, and significance flags retain their raw-fit values.
-Uniform 8/12/16 bins covering `[0, 2 pi]` are required for this correction.
+Uniform 8/12/16 bins covering one full turn are required for this correction.
+New extractions center a bin at zero: for width `Delta = 2 pi / N`, the
+edges span `[-Delta/2, 2 pi-Delta/2]`. The default 12-bin interval is
+**[-15 degrees, 345 degrees]**; 8 and 16 bins span [-22.5, 337.5] and
+[-11.25, 348.75] degrees respectively. This aligns bin centers with the
+cardinal directions. Angles wrap periodically into the edge interval before
+histogramming, so bins crossing zero retain their events. This changes bin
+placement, not the physical phase or any of the three approved divisors.
 
 `RatioBinResult.fit` and the azimuthal ROOT graph/curve retain the observed
 center-fit amplitude. `sigma_points`, publication plots, sideband Sigma,
@@ -68,14 +75,18 @@ bins. The unbinned conditional-likelihood Sigma is not rescaled.
 ROOT provenance records `phi_bin_correction=ratio_only_rounded` and the
 actual `phi_bin_divisor`. Old outputs without a divisor remain readable as
 uncorrected results; reads and plot regeneration never silently change them.
-UV/VIS composition rejects corrected/uncorrected mixtures. Rerun extraction
+Historical `[0, 2 pi]` edges remain readable with their original origin and
+correction metadata. UV/VIS composition rejects corrected/uncorrected
+mixtures and mixtures of historical and zero-centered bin origins; reads
+never rotate, rebin or relabel historical products. Rerun extraction
 to obtain corrected results from an older campaign; existing ROOT files and
 published Ajaka points are not rewritten.
 
 Regression checks cover all three literal divisors, error scaling, recovery
 of a known Sigma from analytically integrated polarized yields, fallback
 diagnostics, unchanged likelihood, ROOT overlay amplitudes and statistical
-covariance, and legacy/metadata validation.
+covariance, periodic event conservation at the boundaries, both angular
+origins, and legacy/metadata validation.
 
 ## Consequences for analysis (mathematical inference)
 

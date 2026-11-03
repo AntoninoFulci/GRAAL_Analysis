@@ -6,14 +6,15 @@ from observable_extraction.core.binning import bin_index
 from observable_extraction.core.periods import selection_audit, exposure_summary
 
 
-def energy_bin_inventory(samples, exposures, edges, points):
+def energy_bin_inventory(samples, exposures, edges, points, *, run_quality=None):
     rows = []
     for index, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
         counts = {}
         for name, events in samples.items():
             energy = events.beam_energy_gev
             inside = (energy >= low) & ((energy <= high) if index == len(edges) - 2 else (energy < high))
-            counts[name] = selection_audit(events.take(inside), exposures, (low, high))
+            counts[name] = selection_audit(events.take(inside), exposures, (low, high),
+                                           run_quality=run_quality)
         strata = {key: value for key, value in exposures.items()
                   if bin_index(value.energy_gev, edges) == index}
         fitted = [item for item in points if item.point.energy_bin == index]

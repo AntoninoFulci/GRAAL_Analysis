@@ -48,7 +48,7 @@
 
 T0–T1 sono il primo blocco concreto. Le fasi successive non assegnano valori inventati agli input assenti: l'inventario registra la dipendenza e consente lavoro indipendente sui contratti. I moduli indicati come nuovi sono proposte di responsabilità; confermare la granularità al task, evitando classi/interfacce senza necessità.
 
-Il 27 ottobre il responsabile conferma che datafile esterni LAGGEN e database/calibrazioni PREAN non sono attualmente disponibili e saranno forniti successivamente. Il [registro di recupero](../../wiki/geant4-validation.md#input-da-ricevere-e-procedura-di-ripresa) definisce cosa verificare alla consegna. Intanto eseguire mappatura/audit di sorgente e contratti su fixture; non sostituire le tabelle mancanti con valori spacciati per misurati.
+Il 3 novembre il responsabile ha fornito `docs/reference/fortran/prog/data/`, risolvendo il recupero annunciato il 27 ottobre. Inventariati e hashati 31.115 percorsi: tabelle/card LAGGEN, database/calibrazioni PREAN e sei profili del fascio sono presenti. Il [registro di recupero](../../wiki/geant4-validation.md#input-da-ricevere-e-procedura-di-ripresa) distingue disponibilità da validazione: primi periodi P completi per filename; lacune successive; libreria automa non recuperata. Prima dell'importazione riconciliare 65 canali nel file contro 64 letti e offset di 0,05 GeV fra etichette e griglia implicita. La card `laggen.dat` recuperata seleziona D corto e non va adottata per P. Proseguire T0/T1 e audit T3a sui file reali; nessun gate fisico è chiuso dalla sola consegna e nessuna campagna viene avviata.
 
 ## T0 — Inventario del detector, controlli e baseline
 

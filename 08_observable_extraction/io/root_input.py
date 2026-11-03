@@ -14,7 +14,9 @@ import ROOT
 
 from graal_common.physics.channels import M_ETA, M_PI0
 from observable_extraction.core.models import FitDiagnostics, SigmaPoint
-from observable_extraction.core.binning import PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_bin_divisor
+from observable_extraction.core.binning import (
+    LEGACY_PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_bin_divisor, phi_bin_origin,
+)
 from observable_extraction.io.root_output import OutputPoint, ordered_point_keys, point_key_label
 from observable_extraction.core.systematics import validate_covariance
 
@@ -50,6 +52,7 @@ class CandleContract:
     balance_method: str
     balance_seed: int
     mass_source: str
+    gaussian_model: object | None = None
 
 
 @dataclass(frozen=True)
@@ -58,7 +61,7 @@ class RootOutputContract:
 
     profile: str | None
     energy_edges_gev: tuple[float, ...]
-    phi_edges_rad: tuple[float, ...] = tuple(PHI_EDGES_RAD)
+    phi_edges_rad: tuple[float, ...] = tuple(LEGACY_PHI_EDGES_RAD)
     phi_bin_divisor: float | None = 1.0
     explicit_energy_grid: bool = False
     best_binning: bool = False
@@ -99,6 +102,9 @@ def _parse_candle_contract(
         "candle_mass_source",
     }
     try:
+        if values.get("candle_geometry") == ["gaussian_ellipse"]:
+            from observable_extraction.io.candle_metadata import parse_gaussian_candle
+            return parse_gaussian_candle(values, CandleContract)
         if candle_keys != required:
             raise ValueError("incomplete or unknown candle fields")
 
@@ -265,7 +271,7 @@ def read_output_contract(path: Path) -> RootOutputContract:
                     raise RuntimeError(f"{path}: invalid energy grid provenance: {exc}") from exc
         vector = source.Get("binning/phi_edges")
         # Legacy Stage-07 outputs enforced exactly 12 phi bins.
-        phi_edges = tuple(PHI_EDGES_RAD)
+        phi_edges = tuple(LEGACY_PHI_EDGES_RAD)
         if vector:
             if not hasattr(vector, "GetNrows"):
                 raise RuntimeError(f"{path}: invalid binning/phi_edges")
@@ -285,6 +291,17 @@ def read_output_contract(path: Path) -> RootOutputContract:
             divisor = None
             # Verify per-point correction metadata before allowing composition.
             read_output_points(path)
+            try:
+                origin = phi_bin_origin(phi_edges)
+                for bins in PHI_BIN_DIVISORS:
+                    candidate = source.Get(f"binning_candidates/{bins}/phi_edges")
+                    if not candidate or not hasattr(candidate, "GetNrows"):
+                        raise ValueError("missing candidate phi edges")
+                    candidate_edges = tuple(float(candidate[i]) for i in range(candidate.GetNrows()))
+                    if len(candidate_edges) != bins + 1 or phi_bin_origin(candidate_edges) != origin:
+                        raise ValueError("candidate phi origin differs from controls")
+            except ValueError as exc:
+                raise RuntimeError(f"{path}: invalid best-binning phi origin: {exc}") from exc
         elif divisor_values:
             try:
                 if len(divisor_values) != 1:

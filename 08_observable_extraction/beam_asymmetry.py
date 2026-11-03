@@ -5,6 +5,15 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+# Direct execution otherwise places this stage's private ``calibration``
+# package ahead of the installed top-level calibration package.
+if __name__ == "__main__" and not __package__:
+    import sys
+    if sys.path and Path(sys.path[0]).resolve() == Path(__file__).resolve().parent:
+        sys.path.pop(0)
+    from observable_extraction.beam_asymmetry import main
+    raise SystemExit(main())
+
 from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH
 from graal_common.physics.beam_profiles import BEAM_PROFILES
 from graal_common.parallel import validate_workers
@@ -66,10 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="processes for independent fits or bootstrap replicas; default: 1")
     parser.add_argument("--bootstrap-replicas", type=int, default=0)
     parser.add_argument("--bootstrap-seed", type=int, default=1208)
+    parser.add_argument("--candle-gaussian", action="store_true",
+                        help="fit raw eta/pi0 Gaussian peak and select its 50 percent probability ellipse; retain all core/tail events")
+    parser.add_argument("--candle-comparison-replicas", type=int, default=0,
+                        help="optional paired run bootstrap for Gaussian full/core/tails differences; requires inclusive run universe")
     parser.add_argument(
         "--candle-mass-half-width",
         type=float,
-        help="inclusive raw eta/pi0 candidate-mass half-width in GeV",
+        help="raw mass half-width in GeV: legacy rectangle, or Gaussian fitting window (default 0.05)",
     )
     parser.add_argument(
         "--candle-balance-seed",

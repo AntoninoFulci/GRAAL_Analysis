@@ -203,3 +203,22 @@ def test_comparison_does_not_restrict_independent_mass_bins_or_seeds(tmp_path):
     values['stages']['comparison']['enabled'] = True
     values['stages']['extraction']['uv'] = {'mass_bins': 20, 'bootstrap_seed': 1, 'candle_balance_seed': 2}
     assert parse_args([str(write_config(tmp_path, values))]).stage_configuration is not None
+
+
+@pytest.mark.parametrize('changes', [
+    {'candle_comparison_replicas': 1},
+    {'candle_comparison_replicas': 4, 'by_period': False},
+    {'candle_comparison_replicas': 4, 'candle_gaussian': False},
+    {'candle_comparison_replicas': 4, 'candle_enabled': False},
+])
+def test_gaussian_comparison_requires_inclusive_period_mode(tmp_path, capsys, changes):
+    values = configuration()
+    values['stages']['extraction']['common'].update(changes)
+    with pytest.raises(SystemExit):
+        parse_args([str(write_config(tmp_path, values))])
+    assert 'candle_comparison_replicas' in capsys.readouterr().err
+
+
+def test_gaussian_candle_is_stage_default(tmp_path):
+    settings = parse_args([str(write_config(tmp_path, configuration()))]).stage_configuration.data
+    assert settings['stages']['extraction']['uv']['candle_gaussian'] is True

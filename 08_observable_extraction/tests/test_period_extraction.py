@@ -45,7 +45,7 @@ def _records():
 
 
 def _join(*samples):
-    return EventArrays(**{field.name: np.concatenate([getattr(x, field.name) for x in samples])
+    return EventArrays(**{field.name: (None if getattr(samples[0], field.name) is None else np.concatenate([getattr(x, field.name) for x in samples]))
                           for field in fields(EventArrays)})
 
 

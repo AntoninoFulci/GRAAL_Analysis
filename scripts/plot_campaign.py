@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack
+import json
 from pathlib import Path
 import shutil
+import numpy as np
 import ROOT
 
 from graal_common.io.filesystem import atomic_output_directory
@@ -32,14 +34,83 @@ STAGE7_PDFS = (
     "comparison_estimators.pdf", "fit_diagnostics.pdf", "systematic_summary.pdf",
     "background_control.pdf", "false_asymmetry_controls.pdf", "photon_multiplicity.pdf",
     "period_stability.pdf", "comparison_candle_ratio.pdf", "comparison_candle_likelihood.pdf",
+    "candle_mass_projections.pdf",
 )
 REQUIRED_STAGE7_PDFS = (
     "systematic_summary.pdf", "false_asymmetry_controls.pdf", "photon_multiplicity.pdf",
 )
+GAUSSIAN_QUALITY_PDFS = tuple(f"quality_{name}.pdf" for name in (
+    "eta_mass_gev", "pi0_mass_gev", "theta_missing_proton_deg", "coplanarity_deg",
+    "missing_mass_gev", "beam_energy_vs_proton_theta"))
+
+
+def _fresh_artifact(name: str, directories, extracted_at: int | None) -> Path:
+    stale = []
+    for directory in directories:
+        if directory is None:
+            continue
+        source = directory / name
+        if not source.is_file():
+            continue
+        if extracted_at is not None and source.stat().st_mtime_ns < extracted_at:
+            stale.append(source)
+            continue
+        return source
+    if stale:
+        raise ValueError(f"{name} is older than current extraction: {stale[0]}")
+    raise FileNotFoundError(f"missing Gaussian candle artifact {name}")
+
+
+def _json_artifact(source: Path) -> dict:
+    try:
+        result = json.loads(source.read_text())
+        if not isinstance(result, dict) or result.get("schema") != 1:
+            raise ValueError("expected schema 1 object")
+        return result
+    except (UnicodeError, ValueError) as exc:
+        raise ValueError(f"invalid Gaussian candle artifact {source}: {exc}") from exc
+
+
+def _copy_gaussian_candle(root, output, plots, metadata, extracted_at):
+    plot_sources = (root / "beam_asymmetry", plots or root / "plots")
+    for name in ("candle_mass_projections.pdf", *[f"candle_quality/{name}" for name in GAUSSIAN_QUALITY_PDFS]):
+        source = _fresh_artifact(name, plot_sources, extracted_at)
+        with source.open("rb") as stream:
+            if stream.read(5) != b"%PDF-":
+                raise ValueError(f"invalid Gaussian candle PDF {source}")
+        destination = output / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    audit = _fresh_artifact("candle_quality/quality_audit.json", (*plot_sources, metadata), extracted_at)
+    report = _json_artifact(audit)
+    declared = report.get("pdf_files")
+    if not isinstance(declared, list) or sorted(declared, key=str) != sorted(GAUSSIAN_QUALITY_PDFS):
+        raise ValueError(f"invalid Gaussian candle quality_audit.json PDF inventory: {audit}")
+    shutil.copy2(audit, output / "candle_quality/quality_audit.json")
+    comparison = _fresh_artifact("candle_comparison.json", (root / "beam_asymmetry", metadata), extracted_at)
+    report = _json_artifact(comparison)
+    if (not isinstance(report.get("comparisons"), dict)
+            or not {"full_core", "core_tails"} <= report["comparisons"].keys()):
+        raise ValueError(f"invalid Gaussian candle comparison data {comparison}")
+    replica_sources = (root / "beam_asymmetry", metadata)
+    name = "candle_comparison_replicas.npz"
+    if (report.get("uncertainty_status") == "paired_run_diagnostic_only"
+            or any(directory is not None and (directory / name).exists() for directory in replica_sources)):
+        archive = _fresh_artifact(name, replica_sources, extracted_at)
+        try:
+            with np.load(archive, allow_pickle=False) as arrays:
+                replicas, keys, draws = (arrays[key] for key in ("replicas", "keys", "run_draws"))
+                if (replicas.ndim != 2 or keys.ndim != 1 or draws.ndim != 2
+                        or replicas.shape[1] != len(keys) or len(replicas) != len(draws)
+                        or len(replicas) < 2):
+                    raise ValueError("inconsistent replica dimensions")
+        except (OSError, ValueError, KeyError) as exc:
+            raise ValueError(f"invalid Gaussian candle artifact {archive}: {exc}") from exc
 
 
 def _copy_stage7_pdfs(
-    root: Path, output: Path, *, require_candle: bool = False, plots: Path | None = None
+    root: Path, output: Path, *, require_candle: bool = False, plots: Path | None = None,
+    require_gaussian_candle: bool = False, metadata: Path | None = None,
 ) -> None:
     extraction = root / "beam_asymmetry/beam_asymmetry.root"
     extracted_at = extraction.stat().st_mtime_ns if extraction.exists() else None
@@ -76,6 +147,8 @@ def _copy_stage7_pdfs(
             if stream.read(5) != b"%PDF-":
                 raise ValueError(f"invalid Stage-08 PDF {source}")
         shutil.copy2(source, output / source.name)
+    if require_gaussian_candle:
+        _copy_gaussian_candle(root, output, plots, metadata, extracted_at)
 
 
 def _profile_root(campaign: Path, profile: str) -> Path:
@@ -108,11 +181,14 @@ def _read_profile(campaign: Path, profile: str):
 
 def _render_profile(campaign: Path, profile: str, points, output: Path) -> None:
     root = _profile_root(campaign, profile)
+    contract = read_output_contract(root / "beam_asymmetry/beam_asymmetry.root")
     candle_enabled = any(
         point.sample in {"raw_bdt_core", "raw_bdt_tails"} for point in points
     )
     _copy_stage7_pdfs(root, output, require_candle=candle_enabled,
-                      plots=campaign / "plots" / profile if (campaign / "plots" / profile).is_dir() else None)
+                      plots=campaign / "plots" / profile if (campaign / "plots" / profile).is_dir() else None,
+                      require_gaussian_candle=bool(contract.candle and contract.candle.geometry == "gaussian_ellipse"),
+                      metadata=campaign / "metadata" / profile / "beam_asymmetry")
     periods = campaign / "plots" / profile / "periods"
     if periods.is_dir():
         shutil.copytree(periods, output / "periods")
@@ -125,7 +201,6 @@ def _render_profile(campaign: Path, profile: str, points, output: Path) -> None:
         "--mass-only",
         "--quality-controls",
     ])
-    contract = read_output_contract(root / "beam_asymmetry/beam_asymmetry.root")
     rows = profile_energy_rows(profile, contract.energy_edges_gev)
     mapping = {profile: points}
     if not (output / "comparison_reconstruction_samples.pdf").is_file():

@@ -261,6 +261,7 @@ def _profile_stages(
                     phi_bins,
                     "--bootstrap-replicas",
                     "0",
+                    "--candle-gaussian",
                     "--candle-mass-half-width",
                     "0.05",
                     "--candle-balance-seed",

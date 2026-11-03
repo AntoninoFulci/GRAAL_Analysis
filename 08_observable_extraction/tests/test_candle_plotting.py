@@ -1,4 +1,5 @@
 from dataclasses import replace
+from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,6 +9,56 @@ from graal_common.physics.channels import M_ETA, M_PI0
 from observable_extraction.plotting import candle
 from observable_extraction.plotting.figure4 import profile_energy_rows
 from observable_extraction.tests.test_figure4 import _points
+from observable_extraction.core.candle import GaussianCandle
+
+
+def test_gaussian_mass_plane_uses_correlated_contour_and_measured_counts():
+    model = GaussianCandle(M_ETA, M_PI0, .02, .01, .6)
+    figure, axis = candle.build_candle_mass_plane(
+        np.array([M_ETA, M_ETA + .001, M_ETA + .06, np.nan]),
+        np.array([M_PI0, M_PI0, M_PI0, M_PI0]),
+        half_width_gev=.05, full_core_count=2, tail_count=1,
+        balanced_core_count=2, excluded_nonfinite_count=1, gaussian_model=model,
+    )
+    ellipse = axis.patches[0]
+    assert ellipse.center == pytest.approx((M_ETA, M_PI0))
+    angle = np.radians(ellipse.angle)
+    rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+    reconstructed = rotation @ np.diag([(ellipse.width / 2)**2, (ellipse.height / 2)**2]) @ rotation.T
+    np.testing.assert_allclose(reconstructed, model.radius_squared * model.covariance_gev2)
+    annotation = '\n'.join(item.get_text() for item in axis.texts)
+    assert 'Gaussian probability: 50%' in annotation
+    assert '66.67%' in annotation
+    assert 'bilanciati' not in annotation
+    plt.close(figure)
+
+
+def test_candle_comparison_includes_full_and_unmatched_samples():
+    points = (replace(_points()[0], sample='raw_bdt_core'),
+              replace(_points()[4], sample='raw_bdt_tails'),
+              replace(_points()[8], sample='raw_bdt'))
+    figure, axes = candle.build_candle_comparison({'uv': points}, profile_energy_rows('uv')[:1], estimator='ratio')
+    assert [len(axis.containers) for axis in axes.flat] == [1, 1, 1]
+    assert [text.get_text() for text in figure.legends[0].get_texts()] == ['Full', 'Core', 'Code']
+    assert any('overlap' in text.get_text() for text in figure.texts)
+    plt.close(figure)
+
+
+def test_gaussian_projections_reuse_fit_and_preserve_expected_yield(tmp_path):
+    base = GaussianCandle(M_ETA, M_PI0, .02, .01, .6)
+    audit = dict(fit_window_gev=[[M_ETA - .05, M_ETA + .05], [M_PI0 - .05, M_PI0 + .05]],
+                 bins_per_axis=40, quadrature_order=6, parameters=[0., 0., 0., 0., 0., 80., 20.])
+    model = SimpleNamespace(eta_center_gev=base.eta_center_gev, pi0_center_gev=base.pi0_center_gev,
+                            covariance_gev2=base.covariance_gev2, to_dict=lambda: {'fit': audit})
+    edges, signal, pedestal = candle._gaussian_projection_counts(model)
+    assert signal.shape == (40, 40)
+    assert signal.sum() == pytest.approx(80.)
+    assert pedestal.sum() == pytest.approx(20.)
+    assert edges[0][0] == pytest.approx(M_ETA - .05)
+    path = tmp_path / 'gaussian_projections.pdf'
+    candle.write_candle_gaussian_projections_pdf(path, np.array([M_ETA, M_ETA + .1]),
+                                                np.array([M_PI0, M_PI0]), gaussian_model=model)
+    assert path.read_bytes().startswith(b'%PDF')
 
 
 def _core_tail_points(points, *, estimator="ratio"):

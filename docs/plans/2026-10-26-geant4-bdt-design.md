@@ -1,6 +1,8 @@
 # Geant4 e BDT: decisione scientifica e architettura
 
-Creato il 26 ottobre, aggiornato il 27 ottobre 2026 con le indicazioni del responsabile. Stato: requisiti scientifici chiariti, implementazione e validazione aperte. Piano collegato: [esecuzione](2026-10-26-geant4-bdt-execution.md); decisioni e riscontri: [requisiti e benchmark](../../wiki/geant4-validation.md).
+Creato il 26 ottobre, aggiornato il 27 ottobre 2026 con le indicazioni del responsabile; disponibilità degli input aggiornata il 3 novembre. Stato: requisiti scientifici chiariti, implementazione e validazione aperte. Piano collegato: [esecuzione](2026-10-26-geant4-bdt-execution.md); decisioni e riscontri: [requisiti e benchmark](../../wiki/geant4-validation.md).
+
+Il 3 novembre sono stati recuperati tabelle/card, database/calibrazioni e profili fascio in `prog/data/`; inventario e limiti nel [registro di recupero](../../wiki/geant4-validation.md#input-da-ricevere-e-procedura-di-ripresa). Questo risolve la precedente assenza dei file, non la selezione dei profili o la validazione fisica. Restano discrepanze di griglia/canali nelle tabelle, lacune di copertura e dipendenze dell'automa cellulare; nessun cambio di default scientifico.
 
 ## Obiettivo
 

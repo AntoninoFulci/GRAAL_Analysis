@@ -132,16 +132,18 @@ stages:
     common:
       enabled: true                  # Se true, calcola l’asimmetria del fascio e le covarianze dai due campioni ricostruiti.
       estimator: both               # Scegli ratio o likelihood per usare un solo metodo di estrazione, both per usarli entrambi.
-      phi_bins: 12                   # Divide l’angolo azimutale da 0 a 2π in questo numero di intervalli uguali; puoi scegliere 8, 12 o 16.
+      phi_bins: 12                   # Intervalli uniformi con un centro a 0°: 12 usa bordi -15°..345°; supportati anche 8 e 16.
       best_binning: false           # Se true, prova 8, 12 e 16 intervalli e sceglie il fit per ciascun punto ratio, invece di usare solo phi_bins.
       mass_bins: 10                 # Divide ciascuna distribuzione di massa p-eta, p-pi0 ed eta-pi0 in questo numero di intervalli.
       by_period: true               # Se true, esegue l’estrazione per ogni periodo del catalogo e anche sull’insieme dei periodi.
       workers: 40                   # Permette di eseguire fit e repliche con fino a 40 processi, senza aggiungere opzioni da terminale.
       bootstrap_replicas: 0          # Imposta quante repliche bootstrap usare per stimare le incertezze; con 0 non esegue il bootstrap.
       bootstrap_seed: 1208           # Fissa la casualità dei ricampionamenti bootstrap, così puoi ripetere la stessa scelta dei campioni.
-      candle_enabled: true          # Se true, confronta eventi vicini ai picchi di massa (core) ed eventi nelle code (tails), usando campioni della stessa dimensione.
-      candle_mass_half_width_gev: 0.05  # Un evento è nel core se entrambe le masse eta e pi0, prima del fit, distano dai valori nominali al massimo questa quantità in GeV.
-      candle_balance_seed: 20261024  # Fissa quali eventi del core vengono estratti casualmente per ottenere lo stesso numero di eventi delle code.
+      candle_enabled: true          # Confronta campione completo, core e code nel canale eta-pi0; il nominale raw_bdt resta completo.
+      candle_gaussian: true         # Core = ellisse al 50% della Gaussiana correlata nelle masse raw; nessun pareggio dei conteggi.
+      candle_mass_half_width_gev: 0.05  # Semilarghezza in GeV della finestra di fit attorno a ciascuna massa nominale; non è il raggio dell’ellisse.
+      candle_balance_seed: 20261024  # Solo modalità rettangolare legacy (candle_gaussian: false); ignorato nella modalità Gaussiana.
+      candle_comparison_replicas: 0  # 0 disattiva; >=2 con by_period: true stima covarianza condizionale a run condivisi, ellisse fissa, non errori finali.
     uv: {}
     vis: {}
 

@@ -254,7 +254,7 @@ def test_core_tail_split_is_equal_reproducible_and_preserves_field_alignment():
         for field in fields(EventArrays):
             np.testing.assert_array_equal(
                 getattr(selected, field.name),
-                getattr(events, field.name)[indices],
+                None if getattr(events, field.name) is None else getattr(events, field.name)[indices],
             )
 
 

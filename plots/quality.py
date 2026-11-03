@@ -9,13 +9,21 @@ import ROOT
 
 def fit_eta_mass(histogram) -> dict:
     """Diagnostic Gaussian in 0.50..0.60 GeV; never changes the input histogram."""
-    result = {'window_gev': [0.50, 0.60], 'model': 'gaus', 'status': 'insufficient_data'}
+    return fit_mass(histogram, (0.50, 0.60))
+
+
+def fit_mass(histogram, window_gev) -> dict:
+    """Diagnostic Gaussian in a declared window; does not alter the histogram."""
+    low, high = map(float, window_gev)
+    if not np.isfinite([low, high]).all() or low >= high:
+        raise ValueError('mass-fit window must have finite increasing edges')
+    result = {'window_gev': [low, high], 'model': 'gaus', 'status': 'insufficient_data'}
     bins = [i for i in range(1, histogram.GetNbinsX() + 1)
-            if 0.50 <= histogram.GetBinCenter(i) <= 0.60 and histogram.GetBinContent(i) > 0]
+            if low <= histogram.GetBinCenter(i) <= high and histogram.GetBinContent(i) > 0]
     if len(bins) <= 3:
         return result
     # N avoids attaching an unnormalised fit to the later unit-area clones.
-    fit = histogram.Fit('gaus', 'SQ0N', '', 0.50, 0.60)
+    fit = histogram.Fit('gaus', 'SQ0N', '', low, high)
     result.update(status='failed', fit_status=int(fit))
     if int(fit) != 0 or not fit.IsValid():
         return result

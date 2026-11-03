@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from observable_extraction.io.root_output import OutputPoint
-from observable_extraction.core.binning import PHI_EDGES_RAD, validate_edges
+from observable_extraction.core.binning import PHI_EDGES_RAD, validate_edges, wrap_phi_rad
 from observable_extraction.plotting.figure4 import EnergyRow, profile_energy_rows, uncertainty_bar_label
 
 
@@ -377,7 +377,7 @@ def write_false_asymmetry_controls_pdf(
     for axis, pair in zip(axes, PAIR_ORDER):
         phi = np.asarray(brem_phi_by_pair.get(pair, []), dtype=np.float64)
         if phi.size:
-            axis.hist(phi, bins=phi_edges, histtype="step")
+            axis.hist(wrap_phi_rad(phi, phi_edges), bins=phi_edges, histtype="step")
             c2 = float(np.mean(np.cos(2.0 * phi)))
             s2 = float(np.mean(np.sin(2.0 * phi)))
             axis.text(0.04, 0.95, f"<c2>={c2:+.3f}\n<s2>={s2:+.3f}",

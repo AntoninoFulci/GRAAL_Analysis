@@ -182,14 +182,17 @@ def test_ratio_grid_corrects_sigma_and_error_with_requested_rounded_divisor(phi_
 
 
 @pytest.mark.parametrize("phi_bins", [8, 12, 16])
-def test_ratio_grid_removes_analytic_finite_bin_attenuation(phi_bins):
-    edges = np.linspace(0.0, 2.0 * np.pi, phi_bins + 1)
+@pytest.mark.parametrize("origin", ["legacy", "center_zero"])
+def test_ratio_grid_removes_analytic_finite_bin_attenuation(phi_bins, origin):
+    low = 0.0 if origin == "legacy" else -np.pi / phi_bins
+    edges = np.linspace(low, low + 2.0 * np.pi, phi_bins + 1)
     centers = (edges[:-1] + edges[1:]) / 2.0
     mean_cosine = (np.sin(2.0 * edges[1:]) - np.sin(2.0 * edges[:-1])) / (2.0 * np.diff(edges))
     # Integrate the two polarized yields independently, with unequal flux and P.
     counts_v = np.rint(1.2 * 10000 * (1.0 + 0.6 * 0.30 * mean_cosine)).astype(int)
     counts_h = np.rint(0.9 * 10000 * (1.0 - 0.55 * 0.30 * mean_cosine)).astype(int)
-    phi = np.concatenate([np.repeat(centers, counts_v), np.repeat(centers, counts_h)])
+    # Actual event projections use [0, 2 pi); the histogram origin must not rotate them.
+    phi = np.mod(np.concatenate([np.repeat(centers, counts_v), np.repeat(centers, counts_h)]), 2 * np.pi)
     polarization = np.concatenate([np.ones(counts_v.sum(), dtype=int), np.full(counts_h.sum(), 2)])
     (result,) = extract_ratio_grid(
         pair="p_pi0", mass_gev=np.full(len(phi), 1.02), phi_rad=phi,

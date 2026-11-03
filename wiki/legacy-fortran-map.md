@@ -2,6 +2,8 @@
 
 Inventario e lettura del 27 ottobre 2026 dell'archivio fornito dal responsabile in `docs/reference/fortran/prog/`. Originali preservati al loro posto: nessun binario/script storico eseguito, nessun archivio estratto e nessuna pulizia di oggetti/log/duplicati. La directory è esclusa da Git secondo la configurazione locale del responsabile: i percorsi qui riportati identificano file locali, non promettono disponibilità sul repository remoto.
 
+**Consegna aggiuntiva, 3 novembre 2026:** recuperato `prog/data/`, con 31.115 percorsi di file e 1.450.145.643 byte logici (inclusi otto link interni risolti). Il conteggio del 27 ottobre sotto resta storico e non comprende questa consegna. Inventario SHA-256 e copertura per run in `results_test/geant4-input-recovery-20261103/`; stato corrente e limiti nei [requisiti Geant4](geant4-validation#input-da-ricevere-e-procedura-di-ripresa). Recuperati `inp_laggen`, `base`, `calib_*`, `simul_beam`, `flux` e output legacy `out_*`; `inp_decode` è vuota. Nessuno spostamento o riscrittura degli originali.
+
 ## Dimensione e livello della mappatura
 
 | Proprietà | Riscontro |
@@ -73,7 +75,7 @@ Il confronto con i 58 percorsi `software/prog/...` registrati nel manifest geome
 Dettagli, righe e hash sono nella [mappa delle sezioni d'urto](geant4-cross-section-sources). Risultati che cambiano il piano:
 
 - Totali incorporati in `laggen/src/blockdata.F`/`include/sigto.inc`: `SIGR(64,251)` su griglia W. Alcune serie sono stime/proposte; l'unità e la fonte di ogni serie vanno identificate prima di usarla per rate assoluti.
-- Differenziali lette da **`$INP_LAGGEN/channel.mat`**, non inclusa nei file inventariati: `XSECT(64,50,0:18)` e campionamento/interpolazione CM in `gen_evt.F`. Il reader disponibile non equivale alla disponibilità del datafile.
+- Differenziali lette da **`$INP_LAGGEN/channel.mat`**, assente il 27 ottobre e recuperata il 3 novembre in `data/inp_laggen/`: `XSECT(64,50,0:18)` e campionamento/interpolazione CM in `gen_evt.F`. Il datafile contiene un 65° canale non letto; etichette ECDM e griglia implicita del generatore differiscono di 0,05 GeV. Vedere [audit aggiornato](geant4-cross-section-sources#dati-esterni-recuperati-e-impronte).
 - GENBOD espone `WT`; HBOOK lo registra, l'uscita ASCII aggiunta in `ev_nuc.F` lo omette. Chiamate successive per decadimenti condividono `/GENOUT/`: occorre verificare conservazione/composizione del peso, non assumere che il WT finale sia automaticamente quello dell'intera catena.
 - `laggen` e `laggen_vale` differiscono nella reazione effettiva dei canali19/20 (η′ contro η) e nei decadimenti del33. Numero canale, commento o nome di ntuple non sono identità fisica sufficienti.
 
@@ -94,6 +96,8 @@ Nel PREAN trovato, `TIME_BGO` è un blocco **solo dati**: MHTBGO/IHTBGO/HTBGO pe
 Prima di proporre PID γ/n temporale occorre quindi identificare elettronica, mappa canali, tempo zero, calibrazione e associazione ai cluster. Molteplicità, EMAX e larghezze sono invece tracciati fino all'h70; vanno confrontati a soglie, energia visibile e dominio uguali. Un risultato utile sulla separazione non è deducibile dalla sola lettura del sorgente.
 
 ## Dipendenze esterne e prossimi recuperi
+
+Aggiornamento del 3 novembre: i punti 1–2 sotto descrivono ora input recuperati da verificare, non directory ancora da richiedere. I sei profili `gl*.hist` sono presenti; calibrazioni disponibili per i primi periodi P, ma con lacune nei periodi successivi. Restano aperti selezione delle varianti, validità per run, trigger, librerie e controlli indipendenti. La presenza di output simulati in `out_evgen/out_lagdig/out_laggen` non ne certifica configurazione o utilizzabilità per i benchmark.
 
 1. `INP_LAGGEN`: `channel.mat`, card `laggen.dat`; `sigma_pi0.dat` riguarda invece l'asimmetria π0 letta da `gen_init_comp.F`. Profili di fascio HBOOK via `BEAM`, file `gl{h,v}{351,514,300}.hist`.
 2. `DATA_BASE`, calibrazioni `CALIB_TAG/STRIP/BGO/BARREL/WALL`, `run.cal`, `run.ped`, `lincorr.dat` e mappa periodo/run. Il corpus sorgente non certifica disponibilità o validità dei database.

@@ -14,6 +14,113 @@ from observable_extraction.io.root_output import RootOutputPayload, write_root_o
 from observable_extraction.tests.test_figure4 import _points
 
 
+GAUSSIAN_QUALITY_PDFS = tuple(f"quality_{name}.pdf" for name in (
+    "eta_mass_gev", "pi0_mass_gev", "theta_missing_proton_deg", "coplanarity_deg",
+    "missing_mass_gev", "beam_energy_vs_proton_theta"))
+
+
+def _gaussian_artifacts(tmp_path):
+    campaign = tmp_path / "campaign"
+    root = campaign / "root/uv"
+    source = root / "beam_asymmetry"
+    source.mkdir(parents=True)
+    (source / "beam_asymmetry.root").write_bytes(b"immutable ROOT")
+    for filename in (*plot_campaign.REQUIRED_STAGE7_PDFS, "candle_mass_plane.pdf", "candle_mass_projections.pdf"):
+        (source / filename).write_bytes(b"%PDF-current")
+    quality = campaign / "plots/uv/candle_quality"
+    quality.mkdir(parents=True)
+    for filename in GAUSSIAN_QUALITY_PDFS:
+        (quality / filename).write_bytes(b"%PDF-quality")
+    (quality / "quality_audit.json").write_text(json.dumps(dict(schema=1, pdf_files=GAUSSIAN_QUALITY_PDFS)))
+    (source / "candle_comparison.json").write_text(json.dumps(dict(schema=1,
+        comparisons={"full_core": {}, "core_tails": {}}, uncertainty_status="not_evaluated")))
+    output = tmp_path / "staged"
+    output.mkdir()
+    return campaign, root, output
+
+
+def test_gaussian_regeneration_preserves_reports_and_relocated_audit(tmp_path):
+    from graal_workflow.publication import organize_campaign_reports
+    campaign, root, output = _gaussian_artifacts(tmp_path)
+    original = (root / "beam_asymmetry/beam_asymmetry.root").read_bytes()
+    organize_campaign_reports(campaign)
+    plot_campaign._copy_stage7_pdfs(root, output, require_candle=True, require_gaussian_candle=True,
+        plots=campaign / "plots/uv", metadata=campaign / "metadata/uv/beam_asymmetry")
+    assert (output / "candle_mass_projections.pdf").read_bytes() == b"%PDF-current"
+    for filename in GAUSSIAN_QUALITY_PDFS:
+        assert (output / "candle_quality" / filename).read_bytes() == b"%PDF-quality"
+    assert json.loads((output / "candle_quality/quality_audit.json").read_text())["schema"] == 1
+    assert (root / "beam_asymmetry/beam_asymmetry.root").read_bytes() == original
+
+
+def test_gaussian_contract_enforces_artifacts_before_replacing_plot_directory(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from graal_common.io.filesystem import atomic_output_directory
+    campaign, root, _ = _gaussian_artifacts(tmp_path)
+    plots = campaign / "plots/uv"
+    (plots / "keep.pdf").write_bytes(b"previous plot")
+    (root / "beam_asymmetry/candle_mass_projections.pdf").unlink()
+    monkeypatch.setattr(plot_campaign, "read_output_contract", lambda path:
+        SimpleNamespace(candle=SimpleNamespace(geometry="gaussian_ellipse")))
+    with pytest.raises(FileNotFoundError, match="candle_mass_projections.pdf"):
+        with atomic_output_directory(plots) as staging:
+            plot_campaign._render_profile(campaign, "uv", [replace(_points()[0], sample="raw_bdt_core")], staging)
+    assert (plots / "keep.pdf").read_bytes() == b"previous plot"
+    assert (plots / "candle_quality/quality_audit.json").is_file()
+
+
+@pytest.mark.parametrize("artifact", ["candle_mass_projections.pdf", "candle_quality/quality_audit.json",
+    "candle_quality/quality_coplanarity_deg.pdf", "candle_comparison.json"])
+@pytest.mark.parametrize("damage", ["missing", "stale", "malformed"])
+def test_gaussian_regeneration_rejects_incomplete_reports(tmp_path, artifact, damage):
+    campaign, root, output = _gaussian_artifacts(tmp_path)
+    path = ((campaign / "plots/uv") if artifact.startswith("candle_quality/")
+            else root / "beam_asymmetry") / artifact
+    if damage == "missing":
+        path.unlink()
+    elif damage == "stale":
+        os.utime(path, ns=(1, 1))
+    else:
+        path.write_bytes(b"malformed")
+    with pytest.raises((FileNotFoundError, ValueError), match=Path(artifact).name):
+        plot_campaign._copy_stage7_pdfs(root, output, require_candle=True, require_gaussian_candle=True,
+            plots=campaign / "plots/uv", metadata=campaign / "metadata/uv/beam_asymmetry")
+
+
+def test_gaussian_audit_cannot_select_unrelated_files(tmp_path):
+    campaign, root, output = _gaussian_artifacts(tmp_path)
+    audit = campaign / "plots/uv/candle_quality/quality_audit.json"
+    audit.write_text(json.dumps(dict(schema=1, pdf_files=["../../outside.pdf"])))
+    with pytest.raises(ValueError, match="quality_audit.json"):
+        plot_campaign._copy_stage7_pdfs(root, output, require_candle=True, require_gaussian_candle=True,
+            plots=campaign / "plots/uv", metadata=campaign / "metadata/uv/beam_asymmetry")
+
+
+@pytest.mark.parametrize("damage", ["missing", "stale", "malformed", None])
+def test_gaussian_paired_comparison_requires_valid_replica_archive(tmp_path, damage):
+    campaign, root, output = _gaussian_artifacts(tmp_path)
+    source = root / "beam_asymmetry"
+    (source / "candle_comparison.json").write_text(json.dumps(dict(schema=1,
+        comparisons={"full_core": {}, "core_tails": {}}, uncertainty_status="paired_run_diagnostic_only")))
+    archive = source / "candle_comparison_replicas.npz"
+    if damage != "missing":
+        np.savez_compressed(archive, replicas=np.zeros((2, 3)), keys=np.array(["a", "b", "c"]),
+                            run_draws=np.array([[1], [1]]))
+        if damage == "stale":
+            os.utime(archive, ns=(1, 1))
+        elif damage == "malformed":
+            archive.write_bytes(b"not an archive")
+    def copy():
+        plot_campaign._copy_stage7_pdfs(root, output, require_candle=True, require_gaussian_candle=True,
+            plots=campaign / "plots/uv", metadata=campaign / "metadata/uv/beam_asymmetry")
+    if damage is None:
+        copy()
+        assert archive.is_file()
+    else:
+        with pytest.raises((ValueError, FileNotFoundError), match="candle_comparison_replicas.npz"):
+            copy()
+
+
 def _write_reconstruction(path: Path, tree_name: str, *, fit: bool, certified: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     source = ROOT.TFile(str(path), "RECREATE")

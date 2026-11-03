@@ -41,7 +41,8 @@ STAGE_DEFAULTS = {
     'flux_study': {'mode': 'audit', 'metadata': None},
     'extraction': {'estimator': 'both', 'phi_bins': 12, 'best_binning': False, 'mass_bins': 10,
                    'by_period': True, 'workers': 1, 'bootstrap_replicas': 0,
-                   'bootstrap_seed': 1208, 'candle_enabled': True,
+                   'bootstrap_seed': 1208, 'candle_enabled': True, 'candle_gaussian': True,
+                   'candle_comparison_replicas': 0,
                    'candle_mass_half_width_gev': 0.05, 'candle_balance_seed': 20261024},
     'plots': {'mass': True, 'quality_controls': True, 'dalitz': False},
     'comparison': {'published_reference': None},
@@ -79,7 +80,7 @@ def _field(value: Any, default: Any, key: str, base: Path):
     elif type(value) is not expected:
         _error(key, f'must be {expected.__name__}')
     if expected is int:
-        minimum = 0 if leaf in ('training_seed', 'bootstrap_seed', 'bootstrap_replicas', 'candle_balance_seed') else 1
+        minimum = 0 if leaf in ('training_seed', 'bootstrap_seed', 'bootstrap_replicas', 'candle_balance_seed', 'candle_comparison_replicas') else 1
         if value < minimum:
             _error(key, f'must be at least {minimum}')
         if leaf in ('seed', 'training_seed', 'bootstrap_seed', 'candle_balance_seed') and value >= 2**32:
@@ -296,6 +297,11 @@ def _validate_effective(data: dict):
             key = f'stages.{name}.{profile}'
             if options.get('force') and (not options['enabled'] or not data['profiles'][profile]['enabled']):
                 _error(f'{key}.force', 'force requires an enabled stage and profile')
+            if name == 'extraction' and options['candle_comparison_replicas']:
+                if (options['candle_comparison_replicas'] < 2 or not options['candle_enabled']
+                        or not options['candle_gaussian'] or not options['by_period']):
+                    _error(f'{key}.candle_comparison_replicas',
+                           'requires at least two replicas, enabled Gaussian candle and by_period inclusive run accounting')
             if name == 'extraction' and options['workers'] > data['execution']['cpus']:
                 _error(f'{key}.workers', 'must not exceed execution.cpus')
             if name == 'monte_carlo':
@@ -315,7 +321,7 @@ def _validate_effective(data: dict):
         if not uv['best_binning'] and not vis['best_binning']:
             fields.append('phi_bins')
         if uv['candle_enabled'] and vis['candle_enabled']:
-            fields.append('candle_mass_half_width_gev')
+            fields.extend(('candle_mass_half_width_gev', 'candle_gaussian'))
         for field in fields:
             equal = (math.isclose(uv[field], vis[field], rel_tol=0.0, abs_tol=1e-12)
                      if field == 'candle_mass_half_width_gev' else uv[field] == vis[field])

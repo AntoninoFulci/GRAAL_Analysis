@@ -286,19 +286,23 @@ def _calibration(products, config, paths):
 
 def _extraction(path, config, profile):
     from observable_extraction.io.root_input import read_output_contract, read_output_points
-    from observable_extraction.core.binning import PAIR_NAMES, pair_mass_edges, phi_bin_divisor
+    from observable_extraction.core.binning import PAIR_NAMES, pair_mass_edges, phi_bin_divisor, phi_bin_origin
     contract = read_output_contract(path)
     options = _options(config, "extraction", profile)
     if "candle_enabled" in options:
         _match(f"stages.extraction.{profile}.candle_enabled", options["candle_enabled"], contract.candle is not None)
     if contract.candle is not None:
+        if "candle_gaussian" in options:
+            _match(f"stages.extraction.{profile}.candle_gaussian", options["candle_gaussian"],
+                   contract.candle.geometry == "gaussian_ellipse")
         for key, recorded in (("candle_mass_half_width_gev", contract.candle.mass_half_width_gev),
                               ("candle_balance_seed", contract.candle.balance_seed)):
-            if key in options:
+            if key in options and (key != "candle_balance_seed" or contract.candle.geometry == "rectangular"):
                 _match(f"stages.extraction.{profile}.{key}", options[key], recorded)
     _match("extraction.profile", profile, contract.profile)
     _match(f"profiles.{profile}.energy_edges_gev", _edges(config, profile), contract.energy_edges_gev)
     _match(f"stages.extraction.{profile}.best_binning", options.get("best_binning", False), contract.best_binning)
+    _match(f"stages.extraction.{profile}.phi_origin", "center_zero", phi_bin_origin(contract.phi_edges_rad))
     if not contract.best_binning:
         _match(f"stages.extraction.{profile}.phi_bins", options.get("phi_bins", 12), len(contract.phi_edges_rad) - 1)
         _match("extraction.phi_bin_divisor", phi_bin_divisor(contract.phi_edges_rad), contract.phi_bin_divisor)
@@ -325,7 +329,7 @@ def _extraction(path, config, profile):
     return [f"stages.extraction.{profile}.{key}: requested {options[key]!r}; "
             "cannot certify the recorded setting from the extraction output contract; "
             "action=retain this uncertainty when reusing the artifact, or enable extraction to regenerate"
-            for key in ("by_period", "bootstrap_replicas", "bootstrap_seed") if key in options]
+            for key in ("by_period", "bootstrap_replicas", "bootstrap_seed", "candle_comparison_replicas") if key in options]
 
 
 def validate_product(kind: str, value: Path | dict, *, profile: str | None,

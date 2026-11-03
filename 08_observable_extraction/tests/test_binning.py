@@ -28,8 +28,8 @@ def test_vis_energy_bin_includes_both_outer_edges():
 def test_fixed_energy_and_phi_binning_matches_figure4_contract():
     np.testing.assert_allclose(ENERGY_EDGES_GEV, [1.1, 1.2, 1.3, 1.4, 1.5])
     assert len(PHI_EDGES_RAD) == 13
-    assert PHI_EDGES_RAD[0] == 0.0
-    assert PHI_EDGES_RAD[-1] == pytest.approx(2.0 * np.pi)
+    assert PHI_EDGES_RAD[0] == pytest.approx(-np.pi / 12)
+    assert PHI_EDGES_RAD[-1] == pytest.approx(2.0 * np.pi - np.pi / 12)
 
 
 @pytest.mark.parametrize(

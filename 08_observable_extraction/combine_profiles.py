@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Sequence
 
 from graal_common.physics.beam_profiles import get_beam_profile
+from observable_extraction.core.binning import phi_bin_origin
 from observable_extraction.io.root_input import (
     read_output_contract,
     read_output_points,
@@ -136,6 +137,11 @@ def _validate_candle_campaign(
 
     uv_candle = uv_contract.candle
     vis_candle = vis_contract.candle
+    if uv_candle.geometry == vis_candle.geometry == "gaussian_ellipse":
+        # Each profile fits its own resolution; compare selection semantics, not fitted widths.
+        if not math.isclose(uv_candle.mass_half_width_gev, vis_candle.mass_half_width_gev, rel_tol=0., abs_tol=1e-12):
+            raise RuntimeError("UV/VIS candle fitting windows do not match")
+        return True
     float_fields = (
         "eta_center_gev",
         "pi0_center_gev",
@@ -176,6 +182,8 @@ def run(args: argparse.Namespace) -> int:
     vis_contract = _validate_profile_root("vis", args.vis_root, vis_points)
     if uv_contract.best_binning != vis_contract.best_binning:
         raise RuntimeError("UV/VIS ROOT best-binning mode does not match")
+    if phi_bin_origin(uv_contract.phi_edges_rad) != phi_bin_origin(vis_contract.phi_edges_rad):
+        raise RuntimeError("UV/VIS ROOT phi binning origin does not match")
     if not uv_contract.best_binning:
         if len(uv_contract.phi_edges_rad) != len(vis_contract.phi_edges_rad) or any(
             not math.isclose(uv, vis, rel_tol=0.0, abs_tol=1e-12)

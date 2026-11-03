@@ -68,6 +68,9 @@ class EventArrays:
     pi0_mass_gev: np.ndarray
     bdt_score: np.ndarray
     n_photons_input: np.ndarray
+    beam: np.ndarray | None = None
+    target: np.ndarray | None = None
+    missing: np.ndarray | None = None
 
     def __len__(self) -> int:
         return len(self.run_number)
@@ -77,19 +80,31 @@ class EventArrays:
         if selection.shape != (len(self),):
             raise ValueError("selection shape does not match events")
         return EventArrays(
-            **{field.name: getattr(self, field.name)[selection] for field in fields(self)}
+            **{field.name: (None if getattr(self, field.name) is None else getattr(self, field.name)[selection]) for field in fields(self)}
         )
 
 
 @dataclass(frozen=True)
 class CandleSplit:
-    """Equal-count core and tail samples from raw eta/pi0 masses."""
+    """Core/tail partition; only the legacy rectangle downsamples its core."""
 
     core: EventArrays
     tails: EventArrays
     full_core_count: int
     tail_count: int
     excluded_nonfinite_count: int
+    gaussian_model: object | None = None
+
+
+def split_gaussian_candle(events: EventArrays, model) -> CandleSplit:
+    """Apply the fitted Gaussian probability contour without balancing counts."""
+    finite = np.isfinite(events.eta_mass_gev) & np.isfinite(events.pi0_mass_gev)
+    core = finite & model.mask(events.eta_mass_gev, events.pi0_mass_gev)
+    tails = finite & ~core
+    if not core.any() or not tails.any():
+        raise ValueError(f"Gaussian candle requires nonempty regions: core={core.sum()} tails={tails.sum()}")
+    return CandleSplit(events.take(core), events.take(tails), int(core.sum()),
+                       int(tails.sum()), int((~finite).sum()), model)
 
 
 def split_candle_core_tails(
@@ -172,9 +187,11 @@ def read_reconstructed(
             for name in (
                 "run_number", "xstrip", "polarization", "beam_energy_gev",
                 "eta", "pi0", "proton", "missing_mass_gev", "eta_mass_gev",
-                "pi0_mass_gev", "bdt_score", "n_photons_input",
+                "pi0_mass_gev", "bdt_score", "n_photons_input", "beam", "missing",
             )
         }
+        if "target" in branches:
+            values["target"] = []
         for event in tree:
             beam = _vector(event.beam)
             eta = _vector(event.eta)
@@ -183,6 +200,10 @@ def read_reconstructed(
                 event.proton
             )
             raw_missing = _vector(event.missing)
+            values["beam"].append(beam)
+            values["missing"].append(raw_missing)
+            if "target" in values:
+                values["target"].append(_vector(event.target))
             values["run_number"].append(int(event.RunNumber))
             values["xstrip"].append(int(float(event.Xstrip)))
             values["polarization"].append(int(event.Polarization))
@@ -205,7 +226,9 @@ def read_reconstructed(
         name: np.asarray(items, dtype=np.int64 if name in scalar_int else np.float64)
         for name, items in values.items()
     }
-    for name in ("eta", "pi0", "proton"):
+    for name in ("eta", "pi0", "proton", "beam", "missing", "target"):
+        if name not in values:
+            continue
         arrays[name] = np.asarray(values[name], dtype=np.float64).reshape(-1, 4)
     return EventArrays(**arrays)
 

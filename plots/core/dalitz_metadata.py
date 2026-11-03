@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from importlib import import_module
 import subprocess
 import sys
 
@@ -58,11 +59,11 @@ def build_metadata(args, samples: dict, provenance: dict, comparison: str, comma
     records = {r.run_number: r for r in validate_manifest(manifest)} if manifest.is_file() else {}
     result = {
         'schema': 1, 'command': command, 'source_revision': revision or None,
-        'source_files': file_identities([repo/'plots/dalitz.py', Path(__file__),
-                                         repo/'plots/core/kinematics.py',
-                                         repo/'plots/core/reconstruction_data.py',
-                                         repo/'00_common/physics/channels.py',
-                                         repo/'plots/quality.py']),
+        'source_files': file_identities(
+            Path(import_module(name).__file__) for name in (
+                'plots.dalitz', 'plots.core.dalitz_metadata', 'plots.core.kinematics',
+                'plots.core.reconstruction_data', 'graal_common.physics.channels',
+                'plots.quality')),
         'versions': {'python': sys.version, 'numpy': np.__version__, 'ROOT': ROOT.gROOT.GetVersion()},
         'manifest': file_identities([manifest])[0] if manifest.is_file() else None,
         'masses_gev': {'proton': kin.M_PROTON, 'eta': kin.M_ETA, 'pi0': kin.M_PI0},

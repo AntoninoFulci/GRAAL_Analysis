@@ -17,6 +17,7 @@ from observable_extraction.core.binning import (
     energy_bin_index,
     pair_mass_edges,
     validate_edges,
+    wrap_phi_rad,
 )
 from observable_extraction.core.models import (
     FitDiagnostics,
@@ -241,6 +242,7 @@ def extract_ratio_grid(
     energy_edges = validate_edges(energy_edges)
     phi_edges = validate_edges(phi_edges)
     divisor = phi_bin_divisor(phi_edges)
+    phi_rad = wrap_phi_rad(phi_rad, phi_edges)
     if not isinstance(min_events, int) or min_events < 0:
         raise ValueError("min_events must be a non-negative integer")
 

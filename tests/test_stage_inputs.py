@@ -215,6 +215,23 @@ def test_extraction_contract_accepts_certified_nominal_grid(tmp_path, config, pa
     assert validate("extraction", extraction_file(tmp_path), config, paths) == []
 
 
+def test_new_extraction_reuse_rejects_historical_phi_origin(tmp_path, config, paths):
+    import ROOT
+    import numpy as np
+    from observable_extraction.io.root_input import read_output_contract
+
+    path = extraction_file(tmp_path)
+    output = ROOT.TFile(str(path), "UPDATE")
+    directory = output.GetDirectory("binning")
+    directory.cd()
+    directory.Delete("phi_edges;*")
+    ROOT.TVectorD(13, array("d", np.linspace(0., 2 * np.pi, 13))).Write("phi_edges")
+    output.Close()
+    assert read_output_contract(path).phi_bin_divisor == .9549
+    with pytest.raises(PipelineError, match="phi.*origin"):
+        validate("extraction", path, config, paths)
+
+
 @pytest.mark.parametrize("overrides,match", [
     ({"profile": "vis"}, "profile"),
     ({"divisor": None}, "phi_bin_divisor"),

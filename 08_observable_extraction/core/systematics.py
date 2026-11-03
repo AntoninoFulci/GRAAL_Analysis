@@ -235,7 +235,7 @@ def bootstrap_run_indices(
 
 def _events_at_indices(events: EventArrays, indices: np.ndarray) -> EventArrays:
     return EventArrays(
-        **{field.name: getattr(events, field.name)[indices] for field in fields(events)}
+        **{field.name: (None if getattr(events, field.name) is None else getattr(events, field.name)[indices]) for field in fields(events)}
     )
 
 
