@@ -18,6 +18,8 @@ from observable_extraction.samples import SAMPLES
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import phi_edges_rad, phi_bin_divisor, PAIR_NAMES, pair_mass_edges
 from observable_extraction.core.energy_audit import energy_bin_inventory
+from observable_extraction.core.models import SIGMA_FLUX_POLICY
+from observable_extraction.core.periods import exposure_summary, selection_audit
 from observable_extraction.core.background import BackgroundEstimate
 from observable_extraction.core.kinematics import project_all_pairs
 from observable_extraction.extraction_background import (
@@ -204,6 +206,11 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         energy_range=grid.energy_range_gev,
         run_quality=quality,
     )
+    brem_control_summary = exposure_summary(exposures)
+    brem_control_audit = selection_audit(all_nominal_events, exposures, grid.energy_range_gev,
+                                         run_quality=quality)
+    if metadata is not None:
+        metadata["brem_control"] = dict(exposure=brem_control_summary, selection=brem_control_audit)
     events = select_sigma_events(
         all_nominal_events,
         exposures,
@@ -415,6 +422,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         "POL1=vertical",
         "POL2=horizontal",
         "BREM=independent-control",
+        f"flux_policy={SIGMA_FLUX_POLICY}",
         f"background={'sideband-corrected' if background_fractions else 'uncorrected'}",
         f"signal_mc_hard_sideband_leakage={background_leakage}",
         "best_quartet_resolved=false",
@@ -448,7 +456,8 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         uncertainty_metadata=uncertainty_metadata,
         bootstrap_diagnostics=diagnostic,
         extraction_metadata={**(metadata or {}), "energy_bins": energy_inventory,
-                             "energy_edges_gev": list(grid.edges_gev)},
+                             "energy_edges_gev": list(grid.edges_gev),
+                             "brem_control": dict(exposure=brem_control_summary, selection=brem_control_audit)},
         energy_edges=energy_edges,
         phi_edges=phi_edges,
         mass_edges={pair: pair_mass_edges(pair) for pair in PAIR_NAMES},
@@ -513,6 +522,7 @@ def _run_single(args: argparse.Namespace, *, prepared=None, period="pooled", met
         plots_dir / "false_asymmetry_controls.pdf",
         brem_phi,
         phi_edges=phi_edges,
+        exposure_summary=brem_control_summary,
     )
     write_photon_multiplicity_pdf(
         plots_dir / "photon_multiplicity.pdf",

@@ -2,7 +2,7 @@
 
 Stage 09 was retired on 26 October 2026. This directory preserves bibliography, original parameter/provenance records, digitizations and dated scientific notes from that attempt. It contains no Python package. Use the [current restart boundary](../../../wiki/09-theory.md) for future work; code paths, commands and statements about a “current” implementation inside these historical notes refer to the retired source snapshot.
 
-- [Bibliography](sources.json) and [literature audit](eta_pi0_literature_audit.json) retain their recorded evidence and original PDF hashes. Papers remain in `docs/papers/`.
+- [Bibliography](sources.json) and [literature audit](eta_pi0_literature_audit.json) retain their recorded evidence and original PDF hashes. Papers remain in `docs/reference_papers/`.
 - [Model scope](model_scope.md), [parameter provenance](parameter_provenance.md), [amplitude inventory](figure4_amplitude_inventory.md) and [convergence record](full_production_validation.md) describe the abandoned implementation, not an accepted starting model.
 - [Relocation manifest](relocation.json) maps all 28 preserved reference files to their former paths and original/current SHA-256 values. JSON and CSV bytes are unchanged; only links were repaired in two Markdown notes.
 

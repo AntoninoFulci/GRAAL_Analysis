@@ -80,3 +80,31 @@ def test_sigma_point_accepts_asymmetric_statistical_interval():
 
     assert point.stat_low == 0.08
     assert point.stat_high == 0.11
+
+
+def test_brem_missing_is_not_a_zero_measured_exposure():
+    from observable_extraction.core.periods import exposure_summary
+    absent = FluxExposure(811, 17, 1.25, 120., 80., None, .5, .5, brem_status="missing")
+    measured = FluxExposure(812, 17, 1.25, 120., 80., 0., .5, .5)
+    assert not absent.has_measured_brem
+    assert measured.has_measured_brem
+    summary = exposure_summary({(811, 17): absent})
+    assert summary["brem"] is None
+    assert summary["brem_strata"] == 0
+    summary = exposure_summary({(811, 17): absent, (812, 17): measured})
+    assert summary["brem"] == 0.
+    assert summary["brem_strata"] == 1
+    assert summary["brem_runs"] == [812]
+
+
+@pytest.mark.parametrize("value,status", [(None, "measured_valid"), (0., "missing"), (1., "invalid_content")])
+def test_brem_status_cannot_misrepresent_availability(value, status):
+    with pytest.raises(ValueError, match="BREM"):
+        FluxExposure(811, 17, 1.25, 120., 80., value, .5, .5, brem_status=status)
+
+
+def test_estimated_brem_is_separate_from_measured_control_denominator():
+    from observable_extraction.core.periods import exposure_summary
+    estimated = FluxExposure(811, 17, 1.25, 120., 80., 25., .5, .5, brem_status="estimated")
+    assert not estimated.has_measured_brem
+    assert exposure_summary({(811, 17): estimated})["brem"] is None

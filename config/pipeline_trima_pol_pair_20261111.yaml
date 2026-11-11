@@ -1,0 +1,111 @@
+# Full UV/VIS asymmetry rerun, owner authorized 11 November 2026.
+# Same measured inputs, energy bins, cuts, phi grid and candle as 3 November.
+# Reuse certified reconstruction/calibration to isolate the POL-pair policy.
+# Asymmetries only; no estimated flux and no cross-section inference.
+schema_version: 1
+campaign:
+  mode: production
+  repo_root: ..
+  output_dir: ../results/trima_uv_vis_pol_pair_20261111
+  compare_to: ../results/trima_uv_vis_ajaka_phi0_gaussian_20261103
+execution:
+  cpus: 40
+  seed: 42
+  color: never
+  check_only: false
+inputs:
+  preanalysis_dir: ../data/02_pre_analyzed
+  reconstruction:
+    uv:
+      chi2: ../results/trima_uv_vis_ajaka/root/uv/reco/reco_eta_pi0_chi2.root
+      bdt: ../results/trima_uv_vis_ajaka/root/uv/reco/reco_eta_pi0_bdt.root
+    vis:
+      chi2: ../results/trima_uv_vis_ajaka_phi0_gaussian_20261103/root/vis/reco/reco_eta_pi0_chi2.root
+      bdt: ../results/trima_uv_vis_ajaka_phi0_gaussian_20261103/root/vis/reco/reco_eta_pi0_bdt.root
+  calibration:
+    root: ../results/trima_uv_vis_ajaka/root/common/flux_calibrated.root
+    qa: ../results/trima_uv_vis_ajaka/root/common/flux_calibrated.qa.json
+profiles:
+  uv:
+    enabled: true
+    energy_edges_gev:
+    - 0.93
+    - 1.1
+    - 1.2
+    - 1.3
+    - 1.4
+    - 1.5
+  vis:
+    enabled: true
+    energy_edges_gev:
+    - 0.93
+    - 1.1
+stages:
+  preanalysis:
+    enabled: false
+  selection:
+    common:
+      enabled: false
+      require_current_preanalysis: false
+    uv:
+      pattern: pre_analisi_*uv*.root
+    vis:
+      pattern: pre_analisi_*vis*.root
+  monte_carlo:
+    common:
+      enabled: false
+      events_per_channel: 1000000
+    uv: {}
+    vis: {}
+  bdt:
+    common:
+      enabled: false
+      validation_fraction: 0.2
+      training_seed: 42
+      feature_diagnostics: false
+    uv: {}
+    vis: {}
+  reconstruction:
+    common:
+      enabled: false
+      chi2_cut: 10.0
+      missing_mass_window_gev: 0.06
+    uv: {}
+    vis: {}
+  calibration:
+    enabled: false
+    min_events_per_strip: 1
+    max_mad_gev: 0.005
+    monotonic_tolerance_gev: 0.002
+    samples_per_run_strip: 256
+  flux_study:
+    enabled: false
+    mode: audit
+  extraction:
+    common:
+      enabled: true
+      estimator: both
+      phi_bins: 12
+      best_binning: false
+      mass_bins: 10
+      by_period: true
+      workers: 40
+      bootstrap_replicas: 0
+      bootstrap_seed: 1208
+      candle_enabled: true
+      candle_gaussian: true
+      candle_mass_half_width_gev: 0.05
+      candle_balance_seed: 20261024
+      candle_comparison_replicas: 0
+    uv: {}
+    vis: {}
+  plots:
+    common:
+      enabled: true
+      mass: true
+      quality_controls: true
+      dalitz: false
+    uv: {}
+    vis: {}
+  comparison:
+    enabled: true

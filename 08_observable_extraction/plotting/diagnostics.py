@@ -369,6 +369,7 @@ def write_false_asymmetry_controls_pdf(
     brem_phi_by_pair: Mapping[str, np.ndarray],
     *,
     phi_edges: np.ndarray = PHI_EDGES_RAD,
+    exposure_summary: Mapping | None = None,
 ) -> None:
     """Store BREM azimuth controls; no BREM event enters Sigma extraction."""
     phi_edges = validate_edges(phi_edges)
@@ -383,12 +384,17 @@ def write_false_asymmetry_controls_pdf(
             axis.text(0.04, 0.95, f"<c2>={c2:+.3f}\n<s2>={s2:+.3f}",
                       transform=axis.transAxes, va="top")
         else:
-            axis.text(0.5, 0.5, "No BREM events", ha="center", va="center")
+            message = ("BREM control unavailable" if exposure_summary is None
+                       or not exposure_summary["brem_strata"] else "No selected BREM events")
+            axis.text(0.5, 0.5, message, ha="center", va="center")
         axis.set_title(PAIR_LABELS[pair])
         axis.set_xlabel(r"$\phi$ [rad]")
         axis.grid(alpha=0.2)
     axes[0].set_ylabel("BREM events")
-    figure.suptitle("Unpolarized BREM azimuth controls")
+    denominator = ("denominator not supplied" if exposure_summary is None else
+                   f"{exposure_summary['brem_strata']} measured strata / "
+                   f"{len(exposure_summary['brem_runs'])} runs")
+    figure.suptitle(f"Unpolarized BREM azimuth controls\n{denominator}")
     _save(path, figure)
 
 

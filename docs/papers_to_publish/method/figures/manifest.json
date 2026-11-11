@@ -1,0 +1,415 @@
+{
+  "scope": "Methods working draft; not final physics inference",
+  "physics_domain_gev": [
+    1.2,
+    1.3
+  ],
+  "quality_domain_gev": [
+    0.93,
+    1.5
+  ],
+  "inputs": {
+    "results/trima_uv_vis_ajaka_phi0_gaussian_20261103/root/uv/reconstruction/istogrammi.root": {
+      "sha256": "fb8efef4d81eba0a31449bab8f4def01388ebfd55502a36d7117668573210d02",
+      "bytes": 395140
+    },
+    "results/trima_uv_vis_ajaka_phi0_gaussian_20261103/root/uv/beam_asymmetry/beam_asymmetry.root": {
+      "sha256": "91c124ca93d8fdbfab0b238a00544ff79c33b4ba2b76727f9a01889119c0f3c9",
+      "bytes": 31335837
+    },
+    "08_observable_extraction/references/ajaka2008_figure4_digitized.csv": {
+      "sha256": "aab73cc23c54f137eb46f37949911af83f266c50ef5e7f4ae6d33a9b68bedfa7",
+      "bytes": 2168
+    }
+  },
+  "figures": {
+    "preservation_chain": {
+      "type": "conceptual schematic",
+      "meaning": "Preservation strategy; arrows do not certify completed validation."
+    },
+    "simulation_migration": {
+      "type": "conceptual schematic",
+      "meaning": "Numerical equivalence and physical calibration are separate validation levels."
+    },
+    "mass_quality": {
+      "type": "stored histograms",
+      "normalization": "total entries including flow",
+      "domain": "UV integrated 0.93--1.50 GeV; no differential physics observable",
+      "counts": {
+        "massa_eta": {
+          "chi2": {
+            "total_including_flow": 257245.0,
+            "outside_visible_axis": 0.0
+          },
+          "bdt": {
+            "total_including_flow": 171599.0,
+            "outside_visible_axis": 0.0
+          }
+        },
+        "massa_pi0": {
+          "chi2": {
+            "total_including_flow": 257245.0,
+            "outside_visible_axis": 0.0
+          },
+          "bdt": {
+            "total_including_flow": 171599.0,
+            "outside_visible_axis": 0.0
+          }
+        }
+      },
+      "warning": "Selected shapes, not detector resolution; no new fit performed."
+    },
+    "kinematic_quality": {
+      "type": "stored histograms",
+      "counts": {
+        "missing_mass": {
+          "chi2": {
+            "total_including_flow": 257245.0,
+            "outside_visible_axis": 0.0
+          },
+          "bdt": {
+            "total_including_flow": 171599.0,
+            "outside_visible_axis": 0.0
+          }
+        },
+        "coplanarity": {
+          "chi2": {
+            "total_including_flow": 257245.0,
+            "outside_visible_axis": 67446.0
+          },
+          "bdt": {
+            "total_including_flow": 171599.0,
+            "outside_visible_axis": 48068.0
+          }
+        },
+        "theta_missing_proton": {
+          "chi2": {
+            "total_including_flow": 257245.0,
+            "outside_visible_axis": 5742.0
+          },
+          "bdt": {
+            "total_including_flow": 171599.0,
+            "outside_visible_axis": 1900.0
+          }
+        }
+      },
+      "domain": "UV integrated 0.93--1.50 GeV; already selected",
+      "warning": "Missing-mass window already applied; angular flow bins remain in normalization."
+    },
+    "ajaka_benchmark": {
+      "type": "published-domain diagnostic comparison",
+      "points": [
+        {
+          "pair": "p_pi0",
+          "mass_bin": 4,
+          "mass_gev": 1.18,
+          "sigma": 0.0015976170540255602,
+          "stat_low": 0.015928496537417642,
+          "stat_high": 0.015928435417388566,
+          "reference": {
+            "pair": "p_pi0",
+            "energy_bin": "1",
+            "mass_gev": "1.1801",
+            "sigma": "0.0376",
+            "stat_low": "0.0742",
+            "stat_high": "0.0743"
+          }
+        },
+        {
+          "pair": "p_pi0",
+          "mass_bin": 5,
+          "mass_gev": 1.22,
+          "sigma": 0.02527397952680451,
+          "stat_low": 0.015950193387464718,
+          "stat_high": 0.015945344877261965,
+          "reference": {
+            "pair": "p_pi0",
+            "energy_bin": "1",
+            "mass_gev": "1.2199",
+            "sigma": "0.0465",
+            "stat_low": "0.0386",
+            "stat_high": "0.0416"
+          }
+        },
+        {
+          "pair": "p_pi0",
+          "mass_bin": 6,
+          "mass_gev": 1.26,
+          "sigma": -0.032444718902029684,
+          "stat_low": 0.03217289908364303,
+          "stat_high": 0.03220341531531931,
+          "reference": {
+            "pair": "p_pi0",
+            "energy_bin": "1",
+            "mass_gev": "1.2597",
+            "sigma": "-0.0039",
+            "stat_low": "0.0386",
+            "stat_high": "0.0386"
+          }
+        },
+        {
+          "pair": "p_eta",
+          "mass_bin": 2,
+          "mass_gev": 1.5,
+          "sigma": -0.4630731896143626,
+          "stat_low": 0.01761317956365671,
+          "stat_high": 0.017755932238369965,
+          "reference": {
+            "pair": "p_eta",
+            "energy_bin": "1",
+            "mass_gev": "1.5000",
+            "sigma": "-0.5386",
+            "stat_low": "0.0416",
+            "stat_high": "0.0416"
+          }
+        },
+        {
+          "pair": "p_eta",
+          "mass_bin": 3,
+          "mass_gev": 1.54,
+          "sigma": -0.39831758964592756,
+          "stat_low": 0.015505707251423029,
+          "stat_high": 0.015595424819745463,
+          "reference": {
+            "pair": "p_eta",
+            "energy_bin": "1",
+            "mass_gev": "1.5399",
+            "sigma": "-0.5475",
+            "stat_low": "0.0327",
+            "stat_high": "0.0327"
+          }
+        },
+        {
+          "pair": "p_eta",
+          "mass_bin": 4,
+          "mass_gev": 1.58,
+          "sigma": -0.32567344191341435,
+          "stat_low": 0.01936162244601619,
+          "stat_high": 0.019472668262274007,
+          "reference": {
+            "pair": "p_eta",
+            "energy_bin": "1",
+            "mass_gev": "1.5797",
+            "sigma": "-0.4881",
+            "stat_low": "0.0505",
+            "stat_high": "0.0505"
+          }
+        },
+        {
+          "pair": "p_eta",
+          "mass_bin": 5,
+          "mass_gev": 1.62,
+          "sigma": -0.10663807748400989,
+          "stat_low": 0.02934183567738835,
+          "stat_high": 0.029420415876621683,
+          "reference": {
+            "pair": "p_eta",
+            "energy_bin": "1",
+            "mass_gev": "1.6203",
+            "sigma": "-0.4346",
+            "stat_low": "0.0980",
+            "stat_high": "0.0980"
+          }
+        },
+        {
+          "pair": "eta_pi0",
+          "mass_bin": 2,
+          "mass_gev": 0.7,
+          "sigma": -0.16125704681245337,
+          "stat_low": 0.02962199597509574,
+          "stat_high": 0.029742121786137138,
+          "reference": {
+            "pair": "eta_pi0",
+            "energy_bin": "1",
+            "mass_gev": "0.7005",
+            "sigma": "-0.2059",
+            "stat_low": "0.0980",
+            "stat_high": "0.1010"
+          }
+        },
+        {
+          "pair": "eta_pi0",
+          "mass_bin": 3,
+          "mass_gev": 0.74,
+          "sigma": -0.1603099742712743,
+          "stat_low": 0.020645824486633685,
+          "stat_high": 0.020704604013032785,
+          "reference": {
+            "pair": "eta_pi0",
+            "energy_bin": "1",
+            "mass_gev": "0.7403",
+            "sigma": "-0.2802",
+            "stat_low": "0.0564",
+            "stat_high": "0.0565"
+          }
+        },
+        {
+          "pair": "eta_pi0",
+          "mass_bin": 4,
+          "mass_gev": 0.78,
+          "sigma": -0.17151091840376487,
+          "stat_low": 0.01786226278563488,
+          "stat_high": 0.017908346502447797,
+          "reference": {
+            "pair": "eta_pi0",
+            "energy_bin": "1",
+            "mass_gev": "0.7801",
+            "sigma": "-0.2445",
+            "stat_low": "0.0446",
+            "stat_high": "0.0416"
+          }
+        },
+        {
+          "pair": "eta_pi0",
+          "mass_bin": 5,
+          "mass_gev": 0.8200000000000001,
+          "sigma": -0.1661861375219676,
+          "stat_low": 0.019100367098119797,
+          "stat_high": 0.019152121059956256,
+          "reference": {
+            "pair": "eta_pi0",
+            "energy_bin": "1",
+            "mass_gev": "0.8199",
+            "sigma": "-0.2149",
+            "stat_low": "0.0416",
+            "stat_high": "0.0446"
+          }
+        }
+      ],
+      "sample": "raw_bdt",
+      "estimator": "conditional likelihood; no finite-bin scaling",
+      "warning": "final_inference=suspended; no full systematics or covariance with historical sample"
+    },
+    "azimuthal_fits": {
+      "type": "stored ratio graphs and fitted curves",
+      "fits": [
+        {
+          "root_directory": "ratio_objects/p_pi0/e2/m5",
+          "mass_reference": {
+            "pair": "p_pi0",
+            "energy_bin": "1",
+            "mass_gev": "1.2199",
+            "sigma": "0.0465",
+            "stat_low": "0.0386",
+            "stat_high": "0.0416"
+          },
+          "parameters": [
+            0.035304731823717926,
+            0.0,
+            0.0
+          ],
+          "chi2_recomputed": 15.310764943886722,
+          "ndf": 11,
+          "divisor": 0.9549
+        },
+        {
+          "root_directory": "ratio_objects/p_eta/e2/m3",
+          "mass_reference": {
+            "pair": "p_eta",
+            "energy_bin": "1",
+            "mass_gev": "1.5399",
+            "sigma": "-0.5475",
+            "stat_low": "0.0327",
+            "stat_high": "0.0327"
+          },
+          "parameters": [
+            -0.36946547860464746,
+            0.0,
+            0.0
+          ],
+          "chi2_recomputed": 8.590138531938782,
+          "ndf": 11,
+          "divisor": 0.9549
+        },
+        {
+          "root_directory": "ratio_objects/eta_pi0/e2/m3",
+          "mass_reference": {
+            "pair": "eta_pi0",
+            "energy_bin": "1",
+            "mass_gev": "0.7403",
+            "sigma": "-0.2802",
+            "stat_low": "0.0564",
+            "stat_high": "0.0565"
+          },
+          "parameters": [
+            -0.15683152825276303,
+            0.0,
+            0.0
+          ],
+          "chi2_recomputed": 12.928727742586902,
+          "ndf": 11,
+          "divisor": 0.9549
+        }
+      ],
+      "warning": "R is polarisation-normalised, not raw P_gamma Sigma; plotted amplitude is uncorrected for phi-bin averaging."
+    }
+  },
+  "checks": [
+    "Ajaka mass matching within 6 MeV; modern 40 MeV bins retained",
+    "All displayed physics points within 1.20--1.30 GeV and published mass positions",
+    "Stored fit amplitude equals ratio Sigma times phi-bin divisor",
+    "Chi-square recomputed from stored graph equals recorded value",
+    "No raw data, historical results or scientific configuration modified"
+  ],
+  "quality_source_events": {
+    "bdt": {
+      "entries": 171599,
+      "input": {
+        "path": "/data/graal/GRAAL_Analysis/results/trima_uv_vis_ajaka/root/uv/reco/reco_eta_pi0_bdt.root",
+        "sha256": "af586e8ce8d1e8a579ee59e11e10dd6ddee00d6828ce6babbbdedb15ea3914d2",
+        "size": 51522344
+      },
+      "observed_energy_range_gev": [
+        0.930842936038971,
+        1.499969482421875
+      ]
+    },
+    "chi2": {
+      "entries": 257245,
+      "input": {
+        "path": "/data/graal/GRAAL_Analysis/results/trima_uv_vis_ajaka/root/uv/reco/reco_eta_pi0_chi2.root",
+        "sha256": "498f4658dfac4018ffb501ec460779d01992ba3e9df9d4c483d9f3d337d39653",
+        "size": 74338655
+      },
+      "observed_energy_range_gev": [
+        0.9301104545593262,
+        1.499969482421875
+      ]
+    }
+  },
+  "eta_diagnostic_fits": {
+    "bdt": {
+      "chi2": 335.3255419871548,
+      "covariance_status": 3,
+      "fit_status": 0,
+      "mean_error_gev": 9.823559719828431e-05,
+      "mean_gev": 0.5473880910892218,
+      "model": "gaus",
+      "ndf": 17,
+      "sigma_error_gev": 0.0001105009399336148,
+      "sigma_gev": 0.029503644509742268,
+      "status": "ok",
+      "window_gev": [
+        0.5,
+        0.6
+      ]
+    },
+    "chi2": {
+      "chi2": 579.7048987946121,
+      "covariance_status": 3,
+      "fit_status": 0,
+      "mean_error_gev": 0.00011545389453598982,
+      "mean_gev": 0.5451783160594648,
+      "model": "gaus",
+      "ndf": 17,
+      "sigma_error_gev": 0.0001406684786789715,
+      "sigma_gev": 0.033152256218944076,
+      "status": "ok",
+      "window_gev": [
+        0.5,
+        0.6
+      ]
+    }
+  },
+  "script_sha256": "d27bc7db3426fb5c9e40a079469914c23f48438f200db4890c44690ca06bcf0f"
+}

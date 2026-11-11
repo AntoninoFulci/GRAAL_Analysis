@@ -180,6 +180,8 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError(f"VIS ROOT file has no points: {args.vis_root}")
     uv_contract = _validate_profile_root("uv", args.uv_root, uv_points)
     vis_contract = _validate_profile_root("vis", args.vis_root, vis_points)
+    if uv_contract.flux_policy != vis_contract.flux_policy:
+        raise RuntimeError("UV/VIS ROOT flux policy does not match; regenerate both extractions consistently")
     if uv_contract.best_binning != vis_contract.best_binning:
         raise RuntimeError("UV/VIS ROOT best-binning mode does not match")
     if phi_bin_origin(uv_contract.phi_edges_rad) != phi_bin_origin(vis_contract.phi_edges_rad):

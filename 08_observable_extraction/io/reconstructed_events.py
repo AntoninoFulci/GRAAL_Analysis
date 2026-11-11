@@ -309,7 +309,7 @@ def select_brem_control(
 ) -> EventArrays:
     return _select_by_polarization(
         events,
-        exposures,
+        {key: exposure for key, exposure in exposures.items() if exposure.has_measured_brem},
         (0,),
         energy_range=energy_range,
         drop_missing=drop_missing,

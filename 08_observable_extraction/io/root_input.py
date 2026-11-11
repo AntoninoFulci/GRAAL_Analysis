@@ -13,7 +13,7 @@ from pathlib import Path
 import ROOT
 
 from graal_common.physics.channels import M_ETA, M_PI0
-from observable_extraction.core.models import FitDiagnostics, SigmaPoint
+from observable_extraction.core.models import FitDiagnostics, SigmaPoint, SIGMA_FLUX_POLICY
 from observable_extraction.core.binning import (
     LEGACY_PHI_EDGES_RAD, PHI_BIN_DIVISORS, phi_bin_divisor, phi_bin_origin,
 )
@@ -66,6 +66,7 @@ class RootOutputContract:
     explicit_energy_grid: bool = False
     best_binning: bool = False
     candle: CandleContract | None = None
+    flux_policy: str | None = None
 
 
 def _provenance_values(text: str) -> dict[str, list[str]]:
@@ -313,11 +314,16 @@ def read_output_contract(path: Path) -> RootOutputContract:
                     raise ValueError("divisor does not match phi edges")
             except ValueError as exc:
                 raise RuntimeError(f"{path}: invalid phi_bin_divisor provenance") from exc
+        values = _provenance_values(provenance_text)
+        policies = values.get('flux_policy', [])
+        if policies and policies != [SIGMA_FLUX_POLICY]:
+            raise RuntimeError(f"{path}: invalid flux policy provenance")
         return RootOutputContract(
             profile=profile, energy_edges_gev=edges,
             phi_edges_rad=phi_edges, phi_bin_divisor=divisor, explicit_energy_grid=explicit_energy_grid,
             best_binning=best_binning,
-            candle=_parse_candle_contract(_provenance_values(provenance_text), path),
+            candle=_parse_candle_contract(values, path),
+            flux_policy=policies[0] if policies else None,
         )
 
 

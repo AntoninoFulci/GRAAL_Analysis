@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "baseline": "Fix2010",
+  "solution": "I",
+  "model_version": "fix2010-solution-i-inventory-1",
+  "status": "incomplete",
+  "domain_lab_gev": [
+    1.0,
+    1.4
+  ],
+  "units": {
+    "energy": "GeV",
+    "angle": "rad",
+    "production_product": "GeV^-1/2",
+    "cross_section": "microbarn"
+  },
+  "stable_masses": {
+    "proton": 0.938272,
+    "pi0": 0.134977,
+    "eta": 0.547862,
+    "source": "graal_common.physics.channels"
+  },
+  "resonances": [
+    {
+      "name": "D33(1700)",
+      "solution": "I",
+      "spin_twice": 3,
+      "parity": -1,
+      "mass_gev": 1.701,
+      "mass_error_gev": 0.001,
+      "width_at_mass_gev": 0.375,
+      "production_product_gev_mhalf": 0.0106,
+      "production_product_error_gev_mhalf": 0.0002,
+      "helicity_three_half": "allowed",
+      "rho_at_mass": {
+        "value": 0.95,
+        "error": 0.01
+      },
+      "decay_ratio_at_mass": {
+        "value": 0.7,
+        "error": 0.03
+      },
+      "L_eta": 0,
+      "L_pi": 1,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 0.186,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1701,
+          "error": 1,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 375,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": 10.6,
+          "error": 0.2,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    },
+    {
+      "name": "P33(1600)",
+      "solution": "I",
+      "spin_twice": 3,
+      "parity": 1,
+      "mass_gev": 1.657,
+      "mass_error_gev": 0.005,
+      "width_at_mass_gev": 0.35,
+      "production_product_gev_mhalf": -0.0001,
+      "production_product_error_gev_mhalf": 1.1e-05,
+      "helicity_three_half": "allowed",
+      "rho_at_mass": {
+        "value": 0.39,
+        "error": 0.06
+      },
+      "decay_ratio_at_mass": {
+        "value": 1.78,
+        "error": 0.32
+      },
+      "L_eta": 1,
+      "L_pi": 2,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 6.7e-06,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1657,
+          "error": 5,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 350,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": -0.1,
+          "error": 0.011,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    },
+    {
+      "name": "P31(1750)",
+      "solution": "I",
+      "spin_twice": 1,
+      "parity": 1,
+      "mass_gev": 1.832,
+      "mass_error_gev": 0.001,
+      "width_at_mass_gev": 0.4,
+      "production_product_gev_mhalf": 0.00835,
+      "production_product_error_gev_mhalf": 0.0009,
+      "helicity_three_half": "forbidden",
+      "rho_at_mass": null,
+      "decay_ratio_at_mass": {
+        "value": 0.22,
+        "error": 0.11
+      },
+      "L_eta": 1,
+      "L_pi": 0,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 0.0378,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1832,
+          "error": 1,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 400,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": 8.35,
+          "error": 0.9,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    },
+    {
+      "name": "F35(1905)",
+      "solution": "I",
+      "spin_twice": 5,
+      "parity": 1,
+      "mass_gev": 1.873,
+      "mass_error_gev": 0.004,
+      "width_at_mass_gev": 0.33,
+      "production_product_gev_mhalf": -0.0255,
+      "production_product_error_gev_mhalf": 0.0006,
+      "helicity_three_half": "allowed",
+      "rho_at_mass": {
+        "value": -0.7,
+        "error": 0.03
+      },
+      "decay_ratio_at_mass": {
+        "value": 0.0091,
+        "error": 0.0075
+      },
+      "L_eta": 1,
+      "L_pi": 2,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 0.506,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1873,
+          "error": 4,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 330,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": -25.5,
+          "error": 0.6,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    },
+    {
+      "name": "P33(1920)",
+      "solution": "I",
+      "spin_twice": 3,
+      "parity": 1,
+      "mass_gev": 1.894,
+      "mass_error_gev": 0.003,
+      "width_at_mass_gev": 0.2,
+      "production_product_gev_mhalf": 0.011869999999999999,
+      "production_product_error_gev_mhalf": 0.00041999999999999996,
+      "helicity_three_half": "allowed",
+      "rho_at_mass": {
+        "value": 1.15,
+        "error": 0.06
+      },
+      "decay_ratio_at_mass": {
+        "value": 0.14,
+        "error": 0.09
+      },
+      "L_eta": 1,
+      "L_pi": 2,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 0.319,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1894,
+          "error": 3,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 200,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": 11.87,
+          "error": 0.42,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    },
+    {
+      "name": "D33(1940)",
+      "solution": "I",
+      "spin_twice": 3,
+      "parity": -1,
+      "mass_gev": 1.87,
+      "mass_error_gev": 0.001,
+      "width_at_mass_gev": 0.45,
+      "production_product_gev_mhalf": 0.019899999999999998,
+      "production_product_error_gev_mhalf": 0.0011,
+      "helicity_three_half": "allowed",
+      "rho_at_mass": {
+        "value": 1.65,
+        "error": 0.02
+      },
+      "decay_ratio_at_mass": {
+        "value": 0.22,
+        "error": 0.03
+      },
+      "L_eta": 0,
+      "L_pi": 1,
+      "relative_decay_coupling_sign": 1,
+      "approx_sigma_at_mass_ub": 0.695,
+      "source": "arXiv:1004.5240v1 p.9 Table II first row; p.8 excludes d wave in I",
+      "original": {
+        "mass": {
+          "value": 1870,
+          "error": 1,
+          "unit": "MeV"
+        },
+        "width": {
+          "value": 450,
+          "unit": "MeV"
+        },
+        "production_product": {
+          "value": 19.9,
+          "error": 1.1,
+          "unit": "10^-3 GeV^-1/2"
+        }
+      }
+    }
+  ],
+  "isobars": {
+    "delta": {
+      "mass_gev": 1.232,
+      "width_gev": 0.12
+    },
+    "nstar": {
+      "mass_gev": 1.535,
+      "width_gev": 0.15,
+      "beta_eta": 0.45
+    },
+    "source": "2010v1 p.5 Eq.(19), values stated for Fig.3; complete width laws unresolved"
+  },
+  "electromagnetic": {
+    "d1700_n_half": 1,
+    "d1700_three_half": "rho(Egamma_lab) * A_half(W)",
+    "other_n": 0,
+    "omega_gamma": "(W^2-mp^2)/(2W)",
+    "source": "2010v1 p.3 Eq.(5) and adjacent text"
+  },
+  "gaps": [
+    {
+      "id": "total_widths",
+      "state": "missing",
+      "consequence": "No unique Gamma_R(W): separate channel weights/energy laws not fixed by Table II products."
+    },
+    {
+      "id": "isobar_widths",
+      "state": "ambiguous",
+      "consequence": "Off-shell widths, form factors and N* branch continuation not uniquely established for 2010."
+    },
+    {
+      "id": "born",
+      "state": "missing",
+      "consequence": "Six Born graphs lack closed eta-specific electromagnetic/hadronic contract and relative normalization."
+    },
+    {
+      "id": "vertex_normalization",
+      "state": "ambiguous",
+      "consequence": "Source amplitude-to-invariant-amplitude conversion and coupling-product normalization not frozen."
+    },
+    {
+      "id": "angular_translation",
+      "state": "ambiguous",
+      "consequence": "Printed Eq.(11) requires derivation/correction before use."
+    },
+    {
+      "id": "helicity_endpoint",
+      "state": "missing",
+      "consequence": "Fig.6 solid path ends at 1.394805194805 GeV, below requested 1.4."
+    }
+  ],
+  "error_policy": "Published marginal errors; no covariance supplied. No arbitrary numerical placeholders for missing dynamics."
+}

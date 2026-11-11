@@ -1,6 +1,6 @@
 # Maintenance and tests
 
-The root README introduces the project; this wiki owns current technical guidance. Keep only active plans under `docs/plans/`, original papers under `docs/papers/`, and persistent scientific reference material under `docs/reference/`. Keep machine-readable runtime/provenance references in their owning packages. Preserve source data, period cuts, BDT bundles/provenance, bibliography, Fortran and geometry snapshots. Never edit a historical ROOT result to satisfy a new contract.
+The root README introduces the project; this wiki owns current technical guidance. Keep only active plans under `docs/plans/`, original papers under `docs/reference_papers/`, manuscripts under `docs/papers_to_publish/`, and persistent scientific reference material under `docs/reference/`. Keep machine-readable runtime/provenance references in their owning packages. Preserve source data, period cuts, BDT bundles/provenance, bibliography, Fortran and geometry snapshots. Never edit a historical ROOT result to satisfy a new contract.
 
 Run tests in a named diagnostic campaign with absolute temporary/cache roots. From the checkout root:
 

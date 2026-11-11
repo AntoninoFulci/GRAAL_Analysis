@@ -91,7 +91,8 @@ def test_repository_has_one_project_readme_and_current_doc_layout():
               if p.is_file() and p.name.casefold() == 'readme.md']
     assert (ROOT / 'README.md').is_file()
     assert not nested, nested
-    assert {p.name for p in (ROOT / 'docs').iterdir() if not p.name.startswith('.')} == {'papers', 'plans', 'reference'}
+    assert {p.name for p in (ROOT / 'docs').iterdir() if not p.name.startswith('.')} == {
+        'reference_papers', 'papers_to_publish', 'plans', 'reference'}
     assert not (ROOT / '.superpowers').exists()
     assert not (ROOT / '08_observable_extraction/theory').exists()
 
@@ -100,6 +101,12 @@ def test_declared_scientific_sources_exist_and_match_registered_hashes():
     import hashlib
     import json
     audit = json.loads((ROOT / 'docs/reference/theory/eta_pi0_literature_audit.json').read_text())
+    relocations = json.loads((ROOT / 'docs/reference/paper-relocations-20261111.json').read_text())
+    relocated = {row['previous_path']: row for row in relocations['relocations']}
+    for row in relocated.values():
+        source = ROOT / row['current_path']
+        assert source.is_relative_to(ROOT / 'docs/reference_papers')
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == row['sha256']
     # Traverse the bibliography schema so a relocated source cannot quietly
     # disappear while its scientific hash remains advertised.
     def records(value):
@@ -115,7 +122,10 @@ def test_declared_scientific_sources_exist_and_match_registered_hashes():
     for record in records(audit):
         if not record['path'].endswith('.pdf'):
             continue
-        source = ROOT / record['path']
+        relocation = relocated.get(record['path'])
+        if relocation is not None:
+            assert relocation['sha256'] == record['sha256']
+        source = ROOT / (relocation['current_path'] if relocation else record['path'])
         assert source.is_file(), source
         assert hashlib.sha256(source.read_bytes()).hexdigest() == record['sha256'], source
         count += 1
@@ -140,7 +150,7 @@ def test_reference_render_commands_keep_papers_as_inputs(tmp_path):
     assert commands, 'no paper-render examples inspected'
     for index, (source, block) in enumerate(commands):
         working = tmp_path / str(index)
-        (working / 'docs/papers').mkdir(parents=True)
+        (working / 'docs/reference_papers').mkdir(parents=True)
         (working / 'scratch').mkdir()
         capture = working / 'render-outputs.txt'
         # Each block only contains digest reads, scratch setup and rendering.
@@ -168,4 +178,4 @@ pdftoppm() {
             assert not path.is_relative_to(working / 'docs'), (source, output)
             assert path.is_relative_to(working), (source, output)
             assert Path(str(path) + '.png').is_file()
-        assert not list((working / 'docs/papers').iterdir()), source
+        assert not list((working / 'docs/reference_papers').iterdir()), source

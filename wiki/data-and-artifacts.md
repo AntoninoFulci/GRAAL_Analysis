@@ -1,5 +1,7 @@
 # Data and artifact contracts
 
+Reference sources now live in `docs/reference_papers/`; manuscripts in `docs/papers_to_publish/` (owner-approved layout, 11 November 2026). [Relocation map](../docs/reference/paper-relocations-20261111.json) records old paths, current paths and unchanged SHA-256. Historical bibliography manifests and the byte-reproducible Fix helicity product retain their original `docs/papers/` provenance; resolve those recorded locations through this map. Active commands and links use the new paths. Original submitted archives remain unchanged; disposable TeX editor metadata is not versioned.
+
 | Location | Ownership |
 | --- | --- |
 | `data/` | Production inputs and server/farm links; never generated intermediates |
@@ -11,7 +13,7 @@
 | `config/` | YAML launch configurations, including inline energy grids |
 | `config/support/` | Curated catalog, frozen exclusions and authenticated common input references |
 | `data_test/reference/` | Small versioned diagnostic count reference; not production input |
-| `docs/papers/` | Original scientific PDFs |
+| `docs/reference_papers/` | Original scientific PDFs |
 | `docs/reference/` | Original Fortran, graph corpus policy and historical evidence index |
 | `docs/plans/` | Active plans only |
 
@@ -47,3 +49,5 @@ The launch YAML files remain in `config/`. Active defaults, scripts, examples an
 Only `common_inputs.json` changed content: its reference paths now point to the relocated files; the referenced SHA256 digests are unchanged. Historical paths inside the frozen quality policy and count provenance remain untouched because they identify dated evidence, not active file lookups.
 
 The three files formerly under `config/energy/` were redundant launch presets. Their exact nominal, split and low-UV grids are preserved as active values or commented examples in `config/pipeline.yaml`; user-provided JSON energy files remain supported through `--energy-config`. The low-UV example starts at 0.9313 GeV; the separately requested trima campaign starts at 0.930 GeV.
+
+On 5 November 2026, `data_test/raw_data/1998_uv/run1324.root` was added from `trima:/data/graal/graal_data/1998_uv/run1324.root` as a second Geant4 response-control candidate. Transfer SHA-256 matches the server; provenance is retained in `results_test/geant4-control-run-20261105/transfer.json`. Existing raw and immutable cohort inputs were not changed. See [control status](geant4-validation#seconda-run-di-controllo-5-novembre-2026).

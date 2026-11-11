@@ -20,12 +20,12 @@ Reference numbers are local to each paper: P73 [8] = P65; P73 [25] = P70; P70 [2
 SHA-256 of the audited bytes:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
-7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f  docs/papers/PhysRevC.70.045203.pdf
-a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29  docs/papers/9211247v1.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
-c1def91b01ee5750aca4124ae2469178b204d99649075d7d4f4277facab9d430  docs/papers/10.1016@j.physletb.2006.06.022.pdf
-1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af  docs/papers/nucl-th-0407025.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/reference_papers/PhysRevC.65.035204.pdf
+7d07d8510fa19546e9d73824826306babc9cb0b88c06277b5d326303c713854f  docs/reference_papers/PhysRevC.70.045203.pdf
+a1ad108ede40ddfa29bd8147296c2c8fe10f4a167f741b2a5aaea6b2d2ee4e29  docs/reference_papers/9211247v1.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/reference_papers/10.1103@PhysRevC.73.045209.pdf
+c1def91b01ee5750aca4124ae2469178b204d99649075d7d4f4277facab9d430  docs/reference_papers/10.1016@j.physletb.2006.06.022.pdf
+1b67f036787bc1085d1ae0491f64e14b8970ffe4f2377607da51dc5a2fc077af  docs/reference_papers/nucl-th-0407025.pdf
 ```
 
 ## 1. Channel basis and charge coefficients

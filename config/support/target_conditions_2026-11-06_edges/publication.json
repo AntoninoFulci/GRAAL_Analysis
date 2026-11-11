@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "source_products": "../../../results/2026-11-06-target-edges-final/products",
+  "source_checksums": {
+    "geant4_candidates.json": "9d5e9cbea004a0f77289be08f53ca62323d20b81dfd4b33895cb83ed14e97a47",
+    "metadata.json": "06d7ecac23280ffb6a5dd1db3fe5fb91c688ee7201f62f14499c603a052ed1fe",
+    "period_1998_uv_target_spot.png": "638a4577bd9065e8ed0707ce12ca9096bdfd9026da295393b44d8d3c614d7dd1",
+    "period_1999_d1_target_spot.png": "b8a6ad0e48f7f7ae33a17e17140bf525b4481489379374eaaf77dc3078a657e5",
+    "period_1999_d2_target_spot.png": "ea2438c8648257cdfcdd43cdc81da752727b8b3715aed624c272fc4e4a2e10a3",
+    "period_1999_uv_target_spot.png": "bab131ea631ef2611a2cdb10b03542fd682fa4ff23521339fa37442650d5f046",
+    "period_1999_vis_target_spot.png": "86b418ec7b736546bdebf43a7861a2325b6830a6a553d9ea57c6564bb8cff813",
+    "period_2000_fuv_target_spot.png": "c65d995bbfcbedd88f7ab36b0ec86ab1e59135295bd3e268157db2ad4da32707",
+    "period_2000_uv1_target_spot.png": "7ec9779b4d32986cce2054937e5ec6eb5a5b255a561ac6c1e5115997c18b15ef",
+    "period_2000_uv2_target_spot.png": "2b4ea0c986b231281c3d5f9b4fb2b346cfc7fa37e38d76768d511cac7d865d60",
+    "period_2000_vis_target_spot.png": "ab6fb05b756e0991e9aa7f370645f04b126062a5034fcad175f322bc67b56336",
+    "period_2001_d_target_spot.png": "0733429ee9abd3701644b98409483ee69a73f6741cf95b6c581580929d6d951a",
+    "period_2001_uv_target_spot.png": "d9ad454681a18a6d5328176165b03cab4986fa01b2ca4fcab593ad0b48a858f8",
+    "period_2002_d1_target_spot.png": "70f56047af68e82c75f7861569a648b0a20bc00ec354ae244003b5f06d6a6a6b",
+    "period_2002_d2_target_spot.png": "3690329eaf962526d339f588c4f839fa7d3d3ae5bfe930861a5aa9a608cd4fd3",
+    "period_2002_d3_target_spot.png": "8382ceecb5900341c3a1ce177d47c9f4e884a6208e6bc0b1e0056a2cb9b52888",
+    "period_2002_uv1_target_spot.png": "9f918fd7ffe36ab1c955553e37e6ad694cb474fce3861f1736c45ca6cd3e0471",
+    "period_2002_uv2_target_spot.png": "03c692c62cc1399dbd0094853dde59084d98d7a8e6d3942d0f045bbe68f4790a",
+    "period_2002_vis1_target_spot.png": "1503192c6bd036b997b92af9452fb82988a3cd3fda934523398e19ada45b6d67",
+    "period_2002_vis2_target_spot.png": "553e7113ceeb70860dbdafcbbc8ca8a58deeba4e990e56bad12d59b644f6fa04",
+    "period_2003_vis_target_spot.png": "f46604af72cbf32f48b19176197fa8db293e80a97c728f92a14fa5e9ebf6c6d6",
+    "period_2005_d1_target_spot.png": "43c2393ebdca9565b9d5d9d44cf5017ab331e5e4abb587bb804521d18fa4927e",
+    "period_2005_d2_target_spot.png": "2b946ac249ba276764ca22bb1bb104eeb8c254fbb321102c17774e5e17c145c5",
+    "period_2006_d_target_spot.png": "23edb5293acada848662762c1343b634fa31658e5073fe73f6944105dc05012e",
+    "run_plots.npz": "66e534b7d7332995aa25a7fd6580d94ec2e4de35db4f544bc0f015a8fad8e6b6",
+    "target_periods.csv": "f4652bbfcacc192b1938047292cbb8ca979ec5b0acff58ea88db7c52f7b05537",
+    "target_runs.csv": "be7a3f7d006d8c9c0939ff9be4488f4beb75e7cd0ecd84b6b94fc3df1677e371"
+  },
+  "metadata_file": "../../../results/2026-11-06-target-edges-final/products/metadata.json",
+  "catalog": {
+    "path": "/Users/tonyf/Work/GRAAL/GRAAL_Analysis/results_test/2026-11-06-target-edges-production/source/config/support/run_manifest.csv",
+    "sha256": "64a2096602e0db2a7de2b5a2c4b64c94df3e2719c3f8510b69b44018033d3160"
+  },
+  "code_hashes": {
+    "06_calibration/target_batch.py": "4d253157d899c1f23f6148f28a173ac34d5d2b367eb0c4cf571597fd50a64eb3",
+    "06_calibration/target_database.py": "015e1240ffd452dd4bc9bb070c4ec62fc9f1a55ce6cbaceb6e80c649642fcd33",
+    "06_calibration/target_fit.py": "9a7231753acaa26e4d2a0b49312dbeb1f4c3ecd66a2c963f3f018ec62f3fff3e",
+    "06_calibration/target_edges.py": "fcc4ce0d3de09865fb9f6110108e4220c052132f8a2de47d8839918f81bd72b1",
+    "06_calibration/target_periods.py": "fc6427b5031e21f0f483e11c3757ea87f457547059b79aca1dd15f038c3fde0b",
+    "06_calibration/target_archive.py": "b611aaa585164137537206ecbbd09c6cce5a6e869df66d83cf5ac14dee424601",
+    "06_calibration/run_manifest.py": "abbd19c859ed52e90b0a38ab4505d0e02114326bef07a0b1a7d24c640f0fe49a",
+    "plots/target_vertex.py": "16ee2f34e92d42aa8a5d70644392bba0b04171c1130b596fb24e585fdf786270",
+    "plots/core/vertex.py": "07fa99f06958811788b8031f37c1a4b9ee39d0ba2bd631e55eb0c056e47260f5",
+    "00_common/io/filesystem.py": "4803642e8555988b2e5203d33ead00de986c3b852029d775a600a41e15b83bbd",
+    "06_calibration/target_refit.py": "bfe67bb75710e1f41df890a60c870405c8fe607c7946fc9f11d9e6e4bb7cd159"
+  },
+  "output_checksums": {
+    "target_periods.csv": "2bce895aa6998eec53ef803e3fe3bc5bbbc478fdee964a175ff92c676049270e",
+    "geant4_candidates.json": "fc0ba41746b8a2cc40bc554546c7cafebddbac6a44d742670b7abaee0c8cfb6c",
+    "target_runs.csv": "786c045190fff314d4fefcf6b08f990c3c783f29742e040cf3b04ba881a2c314"
+  },
+  "note": "Relative paths resolve from this configuration directory. Geometry proposals remain explicit approximations; no GEANT4 source modified."
+}

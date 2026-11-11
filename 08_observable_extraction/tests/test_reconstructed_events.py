@@ -302,3 +302,25 @@ def test_core_tail_split_rejects_unbalanceable_populations(
 
     with pytest.raises(ValueError, match=message):
         reconstructed_events.split_candle_core_tails(events, 0.05, seed=1)
+
+
+@pytest.mark.parametrize("status", ["missing", "invalid_content", "duplicate"])
+def test_brem_selector_and_audit_require_measured_brem(tmp_path, status):
+    from observable_extraction.core.periods import selection_audit
+    path = tmp_path / "reco.root"
+    _write_reconstructed(path)
+    events = read_reconstructed(path, "reco")
+    exposures = {(811, strip): FluxExposure(811, strip, 1.25, 120., 80., None, .5, .5,
+                                           brem_status=status) for strip in (17, 18)}
+    assert len(select_sigma_events(events, exposures)) == 1
+    assert len(select_brem_control(events, exposures, drop_missing=True)) == 0
+    with pytest.raises(ValueError, match="missing exposure"):
+        select_brem_control(events, exposures)
+    audit = selection_audit(events, exposures, (1.1, 1.5))
+    assert audit["selected"] == 1
+    assert audit["brem"] == 0
+    assert audit["brem_unavailable"] == 1
+    assert audit["excluded"] == 1
+    assert audit["selected_with_measured_brem"] == 0
+    assert audit["selected_without_measured_brem"] == 1
+    assert audit["recovered_missing_brem_runs"] == ([811] if status == "missing" else [])

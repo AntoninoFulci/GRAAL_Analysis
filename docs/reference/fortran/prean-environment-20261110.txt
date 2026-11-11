@@ -1,0 +1,187 @@
+[10/11/2026 10:44] Giuseppe Mandaglio: echo $BGO_SOFT_THRES 
+0.002
+root@df4388c6351e:/# echo $CLUS_SOFT_THRES 
+0.015
+[10/11/2026 10:46] Giuseppe Mandaglio: more $HOME_GRAAL/software/uty/graal_login_bash
+#
+# Define Graal environment variable's
+#
+export SOFTWARE=$HOME_GRAAL/software/   
+export PROGRAM=$SOFTWARE/prog/
+export DATA_INP=$HOME_GRAAL/data/
+export DATA_OUT=$HOME_GRAAL/data/
+export DATA_CAL=$HOME_GRAAL/data/
+export GLIB=$SOFTWARE/lib/
+if [ -r $SOFTWARE/uty/.login_graal_bash ] ; then
+  . $SOFTWARE/uty/.login_graal_bash
+fi
+[10/11/2026 10:52] Giuseppe Mandaglio: more /home/gmandaglio/graal/software/uty/.login_graal_bash echo " "
+echo -n "Executing GRAAL Login "
+if [ "$CERN_ROOT:?" ] ; then
+  export CERN_ROOT=/cern/pro
+fi
+if [ "$CERN_CMZ:?" ] ; then
+  export CERN_CMZ=/cern/share/pro/src/cmz
+fi
+#
+# Environment variable's for GRAAL software
+#
+export GKUMAC=$SOFTWARE/kumac
+export GUTY=$SOFTWARE/uty
+export GTAPE=$DATA_CAL/tapes
+#
+export GINCLUDE=$PROGRAM/include/
+export LAGGEN=$PROGRAM/laggen/
+export LAGDIG=$PROGRAM/lagdig/
+export DECODE=$PROGRAM/decode/
+export DECODE_DT=$PROGRAM/decode_dt/
+export PREAN=$PROGRAM/prean/
+export MESON=$PROGRAM/meson/
+export ETADEU=$PROGRAM/etadeu/
+export GRETA=$PROGRAM/greta/
+export MERGEG=$PROGRAM/merge_greta/
+export MERGEM=$PROGRAM/merge_meson/
+export MERGEG_ETA=$PROGRAM/merge_g_eta/
+export MERGEG_PI0=$PROGRAM/merge_g_pi0/
+export MERGE_EP=$PROGRAM/merge_etadeu_p/
+export BARMON=$PROGRAM/barmon/
+export BARMON_DEU=$PROGRAM/barmon_deu/
+export KOMPTON=$PROGRAM/kompton/
+export MERGEK=$PROGRAM/merge_kompton/
+export CHECK_TBB=$PROGRAM/check_tbb/
+export GANND=$PROGRAM/gann/
+export FIT=$PROGRAM/make_fit/
+#
+export LAGGEN_CMZ=$PROGRAM_CMZ/laggen/
+export LAGDIG_CMZ=$PROGRAM_CMZ/lagdig/
+export DECODE_CMZ=$PROGRAM_CMZ/decode/
+export DECODE_DT_CMZ=$PROGRAM_CMZ/decode_dt/
+export PREAN_CMZ=$PROGRAM_CMZ/prean/
+#
+export GK=$PROGRAM/script/gk/
+export LPK=$PROGRAM/script/lpk/
+#
+# Environment variable's for GRAAL data
+
+export DATA_BASE=$DATA_INP/base/
+NAME_HOST=`hostname`
+if test "$NAME_HOST" = "merlino.roma2.infn.it" -o "$NAME_HOST" = "ginevra.roma2.
+infn.it" ; then
+  export TAPE=/dev/tape/tape0c
+  export TAPEN=/dev/ntape/tape0c 
+else
+  export TAPE=/dev/rmt0h
+  export TAPEN=/dev/nrmt0h
+fi
+export CALIB_BGO=$DATA_CAL/calib_bgo/
+export CALIB_WALL=$DATA_CAL/calib_wall/ 
+export CALIB_TAG=$DATA_CAL/calib_tag/
+export CALIB_BARREL=$DATA_CAL/calib_barrel/
+export CALIB_RW=$DATA_CAL/calib_rw/
+export CALIB_STRIP=$DATA_CAL/calib_strip/
+export CALIB_MWPC=$DATA_CAL/calib_mwpc/
+#
+export INP_LAGGEN=$DATA_INP/inp_laggen/
+export BEAM=$DATA_INP/simul_beam/
+export OUT_LAGGEN=$DATA_OUT/out_laggen/
+export KILL_LAGGEN=$LAGGEN/kill_laggen
+export TAG_DAT=$DATA_INP/simul_beam/
+export OUT_LAGDIG=$DATA_OUT/out_lagdig/
+#
+export INP_DECODE=$DATA_INP/inp_decode/
+export OUT_DECODE=$DATA_OUT/out_decode/
+export OUT_DECODE_SCL=$DATA_OUT/out_decode/scl/  
+export OUT_DECODE_NTP=$DATA_OUT/out_decode/ntp/
+export OUT_DECODE_SPAG=$DATA_OUT/out_decode/spag/  
+export OUT_DECODE_TMON=$DATA_OUT/out_decode/tmon/  
+export OUT_DECODE_MIX=$DATA_OUT/out_decode/mix/  
+export OUT_DECODE_LOG=$DATA_OUT/out_decode/log/
+#
+export OUT_PREAN_DATA=$DATA_OUT/out_prean/exp_data/
+export BGO_SOFT_THRES=0.002
+export CLUS_SOFT_THRES=0.015
+export OUT_PREAN_SIM=$DATA_OUT/out_prean/sim_data/
+export OUT_PREAN_LOG=$DATA_OUT/out_prean/log_data/
+#
+export OUT_GRETA_DATA=$DATA_OUT/out_greta/exp_data/
+export OUT_GRETA_SIM=$DATA_OUT/out_greta/sim_data/
+export OUT_GRETA_LOG=$DATA_OUT/out_greta/log_data/
+#
+export OUT_ETADEU_DATA=$DATA_OUT/out_etadeu/exp_data/
+export OUT_ETADEU_SIM=$DATA_OUT/out_etadeu/sim_data/
+export OUT_ETADEU_LOG=$DATA_OUT/out_etadeu/log_data/
+#
+export OUT_KOMPTON_DATA=$DATA_OUT/out_kompton/exp_data/
+export OUT_KOMPTON_SIM=$DATA_OUT/out_kompton/sim_data/
+export OUT_KOMPTON_LOG=$DATA_OUT/out_kompton/log_data/
+#
+export OUT_BARMON=$DATA_OUT/out_barmon/
+#
+export OUT_MERGEG=$DATA_OUT/out_mergeg/
+export OUT_MERGE_EP=$DATA_OUT/out_mergeg/
+#
+export OUT_MERGEK=$DATA_OUT/out_mergek/
+#
+export OUT_CHECK_TBB=$DATA_OUT/out_check_tbb/
+export OUT_FIT=$DATA_OUT/out_fit/
+export OUT_GANN=$DATA_OUT/out_gann/
+export INP_GANN=$DATA_OUT/inp_gann/
+#
+# Machine environment variable's
+#
+TYPE_SYSTEM=`uname`
+#
+if test "$TYPE_SYSTEM" = "HP-UX" ; then
+  export MACHINE='HP'
+  export MACHINE_F77='HP'
+fi
+#
+if test "$TYPE_SYSTEM" = "AIX" ; then
+  export MACHINE='RS'
+  export MACHINE_F77='RS'
+fi
+#
+if test "$TYPE_SYSTEM" = "OSF1" ; then
+  export MACHINE='OSF'   
+  if [ -d /usr/ccs/lib/cmplrs/fort_520 ] ; then
+    export MACHINE_F77='OSF_1-4'
+  fi
+  if [ -d /usr/ccs/lib/cmplrs/fort_542 ] ; then
+    export MACHINE_F77='OSF_5'   
+  fi
+fi
+#
+if test "$TYPE_SYSTEM" =
+[10/11/2026 10:52] Giuseppe Mandaglio: "Linux" ; then
+  if [ -x /usr/local/intel/compiler60/ia32/bin/ifc ] || [ -x /usr/local/intel/co
+mpiler70/ia32/bin/ifc ] ; then
+    export MACHINE='Linux_Intel'
+    export MACHINE_F77='Linux_Intel'
+  else
+    export MACHINE='Linux'
+    export MACHINE_F77='Linux'
+  fi
+fi
+#
+if test "$TYPE_SYSTEM" = "SunOS" ; then
+  export MACHINE='SUN'
+  export MACHINE_F77='SUN'
+fi
+#
+if test "$TYPE_SYSTEM" = "CYGWIN_NT-5.1" ; then
+  export MACHINE='cygwin'
+  export MACHINE_F77='cygwin'
+fi
+#
+if [ "$LD_LIBRARY_PATH:?" ] ; then
+  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/cern/pro/lib
+else
+  export LD_LIBRARY_PATH=/cern/pro/lib
+fi
+
+export OPT_QSUB='-j eo -S /bin/bash -q linux -N '
+if [ ! -x /usr/local/opbs/bin/qsub ] ; then
+  export OPT_QSUB='-eo -lt 1000000 -s /bin/bash -q linux -r '
+fi
+
+echo "OK"

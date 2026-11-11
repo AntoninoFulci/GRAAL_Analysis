@@ -166,6 +166,18 @@ def test_empty_plan_execution_records_reviewable_metadata(tmp_path):
     artifacts = json.loads((metadata / 'stage_artifacts.json').read_text())
     assert artifacts['inputs'] == {} and artifacts['outputs'] == {}
     assert artifacts['source_files'] and artifacts['outcomes'] == []
+    completion = json.loads((metadata / 'report_manifest.json').read_text())
+    assert completion['status'] == 'complete' and completion['mode'] == 'production'
+
+
+def test_failed_execution_has_no_report_completion_marker(tmp_path, monkeypatch):
+    module = workflow()
+    def fail(*args, **kwargs):
+        raise PipelineError('failed stage')
+    monkeypatch.setattr(module, 'execute_cached_plan', fail)
+    with pytest.raises(PipelineError, match='failed stage'):
+        module.run_stage_configuration(settings(tmp_path), repo_root=tmp_path, assume_yes=True)
+    assert not (tmp_path / 'results/new/metadata/report_manifest.json').exists()
 
 
 def test_active_cache_symlink_cannot_write_outside_managed_root(tmp_path):

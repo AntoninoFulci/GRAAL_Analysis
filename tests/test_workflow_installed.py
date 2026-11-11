@@ -143,6 +143,24 @@ def test_wheel_module_script_and_console_help_from_external_cwd(installed_workfl
     assert absent.returncode == 1 and "requires --repo-root" in absent.stderr
 
 
+def test_wheel_exports_report_with_packaged_browser_assets(installed_workflow):
+    scratch, _, _ = installed_workflow
+    _installed(installed_workflow, """
+from graal_workflow.analysis_site import build_site
+from graal_workflow.report_manifest import complete_campaign
+root = Path(sys.argv[3]) / 'report-campaign'
+(root / 'plots/uv').mkdir(parents=True)
+(root / 'plots/uv/report.pdf').write_bytes(b'%PDF-test')
+complete_campaign(root, repo_root=Path(sys.argv[2]), mode='test_data')
+site = Path(sys.argv[3]) / 'report-site'
+data = build_site([root], site, repo_root=Path(sys.argv[2]), thumbnails=False)
+assert (site / 'index.html').is_file()
+assert (site / 'assets/site.js').is_file()
+assert (site / 'assets/site.css').is_file()
+assert data['campaigns'][0]['mode'] == 'test_data'
+""", scratch)
+
+
 def test_wheel_yaml_configuration_from_external_cwd(installed_workflow):
     scratch, target, env = installed_workflow
     config = scratch / "launch.yaml"
@@ -351,7 +369,8 @@ def test_missing_static_metadata_is_rejected_before_dispatch(tmp_path):
         execution.execute_cached_plan(stages, config, locations, runner=lambda *_a, **_k: pytest.fail('dispatched before static inputs were validated'))
 
 
-def test_installed_extraction_applies_explicit_policy_and_matching_provenance(installed_workflow):
+@pytest.mark.parametrize('brem_available', [True, False])
+def test_installed_extraction_applies_explicit_policy_and_matching_provenance(installed_workflow, brem_available):
     scratch, _, _ = installed_workflow
     result = _installed(installed_workflow, r'''
 from dataclasses import fields
@@ -366,7 +385,8 @@ from observable_extraction.io.reconstructed_events import EventArrays, select_si
 from observable_extraction.tests.test_calibration_io import _write_rows, _row
 from graal_workflow import models, paths, planning
 root = Path(sys.argv[2])
-work = Path(sys.argv[3]) / 'extraction-policy'
+brem_available = sys.argv[4] == 'True'
+work = Path(sys.argv[3]) / f'extraction-policy-{brem_available}'
 work.mkdir()
 policy_path = root / 'config/support/run_quality_exclusions.json'
 expected = quality_module.load_run_quality(policy_path)
@@ -378,7 +398,8 @@ assert extract.argv[extract.argv.index('--run-quality') + 1] == str(policy_path)
 manifest = work / 'manifest.csv'
 write_manifest([RunRecord(run, 'period', 'P', 'UV', 'P_UV', 'manual', f'uv/run{run}.root') for run in (811, 1322)], manifest)
 flux = work / 'flux.csv'
-_write_rows(flux, [_row(run_number=run, source_period='period') for run in (811, 1322)])
+_write_rows(flux, [_row(run_number=run, source_period='period',
+                       flux_brem=25.0 if brem_available else '') for run in (811, 1322)])
 runs = np.repeat([811, 1322], 3)
 values = {field.name: np.zeros(len(runs)) for field in fields(EventArrays)}
 values.update(run_number=runs, xstrip=np.full(len(runs), 17), polarization=np.tile([0, 1, 2], 2), beam_energy_gev=np.full(len(runs), 1.25))
@@ -413,9 +434,11 @@ else:
     raise AssertionError('did not reach real extraction selection boundary')
 assert captured['metadata']['samples']['raw_bdt']['quality_excluded'] == 3
 assert captured['metadata']['samples']['raw_bdt']['selected'] == 2
+assert captured['metadata']['exposure']['flux_policy'] == 'paired_pol_independent_brem'
 # The same frozen policy is accepted by control and audit readers without defaults.
 exposures = load_exposures(flux, manifest_path=manifest, run_quality=expected)
-assert select_brem_control(events, exposures, run_quality=expected).run_number.tolist() == [811]
+assert select_brem_control(events, exposures, run_quality=expected, drop_missing=True).run_number.tolist() == ([811] if brem_available else [])
+assert exposures[811, 17].brem_status == ('measured_valid' if brem_available else 'missing')
 assert selection_audit(events, exposures, (1.1, 1.5), run_quality=expected)['quality_excluded'] == 3
 # Non-period entry also reaches inference with the declared policy.
 period_workflow._run_single = original_single
@@ -428,8 +451,8 @@ else:
     raise AssertionError('single extraction did not reach inference')
 (work / 'policy-proof.json').write_text(json.dumps(captured, indent=2))
 print('Installed extraction: explicit checkout policy applied to exposure/event/control/audit readers; recorded path and SHA-256 match')
-''', scratch)
-    (scratch / 'extraction-policy.log').write_text(result.stdout + result.stderr)
+''', scratch, brem_available)
+    (scratch / f'extraction-policy-{brem_available}.log').write_text(result.stdout + result.stderr)
 
 
 def test_wheel_common_config_and_calibration_fingerprint_from_external_cwd(installed_workflow):

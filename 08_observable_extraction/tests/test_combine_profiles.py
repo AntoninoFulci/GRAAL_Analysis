@@ -161,6 +161,33 @@ def test_combined_cli_rejects_mismatched_phi_binning_before_writing(tmp_path):
     assert not output.exists()
 
 
+@pytest.mark.parametrize('matched', [False, True])
+def test_combination_keeps_flux_policy_consistent(tmp_path, monkeypatch, matched):
+    uv_points = _points()
+    vis_points = tuple(
+        replace(item, point=replace(item.point, energy_bin=0,
+                                    energy_low_gev=0.9313, energy_high_gev=1.10))
+        for item in uv_points if item.point.energy_bin == 0
+    )
+    uv_root, vis_root = tmp_path / 'uv.root', tmp_path / 'vis.root'
+    declaration = '\nflux_policy=paired_pol_independent_brem'
+    _write_profile_root(uv_root, uv_points, (1.10, 1.20, 1.30, 1.40, 1.50),
+                        'profile=uv' + declaration)
+    _write_profile_root(vis_root, vis_points, (0.9313, 1.10),
+                        'profile=vis' + (declaration if matched else ''))
+    _stub_combined_writers(monkeypatch)
+    output = tmp_path / 'combined'
+    args = ['--uv-root', str(uv_root), '--vis-root', str(vis_root),
+            '--output-dir', str(output)]
+    if matched:
+        assert combine_profiles.main(args) == 0
+        assert output.is_dir()
+    else:
+        with pytest.raises(RuntimeError, match='flux policy'):
+            combine_profiles.main(args)
+        assert not output.exists()
+
+
 def test_combined_cli_rejects_mixing_corrected_and_legacy_sigma(tmp_path):
     uv_points = _points()
     vis_points = tuple(

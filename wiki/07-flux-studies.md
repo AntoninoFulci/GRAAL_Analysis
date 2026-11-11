@@ -9,3 +9,13 @@ A missing calibrated histogram can reflect missing calibration coverage even whe
 The optional authenticated inclusive-count bundle avoids a new event scan only for its exact original local UV/VIS cohort. Consumers inspect ROOT headers and reject mismatched identities. Counts are not a good-run list. A different production cohort needs its own measured evidence.
 
 Recovery remains experimental. Energy-axis independence, uncertainty/coverage calibration, correlated donors and residuals, and observable bias must be validated before adoption. See [status](status) for dated evidence and unresolved acceptance-policy results.
+
+The November 2026 [common-energy recovery implementation](flux-energy-recovery.md)
+adds a separate explicit campaign CLI, state-wise measured inventory, Extra Trees
+hybrid only, authenticated independent strip axes, synchronized A/B/C/D closure,
+and frozen-protocol verification gates. Stage 08 now separates valid POL1/POL2
+exposures from BREM control availability. This measured-only asymmetry default was
+accepted on 11 November 2026; cross-section requirements remain to be reassessed.
+No estimated flux is adopted by default. Recovery budgets distinguish BREM-only
+gaps already covered by the measured POL pair from additional candidates requiring
+POL recovery; full-state support remains a separate diagnostic.

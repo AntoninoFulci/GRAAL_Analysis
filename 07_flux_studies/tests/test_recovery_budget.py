@@ -26,11 +26,29 @@ def test_budget_counts_whole_supported_runs_once_excludes_anomalies():
     assert result['summary']['supported_missing_states'] == 2
     assert result['summary']['potential_runs'] == 1
     assert result['summary']['potential_h80_events'] == 30
-    assert result['summary']['potential_sigma_events_energy_window'] == 2
+    assert result['summary']['potential_sigma_events_energy_window'] == 0
+    assert result['summary']['potential_sigma_runs'] == 0
+    assert result['summary']['pol_pair_present_runs'] == 1
+    assert result['summary']['pol_pair_present_events_energy_window'] == 2
     assert result['summary']['production_accepted_runs'] == 0
     assert [r['run'] for r in result['runs'] if r['potential']] == [1]
     assert result['runs'][1]['blockers'] == [
         'flux_uncertainty_not_calibrated', 'unsupported_missing_states']
+
+
+def test_sigma_recovery_requires_only_missing_pol_support():
+    missing, support, counts, reco = inputs()
+    missing.append(dict(run=2, state='BREM', period='p', count=10,
+                        status='candidate', missing_reason='missing_calibrated'))
+    for row in support:
+        row['supported'] = row['run'] == 2
+    result = recovery_budget(missing, support, counts, reco, excluded_runs={3})
+    # Run 1 already has its POL pair; run 2 can recover POL despite absent BREM support.
+    assert result['summary']['potential_runs'] == 0
+    assert result['summary']['potential_sigma_runs'] == 1
+    assert result['summary']['potential_sigma_events_energy_window'] == 2
+    assert result['summary']['pol_pair_present_events_energy_window'] == 2
+    assert result['summary']['production_accepted_events'] == 0
 
 
 @pytest.mark.parametrize('defect', ['duplicate_count', 'duplicate_support', 'count_mismatch', 'reco_mismatch'])

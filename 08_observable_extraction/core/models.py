@@ -7,6 +7,7 @@ import math
 
 
 PAIR_NAMES = frozenset({"p_pi0", "p_eta", "eta_pi0"})
+SIGMA_FLUX_POLICY = "paired_pol_independent_brem"
 
 
 class FitNotEstimableError(RuntimeError):
@@ -20,14 +21,21 @@ def _finite(name: str, value: float) -> None:
 
 @dataclass(frozen=True)
 class FluxExposure:
+    """Paired exposures for beam asymmetry, not cross-section eligibility.
+
+    BREM availability controls unpolarized diagnostics only. Cross sections
+    require a separately validated exposure and normalization policy.
+    """
+
     run_number: int
     xstrip: int
     energy_gev: float
     flux_vertical: float
     flux_horizontal: float
-    flux_brem: float
+    flux_brem: float | None
     polarization_vertical: float
     polarization_horizontal: float
+    brem_status: str = "measured_valid"
 
     def __post_init__(self) -> None:
         if self.run_number <= 0:
@@ -40,13 +48,21 @@ class FluxExposure:
         for name, value in (
             ("flux_vertical", self.flux_vertical),
             ("flux_horizontal", self.flux_horizontal),
-            ("flux_brem", self.flux_brem),
         ):
             _finite(name, value)
         if self.flux_vertical <= 0.0 or self.flux_horizontal <= 0.0:
             raise ValueError("selected flux must be positive")
-        if self.flux_brem < 0.0:
-            raise ValueError("flux_brem must be non-negative")
+        if self.brem_status in {"measured_valid", "estimated"}:
+            if self.flux_brem is None:
+                raise ValueError("available BREM requires a numeric flux")
+            _finite("flux_brem", self.flux_brem)
+            if self.flux_brem < 0.0:
+                raise ValueError("flux_brem must be non-negative")
+        elif self.brem_status in {"missing", "duplicate", "invalid_content", "invalid_axis", "invalid_histogram"}:
+            if self.flux_brem is not None:
+                raise ValueError("unavailable BREM must have flux_brem=None")
+        else:
+            raise ValueError(f"unknown BREM status: {self.brem_status}")
         for name, value in (
             ("polarization_vertical", self.polarization_vertical),
             ("polarization_horizontal", self.polarization_horizontal),
@@ -54,6 +70,12 @@ class FluxExposure:
             _finite(name, value)
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
+
+
+    @property
+    def has_measured_brem(self) -> bool:
+        """True only for a valid measured control, including genuine zero flux."""
+        return self.brem_status == "measured_valid"
 
 
 @dataclass(frozen=True)

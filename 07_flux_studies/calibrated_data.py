@@ -61,7 +61,8 @@ def count_h80(paths):
 
 
 def load_calibrated_dataset(manifest, calibrated_flux, counts, *, edges=ENERGY_EDGES,
-                            representation='common_energy', run_quality_path=None):
+                            representation='common_energy', run_quality_path=None,
+                            state_wise=False, independent_axes=None, count_sources=None):
     """Load complete run triplets, retaining calibration as separate metadata.
 
     Native values are ROOT bin contents in strip order, with no resampling.
@@ -71,6 +72,10 @@ def load_calibrated_dataset(manifest, calibrated_flux, counts, *, edges=ENERGY_E
     import uproot
     if representation not in ('common_energy', 'native_strip'):
         raise ValueError(f'unknown flux representation: {representation}')
+    if state_wise:
+        return _load_state_dataset(manifest, calibrated_flux, counts, edges=edges,
+                                   representation=representation, run_quality_path=run_quality_path,
+                                   independent_axes=independent_axes, count_sources=count_sources)
     quality = load_run_quality(run_quality_path)
     quality_exclusions = {item["run"]: item for item in quality["excluded_runs"]}
     split_runs = defaultdict(list)
@@ -144,3 +149,130 @@ def load_calibrated_dataset(manifest, calibrated_flux, counts, *, edges=ENERGY_E
                 extra_h80_runs=sorted(observed_runs - known), representation=representation,
                 strip_indices=np.arange(1, 129),
                 energy_edges=(None if representation == 'native_strip' else np.asarray(edges)))
+
+
+def _load_state_dataset(manifest, calibrated_flux, counts, *, edges, representation,
+                        run_quality_path, independent_axes, count_sources):
+    """Inventory the full P manifest; admit each measured state independently."""
+    import uproot
+    from calibration.calibration_qa import sha256_file
+    from flux_studies.energy_recovery import conservative_transfer
+
+    manifest, calibrated_flux = Path(manifest), Path(calibrated_flux)
+    manifest_hash, flux_hash = sha256_file(manifest), sha256_file(calibrated_flux)
+    manifest_rows = validate_manifest(manifest)
+    quality = load_run_quality(run_quality_path)
+    excluded = {r['run']: r for r in quality['excluded_runs']}
+    periods = defaultdict(list)
+    for row in manifest_rows:
+        periods[row.source_period].append(row.run_number)
+    positions = {run: i * 15. for runs in periods.values()
+                 for i, run in enumerate(sorted(runs))}
+    records, diagnostic_records, inventory, exclusions = [], [], [], []
+    independent_axes = independent_axes or {}
+    consumed = []
+    with uproot.open(calibrated_flux) as source:
+        uuid = str(source.file.uuid)
+        keys = defaultdict(list)
+        for key in source.keys(recursive=False):
+            keys[key.rsplit(';', 1)[0]].append(key)
+        for row in manifest_rows:
+            if row.target != 'P':
+                continue
+            for state in STATES.values():
+                key = row.run_number, state
+                name = f'run{row.run_number}_{state}'
+                reasons = []
+                count = counts.get(key)
+                count_valid = (count is not None and np.isfinite(count)
+                               and count > 0 and count == int(count))
+                if count is None:
+                    reasons.append('missing_inclusive_count')
+                elif not count_valid:
+                    reasons.append('invalid_inclusive_count')
+                if row.run_number in excluded:
+                    reasons.append('run_quality')
+                axis = independent_axes.get(key)
+                if axis is None:
+                    reasons.append('insufficient_independent_axis')
+                elif axis.run != row.run_number or axis.state != state:
+                    raise ValueError('independent axis run/state mismatch')
+                status = 'missing_histogram'
+                record = None
+                transfer = None
+                if len(keys[name]) > 1:
+                    status = 'duplicate_histogram'
+                elif len(keys[name]) == 1:
+                    consumed.append(keys[name][0])
+                    hist = source[keys[name][0]]
+                    try:
+                        values, original_edges = hist.to_numpy(flow=False)
+                        flow = hist.values(flow=True)
+                    except (ValueError, TypeError, AttributeError):
+                        status = 'invalid_histogram'
+                    else:
+                        if (np.shape(values) != (128,) or np.shape(flow) != (130,)
+                                or not np.all(np.isfinite(flow)) or np.any(flow < 0)):
+                            status = 'invalid_values'
+                        elif (np.shape(original_edges) != (129,)
+                              or not np.all(np.isfinite(original_edges))
+                              or np.any(np.diff(original_edges) <= 0)):
+                            status = 'invalid_axis'
+                        else:
+                            status = 'measured_valid'
+                            transfer = conservative_transfer(values, original_edges, edges,
+                                                             underflow=flow[0], overflow=flow[-1])
+                            if flow[0] != 0 or flow[-1] != 0:
+                                reasons.append('nonzero_flow_bins')
+                            if representation == 'common_energy':
+                                if transfer['audit']['lower_tail'] or transfer['audit']['upper_tail']:
+                                    reasons.append('source_tails_outside_grid')
+                            record = dict(run=row.run_number, state=state, period=row.source_period,
+                                          group=(row.source_period, row.target, row.beam_type, state),
+                                          position=positions[row.run_number], count=count,
+                                          # Diagnostic truth only: never a hidden-target feature.
+                                          native_values=values.copy(),
+                                          measured_energy_support=[float(original_edges[0]), float(original_edges[-1])],
+                                          values=(values.copy() if representation == 'native_strip'
+                                                  else transfer['values']),
+                                          calibration_edges=original_edges.copy(),
+                                          transfer_audit=transfer['audit'],
+                                          axis_source=dict(path=str(calibrated_flux.resolve()),
+                                                           histogram=name, kind='stored_calibrated_root_axis'))
+                if status != 'measured_valid':
+                    reasons.append(status)
+                # Independent axes are needed for recovered exposure mapping, not
+                # for using an otherwise measured spectrum as a donor.
+                blocking = [reason for reason in reasons if reason != 'insufficient_independent_axis']
+                entry = dict(run=row.run_number, state=state, period=row.source_period,
+                             position=positions[row.run_number], count=count,
+                             measurement_status=status, reasons=reasons,
+                             measured_eligible=not blocking,
+                             independent_axis_available=axis is not None,
+                             histogram_keys=keys[name],
+                             transfer_audit=None if transfer is None else transfer['audit'])
+                inventory.append(entry)
+                if record is not None:
+                    diagnostic_records.append(record)
+                    if not blocking:
+                        records.append(record)
+                if blocking:
+                    exclusions.append(dict(run=row.run_number, state=state,
+                                           period=row.source_period, reasons=blocking))
+    if sha256_file(manifest) != manifest_hash or sha256_file(calibrated_flux) != flux_hash:
+        raise ValueError('input content changed during inventory')
+    known = {r.run_number for r in manifest_rows}
+    return dict(records=records, diagnostic_records=diagnostic_records, inventory=inventory,
+                exclusions=exclusions, run_quality=quality, representation=representation,
+                energy_edges=None if representation == 'native_strip' else np.asarray(edges),
+                strip_indices=np.arange(1, 129),
+                split_runs_by_period={period: sorted(r.run_number for r in manifest_rows
+                                      if r.source_period == period and r.target == 'P'
+                                      and r.run_number not in excluded) for period in periods},
+                extra_h80_runs=sorted({run for run, state in counts} - known),
+                input_audit=dict(manifest=dict(path=str(manifest.resolve()), sha256=manifest_hash),
+                                 calibrated_flux=dict(path=str(calibrated_flux.resolve()), sha256=flux_hash,
+                                                      uuid=uuid, histograms=consumed),
+                                 inclusive_counts=dict(authenticated=bool(count_sources),
+                                                       sources=count_sources or [])),
+                position_assumption='15 minutes per full manifest position; not measured time')

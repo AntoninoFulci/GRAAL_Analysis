@@ -37,9 +37,12 @@ def test_retired_theory_keeps_references_and_experimental_extraction():
 
     from graal_common.physics.cross_sections import sigma_at
     from observable_extraction.beam_asymmetry import build_parser
+    from graal_workflow.stage_configuration import COMMON_STAGES, PROFILE_STAGES
 
     root = Path(__file__).parents[1]
-    assert not (root / "09_theory").exists()
+    # The new source-inspection package does not reactivate the retired fit.
+    assert 'theory' not in (*COMMON_STAGES, *PROFILE_STAGES)
+    assert not (root / '08_observable_extraction/theory').exists()
     references = root / "docs/reference/theory"
     assert (references / "sources.json").is_file()
     assert (references / "eta_pi0_literature_audit.json").is_file()

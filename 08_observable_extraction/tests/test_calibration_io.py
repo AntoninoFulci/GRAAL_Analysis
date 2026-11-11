@@ -131,14 +131,15 @@ def _write_flux_root(
                         ),
                     )
                 histogram.Write()
+                histogram.SetDirectory(0)
     finally:
         output.Close()
 
 
-def test_root_loader_skips_entire_run_without_complete_flux_triplet(
+def test_root_loader_admits_polarized_run_without_brem(
     tmp_path, capsys
 ):
-    """Removing any one state must exclude that run from every exposure."""
+    """Missing BREM cannot remove measured POL exposures from Sigma."""
     manifest = tmp_path / "run_manifest.csv"
     write_manifest(
         [
@@ -162,9 +163,11 @@ def test_root_loader_skips_entire_run_without_complete_flux_triplet(
         polarization_model=lambda energy: 0.5,
     )
 
-    assert {run_number for run_number, _ in exposures} == {811}
+    assert {run_number for run_number, _ in exposures} == {811, 812}
+    assert exposures[(812, 30)].flux_brem is None
+    assert exposures[(812, 30)].brem_status == "missing"
     warning = capsys.readouterr().err
-    assert "skipped run 812" in warning
+    assert "run 812" in warning
     assert "missing BREM" in warning
 
 
@@ -221,7 +224,7 @@ def test_root_loader_skips_strata_outside_compton_polarization_domain(
     assert "outside polarization domain" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("state", ["POL1", "POL2", "BREM"])
+@pytest.mark.parametrize("state", ["POL1", "POL2"])
 @pytest.mark.parametrize("invalid_value", [math.nan, math.inf])
 def test_root_loader_skips_nonfinite_flux_stratum_without_aborting_valid_ones(
     tmp_path, capsys, state, invalid_value
@@ -278,7 +281,7 @@ def test_root_loader_limits_exposure_to_runs_present_in_event_sample(tmp_path):
     assert {run_number for run_number, _ in exposures} == {811}
 
 
-def test_root_loader_routes_vis_profile_and_skips_incomplete_run(
+def test_root_loader_routes_vis_profile_with_missing_brem(
     tmp_path, capsys
 ):
     manifest = tmp_path / "run_manifest.csv"
@@ -324,11 +327,91 @@ def test_root_loader_routes_vis_profile_and_skips_incomplete_run(
         energy_range=profile.energy_range_gev,
     )
 
-    assert {run_number for run_number, _ in exposures} == {1999}
+    assert {run_number for run_number, _ in exposures} == {1999, 2071}
     assert all(
         0.9313 <= exposure.energy_gev <= 1.10
         for exposure in exposures.values()
     )
     warning = capsys.readouterr().err
-    assert "skipped run 2071" in warning
+    assert "run 2071" in warning
     assert "missing BREM" in warning
+
+
+@pytest.mark.parametrize("value", [math.nan, math.inf, -1.0])
+def test_defective_brem_keeps_polarized_exposure_and_is_audited(tmp_path, value):
+    manifest = tmp_path / "manifest.csv"
+    write_manifest([RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")], manifest)
+    path = tmp_path / "flux.root"
+    _write_flux_root(path, {811: ("POL1", "POL2", "BREM")},
+                     bin_values={(811, "BREM", 30): value})
+    audit = {}
+    exposures = load_exposures(path, manifest_path=manifest,
+                              polarization_model=lambda energy: .5, audit=audit)
+    assert exposures[(811, 30)].flux_brem is None
+    assert exposures[(811, 30)].brem_status == "invalid_content"
+    assert exposures[(811, 31)].brem_status == "measured_valid"
+    assert audit["811"]["states"]["BREM"]["status"] == "invalid_content"
+    assert audit["811"]["brem_valid_strata"] == len(exposures) - 1
+
+
+@pytest.mark.parametrize("states, status", [(("POL1", "POL2", "BREM", "BREM"), "duplicate"),
+                                           (("POL1", "POL2"), "missing")])
+def test_brem_histogram_availability_does_not_change_pol_denominator(tmp_path, states, status):
+    manifest = tmp_path / "manifest.csv"
+    write_manifest([RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")], manifest)
+    path = tmp_path / "flux.root"
+    _write_flux_root(path, {811: states})
+    audit = {}
+    exposures = load_exposures(path, manifest_path=manifest,
+                              polarization_model=lambda energy: .5, audit=audit)
+    assert exposures
+    assert all(e.flux_brem is None and e.brem_status == status for e in exposures.values())
+    assert audit["811"]["states"]["BREM"]["status"] == status
+    assert audit["811"]["brem_valid_strata"] == 0
+
+
+@pytest.mark.parametrize("value,status", [("", "missing"), ("nan", "invalid_content"), (-1., "invalid_content")])
+def test_csv_brem_absence_and_defect_do_not_remove_valid_pol(tmp_path, value, status):
+    path = tmp_path / "flux.csv"
+    _write_rows(path, [_row(flux_brem=value)])
+    exposures = load_exposures(path, polarization_model=lambda energy: .5)
+    assert exposures[(811, 17)].flux_brem is None
+    assert exposures[(811, 17)].brem_status == status
+
+
+@pytest.mark.parametrize("state", ["POL1", "POL2", "BREM"])
+def test_invalid_state_axis_is_explicit_and_brem_does_not_gate_pol(tmp_path, state):
+    manifest = tmp_path / "manifest.csv"
+    write_manifest([RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")], manifest)
+    path = tmp_path / "flux.root"
+    _write_flux_root(path, {811: ("POL1", "POL2", "BREM")}, axis_offsets={state: -2.})
+    audit = {}
+    result = load_exposures(path, manifest_path=manifest, polarization_model=lambda energy: .5,
+                            audit=audit, allow_empty=True)
+    assert audit["811"]["states"][state]["status"] == "invalid_axis"
+    assert bool(result) == (state == "BREM")
+    if result:
+        assert all(e.brem_status == "invalid_axis" and e.flux_brem is None for e in result.values())
+
+
+@pytest.mark.parametrize("state", ["POL1", "POL2"])
+def test_missing_polarized_state_excludes_run_with_brem_present(tmp_path, state):
+    manifest = tmp_path / "manifest.csv"
+    write_manifest([RunRecord(811, "uv", "P", "UV", "P_UV", "manual", "uv/run811.root")], manifest)
+    path = tmp_path / "flux.root"
+    _write_flux_root(path, {811: tuple(s for s in ("POL1", "POL2", "BREM") if s != state)})
+    audit = {}
+    result = load_exposures(path, manifest_path=manifest, polarization_model=lambda energy: .5,
+                            audit=audit, allow_empty=True)
+    assert result == {}
+    assert audit["811"]["states"][state]["status"] == "missing"
+
+
+def test_csv_defective_brem_is_reported_even_when_pol_is_admitted(tmp_path, capsys):
+    path = tmp_path / "flux.csv"
+    _write_rows(path, [_row(flux_brem="nan")])
+    audit = {}
+    result = load_exposures(path, polarization_model=lambda energy: .5, audit=audit)
+    assert result
+    assert audit["811"]["problems"] == ["invalid_content BREM"]
+    assert "invalid_content BREM" in capsys.readouterr().err

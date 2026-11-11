@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from verify_native import verify
+from mc_simulation.geant4.tests.verify_native import verify
 
 
 class NavigationContractTests(unittest.TestCase):

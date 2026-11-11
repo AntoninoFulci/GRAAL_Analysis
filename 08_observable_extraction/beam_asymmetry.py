@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--flux-file",
         type=Path,
         default=Path("data/00_external/flux_calibrated.root"),
+        help="measured exposures for Sigma: valid POL1/POL2 required; BREM is an optional control",
     )
     parser.add_argument(
         "--run-manifest",

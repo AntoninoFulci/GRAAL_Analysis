@@ -117,6 +117,9 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
     )
     exposures = {(run, 17): FluxExposure(run, 17, 1.15, 1.2, .9, .2, .6, .55)
                  for run in (811, 812, 814)}
+    # Both an occupied run and a zero-yield stratum must survive absent BREM.
+    for run in (811, 814):
+        exposures[run, 17] = replace(exposures[run, 17], flux_brem=None, brem_status='missing')
     monkeypatch.setattr(period_workflow, 'read_reconstructed', lambda *a, **k: events)
     monkeypatch.setattr(period_workflow, 'read_run_universe',
                         lambda path: ({811, 812, 813, 814}, []))
@@ -140,6 +143,9 @@ def test_period_workflow_shares_engine_preserves_empty_periods_and_closes(tmp_pa
         *(['--best-binning'] if best_binning else []),
     ]) == 0
     index = json.loads((output / 'periods/index.json').read_text())
+    assert index['flux_policy'] == 'paired_pol_independent_brem'
+    assert index['aggregate']['exposure']['brem_runs'] == [812]
+    assert index['aggregate']['samples']['raw_bdt']['selected_without_measured_brem'] == 2 * len(first)
     assert {'extraction.py', 'samples.py', 'workflow.py', 'period_workflow.py',
             'extraction_background.py', 'extraction_systematics.py'} <= {
         Path(record['path']).name for record in index['source_files']}

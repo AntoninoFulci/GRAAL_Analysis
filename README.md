@@ -1,8 +1,10 @@
 # GRAAL Analysis
 
-Analysis of γp → pηπ⁰ with η, π⁰ → γγ. The pipeline compares χ² photon pairing with a Stage-1 BDT gate followed by the same pairing and missing-mass selection, then extracts beam asymmetry from measured calibrated flux. Stage 09 theory was retired on 26 October 2026; see the [restart boundary](wiki/09-theory.md).
+Analysis of γp → pηπ⁰ with η, π⁰ → γγ. The pipeline compares χ² photon pairing with a Stage-1 BDT gate followed by the same pairing and missing-mass selection, then extracts beam asymmetry from measured calibrated flux. [Asymmetry extraction](wiki/08-observable-extraction.md) requires valid POL1/POL2 exposures; calibrated BREM is an independent optional control. This policy does not establish cross-section eligibility or normalization. Stage 09 theory was retired on 26 October 2026; see the [restart boundary](wiki/09-theory.md).
 
 The [GitHub Wiki](https://github.com/AntoninoFulci/GRAAL_Analysis/wiki) is the current technical guide; its [source index](wiki/Home.md) is versioned here. Start with [setup](wiki/getting-started.md), [workflow](wiki/workflow.md), [commands](wiki/commands-and-configuration.md), and [scientific status](wiki/status.md).
+
+The [analysis portal guide](wiki/analysis-portal.md) covers exporting completed campaigns into a searchable plot gallery with provenance, documentation and a GitHub Pages deployment workflow. Historical reports remain explicitly labelled; publication never reruns the analysis.
 
 Use Python ≥3.10 compatible with CERN ROOT/PyROOT. Load ROOT, then:
 
@@ -33,7 +35,7 @@ These commands run scientific campaigns after preflight and confirmation. Restor
 | `results/`, `results/_cache/` | Production campaigns and validated reusable products |
 | `results_test/` | Tests, diagnostics, reports and explicit temporary/build roots |
 | `wiki/` | Current technical documentation |
-| `docs/papers/`, `docs/plans/`, `docs/reference/` | Original papers, active plans and scientific evidence |
+| `docs/reference_papers/`, `docs/papers_to_publish/`, `docs/plans/`, `docs/reference/` | Original papers, manuscripts, active plans and scientific evidence |
 
 See [maintenance and tests](wiki/maintenance.md) for isolated verification commands and wiki synchronization. Scientific sources and historical results retain their provenance; software tests do not establish detector acceptance, theory convergence or a complete uncertainty budget.
 
@@ -284,7 +286,7 @@ I percorsi usano i link dati del checkout su trima: eseguire `--check` sul serve
 
 ## Geant4 quick start
 
-`03_mc_simulation/geant4` builds the preserved GRAAL geometry, runs diagnostic transport of particles or exported generator truth, and opens a Qt viewer. It needs **Python ≥3.10, CMake ≥3.16, a C++17 compiler, Geant4 ≥11.4 with GDML/Xerces-C and its physics datasets**. Qt 6/OpenGL are needed only for the viewer. ROOT/PyROOT is needed only to generate/export ROOT truth; geometry, smoke, replay and viewer need no ROOT or installed Geant4 examples. Tested locally with Geant4 11.4.3 on macOS arm64; Linux and Windows commands below have not been executed here.
+`03_mc_simulation/geant4` builds the preserved GRAAL geometry, runs diagnostic transport of particles or exported generator truth, and opens a Qt viewer. It needs **Python ≥3.10, CMake ≥3.16, a C++17 compiler, Geant4 ≥11.4 with GDML/Xerces-C and its physics datasets**. Qt 6/OpenGL are needed only for the viewer. The current CMake project also requires CERN ROOT ≥6.30 (Core/RIO/Tree/TreePlayer) for compressed transport output; PyROOT is used for truth generation/export. Load ROOT so `root-config` is on PATH, or set `ROOT_DIR`/`CMAKE_PREFIX_PATH` to its CMake package. No installed Geant4 examples are needed. Tested locally with Geant4 11.4.3 on macOS arm64; Linux and Windows commands below have not been executed here.
 
 From the repository root, after selecting an installation as described below:
 
@@ -294,7 +296,7 @@ python3 -B 03_mc_simulation/geant4/run.py smoke
 python3 -B 03_mc_simulation/geant4/run.py view
 ```
 
-Each command creates a new `results_test/geant4-<mode>-<timestamp>/` directory, builds there, and regenerates GDML from the frozen snapshot. `geometry` checks sampled overlaps; `smoke` transports ten 200 MeV photons toward the BGO and writes `events/events.csv`, material composition, random-engine state and a diagnostic summary. `view` opens the interactive detector. Logs and SHA-256 provenance are in the run directory. Existing output directories are refused; select a new one with `--work-dir results_test/my-new-check`. Once reviewed, remove disposable build/test directories; retain only needed diagnostic evidence.
+Each command creates a new `results_test/geant4-<mode>-<timestamp>/` directory, builds there, and regenerates GDML from the frozen snapshot. `geometry` checks sampled overlaps; `smoke` transports ten 200 MeV photons toward the BGO and writes `events/transport.root`: compressed event/step/primary/channel/vertex trees, BGO aggregates, material composition, random-engine state and diagnostic metadata. Failed transport retains only `transport.partial.root`; old CSV outputs remain historical evidence. `view` opens the interactive detector. Logs and SHA-256 provenance are in the run directory. Existing output directories are refused; select a new one with `--work-dir results_test/my-new-check`. Once reviewed, remove disposable build/test directories; retain only needed diagnostic evidence.
 
 Use `--geant4-prefix /path/to/install` to select Geant4 explicitly, `--gdml /path/to/geometry.gdml` to reuse a geometry, or `smoke --macro /path/to/run.mac` for another diagnostic. An explicit GDML bypasses conversion/overlap checking. `bash 03_mc_simulation/geant4/view_native.sh [geometry.gdml]` remains available on Unix. Paths with spaces are supported. Batch execution needs no display.
 
@@ -367,20 +369,33 @@ With ROOT/PyROOT loaded and this checkout installed (`python3 -m pip install -e 
 
 ```bash
 mkdir -p results_test/g4-example
-root -l -b -q '03_mc_simulation/generators/generate_eta_pi0_dataset.C(10,1.5,1.6,"results_test/g4-example/eta_pi0_mc.root",71)'
+root -l -b -q '03_mc_simulation/generators/generate_eta_pi0_dataset.C(10,1.10,1.50,"results_test/g4-example/eta_pi0_mc.root",71)'
 python3 -B 03_mc_simulation/geant4/export_truth.py results_test/g4-example/eta_pi0_mc.root results_test/g4-example/truth --max-events 10
-python3 -B 03_mc_simulation/geant4/run.py replay --truth-dir results_test/g4-example/truth --work-dir results_test/g4-example/transport
+python3 -B 03_mc_simulation/geant4/run.py replay --truth-dir results_test/g4-example/truth --period 1998_uv --seed 72 --work-dir results_test/g4-example/transport
 ```
 
 Choose a fresh example directory on reruns: export/transport refuse existing output directories, while the ROOT generator itself can overwrite its output file. Substitute another `generate_<channel>_dataset.C` and `<channel>_mc.root` for backgrounds. `--channel` allows a nonstandard ROOT filename. Export defaults to at most ten events, checks generator metadata, on-shell four-vectors and four-momentum conservation, and never applies detector smearing.
 
-Windows can replay the same exported `truth/` directory without ROOT:
+ROOT replay defaults to **one job with all available CPU threads** (`--threads auto`),
+requiring a multithread-capable Geant4 installation. Use `--threads N` to limit
+workers, or `--threads serial` for the historical sequential random stream.
+With `--period`, omit `--seed` to draw a seed from OS entropy and save it before
+execution; supply `--seed N` to reproduce a declared run. Campaign stage seeds
+are drawn once and frozen in their manifest.
+The launcher rejects a concurrent transport job. MT output retains source event
+order and cylinder context; its random stream is separately identified. GPS and
+legacy HEPEvt remain serial. See [execution policy](wiki/03-monte-carlo-simulation.md#exclusive-truth-replay)
+for lock scope, platform limits and provenance.
+
+Windows uses the same local export/replay workflow with compatible ROOT/PyROOT and access to the original generator ROOT:
 
 ```powershell
-py -3 -B 03_mc_simulation/geant4/run.py replay --truth-dir C:/inputs/truth --work-dir results_test/g4-replay-windows
+py -3 -B 03_mc_simulation/geant4/run.py replay --truth-dir C:/inputs/truth --period 1998_uv --seed 72 --work-dir results_test/g4-replay-windows
 ```
 
-Native Windows export additionally needs compatible CERN ROOT/PyROOT and the installed Python project; use the same `export_truth.py` arguments with `py -3`. WSL follows the Linux example. Transport uses Geant4's HEPEvt reader, fixed seed 20261026 and origin/time-zero vertices. `truth/manifest.json` records source SHA-256/UUID and generator metadata; `truth.csv` maps Geant4 event IDs to ROOT entries. `events/events.csv` contains all completed events, including zero BGO deposits; `events/bgo_hits.csv` contains positive deposits per crystal (IDs 1–480), with earliest depositing pre-step time in ns. These are energy deposits, not calibrated signals or reconstructed photons. Exported events have unit generation weights, without flux, cross-section or branching-ratio normalization; polarization is not modeled.
+New exports use **`truth.root` schema 2**: unsmeared final-state particles plus event/source-entry, incident energy and unit-weight ledger. No new CSV or HEPEvt files are needed. `run.py` validates the original generator identity and exact vectors, then rechecks source stability after transport. Native `--root-events` checks ROOT structure, kinematics and consumed-file identity; use the Python launcher for complete generator-provenance validation. Schema-1 HEPEvt/CSV inputs remain readable for historical compatibility (`--format hepevt` requests an explicit legacy export).
+
+ROOT replay requires `--period` and `--seed`; free-proton truth requires a hydrogen period such as `1998_uv`. Conditions supply sampled vertices; the beam is an incident-response input, not an extra transported particle. `events/transport.root` retains all events, sensitive steps, primaries and metadata. `beam_ledger.py` binds incident energy and generation weights to the actual transported ROOT, then tagger response and the measured h70 bridge feed the common PID/selection. The 128-event reaction pilot reached 32 h70 / 32 h80 and 0 h85; both reconstruction outputs were correctly empty, so no BDT event was scored. See [current reconstruction evidence](wiki/geant4-reconstruction.md). Weights remain unweighted-generation units with no flux, cross-section or branching-ratio normalization; polarization is not modeled.
 
 ### Physics and the ROOT replacement boundary
 

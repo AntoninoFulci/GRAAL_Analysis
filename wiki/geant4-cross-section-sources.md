@@ -129,13 +129,18 @@ hash e lettura strutturale sono in `results_test/geant4-input-recovery-20261103/
 SHA-256 di `channel.mat`:
 `3798edfc200302282b7efe692b59b007ee28e4a34859072a5d6d823029003d04`.
 
-Il file ha **65 canali**, mentre `gen_init.F` ne legge 64. Nei primi 64
+Il file ha **65 canali**, mentre `gen_init.F` ne legge 64. Il responsabile
+ha confermato il 3 novembre di **ignorare l'ultimo canale (65)**, preservando
+il file originale: questo punto è risolto. Nei primi 64
 blocchi il layout `5+7+7` campi numerici di dieci colonne è leggibile:
 60.800 valori finiti non negativi, 50 energie ×19 angoli per canale.
 Le etichette ECDM vanno da 1,05 a 3,50 a passi di 0,05; il lettore le
 salta. `gen_evt.F:37–50` imposta invece `W_I=0.950`, `DW=0.050` e
-associa la riga 1 a W=1,00. **Discrepanza di griglia da risolvere**, non
-autorizzazione a traslare tabelle o cambiare il generatore storico.
+associa la riga 1 a W=1,00. Il responsabile approva per il **nuovo lettore**
+le energie W dichiarate nel file e l'interpolazione lineare fra nodi adiacenti.
+Verificare le energie contro la fonte prima della validazione fisica;
+la causa della discrepanza storica resta da ricostruire. Non traslare i valori
+né modificare il generatore o gli output storici.
 `channel_last.mat` ha 64 blocchi; `channel_flat.mat`, `channel_norm.mat`
 e `channel_step_one.mat` ne hanno 60; gli altri tre file sono frammenti.
 Non sono alternative intercambiabili per il reader a 64 canali.

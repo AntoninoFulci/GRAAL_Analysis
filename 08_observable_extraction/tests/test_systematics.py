@@ -183,3 +183,24 @@ def test_paired_bootstrap_rejects_incomplete_strata_and_missing_exposure():
         paired_bootstrap_by_run(lambda samples, exposures: [0.],
             {'a': _run_events([11])}, _run_exposures([11]), run_strata={11: 'uv'},
             point_keys=('a',), replicas=1, seed=4)
+
+
+def test_run_bootstraps_preserve_missing_brem_and_polarized_normalization():
+    from dataclasses import replace
+    from observable_extraction.core.systematics import paired_bootstrap_by_run, bootstrap_by_run
+    events = _run_events([11, 11, 12])
+    complete = _run_exposures([11, 12])
+    absent = {key: replace(value, flux_brem=None, brem_status="missing")
+              for key, value in complete.items()}
+    def estimate(events, exposures):
+        return np.array([len(events) / sum(e.flux_vertical for e in exposures.values())])
+    for exposures in (complete, absent):
+        result = bootstrap_by_run(estimate, events, exposures, replicas=20, seed=8)
+        paired = paired_bootstrap_by_run(lambda samples, exp: estimate(samples["a"], exp),
+            {"a": events}, exposures, run_strata={11: "uv", 12: "uv"},
+            point_keys=("a",), replicas=20, seed=8)
+        if exposures is complete:
+            baseline, paired_baseline = result, paired
+        else:
+            np.testing.assert_array_equal(result.replicas, baseline.replicas)
+            np.testing.assert_array_equal(paired.replicas, paired_baseline.replicas)

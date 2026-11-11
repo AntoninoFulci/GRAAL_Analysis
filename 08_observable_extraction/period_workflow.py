@@ -22,6 +22,7 @@ from observable_extraction.extraction import extract_sample
 from observable_extraction.samples import SAMPLES
 from observable_extraction.calibration.flux_v2 import load_exposures
 from observable_extraction.core.binning import phi_edges_rad
+from observable_extraction.core.models import SIGMA_FLUX_POLICY
 from observable_extraction.core.periods import partition_runs, selection_audit, exposure_summary
 from observable_extraction.extraction_background import SIDEBAND_TREE
 from observable_extraction.extraction_systematics import _point_key
@@ -198,6 +199,7 @@ def run_periods(args) -> int:
     all_periods = sorted({record.source_period for record in records
                           if record.target == profile.target and record.beam_type == profile.beam_type})
     index = dict(schema_version=1, profile=profile.name, final_inference="suspended",
+                 flux_policy=SIGMA_FLUX_POLICY,
                  run_quality=flux_audit["_run_quality"],
                  universe_source="explicit_manifest" if explicit is not None else "reconstruction_cutflow",
                  inputs=identities, versions=dict(python=sys.version, numpy=np.__version__),

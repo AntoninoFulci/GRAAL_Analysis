@@ -7,7 +7,7 @@
 #include "G4NistManager.hh"
 #include "G4SystemOfUnits.hh"
 #include <cmath>
-#include <fstream>
+#include <ostream>
 #include <iomanip>
 #include <map>
 #include <stdexcept>
@@ -18,7 +18,8 @@
 // GASMAGIC's first component is ETHANE (15). Expand their mass fractions before
 // asking Geant4 to build atomic/HP tables. AIR uses NIST composition as an
 // explicit diagnostic assumption. All densities remain those of the snapshot.
-inline void ApplyTransportMaterials(G4GDMLParser& parser, const std::string& report) {
+inline void ApplyTransportMaterials(G4GDMLParser& parser, std::ostream* report,
+                                    const std::string& target = "D") {
   auto* nist = G4NistManager::Instance();
   std::map<int, G4Material*> replacements;
   for (const auto& [volume, auxiliary] : *parser.GetAuxMap()) {
@@ -32,13 +33,15 @@ inline void ApplyTransportMaterials(G4GDMLParser& parser, const std::string& rep
       const auto label = "GRAAL_transport_" + std::to_string(id);
       G4Material* material = nullptr;
       if (id == 1) {
-        if (legacy->GetNumberOfElements() != 1 ||
+        const bool proton = target == "P";
+        if ((target != "P" && target != "D") || legacy->GetNumberOfElements() != 1 ||
             std::abs((*legacy->GetElementVector())[0]->GetZ() - 1.) > 1.e-8 ||
-            std::abs((*legacy->GetElementVector())[0]->GetA() / (g/mole) - 2.01) > 1.e-5 ||
-            std::abs(density / (g/cm3) - .162) > 1.e-6)
+            std::abs((*legacy->GetElementVector())[0]->GetA() / (g/mole) - (proton ? 1.01 : 2.01)) > 1.e-5 ||
+            std::abs(density / (g/cm3) - (proton ? .0708 : .162)) > 1.e-6)
           throw std::runtime_error("Expected frozen deuterium target; declare a new material policy for another target");
-        auto* isotope = new G4Isotope("GRAAL_deuterium", 1, 2);
-        auto* element = new G4Element("GRAAL_deuterium", "D", 1);
+        const auto name = proton ? "GRAAL_hydrogen" : "GRAAL_deuterium";
+        auto* isotope = new G4Isotope(name, 1, proton ? 1 : 2);
+        auto* element = new G4Element(name, proton ? "H" : "D", 1);
         element->AddIsotope(isotope, 100. * perCent);
         material = new G4Material(label, density, 1, kStateLiquid);
         material->AddElement(element, 1.);
@@ -87,8 +90,8 @@ inline void ApplyTransportMaterials(G4GDMLParser& parser, const std::string& rep
     }
     volume->SetMaterial(replacements.at(id));
   }
-  if (report.empty()) return;
-  std::ofstream out(report);
+  if (!report) return;
+  auto& out = *report;
   out << std::setprecision(17) << "{\"policy\":\"diagnostic_materials_v1\",\"materials\":[";
   bool first = true;
   for (const auto& [id, material] : replacements) {
@@ -111,6 +114,5 @@ inline void ApplyTransportMaterials(G4GDMLParser& parser, const std::string& rep
     out << "]}";
   }
   out << "]}\n";
-  out.close();
   if (!out) throw std::runtime_error("Failed writing transport material report");
 }

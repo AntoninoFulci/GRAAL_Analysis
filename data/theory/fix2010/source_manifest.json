@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-06",
+  "baseline": "Fix2010 solution I",
+  "sources": [
+    {
+      "path": "docs/papers/Fix_2010_1004.5240v1.pdf",
+      "sha256": "5cfb640b43552269d83dda982f449b83f4343bbcbe67e2e0a2ae149a38084359",
+      "version": "Fix_2010_1004.5240v1.pdf"
+    },
+    {
+      "path": "docs/papers/Fix_2010_1004.5240v1_source.tar.gz",
+      "sha256": "703501be0948d5a68ce189fd69968c26819aa3e13c9ea80f69fcd2b438674f11",
+      "version": "Fix_2010_1004.5240v1_source.tar.gz"
+    },
+    {
+      "path": "docs/papers/Fix_2008_0803.1755v1.pdf",
+      "sha256": "c5d96b520de0d88edd721acf2eafc2dca41c08c1e4a7b77439ed4e900b7dc3a0",
+      "version": "Fix_2008_0803.1755v1.pdf"
+    },
+    {
+      "path": "docs/papers/Fix_2011_1010.4213v2.pdf",
+      "sha256": "52dff79e724ea21a694b1eb631675f77bc63e25080e93957df25f8941cb68353",
+      "version": "Fix_2011_1010.4213v2.pdf"
+    },
+    {
+      "path": "docs/papers/Fix_2005_nucl-th0503042v1.pdf",
+      "sha256": "12f0971358a8c7e7d73e2ce33a51d9c150be13891f64ff0a349786e0f7c7a10d",
+      "version": "Fix_2005_nucl-th0503042v1.pdf"
+    },
+    {
+      "path": "00_common/physics/channels.py",
+      "sha256": "1cdd3ea6caf1caf313397e97b4d4a75e6a66d55393a94cae3025c7c4d6ee2365",
+      "version": "repository constants at execution"
+    },
+    {
+      "path": "docs/papers/GomezTejedor_Oset_1996_hep-ph9506209v3.pdf",
+      "sha256": "a57b78b7668d4774a98e23038241b511ec8079455b725679b42fab0c7f7d0377",
+      "version": "arXiv:hep-ph/9506209v3 (19 October 1995); NPA600,413 (1996)",
+      "url": "https://arxiv.org/pdf/hep-ph/9506209",
+      "role": "Dependency audit only; no parameter imported into Fix2010 solution I"
+    },
+    {
+      "path": "docs/papers/Ochi_Hirata_Takaki_1997_nucl-th9703058v2.pdf",
+      "sha256": "5b1cd83c02ceb288bb5d15bf507f6d6c8e8885e5c265416fe3c27b6752f9c94e",
+      "version": "arXiv:nucl-th/9703058v2 (11 April 1997); PRC56,1472 (1997)",
+      "url": "https://arxiv.org/pdf/nucl-th/9703058",
+      "role": "Dependency audit only; no parameter imported into Fix2010 solution I"
+    }
+  ],
+  "archive_members": [
+    {
+      "archive": "docs/papers/Fix_2010_1004.5240v1_source.tar.gz",
+      "member": "Text.tex",
+      "sha256": "341e4cde83c2e0de2040211e1f9a3f3f2c7dc76d373762bf92604a3beb3c0378"
+    },
+    {
+      "archive": "docs/papers/Fix_2010_1004.5240v1_source.tar.gz",
+      "member": "fig6.ps",
+      "sha256": "10180ad940497afd6dc4886b48ad4865e17faa6ce4582efb3b57b98616eebf1f"
+    }
+  ],
+  "curated_inputs": [
+    {
+      "path": "data/theory/fix2010/parameters_solution_i.json",
+      "sha256": "28fe2f0e0c1422e85abb642bba9cb5e58db2099e4e16732ff8c66788e1382f89"
+    },
+    {
+      "path": "data/theory/fix2010/helicity_ratio_fig6_solution_i.json",
+      "sha256": "1100b9f87e7f54c6fe22b0d15cb2841c608623e17a325cdc03ce9b19684c6ac7"
+    }
+  ],
+  "notes": [
+    "Public preprints only; publisher equivalence not established.",
+    "2005 source: https://arxiv.org/pdf/nucl-th/0503042v1; downloaded 2026-11-06.",
+    "Hashes authenticate file identity, not scientific completeness."
+  ]
+}

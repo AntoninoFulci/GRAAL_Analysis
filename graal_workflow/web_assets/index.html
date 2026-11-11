@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="GRAAL: risultati, plot e provenienza delle campagne di analisi γp → pηπ⁰.">
+  <title>GRAAL · Analysis observatory</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%23214f45'/%3E%3Ctext x='20' y='29' text-anchor='middle' font-family='Georgia' font-size='29' fill='white'%3EG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/site.css">
+  <script defer src="assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Vai ai risultati</a>
+<header class="masthead">
+  <a class="brand" href="#main" aria-label="GRAAL, inizio"><span class="brand-mark" aria-hidden="true">G</span><span>GRAAL<small>ANALYSIS OBSERVATORY</small></span></a>
+  <nav aria-label="Navigazione principale"><a href="#plots">Plot</a><a href="#provenance">Provenienza</a><a href="#documentation">Documentazione</a><a href="https://github.com/AntoninoFulci/GRAAL_Analysis">GitHub ↗</a></nav>
+</header>
+<main id="main">
+  <section class="intro" aria-labelledby="page-title">
+    <div><p class="eyebrow">FOTOPRODUZIONE DI MESONI · GRAAL</p><h1 id="page-title">Dai dati ai <em>risultati.</em></h1><p class="lead">γp → pηπ<sup>0</sup><span class="lead-divider">/</span>Campagne, controlli e figure. Con la loro provenienza.</p></div>
+    <div class="campaign-control"><label for="campaign">Campagna visualizzata</label><select id="campaign"></select><p id="campaign-count"></p></div>
+  </section>
+  <section class="run-panel" aria-labelledby="run-title">
+    <div class="run-heading"><div><p class="eyebrow" id="run-label"></p><h2 id="run-title"></h2></div><span id="run-status" class="badge"></span></div>
+    <p id="run-description"></p>
+    <div class="stats" id="stats"></div>
+    <p class="scientific-note">Il completamento del software non certifica le conclusioni scientifiche. Stato delle verifiche e limiti sono documentati separatamente.</p>
+  </section>
+  <section id="plots" class="section" aria-labelledby="plots-title">
+    <div class="section-heading"><div><p class="eyebrow">01 / RISULTATI VISIVI</p><h2 id="plots-title">Esplora le figure</h2></div><p>Anteprima della prima pagina · originale completo disponibile</p></div>
+    <form class="filters" id="filters" role="search">
+      <div class="search-field"><label for="search">Cerca titolo, periodo o percorso</label><input id="search" type="search" placeholder="Es. asimmetria, fit, 1998…" autocomplete="off"></div>
+      <div><label for="profile">Profilo</label><select id="profile"><option value="">Tutti i profili</option></select></div>
+      <div><label for="category">Area</label><select id="category"><option value="">Tutte le aree</option></select></div>
+      <button type="reset" class="button secondary">Azzera filtri</button>
+    </form>
+    <p id="plot-count" class="result-count" role="status" aria-live="polite"></p>
+    <div id="gallery" class="gallery"></div>
+    <p id="empty" class="empty" hidden>Nessuna figura corrisponde ai filtri. Prova un altro termine oppure azzera i filtri.</p>
+    <button id="more" class="button more" type="button" hidden>Mostra altre figure</button>
+  </section>
+  <section id="provenance" class="section" aria-labelledby="provenance-title">
+    <div class="section-heading"><div><p class="eyebrow">02 / TRACCIABILITÀ</p><h2 id="provenance-title">Come leggere questa analisi</h2></div><a id="manifest-link" class="text-link" download>Scarica manifesto ↘</a></div>
+    <div class="provenance-grid"><article class="info-panel"><h3>Provenienza e controlli</h3><dl id="provenance-fields"></dl><ul id="warnings" class="warnings"></ul></article>
+    <article class="info-panel"><h3>Configurazione registrata</h3><p>Parametri dell’esecuzione, se disponibili. Le configurazioni di campagne differenti non implicano confrontabilità scientifica.</p><details><summary>Apri configurazione</summary><pre id="configuration"></pre></details><p id="configuration-note"></p></article></div>
+    <details class="downloads"><summary id="downloads-title">Report e metadati</summary><ul id="downloads"></ul></details>
+  </section>
+  <section id="documentation" class="section" aria-labelledby="docs-title">
+    <div class="section-heading"><div><p class="eyebrow">03 / METODO E CONTESTO</p><h2 id="docs-title">Documentazione scientifica</h2></div><a class="text-link" href="https://github.com/AntoninoFulci/GRAAL_Analysis/tree/main/docs/reference_papers">Articoli e bibliografia ↗</a></div>
+    <p class="section-description">La wiki del repository è la fonte mantenuta. Ogni scheda apre la versione corrente; la copia Markdown conserva lo stato incluso in questa pubblicazione.</p>
+    <div id="docs" class="docs-grid"></div>
+  </section>
+  <noscript><p>Attiva JavaScript per esplorare galleria e campagne. <a href="site.json">Scarica indice completo con i collegamenti ai file</a>.</p></noscript>
+</main>
+<footer><a class="brand footer-brand" href="#main">GRAAL <span>/ γp → pηπ<sup>0</sup></span></a><p id="build-info"></p><a href="site.json" download>Indice del portale ↘</a></footer>
+<script id="report-data" type="application/json">REPORT_DATA</script>
+</body>
+</html>

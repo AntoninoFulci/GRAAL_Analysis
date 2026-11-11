@@ -1,9 +1,8 @@
-"""Load run/strip final exposures for asymmetry extraction.
+"""Load paired POL exposures and independently qualified BREM controls.
 
-The calibrated ROOT contract is run-atomic: a run contributes only when all
-three top-level histograms ``POL1``, ``POL2``, and ``BREM`` are present exactly
-once.  An incomplete run is skipped in full, never polarization by
-polarization, so event counts and exposure normalisation cannot drift apart.
+POL1/POL2 availability remains paired by run/strip. Missing or defective BREM
+is explicitly recorded and cannot alter the polarized exposure denominator.
+This policy is specific to beam asymmetry, not cross-section normalization.
 """
 
 from __future__ import annotations
@@ -31,7 +30,8 @@ from observable_extraction.core.models import FluxExposure
 
 
 _FLUX_NAME = re.compile(r"^run([1-9][0-9]*)_(POL1|POL2|BREM)$")
-_REQUIRED_STATES = ("POL1", "POL2", "BREM")
+_POL_STATES = ("POL1", "POL2")
+_STATES = (*_POL_STATES, "BREM")
 
 
 def uv_polarization(energy_gev: float) -> float:
@@ -142,13 +142,15 @@ def load_exposures(
                 raise ValueError(f"duplicate exposure for run/strip {key}")
             try:
                 polarization = float(polarization_model(energy_gev))
+                flux_brem, brem_status = _brem_value(row["flux_brem"])
                 exposures[key] = FluxExposure(
                     run_number=run_number,
                     xstrip=xstrip,
                     energy_gev=energy_gev,
                     flux_vertical=float(row["flux_pol1"]),
                     flux_horizontal=float(row["flux_pol2"]),
-                    flux_brem=float(row["flux_brem"]),
+                    flux_brem=flux_brem,
+                    brem_status=brem_status,
                     polarization_vertical=polarization,
                     polarization_horizontal=polarization,
                 )
@@ -160,14 +162,22 @@ def load_exposures(
             f"warning: skipped {skipped_invalid} invalid selected flux {noun}",
             file=sys.stderr,
         )
+    for run, status in sorted({(item.run_number, item.brem_status)
+                               for item in exposures.values() if not item.has_measured_brem}):
+        print(f"warning: run {run}: {status} BREM; polarized exposures retained independently",
+              file=sys.stderr)
     if audit is not None:
         for run in sorted(requested_runs or {key[0] for key in exposures}):
             if run in excluded:
                 audit[str(run)] = _quality_audit(excluded[run])
                 continue
             count = sum(key[0] == run for key in exposures)
+            values = [item for item in exposures.values() if item.run_number == run]
             audit[str(run)] = dict(status="valid" if count else "no_valid_exposure",
-                                   problems=[], valid_strata=count)
+                                   problems=[f"{status} BREM" for status in _brem_counts(values)
+                                             if status != "measured_valid"], valid_strata=count,
+                                   brem_valid_strata=sum(item.has_measured_brem for item in values),
+                                   brem_status_counts=_brem_counts(values))
     if not exposures and not allow_empty:
         raise ValueError(
             f"no selected {target}/{beam_type} exposures in energy range"
@@ -229,32 +239,23 @@ def _load_root_exposures(
                     audit[str(run_number)] = _quality_audit(quality_exclusions[run_number])
                 continue
             run_keys = keys.get(run_number, {})
-            problems = tuple(
-                f"missing {state}"
-                if len(run_keys.get(state, ())) == 0
-                else f"duplicate {state}"
-                for state in _REQUIRED_STATES
-                if len(run_keys.get(state, ())) != 1
-            )
+            loaded = {state: _histogram_state(run_keys.get(state, ())) for state in _STATES}
+            states = {state: result[1] for state, result in loaded.items()}
+            problems = tuple(f"{states[state]['status']} {state}" for state in _POL_STATES
+                             if loaded[state][0] is None)
             if problems:
                 incomplete.append((run_number, problems))
                 if audit is not None:
                     audit[str(run_number)] = dict(status="missing_flux", problems=list(problems),
-                                                  valid_strata=0)
+                                                  states=states, valid_strata=0, brem_valid_strata=0)
                 continue
-
-            histograms = {
-                state: run_keys[state][0].ReadObj() for state in _REQUIRED_STATES
-            }
-            for state, histogram in histograms.items():
-                if not histogram.InheritsFrom("TH1") or histogram.GetDimension() != 1:
-                    raise ValueError(f"run{run_number}_{state} is not a 1D TH1")
-                if histogram.GetNbinsX() != 128:
-                    raise ValueError(f"run{run_number}_{state} must have 128 bins")
-
-            vertical = histograms["POL1"]
-            horizontal = histograms["POL2"]
-            brem = histograms["BREM"]
+            vertical, horizontal = (loaded[state][0] for state in _POL_STATES)
+            brem = loaded["BREM"][0]
+            brem_state = states["BREM"]["status"]
+            if brem_state != "measured_valid":
+                print(f"warning: run {run_number}: {brem_state} BREM; "
+                      "polarized exposures retained independently", file=sys.stderr)
+            run_values = []
             for xstrip in range(1, 129):
                 energy_vertical = float(vertical.GetXaxis().GetBinCenter(xstrip))
                 energy_horizontal = float(horizontal.GetXaxis().GetBinCenter(xstrip))
@@ -263,27 +264,26 @@ def _load_root_exposures(
                     continue
                 flux_vertical = float(vertical.GetBinContent(xstrip))
                 flux_horizontal = float(horizontal.GetBinContent(xstrip))
-                flux_brem = float(brem.GetBinContent(xstrip))
-                if not all(
-                    math.isfinite(value)
-                    for value in (flux_vertical, flux_horizontal, flux_brem)
-                ):
+                if not all(math.isfinite(value) for value in (flux_vertical, flux_horizontal)):
                     skipped_nonfinite += 1
                     continue
-                if flux_vertical <= 0.0 or flux_horizontal <= 0.0 or flux_brem < 0.0:
+                if flux_vertical <= 0.0 or flux_horizontal <= 0.0:
                     skipped_nonpositive += 1
                     continue
+                if brem is None:
+                    flux_brem, brem_status = None, brem_state
+                else:
+                    flux_brem, brem_status = _brem_value(brem.GetBinContent(xstrip))
                 try:
-                    polarization_vertical = float(
-                        polarization_model(energy_vertical)
-                    )
-                    polarization_horizontal = float(
-                        polarization_model(energy_horizontal)
-                    )
+                    polarization_vertical = float(polarization_model(energy_vertical))
+                    polarization_horizontal = float(polarization_model(energy_horizontal))
+                    if not all(math.isfinite(value) and 0.0 <= value <= 1.0
+                               for value in (polarization_vertical, polarization_horizontal)):
+                        raise ValueError("invalid polarization")
                 except ValueError:
                     skipped_polarization_domain += 1
                     continue
-                exposures[(run_number, xstrip)] = FluxExposure(
+                item = FluxExposure(
                     run_number=run_number,
                     xstrip=xstrip,
                     energy_gev=energy,
@@ -292,11 +292,17 @@ def _load_root_exposures(
                     flux_brem=flux_brem,
                     polarization_vertical=polarization_vertical,
                     polarization_horizontal=polarization_horizontal,
+                    brem_status=brem_status,
                 )
+                exposures[(run_number, xstrip)] = item
+                run_values.append(item)
             if audit is not None:
-                count = sum(key[0] == run_number for key in exposures)
+                count = len(run_values)
                 audit[str(run_number)] = dict(status="valid" if count else "no_valid_exposure",
-                                              problems=[], valid_strata=count)
+                    problems=[f"{brem_state} BREM"] if brem_state != "measured_valid" else [],
+                    states=states, valid_strata=count,
+                    brem_valid_strata=sum(item.has_measured_brem for item in run_values),
+                    brem_status_counts=_brem_counts(run_values))
     finally:
         source.Close()
 
@@ -305,8 +311,8 @@ def _load_root_exposures(
             run_number, problems = incomplete[0]
             print(
                 f"warning: skipped run {run_number}: missing or duplicate "
-                f"flux ({', '.join(problems)}); complete POL1/POL2/BREM "
-                "triplet required",
+                f"flux ({', '.join(problems)}); complete POL1/POL2 "
+                "pair required",
                 file=sys.stderr,
             )
         else:
@@ -316,7 +322,7 @@ def _load_root_exposures(
             )
             print(
                 f"warning: skipped {len(incomplete)} runs without complete "
-                f"POL1/POL2/BREM triplet; first: {examples}",
+                f"POL1/POL2 pair; first: {examples}",
                 file=sys.stderr,
             )
     if skipped_nonfinite:
@@ -328,7 +334,7 @@ def _load_root_exposures(
     if skipped_nonpositive:
         print(
             f"warning: skipped {skipped_nonpositive} run/strip exposures with "
-            "non-positive POL1/POL2 flux or negative BREM flux",
+            "non-positive POL1/POL2 flux",
             file=sys.stderr,
         )
     if skipped_polarization_domain:
@@ -342,3 +348,40 @@ def _load_root_exposures(
             f"no complete {target}/{beam_type} exposures in energy range"
         )
     return exposures
+
+
+def _brem_value(value):
+    """Keep absent/defective BREM distinct from an actual measured zero."""
+    if value is None or value == "":
+        return None, "missing"
+    try:
+        flux = float(value)
+    except (ValueError, TypeError):
+        return None, "invalid_content"
+    if not math.isfinite(flux) or flux < 0.0:
+        return None, "invalid_content"
+    return flux, "measured_valid"
+
+
+def _brem_counts(values):
+    return {status: sum(item.brem_status == status for item in values)
+            for status in sorted({item.brem_status for item in values})}
+
+
+def _histogram_state(keys):
+    """Validate each measured state independently, retaining valid content bins."""
+    if len(keys) != 1:
+        return None, dict(status="missing" if not keys else "duplicate")
+    histogram = keys[0].ReadObj()
+    if (not histogram.InheritsFrom("TH1") or histogram.GetDimension() != 1
+            or histogram.GetNbinsX() != 128):
+        return None, dict(status="invalid_histogram")
+    axis = histogram.GetXaxis()
+    edges = [float(axis.GetBinLowEdge(index)) for index in range(1, 130)]
+    if (not all(math.isfinite(edge) and edge > 0.0 for edge in edges)
+            or any(right <= left for left, right in zip(edges, edges[1:]))):
+        return None, dict(status="invalid_axis")
+    invalid_bins = [index for index in range(1, 129)
+                    if _brem_value(histogram.GetBinContent(index))[1] != "measured_valid"]
+    return histogram, dict(status="invalid_content" if invalid_bins else "measured_valid",
+                           invalid_bins=invalid_bins)

@@ -5,6 +5,7 @@ import re
 import numpy as np
 
 from calibration.run_quality import load_run_quality
+from observable_extraction.core.models import SIGMA_FLUX_POLICY
 
 
 def partition_runs(records, input_runs, *, target, beam_type):
@@ -38,9 +39,21 @@ def selection_audit(events, exposures, energy_range, *, run_quality=None):
     policy = load_run_quality() if run_quality is None else run_quality
     quality = np.isin(events.run_number, sorted(item['run'] for item in policy['excluded_runs']))
     selected = energy & sigma & exposed & ~quality
-    control = energy & brem & exposed & ~quality
+    brem_exposed = np.array([
+        (exposures[key].has_measured_brem if key in exposures else False)
+        for key in zip(map(int, events.run_number), map(int, events.xstrip))
+    ], dtype=bool)
+    missing_brem = np.array([
+        (exposures[key].brem_status == "missing" if key in exposures else False)
+        for key in zip(map(int, events.run_number), map(int, events.xstrip))
+    ], dtype=bool)
+    control = energy & brem & brem_exposed & ~quality
     return dict(
         input=len(events), selected=int(selected.sum()), brem=int(control.sum()),
+        selected_with_measured_brem=int(np.count_nonzero(selected & brem_exposed)),
+        selected_without_measured_brem=int(np.count_nonzero(selected & ~brem_exposed)),
+        recovered_missing_brem_events=int(np.count_nonzero(selected & missing_brem)),
+        recovered_missing_brem_runs=sorted(set(map(int, events.run_number[selected & missing_brem]))),
         vertical=int(np.count_nonzero(selected & (events.polarization == 1))),
         horizontal=int(np.count_nonzero(selected & (events.polarization == 2))),
         excluded=int(np.count_nonzero(~(selected | control))),
@@ -49,6 +62,7 @@ def selection_audit(events, exposures, energy_range, *, run_quality=None):
         quality_excluded=int(np.count_nonzero(quality)),
         quality_excluded_runs=sorted(set(map(int, events.run_number[quality]))),
         missing_exposure=int(np.count_nonzero(energy & (sigma | brem) & ~exposed & ~quality)),
+        brem_unavailable=int(np.count_nonzero(energy & brem & ~brem_exposed & ~quality)),
         input_states={str(int(state)): int(np.count_nonzero(events.polarization == state))
                       for state in np.unique(events.polarization)},
     )
@@ -58,8 +72,12 @@ def exposure_summary(exposures):
     values = tuple(exposures.values())
     fv = sum(item.flux_vertical for item in values)
     fh = sum(item.flux_horizontal for item in values)
-    return dict(strata=len(values), vertical=fv, horizontal=fh,
-                brem=sum(item.flux_brem for item in values),
+    brem = tuple(item for item in values if item.has_measured_brem)
+    return dict(flux_policy=SIGMA_FLUX_POLICY, strata=len(values), vertical=fv, horizontal=fh,
+                brem=sum(item.flux_brem for item in brem) if brem else None,
+                brem_strata=len(brem), brem_runs=sorted({item.run_number for item in brem}),
+                brem_status_counts={status: sum(item.brem_status == status for item in values)
+                                    for status in sorted({item.brem_status for item in values})},
                 polarization_vertical=(sum(item.flux_vertical * item.polarization_vertical
                                             for item in values) / fv if fv else None),
                 polarization_horizontal=(sum(item.flux_horizontal * item.polarization_horizontal

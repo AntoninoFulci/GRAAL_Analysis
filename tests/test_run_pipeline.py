@@ -504,6 +504,9 @@ def test_run_calls_preflight_prepare_plan_and_execute_in_order(tmp_path, monkeyp
     )
 
     assert code == 0
+    import json
+    completion = json.loads((tmp_path / 'results_test/test_chosen/metadata/report_manifest.json').read_text())
+    assert completion['status'] == 'complete' and completion['mode'] == 'test_data'
     assert events == [
         ("preflight", "test_data"),
         ("plan", "root", 16),

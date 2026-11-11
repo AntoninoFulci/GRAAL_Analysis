@@ -50,3 +50,16 @@ def test_public_engine_freezes_selected_phi_map_and_preserves_missing_bins():
     assert len(missing.ratio_objects) == 2
     assert extraction.extract_sample(**{**options, 'estimator': 'ratio'},
                                      selected_phi_bins={}).points == ()
+
+
+def test_measured_pol_sigma_is_identical_with_missing_or_defective_brem():
+    from dataclasses import replace
+    options = dict(sample_name="raw_bdt", events=_synthetic_events(), estimator="both", retain_ratio_objects=False,
+                   energy_edges=np.array([1.1, 1.2]))
+    measured = FluxExposure(811, 17, 1.15, 1.2, .9, .2, .6, .55)
+    baseline = extraction.extract_sample(**options, exposures={(811, 17): measured})
+    assert baseline.points
+    for status in ("missing", "invalid_content"):
+        changed = replace(measured, flux_brem=None, brem_status=status)
+        recovered = extraction.extract_sample(**options, exposures={(811, 17): changed})
+        assert recovered.points == baseline.points

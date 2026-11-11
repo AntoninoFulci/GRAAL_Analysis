@@ -10,6 +10,38 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "03_mc_simulation/geant4/run.py"
 
 
+@pytest.mark.parametrize("storage", [None, "full", "compact"])
+def test_launcher_passes_storage_policy_and_records_it(tmp_path, monkeypatch, storage):
+    spec = importlib.util.spec_from_file_location("geant4_storage_run", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    geometry = tmp_path / "geometry.gdml"
+    geometry.write_text("geometry")
+    macro = tmp_path / "input.mac"
+    macro.write_text("/run/beamOn 1\n")
+    work = tmp_path / "work"
+    config = tmp_path / "prefix/lib/cmake/Geant4"
+    config.mkdir(parents=True)
+    monkeypatch.setattr(module, "find_geant4", lambda _: config)
+    calls = []
+
+    def execute(command, **kwargs):
+        calls.append(command)
+        if command[:2] == ["cmake", "--build"]:
+            (work / "build").mkdir()
+            (work / "build/graal_g4").write_text("binary")
+
+    monkeypatch.setattr(module.subprocess, "run", execute)
+    argv = [str(SCRIPT), "smoke", "--gdml", str(geometry), "--macro", str(macro), "--work-dir", str(work)]
+    if storage:
+        argv += ["--storage", storage]
+    monkeypatch.setattr(sys, "argv", argv)
+    module.main()
+    expected = storage or "compact"
+    assert calls[-1][-2:] == ["--storage", expected]
+    assert json.loads((work / "run.json").read_text())["storage_mode"] == expected
+
+
 def test_launcher_refuses_existing_work_directory(tmp_path):
     sentinel = tmp_path / "keep"
     sentinel.write_text("untouched")

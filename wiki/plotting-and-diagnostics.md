@@ -2,6 +2,8 @@
 
 Plotting consumes completed products. `scripts/plot_campaign.py --campaign results/my-campaign` assembles UV/VIS and common figures; `--workers` controls isolated profile/common plotting processes. `plots/dalitz.py`, `plots/mass_histograms.py` and `plots/fig7_compton_polarization.py` expose their own `--help` interfaces.
 
+The separate [target-vertex diagnostic](target-vertex) reads raw h70 chamber points directly, reconstructs central charged-pair vertices with the historical `vertex2.F` geometry, and plots xyz per run. It does not consume or modify BDT/reconstruction selections.
+
 New full-pipeline campaigns group outputs under three directories, preserving UV/VIS and period labels:
 
 - `plots/`: diagnostic PDFs, with `common/asymmetry_comparison.pdf` for UV/VIS/Ajaka and `common/asymmetry_uv_ajaka.pdf` for UV/Ajaka. Matching energy intervals share a panel in the combined comparison; different intervals remain separate, without rebinning. Ajaka points are matched by energy boundaries, not by analysis bin number; the bundled reference covers only 1.10–1.20, 1.20–1.30, 1.30–1.40 and 1.40–1.50 GeV. Panels outside those intervals explicitly state that no Ajaka data are available. The duplicate experimental-only figure is omitted from full-pipeline publication; standalone extraction retains its own figure.

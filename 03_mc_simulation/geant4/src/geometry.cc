@@ -410,6 +410,7 @@ int main(int argc,char** argv) {
       gdml.AddVolumeAuxiliary({"geant3_volume",v.name,"",nullptr},lv);
       gdml.AddVolumeAuxiliary({"geant3_medium",std::to_string(v.medium),"",nullptr},lv);
       gdml.AddVolumeAuxiliary({"geant3_material",std::to_string(snapshot.media.at(v.medium).material),"",nullptr},lv);
+      gdml.AddVolumeAuxiliary({"geant3_sensitive",std::to_string(snapshot.media.at(v.medium).sensitive),"",nullptr},lv);
     }
     gdml.AddVolumeAuxiliary({"geant3_world_copy","1","",nullptr},world->GetLogicalVolume());
     gdml.Write((output/"geometry.gdml").string(),world,false);

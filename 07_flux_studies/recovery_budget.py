@@ -9,6 +9,7 @@ from pathlib import Path
 from calibration.run_quality import DEFAULT_RUN_QUALITY_PATH, load_run_quality
 from flux_studies.reporting import publish_output, write_csv, write_json
 from graal_common.physics.beam_profiles import BEAM_PROFILES, get_beam_profile
+from observable_extraction.core.models import SIGMA_FLUX_POLICY
 
 STATES = ('POL1', 'POL2', 'BREM')
 METHOD = 'extra_trees_hybrid'
@@ -25,12 +26,14 @@ def _unique(rows):
 
 
 def recovery_budget(missing, support, counts, reconstructed, *, excluded_runs):
-    """A run is potential only if every missing state has measured support.
+    """Separate full-state support from additional polarized Sigma candidates.
 
     This is a support-based upper bound. Production acceptance needs independent
     validation and is deliberately not inferred from a diagnostic support flag.
-    Counts cover all states of each run because the exposure loader discards an
-    incomplete triplet in full. Known states restored with the run count once.
+    The full-state budget still requires support for every missing state.
+    Sigma needs only POL1/POL2: BREM-only gaps are already in the measured-pair
+    baseline, while unsupported BREM cannot block a potential POL recovery.
+    These inventories do not certify per-strip exposure or cross sections.
     """
     counts = _unique(counts)
     support = _unique(r for r in support if r['method'] == METHOD)
@@ -58,6 +61,8 @@ def recovery_budget(missing, support, counts, reconstructed, *, excluded_runs):
         supported = [r['state'] for r in rows
                      if r['status'] == 'candidate' and support.get((run, r['state']), {}).get('supported') is True]
         potential = len(supported) == len(rows)
+        missing_pol = {r['state'] for r in rows if r['state'] != 'BREM'}
+        sigma_potential = bool(missing_pol) and missing_pol <= set(supported)
         blockers = {b for r in rows for b in support.get((run, r['state']), {}).get('blockers', [])}
         if not potential:
             blockers.add('unsupported_missing_states')
@@ -68,6 +73,8 @@ def recovery_budget(missing, support, counts, reconstructed, *, excluded_runs):
         window = {s: reco.get((run, s), {}).get('reconstructed_energy_window', 0) for s in STATES}
         runs.append(dict(period=period, run=run, missing_states=sorted(r['state'] for r in rows),
                          supported_missing_states=sorted(supported), potential=potential,
+                         sigma_potential=sigma_potential,
+                         pol_pair_present=not missing_pol,
                          production_accepted=False, blockers=sorted(blockers),
                          h80_events=sum(h80.values()),
                          h80_missing_state_events=sum(h80[r['state']] for r in rows),
@@ -80,11 +87,18 @@ def recovery_budget(missing, support, counts, reconstructed, *, excluded_runs):
         return dict(missing_runs=len(rows), missing_states=sum(len(r['missing_states']) for r in rows),
                     supported_missing_states=sum(len(r['supported_missing_states']) for r in rows),
                     potential_runs=len(potential), production_accepted_runs=0, production_accepted_events=0,
+                    potential_sigma_runs=sum(r['sigma_potential'] for r in rows),
+                    potential_sigma_events_energy_window=sum(r['sigma_events_energy_window']
+                                                             for r in rows if r['sigma_potential']),
+                    pol_pair_present_runs=sum(r['pol_pair_present'] for r in rows),
+                    pol_pair_present_events_energy_window=sum(r['sigma_events_energy_window']
+                                                              for r in rows if r['pol_pair_present']),
                     **{'potential_' + name: sum(r[name] for r in potential)
                        for name in ('h80_events', 'h80_missing_state_events', 'reconstructed_events',
-                                    'sigma_events_energy_window', 'brem_events_energy_window')})
+                                    'brem_events_energy_window')})
     return dict(method=METHOD, excluded_runs=sorted(excluded_runs),
                 status='support_based_potential_only_not_production_accepted',
+                sigma_flux_policy=SIGMA_FLUX_POLICY,
                 acceptance_required=['independent_confirmation', 'calibrated_flux_uncertainty_and_coverage',
                                      'validated_missing_state_energy_axis', 'observable_bias_and_precision_check'],
                 summary=summarize(runs),
@@ -149,7 +163,10 @@ def main(argv=None):
             'h80: all full-production entries with tagger, no channel selection; '
             'reconstructed: eta pi0 entries after production selection; sigma: POL1/POL2 '
             'within the UV/VIS profile energy window, before flux/strip acceptance and final observable binning. '
-            'These are potential event counts, not fitted signal yields or accepted recovery.')
+            'Sigma potential counts require missing POL support only; BREM-only gaps belong to '
+            'pol_pair_present, not additional Sigma recovery. Full-state potential counts still require '
+            'all missing states. These counts do not certify per-strip exposure, fitted signal yields, '
+            'accepted recovery or cross sections.')
         write_json(output / 'reconstructed_counts.json', reconstructed)
         write_json(output / 'recovery_budget.json', result)
         write_csv(output / 'recovery_runs.csv', result['runs'])

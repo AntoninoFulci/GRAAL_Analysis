@@ -20,6 +20,7 @@ from .models import ArtifactGroup, PipelineError, Stage, flatten_stages
 from .paths import (pipeline_lock, prepare_output_dirs, validate_test_output,
                     validate_production_output, _replace_test_output, _writable_ancestor)
 from .publication import organize_campaign_reports
+from .report_manifest import complete_campaign
 from .resources import bounded_runner
 from .stage_configuration import StageConfiguration, PROFILE_STAGES, COMMON_STAGES
 from .stage_inputs import validate_product
@@ -513,5 +514,6 @@ def run_stage_configuration(configuration: StageConfiguration, *, repo_root: Pat
             organize_campaign_reports(plan.paths.output_root)
             outputs = _published_identities(plan, outputs)
             _write_metadata(plan, records, warnings, inputs, sources, outcomes=outcomes, outputs=outputs)
+            complete_campaign(plan.paths.output_root, repo_root=plan.paths.repo_root, mode=plan.mode.name)
     console.emit(f'Pipeline complete: {plan.paths.output_root}', 'success')
     return 0

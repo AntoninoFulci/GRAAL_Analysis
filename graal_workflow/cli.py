@@ -20,6 +20,7 @@ from . import artifact_manifest as cache
 from . import logging as console
 from .configuration import load_config
 from .publication import organize_campaign_reports
+from .report_manifest import complete_campaign
 from .models import ModeConfig, PipelineError, PipelinePaths, PreflightResult, Stage, ArtifactGroup, flatten_stages, PROFILE_PATTERNS, UV_CHANNELS, VIS_CHANNELS
 from .paths import mode_config, build_paths, preflight, pipeline_lock, prepare_output_dirs, validate_test_output, validate_production_output, _replace_test_output, resolve_repo_root
 from .planning import build_pipeline_plan
@@ -329,6 +330,7 @@ def run(args: argparse.Namespace, *, repo_root: Path | None = None) -> int:
                 cpus=cpus, runner=bounded_runner,
             )
             organize_campaign_reports(paths.output_root)
+            complete_campaign(paths.output_root, repo_root=paths.repo_root, mode=config.name)
     console.emit(f"\nPipeline complete: {paths.output_root}", "success")
     return 0
 

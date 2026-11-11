@@ -1,0 +1,128 @@
+"""Reproduce the mechanical active-source C++ port with Netlib f2c 20240504.
+
+Usage: python generate_forward_kernels.py /path/to/f2c /absolute/workdir
+The original Fortran corpus is never edited. Production needs no f2c runtime.
+"""
+from pathlib import Path
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[3]
+NAMES = ('wall_clus', 'wall_var', 'wall_ass_w1_w2', 'double_bar', 'russwall', 'ana_wal', 'wall_att')
+
+def prepare(work):
+    work.mkdir(parents=True, exist_ok=True)
+    (work/'GRAAL_machine.h').write_text('/* isolated machine */\n')
+    (work/'pilot.h').write_text('#define GRAAL_26\n#define GRAAL_NEW_PLAN\n#define GRAAL_WALL_ALESSIA\n#define GRAAL_RUSSWALL2\n#define GRAAL_OLD_CYL\n')
+    src=work/'src'; src.mkdir(exist_ok=True)
+    archive=ROOT/'docs/reference/fortran/prog/prean'
+    for f in (archive/'include').glob('*.inc'): shutil.copyfile(f,src/f.name)
+    for name in NAMES: shutil.copyfile(archive/'src'/f'{name}.F',src/f'{name}.F')
+    return src
+
+def generate(f2c, work):
+    version=subprocess.run([str(f2c),'--version'],capture_output=True,text=True,check=True).stdout
+    if 'version 20240504.' not in version:raise ValueError('requires pinned Netlib f2c20240504')
+    src=prepare(work)
+    temporary=work/'tmp';temporary.mkdir(exist_ok=True)
+    env=dict(os.environ,TMPDIR=str(temporary.resolve()),PYTHONDONTWRITEBYTECODE='1')
+    commons={}; constants={}; methods=[]; manifest=[]
+    for name in NAMES:
+        source=src/f'{name}.F'
+        raw=subprocess.run(['gfortran','-E','-cpp','-P','-ffixed-line-length-none','-I',str(work),'-I',str(src),str(source)],capture_output=True,text=True,check=True,env=env).stdout
+        (work/f'{name}.f').write_text(raw)
+        subprocess.run([str(f2c),'-R','-C++','-C','-a','-trapuv','-w','-f',f'{name}.f'],cwd=work,check=True,env=env)
+        text=(work/f'{name}.c').read_text()
+        # COMMON names become per-event object members; no global state.
+        for decl, cname in re.findall(r'(struct \{.*?\} (\w+);)',text,re.S):
+            if cname in commons: assert commons[cname]==decl
+            commons[cname]=decl
+        aliases=dict(re.findall(r'^#define (\w+) (\w+)$',text,re.M))
+        for cdecl,cname in re.findall(r'(static integer (\w+) = \d+;)',text): constants[cname]=cdecl.replace('static ','')
+        start=re.search(r'(?:/\* Subroutine \*/ int|doublereal|real) '+name+r'_+\(',text).start()
+        method=text[start:text.rindex('#ifdef __cplusplus')]
+        # Runtime declarations become local inline helpers / class methods.
+        method=re.sub(r'    extern .*?;\n','',method,flags=re.S)
+        method=re.sub(r'    /\* Builtin functions \*/.*?/\* Local variables \*/','    /* Local variables */',method,flags=re.S)
+        for old,new in aliases.items(): method=re.sub(r'\b'+old+r'\b',new,method)
+        for math in ('sqrt','acos','atan2','atan','cos','sin','tan','abs','min','max'):
+            method=re.sub(r'\b'+math+r'\(', 'std::'+math+'(',method)
+        # f2c's abs macro expands more widely than the C++ overload.
+        # REAL intrinsics use float overloads, preserving source binary32.
+        method=method.replace('static cilist','cilist')
+        method=method.replace('th_dif__ /', 'defined(th_dif__, \"WALL_CLUS.TH_DIF\") /').replace('eow > eowlim', 'eow > defined(eowlim, \"RUSSWALL.EOWLIM\")')
+        if name=='wall_clus':
+            method=method.replace('if (lm1_cor__ > 3 || lm2_cor__ > 3) {', 'if (lm1_cor__ > 3 || lm2_cor__ > 3) {\n        wall_multiplicity_rejected=true;')
+        if name=='russwall':
+            method=method.replace('L100:', 'L100:\n    shower_ranges.emplace_back(i__, kmod);')
+            method=method.replace('if (bc1 !=', 'if (defined(bc1, \"RUSSWALL.alignment\") !=')
+        # Unused source I/O remains a domain-error trap, never stdout output.
+        method=re.sub(r'_0\s*\+\s*', '', method)  # trapuv copy-touch only
+        methods.append(method)
+        manifest.append(dict(path=str((ROOT/'docs/reference/fortran/prog/prean/src'/f'{name}.F').relative_to(ROOT)),sha256=hashlib.sha256(source.read_bytes()).hexdigest(),preprocessed_sha256=hashlib.sha256(raw.encode()).hexdigest()))
+    included=set()
+    for name in NAMES:
+        included.update(re.findall(r'#include \"([^\"]+\.inc)\"', (src/f'{name}.F').read_text()))
+    for name in sorted(included):
+        f=src/name
+        manifest.append(dict(path='docs/reference/fortran/prog/prean/include/'+name,sha256=hashlib.sha256(f.read_bytes()).hexdigest()))
+    for name in ('prean/pilot.h','prean/Makefile','prean/src/analysis.F','prean/src/find_track.F','prean/src/constan.F'):
+        f=ROOT/'docs/reference/fortran/prog'/name
+        manifest.append(dict(path=str(f.relative_to(ROOT)),sha256=hashlib.sha256(f.read_bytes()).hexdigest()))
+    body='\n'.join(methods)
+    used={name for name in commons if re.search(r'\b'+name+r'\.',body)}
+    header='''// Generated by tests/generate_forward_kernels.py; do not hand-edit arithmetic.
+// Exact active archived source, f2c 20240504, -R -C++ -C -a -trapuv -f.
+// COMMON blocks are per-instance. No libf2c or Fortran production dependency.
+#ifndef GRAAL_FORWARD_SOURCE_KERNELS_HH
+#define GRAAL_FORWARD_SOURCE_KERNELS_HH
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshift-op-parentheses"
+#pragma clang diagnostic ignored "-Wself-assign"
+#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+namespace forward26 { namespace source {
+using real=float; using doublereal=double; using integer=int; using logical=int; using ftnlen=int;
+struct Undefined : std::runtime_error { using std::runtime_error::runtime_error; };
+struct cilist { int a,b,c,d,e; };
+inline void _uninit_f2c(void* p,int type,long n) {
+  if(type==3 || type==8) std::fill_n(static_cast<int*>(p),n,-1000000000);
+  else if(type==4) std::fill_n(static_cast<float*>(p),n,std::numeric_limits<float>::quiet_NaN());
+  else throw Undefined("unsupported source scalar type");
+}
+[[noreturn]] inline int s_rnge(const char* array,int index,const char* routine,int line) {
+  throw Undefined(std::string(routine)+":"+std::to_string(line)+" "+array+" index "+std::to_string(index+1));
+}
+[[noreturn]] inline int s_wsle(cilist*) { throw Undefined("source diagnostic/error path"); }
+inline int do_lio(int*,int*,const char*,int) { return 0; }
+inline int e_wsle() { return 0; }
+inline float defined(float x,const char* name) { if(!std::isfinite(x)) throw Undefined(name); return x; }
+struct Kernels {
+std::vector<std::pair<int,int>> shower_ranges;
+bool wall_multiplicity_rejected=false;
+'''
+    header=header.replace('// Generated', (ROOT/'03_mc_simulation/geant4/tests/forward_f2c_license.txt').read_text()+'// Generated')
+    header+='\n'.join(commons[c][:-1]+'{};' for c in commons if c in used)+'\n'
+    header+='\n'.join(constants.values())+'\n'+body+'\n};\n}}\n#if defined(__clang__)\n#pragma clang diagnostic pop\n#endif\n#endif\n'
+    # Function argument pointer decrements are source 1-based adjustments. The
+    # public wrapper passes the second element of padded buffers, so valid.
+    target=ROOT/'03_mc_simulation/geant4/src/ForwardSourceKernels.hh'
+    target.write_text(header)
+    manifest.append(dict(generator='Netlib f2c 20240504',source_url='https://www.netlib.org/f2c/src.tgz',source_archive_sha256='b2824a6f7b75ffe0193ce9ba55463191a7af7c2ffe10e371e372451e2b527e09',options='-R -C++ -C -a -trapuv -f',sha256=hashlib.sha256(header.encode()).hexdigest()))
+    (ROOT/'results_test/geant4-reconstruction-20261109/reports/forward-reconstruction-source-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+
+if __name__=='__main__': generate(Path(sys.argv[1]).resolve(),Path(sys.argv[2]).resolve())

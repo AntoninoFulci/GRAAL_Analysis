@@ -1,12 +1,11 @@
 """Native transport checks; diagnostic energy deposits are not detector validation."""
-import csv
-import json
 import math
 import os
 from pathlib import Path
 import subprocess
 
 import pytest
+from mc_simulation.geant4.root_output import read_json, read_table, read_text
 
 
 @pytest.fixture
@@ -32,20 +31,19 @@ def test_gamma_transport_scores_energy_and_records_diagnostic_scope(native, tmp_
     output = tmp_path / "events"
     result = run(native, macro, output)
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
-    with (output / "events.csv").open() as stream:
-        rows = list(csv.DictReader(stream))
+    rows = read_table(output / "transport.root", "events")
     assert len(rows) == 10
     deposits = [float(row["bgo_edep_MeV"]) for row in rows]
     assert all(math.isfinite(value) and value >= 0 for value in deposits)
     assert sum(deposits) > 0
     assert all(float(row["total_edep_MeV"]) >= float(row["bgo_edep_MeV"]) for row in rows)
-    summary = json.loads((output / "summary.json").read_text())
+    summary = read_json(output / "transport.root")
     assert summary["events"] == 10
     assert summary["status"] == "diagnostic_transport_only"
     assert summary["physics_list"] == "FTFP_BERT_HP_EMZ"
     assert summary["em_range_cut_mm"] == 0.1
     assert summary["proton_range_cut_mm"] == 0
-    materials = json.loads((output / "materials.json").read_text())["materials"]
+    materials = read_json(output / "transport.root", "materials")["materials"]
     for material in materials:
         assert math.isclose(sum(e["fraction"] for e in material["elements"]), 1.)
         assert all(e["Z"] == int(e["Z"]) for e in material["elements"])
@@ -58,8 +56,8 @@ def test_gamma_transport_scores_energy_and_records_diagnostic_scope(native, tmp_
     repeated = tmp_path / "repeated"
     result = run(native, macro, repeated)
     assert result.returncode == 0, result.stderr
-    assert (output / "events.csv").read_bytes() == (repeated / "events.csv").read_bytes()
-    assert (output / "bgo_hits.csv").read_bytes() == (repeated / "bgo_hits.csv").read_bytes()
+    assert read_table(output / "transport.root", "events") == read_table(repeated / "transport.root", "events")
+    assert read_table(output / "transport.root", "bgo_hits") == read_table(repeated / "transport.root", "bgo_hits")
 
 
 def test_existing_output_is_preserved(native, tmp_path):
@@ -79,7 +77,7 @@ def test_bad_macro_does_not_report_success(native, tmp_path):
     output = tmp_path / "failed"
     result = run(native, macro, output)
     assert result.returncode != 0
-    assert not (output / "summary.json").exists()
+    assert not (output / "transport.root").exists()
 
 
 def test_different_target_requires_explicit_material_policy(native, tmp_path):
@@ -96,7 +94,7 @@ def test_different_target_requires_explicit_material_policy(native, tmp_path):
     result = run((native[0], str(geometry)), macro, tmp_path / "rejected")
     assert result.returncode != 0
     assert "Expected frozen deuterium target" in result.stderr
-    assert not (tmp_path / "rejected/summary.json").exists()
+    assert not (tmp_path / "rejected/transport.root").exists()
 
 
 @pytest.mark.parametrize("contents", ["", "2\n1 2212 0 0 0 0 0 .938272\n",
@@ -111,7 +109,7 @@ def test_invalid_hepevt_fails_without_success(native, tmp_path, contents):
                             text=True, timeout=120)
     assert result.returncode != 0
     assert "HEPEvt" in result.stderr
-    assert not (output / "summary.json").exists()
+    assert not (output / "transport.root").exists()
 
 
 def test_replay_is_repeatable_and_preserves_existing_output(native, tmp_path):
@@ -121,8 +119,10 @@ def test_replay_is_repeatable_and_preserves_existing_output(native, tmp_path):
         result = subprocess.run([*native, "--hepevt", str(primary), str(tmp_path / name)],
                                 capture_output=True, text=True, timeout=120)
         assert result.returncode == 0, result.stderr
-    for name in ("events.csv", "bgo_hits.csv", "run-0.rndm"):
-        assert (tmp_path / "one" / name).read_bytes() == (tmp_path / "two" / name).read_bytes()
+    for name in ("events", "bgo_hits"):
+        assert read_table(tmp_path / "one/transport.root", name) == read_table(tmp_path / "two/transport.root", name)
+    assert read_text(tmp_path / "one/transport.root", "random_state_run_0") == read_text(
+        tmp_path / "two/transport.root", "random_state_run_0")
     result = subprocess.run([*native, "--hepevt", str(primary), str(tmp_path / "one")],
                             capture_output=True, text=True, timeout=120)
     assert result.returncode != 0 and "refusing overwrite" in result.stderr

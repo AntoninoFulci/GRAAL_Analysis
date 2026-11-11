@@ -14,8 +14,8 @@ The [source map](nstar_1535_tmatrix_source_map.md) defines P65 and P73.
 The exact local bytes were rehashed:
 
 ```text
-e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/papers/PhysRevC.65.035204.pdf
-19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/papers/10.1103@PhysRevC.73.045209.pdf
+e8861394ef3fb86c005694d3cb82d8c2b905e39dbe384903f58392d644cff6ac  docs/reference_papers/PhysRevC.65.035204.pdf
+19a2fbce10ed8201a29bdfbcfb9f3690a280d943c1e83db01aa1b2057d20eccb  docs/reference_papers/10.1103@PhysRevC.73.045209.pdf
 ```
 
 P65 PDF page 5 (printed 035204-5) and P73 PDF page 13 (printed
@@ -24,13 +24,13 @@ than inspected only through extracted text. Reproduction commands from
 the repository root:
 
 ```bash
-shasum -a 256 docs/papers/PhysRevC.65.035204.pdf docs/papers/10.1103@PhysRevC.73.045209.pdf
+shasum -a 256 docs/reference_papers/PhysRevC.65.035204.pdf docs/reference_papers/10.1103@PhysRevC.73.045209.pdf
 VMD_FIG_DIR=$(mktemp -d)
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -png -singlefile docs/papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/p65_page5"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 300 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/p73_page13"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -x 450 -y 2460 -W 1650 -H 570 -png -singlefile docs/papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/fig5"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 900 -y 555 -W 1530 -H 950 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_left"
-XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 2780 -y 555 -W 1530 -H 950 -png -singlefile docs/papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_right"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -png -singlefile docs/reference_papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/p65_page5"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 300 -png -singlefile docs/reference_papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/p73_page13"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 5 -l 5 -r 300 -x 450 -y 2460 -W 1650 -H 570 -png -singlefile docs/reference_papers/PhysRevC.65.035204.pdf "$VMD_FIG_DIR/fig5"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 900 -y 555 -W 1530 -H 950 -png -singlefile docs/reference_papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_left"
+XDG_CACHE_HOME=/private/tmp pdftoppm -f 13 -l 13 -r 600 -x 2780 -y 555 -W 1530 -H 950 -png -singlefile docs/reference_papers/10.1103@PhysRevC.73.045209.pdf "$VMD_FIG_DIR/fig15_right"
 ```
 
 Full-page rasters are 2550×3300 (P65) and 2475×3300 (P73) pixels at

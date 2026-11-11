@@ -145,3 +145,17 @@ def test_diagnostic_titles_and_legends_have_separate_space(monkeypatch, tmp_path
             assert {text.get_text() for text in figure.legends[0].get_texts()} == {'raw', 'raw_bdt'}
     finally:
         plt.close(figure)
+
+
+def test_brem_plot_declares_unavailable_denominator(monkeypatch, tmp_path):
+    from observable_extraction.plotting import diagnostics
+    captured = []
+    monkeypatch.setattr(diagnostics, "_save", lambda path, figure: captured.append(figure))
+    diagnostics.write_false_asymmetry_controls_pdf(tmp_path / "brem.pdf", {},
+        exposure_summary={"brem_strata": 0, "brem_runs": [], "strata": 2})
+    figure = captured[0]
+    try:
+        assert "0 measured strata" in figure._suptitle.get_text()
+        assert all("unavailable" in axis.texts[0].get_text().lower() for axis in figure.axes)
+    finally:
+        figure.clf()

@@ -69,6 +69,25 @@ def test_root_output_points_round_trip(tmp_path):
     assert read_output_points(output) == payload.points
 
 
+@pytest.mark.parametrize('policy', [None, 'paired_pol_independent_brem'])
+def test_flux_policy_round_trip_preserves_undeclared_legacy(tmp_path, policy):
+    output = tmp_path / 'flux_policy.root'
+    _write(output)
+    if policy is not None:
+        _replace_provenance(output, f'flux_policy={policy}')
+    assert read_output_contract(output).flux_policy == policy
+
+
+@pytest.mark.parametrize('declaration', ['flux_policy=', 'flux_policy=unknown',
+    'flux_policy=paired_pol_independent_brem\nflux_policy=paired_pol_independent_brem'])
+def test_contract_rejects_ambiguous_flux_policy(tmp_path, declaration):
+    output = tmp_path / 'bad_policy.root'
+    _write(output)
+    _replace_provenance(output, declaration)
+    with pytest.raises(RuntimeError, match='flux policy'):
+        read_output_contract(output)
+
+
 def _replace_provenance(path, text):
     source = ROOT.TFile(str(path), "UPDATE")
     source.Delete("provenance;*")

@@ -1,0 +1,66 @@
+name: Analysis Pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release analysis-report-* containing graal-report.zip'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analysis-pages
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'analysis-report-')
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      TMPDIR: ${{ github.workspace }}/results_test/analysis-pages/tmp
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Download explicit report release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPORT_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+        run: |
+          mkdir -p "$TMPDIR" results_test/analysis-pages/download
+          case "$REPORT_TAG" in
+            analysis-report-*) ;;
+            *) echo 'Expected analysis-report-* release'; exit 1 ;;
+          esac
+          gh release download "$REPORT_TAG" --pattern graal-report.zip --dir results_test/analysis-pages/download
+      - name: Validate and unpack report
+        run: >-
+          python3 -m graal_workflow.site_bundle
+          results_test/analysis-pages/download/graal-report.zip
+          --output results_test/analysis-pages/site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: results_test/analysis-pages/site
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish report
+        id: deployment
+        uses: actions/deploy-pages@v4

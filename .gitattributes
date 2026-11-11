@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Published calibration tables are checksum-bound scientific products.
+config/support/target_conditions_2026-11-06_edges/*.csv -text

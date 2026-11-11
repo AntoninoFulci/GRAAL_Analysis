@@ -117,7 +117,8 @@ def paired_bootstrap_by_run(
             key: replace(exposure,
                          flux_vertical=exposure.flux_vertical * multiplicity[exposure.run_number],
                          flux_horizontal=exposure.flux_horizontal * multiplicity[exposure.run_number],
-                         flux_brem=exposure.flux_brem * multiplicity[exposure.run_number])
+                         flux_brem=(None if exposure.flux_brem is None else
+                                    exposure.flux_brem * multiplicity[exposure.run_number]))
             for key, exposure in exposures.items() if exposure.run_number in multiplicity
         }
         try:
@@ -269,8 +270,8 @@ def bootstrap_by_run(
                 * multiplicities.get(exposure.run_number, 0),
                 flux_horizontal=exposure.flux_horizontal
                 * multiplicities.get(exposure.run_number, 0),
-                flux_brem=exposure.flux_brem
-                * multiplicities.get(exposure.run_number, 0),
+                flux_brem=(None if exposure.flux_brem is None else exposure.flux_brem
+                           * multiplicities.get(exposure.run_number, 0)),
             )
             for key, exposure in exposures.items()
             if multiplicities.get(exposure.run_number, 0) > 0
